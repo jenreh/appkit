@@ -22,7 +22,27 @@ import { ColorModeContext } from '$/utils/context';
 
 const mermaid = mermaidModule?.default ?? mermaidModule;
 if (mermaid && typeof mermaid.initialize === 'function') {
-    mermaid.initialize({ startOnLoad: false });
+    mermaid.initialize({
+        startOnLoad: false,
+        suppressErrorRendering: true,
+    });
+
+    const assignParseHandler = (handler) => {
+        if (
+            mermaid?.mermaidAPI &&
+            typeof mermaid.mermaidAPI.setParseErrorHandler === 'function'
+        ) {
+            mermaid.mermaidAPI.setParseErrorHandler(handler);
+        } else if (typeof mermaid.setParseErrorHandler === 'function') {
+            mermaid.setParseErrorHandler(handler);
+        } else {
+            mermaid.parseError = handler;
+        }
+    };
+
+    assignParseHandler((err) => {
+        console.warn('[MarkdownPreview] Mermaid parse error:', err);
+    });
 }
 
 function generateRandomId() {
@@ -44,11 +64,19 @@ const MermaidCode = memo(function MermaidCode({ children = [], className, node }
         return children || '';
     }, [children, node]);
 
+    const normalizedCode = useMemo(() => {
+        if (typeof code !== 'string') {
+            return '';
+        }
+
+        return code.replace(/\r\n?/g, '\n');
+    }, [code]);
+
     const isMermaid =
         typeof className === 'string' && /^language-mermaid/.test(className.toLowerCase());
 
     useEffect(() => {
-        if (!isMermaid || !code || !mermaid) {
+        if (!isMermaid || !normalizedCode || !mermaid) {
             return;
         }
 
@@ -56,19 +84,38 @@ const MermaidCode = memo(function MermaidCode({ children = [], className, node }
 
         const renderDiagram = async () => {
             try {
+                if (typeof mermaid.parse === 'function') {
+                    try {
+                        mermaid.parse(normalizedCode);
+                    } catch (parseError) {
+                        if (!cancelled) {
+                            setRenderError(parseError.message || 'Mermaid parse failed.');
+                            setSvg(null);
+                        }
+                        return;
+                    }
+                }
+
                 console.log('[MarkdownPreview] Rendering Mermaid diagram:', demoId.current);
-                const { svg: renderedSvg } = await mermaid.render(demoId.current, code);
+                const { svg: renderedSvg } = await mermaid.render(demoId.current, normalizedCode);
                 if (!cancelled) {
+                    const renderedString =
+                        typeof renderedSvg === 'string'
+                            ? renderedSvg
+                            : renderedSvg != null
+                                ? String(renderedSvg)
+                                : '';
+                    if (/syntax error/i.test(renderedString)) {
+                        setRenderError('Mermaid render failed.');
+                        setSvg(null);
+                        return;
+                    }
                     setSvg(renderedSvg);
                     setRenderError(null);
-                    console.log('[MarkdownPreview] Mermaid render successful');
                 }
             } catch (error) {
-                console.error('[MarkdownPreview] Mermaid render failed:', error);
-                if (!cancelled) {
-                    setRenderError(error.message || 'Mermaid render failed.');
-                    setSvg(null);
-                }
+                setRenderError(error.message || 'Mermaid render failed.');
+                setSvg(null);
             }
         };
 
@@ -77,7 +124,7 @@ const MermaidCode = memo(function MermaidCode({ children = [], className, node }
         return () => {
             cancelled = true;
         };
-    }, [code, isMermaid]);
+    }, [isMermaid, normalizedCode]);
 
     if (!isMermaid) {
         return createElement('code', { className }, children);
@@ -86,13 +133,16 @@ const MermaidCode = memo(function MermaidCode({ children = [], className, node }
     if (renderError) {
         return createElement(
             'code',
-            { className: `${className || ''} mermaid-error` },
-            `Mermaid error: ${renderError}`
+            {
+                className: `${className || ''} mermaid-source`,
+                'data-mermaid-error': renderError,
+            },
+            normalizedCode || code
         );
     }
 
     if (!svg) {
-        return createElement('code', { id: demoId.current, style: { display: 'none' } });
+        return createElement('code', { id: demoId.current, style: { display: 'block' } });
     }
 
     return createElement(

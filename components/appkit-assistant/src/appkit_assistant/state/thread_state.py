@@ -1,8 +1,11 @@
+import base64
 import json
 import logging
+import re
 import uuid
 from collections.abc import AsyncGenerator
 from enum import StrEnum
+from re import Match
 from typing import Any
 
 import reflex as rx
@@ -23,6 +26,71 @@ from appkit_assistant.backend.models import (
 from appkit_assistant.backend.repositories import MCPServerRepository
 
 logger = logging.getLogger(__name__)
+
+MERMAID_BLOCK_PATTERN = re.compile(
+    r"```mermaid\s*\r?\n(.*?)```", re.IGNORECASE | re.DOTALL
+)
+BRACKET_PAIRS: dict[str, str] = {
+    "[": "]",
+    "(": ")",
+    "{": "}",
+    "<": ">",
+}
+
+
+def _escape_mermaid_label_newlines(block: str) -> str:
+    """Convert literal newlines inside node labels to escaped sequences.
+
+    Ensures Mermaid labels that previously used ``\n`` survive JSON roundtrips
+    where sequences were converted into raw newlines.
+    """
+
+    if "\n" not in block:
+        return block
+
+    result: list[str] = []
+    stack: list[str] = []
+    for char in block:
+        if stack:
+            if char == "\r":
+                continue
+            if char == "\n":
+                result.append("\\n")
+                continue
+            if char == stack[-1]:
+                stack.pop()
+                result.append(char)
+                continue
+            if char in BRACKET_PAIRS:
+                stack.append(BRACKET_PAIRS[char])
+                result.append(char)
+                continue
+            result.append(char)
+            continue
+
+        if char in BRACKET_PAIRS:
+            stack.append(BRACKET_PAIRS[char])
+        result.append(char)
+
+    return "".join(result)
+
+
+def _rehydrate_mermaid_text(text: str) -> str:
+    """Restore Mermaid code blocks by escaping label newlines when needed."""
+
+    if "```mermaid" not in text.lower():
+        return text
+
+    def _replace(match: Match[str]) -> str:
+        code_block = match.group(1)
+        repaired = _escape_mermaid_label_newlines(code_block)
+        return f"```mermaid\n{repaired}```"
+
+    try:
+        return MERMAID_BLOCK_PATTERN.sub(_replace, text)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("Failed to rehydrate mermaid text: %s", exc)
+        return text
 
 
 class ThinkingType(StrEnum):
@@ -649,12 +717,42 @@ class ThreadListState(rx.State):
         try:
             thread_data = json.loads(self.thread_store)
             if thread_data and "threads" in thread_data:
-                self.threads = [
-                    ThreadModel(**thread) for thread in thread_data["threads"]
-                ]
+                processed_threads: list[ThreadModel] = []
+                needs_upgrade = False
+                for thread in thread_data["threads"]:
+                    thread_payload = dict(thread)
+                    messages_payload: list[dict[str, Any]] = []
+                    for message in thread_payload.get("messages", []):
+                        msg_data = dict(message)
+                        encoded = msg_data.pop("text_b64", None)
+                        if encoded is not None:
+                            try:
+                                msg_data["text"] = base64.b64decode(encoded).decode(
+                                    "utf-8"
+                                )
+                            except Exception as exc:
+                                logger.warning(
+                                    "Failed to decode stored message: %s", exc
+                                )
+                                msg_data["text"] = _rehydrate_mermaid_text(
+                                    msg_data.get("text", "")
+                                )
+                                needs_upgrade = True
+                        else:
+                            msg_data["text"] = _rehydrate_mermaid_text(
+                                msg_data.get("text", "")
+                            )
+                            needs_upgrade = True
+                        messages_payload.append(msg_data)
+                    thread_payload["messages"] = messages_payload
+                    processed_threads.append(ThreadModel(**thread_payload))
+
+                self.threads = processed_threads
                 self.active_thread_id = thread_data.get("active_thread_id", "")
                 if self.active_thread_id:
                     await self.select_thread(self.active_thread_id)
+                if needs_upgrade:
+                    await self.save_threads()
         except Exception as e:
             logger.error("Error loading threads from local storage: %s", e)
             self.threads = []
@@ -666,8 +764,22 @@ class ThreadListState(rx.State):
             thread_list = []
             for thread in self.threads:
                 thread_dict = thread.dict()
-                if thread.messages:
-                    thread_dict["messages"] = [msg.dict() for msg in thread.messages]
+                encoded_messages: list[dict[str, Any]] = []
+                for message in thread.messages:
+                    msg_dict = message.dict()
+                    text_value = msg_dict.get("text", "")
+                    if isinstance(text_value, str):
+                        try:
+                            msg_dict["text_b64"] = base64.b64encode(
+                                text_value.encode("utf-8")
+                            ).decode("ascii")
+                        except Exception as exc:
+                            logger.warning("Failed to encode message text: %s", exc)
+                            msg_dict["text_b64"] = None
+                    else:
+                        msg_dict["text_b64"] = None
+                    encoded_messages.append(msg_dict)
+                thread_dict["messages"] = encoded_messages
                 thread_list.append(thread_dict)
 
             thread_data = {
