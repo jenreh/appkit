@@ -234,7 +234,8 @@
     .wmde-markdown code[data-name="mermaid"] svg,
     .markdown code[data-name="mermaid"] svg,
     .wmde-markdown svg[id^="mermaid-"],
-    .markdown svg[id^="mermaid-"] {
+    .markdown svg[id^="mermaid-"],
+    svg[id^="mermaid-"] {
         cursor: zoom-in;
         transition: opacity 0.2s;
     }
@@ -245,7 +246,8 @@
     .wmde-markdown code[data-name="mermaid"] svg:hover,
     .markdown code[data-name="mermaid"] svg:hover,
     .wmde-markdown svg[id^="mermaid-"]:hover,
-    .markdown svg[id^="mermaid-"]:hover {
+    .markdown svg[id^="mermaid-"]:hover,
+    svg[id^="mermaid-"]:hover {
         opacity: 0.9;
     }
 

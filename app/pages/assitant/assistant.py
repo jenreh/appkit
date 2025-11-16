@@ -30,6 +30,7 @@ from appkit_assistant.components.thread import Assistant
 from appkit_assistant.configuration import AssistantConfig
 from appkit_assistant.state.thread_state import ThreadListState, ThreadState
 from appkit_commons.registry import service_registry
+from appkit_mantine import mermaid_zoom_script
 from appkit_ui.components.header import header
 from appkit_user.authentication.components.components import (
     default_fallback,
@@ -115,50 +116,53 @@ def assistant_page() -> rx.Component:
         "margin_bottom": "18px",
     }
 
-    return requires_role(
-        rx.vstack(
-            header("Assistent", indent=True),
-            rx.flex(
-                rx.vstack(
-                    Assistant.thread_list(
-                        default_model=default_model,
-                        width="100%",
-                        margin_top="6px",
-                        **assistant_styles,  # type: ignore
-                    ),
-                    flex_shrink=0,
-                    width="248px",
-                    padding="0px 12px",
-                    border_right=f"1px solid {rx.color('gray', 5)}",
-                    background_color=rx.color("gray", 1),
-                ),
-                rx.vstack(
-                    rx.center(
-                        Assistant.thread(
-                            welcome_message="👋 Hallo, wie kann ich Dir heute helfen?",
-                            with_attachments=False,
-                            with_scroll_to_bottom=False,
-                            with_thread_list=True,
-                            with_tools=True,
-                            # styling
-                            padding="12px",
-                            border_radius="10px",
-                            direction="column",
+    return rx.fragment(
+        mermaid_zoom_script(),  # Enable image/diagram zooming
+        requires_role(
+            rx.vstack(
+                header("Assistent", indent=True),
+                rx.flex(
+                    rx.vstack(
+                        Assistant.thread_list(
+                            default_model=default_model,
                             width="100%",
-                            **assistant_styles,
+                            margin_top="6px",
+                            **assistant_styles,  # type: ignore
+                        ),
+                        flex_shrink=0,
+                        width="248px",
+                        padding="0px 12px",
+                        border_right=f"1px solid {rx.color('gray', 5)}",
+                        background_color=rx.color("gray", 1),
+                    ),
+                    rx.vstack(
+                        rx.center(
+                            Assistant.thread(
+                                welcome_message="👋 Hallo, wie kann ich Dir heute helfen?",
+                                with_attachments=False,
+                                with_scroll_to_bottom=False,
+                                with_thread_list=True,
+                                with_tools=True,
+                                # styling
+                                padding="12px",
+                                border_radius="10px",
+                                direction="column",
+                                width="100%",
+                                **assistant_styles,
+                            ),
+                            width="100%",
                         ),
                         width="100%",
+                        flex_shrink=1,
                     ),
+                    display="column",
                     width="100%",
-                    flex_shrink=1,
                 ),
-                display="column",
+                margin_top="11px",
                 width="100%",
+                spacing="0",
             ),
-            margin_top="11px",
-            width="100%",
-            spacing="0",
+            role=ASSISTANT_ROLE.name,
+            fallback=default_fallback(),
         ),
-        role=ASSISTANT_ROLE.name,
-        fallback=default_fallback(),
     )

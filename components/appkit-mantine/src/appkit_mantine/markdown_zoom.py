@@ -1,29 +1,26 @@
 """Helper to include Mermaid zoom script for markdown preview."""
 
 import reflex as rx
+from reflex.assets import asset
+from reflex.components.component import Component
+
+
+class MermaidZoomScript(Component):
+    """React component wrapper that loads the Mermaid zoom script."""
+
+    tag = "MermaidZoomLoader"
+    library = "$/public/" + asset(
+        path="mermaid_zoom_loader.js",
+        shared=True,
+    )
+    is_default = False
 
 
 def mermaid_zoom_script() -> rx.Component:
     """Include the Mermaid SVG zoom JavaScript.
 
-    Add this component to any page that uses markdown_preview with Mermaid diagrams
-    to enable click-to-zoom functionality.
-
-    Example:
-        ```python
-        import reflex as rx
-        import appkit_mantine as mn
-
-
-        def page() -> rx.Component:
-            return rx.fragment(
-                mn.mermaid_zoom_script(),  # Include zoom functionality
-                mn.markdown_preview(
-                    source="```mermaid\\ngraph TD\\nA-->B\\n```",
-                    enable_mermaid=True,
-                ),
-            )
-        ```
+    Add this component to any page that uses markdown preview or renders images
+    that should support click-to-zoom behaviour.
     """
-    # Script path is relative to assets/ directory, must start with /
-    return rx.script(src="/js/mermaid_zoom.js")
+
+    return MermaidZoomScript.create()

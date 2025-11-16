@@ -10,6 +10,7 @@
 
     let activeModal = null;
     let originalBodyOverflow = null;
+    let isInitialized = false;
 
     const ZOOMABLE_SELECTORS = [
         'code[data-name="mermaid"] svg',
@@ -37,10 +38,17 @@
      * Initialize zoom functionality when DOM is ready
      */
     function init() {
+        if (isInitialized) {
+            console.log('[Mermaid Zoom] Already initialized, skipping...');
+            return;
+        }
+
+        isInitialized = true;
         console.log('[Mermaid Zoom] Initializing...');
+
         // Use event delegation for better performance with dynamic content
-        document.addEventListener('click', handleClick);
-        document.addEventListener('keydown', handleKeydown);
+        document.addEventListener('click', handleClick, true);
+        document.addEventListener('keydown', handleKeydown, true);
 
         markZoomableElements();
 
@@ -49,13 +57,14 @@
             const diagrams = document.querySelectorAll(ZOOMABLE_SELECTORS[0] + ', ' + ZOOMABLE_SELECTORS[1] + ', ' + ZOOMABLE_SELECTORS[2]);
             const images = document.querySelectorAll(ZOOMABLE_SELECTORS[3] + ', ' + ZOOMABLE_SELECTORS[4]);
             console.log('[Mermaid Zoom] Found diagrams:', diagrams.length, 'images:', images.length);
-        }, 1000);
+        }, 500);
     }
 
     /**
      * Handle click events on zoomable elements.
      */
     function handleClick(event) {
+        // Use capture phase to ensure we catch events even if stopped elsewhere
         const target = event.target;
 
         // Check if click is on a Mermaid SVG (or child element of SVG)
@@ -67,6 +76,11 @@
             zoomable = target.closest('.wmde-markdown svg[id^="mermaid-"], .markdown svg[id^="mermaid-"]');
         }
 
+        // Also try without class containers (for raw SVGs)
+        if (!zoomable) {
+            zoomable = target.closest('svg[id^="mermaid-"]');
+        }
+
         // Finally check for zoomable markdown images
         if (!zoomable) {
             zoomable = target.closest('.wmde-markdown img, .markdown img');
@@ -74,7 +88,7 @@
 
         if (zoomable && !activeModal) {
             // Click on unzoomed element - open zoom
-            console.log('[Mermaid Zoom] Opening zoom for:', zoomable);
+            console.log('[Mermaid Zoom] Opening zoom for:', zoomable.tagName, zoomable.className);
             event.preventDefault();
             event.stopPropagation();
             openZoom(zoomable);
@@ -180,7 +194,13 @@
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
+        // DOM already loaded, initialize now
         init();
+    }
+
+    // Also initialize on window load to catch late-loaded content
+    if (document.readyState !== 'complete') {
+        window.addEventListener('load', init);
     }
 
     // Re-initialize when new content is added (for dynamic Mermaid rendering)
@@ -210,15 +230,33 @@
         }
     });
 
-    // Start observing after init
-    if (document.body) {
-        observer.observe(document.body, { childList: true, subtree: true });
+    // Start observing after DOM is ready
+    function startObserver() {
+        if (document.body) {
+            observer.observe(document.body, { childList: true, subtree: true });
+            console.log('[Mermaid Zoom] MutationObserver started');
+        } else {
+            setTimeout(startObserver, 100);
+        }
     }
+
+    startObserver();
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
         cleanup();
         observer.disconnect();
     });
+
+    // Expose public API for manual re-initialization if needed
+    window._mermaidZoomReinit = function () {
+        console.log('[Mermaid Zoom] Manual reinit requested');
+        markZoomableElements();
+        const diagrams = document.querySelectorAll(ZOOMABLE_SELECTORS[0] + ', ' + ZOOMABLE_SELECTORS[1] + ', ' + ZOOMABLE_SELECTORS[2]);
+        const images = document.querySelectorAll(ZOOMABLE_SELECTORS[3] + ', ' + ZOOMABLE_SELECTORS[4]);
+        console.log('[Mermaid Zoom] After reinit - Found diagrams:', diagrams.length, 'images:', images.length);
+    };
+
+    console.log('[Mermaid Zoom] Script loaded successfully');
 
 })();
