@@ -23,7 +23,6 @@ Interpretiere Benutzereingaben semantisch, berücksichtige Kontext (Verlauf, Met
 - Exploratives Vorgehen ist erlaubt, sofern Ziel und Kontext klar sind.
 - Falls kein Tool passt: direkt antworten (strukturierte Begründung implizit, nicht ausgeben).
 
-### Tool-Auswahlrichtlinien (Einbettung externer Beschreibungen)
 {mcp_prompts}
 
 ## 5) Kontext
@@ -46,7 +45,12 @@ def hello_world():
     print("Hello, world!")
 ```
 ```mermaid
-graph TD;
-A-->B; A-->C; B-->D; C-->D;
+flowchart TD
+    A["LLM/Chat-Client"] --> B["MCP Client"]
+    B --> C{{"Transport"}}
+    C -->|stdio| D["FastMCP Server (lokal)"]
+    C -->|http| E["FastMCP Server (remote)"]
+    D --> F["@mcp.tool web_search()"]
+    E --> F
 ```
 """

@@ -130,30 +130,32 @@ const MermaidCode = memo(function MermaidCode({ children = [], className, node }
         return createElement('code', { className }, children);
     }
 
-    if (renderError) {
-        return createElement(
-            'code',
-            {
-                className: `${className || ''} mermaid-source`,
-                'data-mermaid-error': renderError,
-            },
-            normalizedCode || code
-        );
-    }
+    const sourceContent = normalizedCode || code;
+    const sourceClassName = className ? `${className} mermaid-source` : 'mermaid-source';
 
-    if (!svg) {
-        return createElement('code', { id: demoId.current, style: { display: 'block' } });
-    }
-
-    return createElement(
-        Fragment,
-        null,
-        createElement('code', { id: demoId.current, style: { display: 'none' } }),
-        createElement('code', {
-            'data-name': 'mermaid',
-            dangerouslySetInnerHTML: { __html: svg },
-        })
+    const sourceElement = createElement(
+        'code',
+        {
+            className: sourceClassName,
+            'data-mermaid-source': 'true',
+            ...(renderError ? { 'data-mermaid-error': renderError } : {}),
+        },
+        sourceContent
     );
+
+    if (renderError || !svg) {
+        return sourceElement;
+    }
+
+    const diagramElement = createElement('code', {
+        'data-name': 'mermaid',
+        'data-mermaid-id': demoId.current,
+        className: 'mermaid-diagram',
+        style: { display: 'block', marginTop: '0.75rem' },
+        dangerouslySetInnerHTML: { __html: svg },
+    });
+
+    return createElement(Fragment, null, sourceElement, diagramElement);
 });
 
 const KatexCode = memo(function KatexCode({ children = [], className, node }) {

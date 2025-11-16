@@ -57,7 +57,7 @@ def submit() -> rx.Component:
             rx.icon("arrow-right", size=18),
             id="composer-submit",
             name="composer_submit",
-            on_click=ThreadState.submit_message,
+            type="submit",
             loading=ThreadState.processing,
         ),
     )

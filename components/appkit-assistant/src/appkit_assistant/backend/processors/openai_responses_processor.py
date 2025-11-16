@@ -62,8 +62,8 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 content = self._extract_responses_content(session)
                 if content:
                     yield Chunk(
-                        chunk_type=ChunkType.TEXT,
-                        content=content,
+                        type=ChunkType.TEXT,
+                        text=content,
                         chunk_metadata={
                             "source": "responses_api",
                             "streaming": "false",
@@ -463,6 +463,14 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         input_messages = []
 
         # Always add system message as first message
+        if mcp_prompt:
+            mcp_prompt = (
+                "### Tool-Auswahlrichtlinien (Einbettung externer Beschreibungen)\n"
+                f"{mcp_prompt}"
+            )
+        else:
+            mcp_prompt = ""
+
         system_text = SYSTEM_PROMPT.format(mcp_prompts=mcp_prompt)
         input_messages.append(
             {
