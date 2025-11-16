@@ -8,7 +8,7 @@ Documentation: https://mantine.dev/core/number-input/
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from reflex.vars.base import Var
 
@@ -28,6 +28,23 @@ class NumberInput(MantineInputComponentBase):
 
     tag = "NumberInput"
     alias = "MantineNumberInput"
+
+    # Prop aliasing for camelCase React props
+    _rename_props = {
+        **MantineInputComponentBase._rename_props,  # noqa: SLF001
+        "clamp_behavior": "clampBehavior",
+        "decimal_scale": "decimalScale",
+        "fixed_decimal_scale": "fixedDecimalScale",
+        "decimal_separator": "decimalSeparator",
+        "allow_decimal": "allowDecimal",
+        "allow_negative": "allowNegative",
+        "thousand_separator": "thousandSeparator",
+        "thousands_group_style": "thousandsGroupStyle",
+        "hide_controls": "hideControls",
+        "start_value": "startValue",
+        "with_keyboard_events": "withKeyboardEvents",
+        "allow_mouse_wheel": "allowMouseWheel",
+    }
 
     # Numeric constraints
     min: Var[int | float] = None
@@ -79,6 +96,39 @@ class NumberInput(MantineInputComponentBase):
 
     start_value: Var[int | float] = None
     """Value when empty input is focused (default: 0)."""
+
+    with_keyboard_events: Var[bool] = None
+    """Enable up/down keyboard events for incrementing/decrementing (default: True).
+
+    When True, pressing up/down arrow keys while focused increments/decrements
+    the value by the step amount. Essential for keyboard-based navigation."""
+
+    allow_mouse_wheel: Var[bool] = None
+    """Enable mouse wheel increments/decrements (default: False)."""
+
+    def get_event_triggers(self) -> dict[str, Any]:
+        """Override event triggers to handle NumberInput value emission.
+
+        Mantine NumberInput sends the numeric value directly (or empty string),
+        not an event object like standard input. The up/down arrow controls and
+        keyboard events (up/down keys) depend on proper value transformation
+        for Reflex state compatibility.
+
+        References:
+        - https://mantine.dev/core/number-input/?t=props (see withKeyboardEvents)
+        - NumberInput extends react-number-format NumericFormat component
+        - Increment/decrement controls automatically use onChange when step occurs
+        """
+
+        def _on_change(value: Var) -> list[Var]:
+            # Mantine NumberInput sends value directly (number or empty string)
+            # Forward it as-is to Reflex state
+            return [value]
+
+        return {
+            **super().get_event_triggers(),
+            "on_change": _on_change,
+        }
 
 
 number_input = NumberInput.create
