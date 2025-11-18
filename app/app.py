@@ -10,8 +10,8 @@ from appkit_user.authentication.pages import (  # noqa: F401
 )
 from appkit_user.authentication.templates import navbar_layout
 from appkit_user.user_management.pages import (  # noqa: F401
+    create_login_page,
     create_profile_page,
-    login_page,
 )
 
 from app.components.navbar import app_navbar
@@ -54,6 +54,7 @@ from app.pages.image_creator import image_creator_page  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
 logging.basicConfig(level=logging.DEBUG)
+create_login_page(header="AppKit")
 create_profile_page(app_navbar())
 
 
