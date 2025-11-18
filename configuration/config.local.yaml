@@ -9,7 +9,6 @@ app:
 
   database:
     echo: True
-    name: manakit-db
 
   authentication:
     server_url: http://localhost:8080

@@ -33,16 +33,55 @@ def _password_rule(check: bool, message: str) -> rx.Component:
     )
 
 
-@default_layout(route=LOGIN_ROUTE, title="Login")
-def login_page(
-    header: str = "AppKit",
+# @default_layout(route=LOGIN_ROUTE, title="Login")
+# def login_page(
+#     header: str = "AppKit",
+#     logo: str = "/img/logo.svg",
+#     logo_dark: str = "/img/logo_dark.svg",
+#     margin_left: str = "0px",
+# ) -> rx.Component:
+#     return login_form(
+#         header=header, logo=logo, logo_dark=logo_dark, margin_left=margin_left
+#     )
+
+
+def create_login_page(
+    header: str = "",
     logo: str = "/img/logo.svg",
     logo_dark: str = "/img/logo_dark.svg",
     margin_left: str = "0px",
-) -> rx.Component:
-    return login_form(
-        header=header, logo=logo, logo_dark=logo_dark, margin_left=margin_left
-    )
+    route: str = LOGIN_ROUTE,
+    title: str = "Login",
+) -> Callable:
+    """Create the login page.
+
+    Args:
+        header: The header text to display on the login page.
+        logo: The logo image URL for light mode.
+        logo_dark: The logo image URL for dark mode.
+        margin_left: The left margin for the login form.
+        route: The route for the login page.
+        title: The title for the login page.
+
+    Returns:
+        The login page component.
+    """
+
+    @default_layout(route=route, title=title)
+    def _login_page() -> rx.Component:
+        """The login page.
+
+        Returns:
+            The UI for the login page.
+        """
+        return login_form(
+            header=header,
+            logo=logo,
+            logo_dark=logo_dark,
+            margin_left=margin_left,
+        )
+
+    return _login_page
 
 
 def create_profile_page(
