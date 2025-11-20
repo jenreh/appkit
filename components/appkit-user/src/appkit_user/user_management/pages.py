@@ -7,7 +7,7 @@ from appkit_ui.components.header import header
 from appkit_user.authentication.components import (
     login_form,
 )
-from appkit_user.authentication.states import LOGIN_ROUTE, UserSession
+from appkit_user.authentication.states import LOGIN_ROUTE, LoginState, UserSession
 from appkit_user.authentication.templates import (
     authenticated,
     default_layout,
@@ -67,7 +67,11 @@ def create_login_page(
         The login page component.
     """
 
-    @default_layout(route=route, title=title)
+    @default_layout(
+        route=route,
+        title=title,
+        on_load=LoginState.clear_session_storage_token,
+    )
     def _login_page() -> rx.Component:
         """The login page.
 

@@ -247,9 +247,10 @@ class OAuthService:
             az_cfg: AzureOAuthConfig = self.azure_config
             # Azure public clients: client_id should be included by fetch_token
             # (via include_client_id), redirect_uri is already bound to session.
-            include_client_id = True
-
-            if not az_cfg.is_public_client:
+            if az_cfg.is_public_client:
+                include_client_id = True
+            else:
+                # Confidential client: use Basic auth with client_secret
                 token_kwargs["client_secret"] = config.client_secret
                 include_client_id = False
         else:

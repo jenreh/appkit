@@ -228,6 +228,12 @@ class LoginState(UserSession):
         try:
             params = self.router.url.query_parameters
 
+            logger.debug(
+                "Handling OAuth callback for provider: %s - params: %s",
+                provider,
+                params,
+            )
+
             code = params.get("code")
             state = params.get("state")
             error = params.get("error")
@@ -292,6 +298,11 @@ class LoginState(UserSession):
             yield rx.toast.error(f"OAuth callback failed: {e!s}")
         finally:
             self.is_loading = False
+
+    @rx.event
+    async def clear_session_storage_token(self) -> EventSpec:
+        """Clear the 'token' from browser session storage."""
+        return rx.call_script("sessionStorage.removeItem('token')")
 
     @rx.event
     async def logout(self) -> EventSpec:
