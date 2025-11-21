@@ -16,6 +16,7 @@ GEMINI_2_5_FLASH: Final = AIModel(
     icon="googlegemini",
     model="gemini-2-5-flash",
 )
+
 LLAMA_3_2_VISION: Final = AIModel(
     id="llama32_vision_90b",
     text="Llama 3.2 Vision 90B (OnPrem)",
@@ -76,6 +77,17 @@ GPT_5: Final = AIModel(
     temperature=1,
 )
 
+GPT_5_1: Final = AIModel(
+    id="gpt-5.1",
+    text="GPT 5.1",
+    icon="openai",
+    model="gpt-5.1",
+    stream=True,
+    supports_attachments=True,
+    supports_tools=True,
+    temperature=1,
+)
+
 GPT_5_CHAT: Final = AIModel(
     id="gpt-5-chat",
     text="GPT 5 Chat",
@@ -91,6 +103,17 @@ GPT_5_MINI: Final = AIModel(
     text="GPT 5 Mini",
     icon="openai",
     model="gpt-5-mini",
+    stream=True,
+    supports_attachments=True,
+    supports_tools=True,
+    temperature=1,
+)
+
+GPT_5_1_MINI: Final = AIModel(
+    id="gpt-5.1-mini",
+    text="GPT 5.1 Mini",
+    icon="openai",
+    model="gpt-5.1-mini",
     stream=True,
     supports_attachments=True,
     supports_tools=True,

@@ -251,13 +251,16 @@ class MantineInputComponentBase(MantineComponentBase):
     aria_label: Var[str] = None
     """Accessibility label for screen readers."""
 
-    max_length: Var[int] = None
+    maxlength: Var[int | str] = None
     """Maximum number of characters allowed."""
 
-    min_length: Var[int] = None
+    minlength: Var[int | str] = None
     """Minimum number of characters required."""
 
-    auto_complete: Var[str] = None
+    autocapitalize: Var[str] = None
+    """HTML autocapitalize attribute (none, sentences, words, characters)."""
+
+    autocomplete: Var[str] = None
     """HTML autocomplete attribute (e.g., 'off', 'email', 'current-password')."""
 
     type: Var[str] = None

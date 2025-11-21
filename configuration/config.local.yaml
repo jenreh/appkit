@@ -2,7 +2,7 @@ profile: local
 
 reflex:
   deploy_url: http://localhost
-  frontend_port: 8080
+  frontend_port: 3000
 
 app:
   environment: local

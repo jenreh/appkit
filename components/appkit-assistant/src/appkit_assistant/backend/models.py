@@ -73,6 +73,8 @@ class AIModel(BaseModel):
     temperature: float = 0.05
     supports_tools: bool = False
     supports_attachments: bool = False
+    keywords: list[str] = []
+    disabled: bool = False
 
 
 class Suggestion(BaseModel):

@@ -4,7 +4,6 @@ import reflex as rx
 from pydantic import BaseModel
 
 import appkit_mantine as mn
-import appkit_ui.components as knai
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +138,7 @@ def form_field(
         label=label,
         description=hint,
         error=validation_error,
-        required=True,
+        required=kwargs.get("required", False),
         width="100%",
     )
 
@@ -385,48 +384,40 @@ def form_text_editor(
 ) -> rx.Component:
     if kwargs.get("width") is None:
         kwargs["width"] = "100%"
-    if kwargs.get("height") is None:
-        kwargs["height"] = "240px"
 
     if on_blur is not None:
         kwargs["on_blur"] = on_blur
 
-    return rx.form.field(
-        rx.hstack(
-            rx.icon(icon, size=16, stroke_width=1.5),
-            rx.form.label(label),
-            class_name="label",
-        ),
-        rx.cond(
-            hint,
-            rx.form.message(
+    return rx.vstack(
+        rx.form.field(
+            rx.hstack(
+                rx.icon(icon, size=16, stroke_width=1.5),
+                rx.form.label(label),
+                class_name="label",
+            ),
+            rx.cond(
                 hint,
-                color="gray",
-                class_name="hint",
+                rx.form.message(
+                    hint,
+                    color="gray",
+                    class_name="hint",
+                ),
             ),
+            margin_bottom="-12px",
         ),
-        knai.editor(
+        mn.rich_text_editor(
             id=name,
-            set_options=knai.EditorOptions(
-                button_list=[
-                    ["formatBlock"],
-                    [
-                        "bold",
-                        "underline",
-                        "align",
-                        "outdent",
-                        "indent",
-                        "list",
-                        "table",
-                        "blockquote",
-                    ],
-                    [
-                        "link",
-                        "horizontalRule",
-                    ],
-                    ["removeFormat", "undo", "redo"],
-                ],
+            toolbar_config=mn.EditorToolbarConfig(
+                control_groups=[
+                    ["bold", "italic", "underline"],
+                    ["h1", "h2", "h3"],
+                    ["bulletList", "orderedList", "blockquote", "code"],
+                    ["alignLeft", "alignCenter", "alignRight", "alignJustify"],
+                    ["link", "unlink"],
+                    ["image"],
+                ]
             ),
+            variant="subtle",
             **kwargs,
         ),
         width="100%",

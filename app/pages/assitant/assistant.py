@@ -8,6 +8,7 @@ from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.models import AIModel
 from appkit_assistant.backend.processors.ai_models import (
     GPT_5,
+    GPT_5_1,
     GPT_5_MINI,
     O4_MINI,
     GPT_4o,
@@ -75,6 +76,7 @@ def initialize_model_manager() -> list[AIModel]:
 
     models = {
         GPT_5.id: GPT_5,
+        GPT_5_1.id: GPT_5_1,
         GPT_5_MINI.id: GPT_5_MINI,
         GPT_4o.id: GPT_4o,
         O4_MINI.id: O4_MINI,

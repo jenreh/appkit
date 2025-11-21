@@ -41,6 +41,7 @@ SONAR_PRO = PerplexityAIModel(
     icon="perplexity",
     model="sonar-pro",
     stream=True,
+    keywords=["sonar", "perplexity"],
 )
 
 SONAR_DEEP_RESEARCH = PerplexityAIModel(
@@ -50,6 +51,7 @@ SONAR_DEEP_RESEARCH = PerplexityAIModel(
     model="sonar-deep-research",
     search_context_size=ContextSize.HIGH,
     stream=True,
+    keywords=["reasoning", "deep", "research", "perplexity"],
 )
 
 SONAR_REASONING = PerplexityAIModel(
@@ -59,6 +61,7 @@ SONAR_REASONING = PerplexityAIModel(
     model="sonar-reasoning",
     search_context_size=ContextSize.HIGH,
     stream=True,
+    keywords=["reasoning", "perplexity"],
 )
 
 ALL_MODELS = {
