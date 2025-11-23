@@ -7,7 +7,7 @@
 
 appkit-imagecreator provides a unified interface for generating images using multiple AI providers including Google Gemini (Imagen), OpenAI (DALL-E/GPT-Image), and Black Forest Labs (FLUX). It includes a complete Reflex UI for image generation workflows with prompt enhancement, parameter controls, and image management features.
 
-![Image Creator](./docs/imagecreator.jpeg)
+![Image Creator](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-imagecreator/docs/imagecreator.jpeg)
 
 ---
 

@@ -7,7 +7,7 @@
 
 appkit-assistant provides a complete conversational AI interface built on Reflex, featuring OpenAI and Perplexity integrations, Model Context Protocol (MCP) server management, and secure credential handling. It includes both backend processing services and ready-to-use UI components for building AI-powered applications.
 
-![Assistant](./docs/assistant.png)
+![Assistant](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-assistant/docs/assistant.png)
 
 ---
 
