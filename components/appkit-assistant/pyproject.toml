@@ -29,6 +29,12 @@ dependencies = [
     "reflex>=0.8.20",
 ]
 
+[project.urls]
+Homepage = "https://github.com/jenreh/appkit"
+Documentation = "https://github.com/jenreh/appkit/tree/main/docs"
+Repository = "https://github.com/jenreh/appkit"
+Issues = "https://github.com/jenreh/appkit/issues"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

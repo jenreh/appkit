@@ -1,0 +1,93 @@
+# https://taskfile.dev
+
+version: "3"
+
+# Global variables
+vars:
+  PROJECT: appkit
+  IMAGE_NAME: appkit
+  RUNNER: uv run
+
+tasks:
+  default:
+    desc: Show available commands
+    cmd: task --list
+
+  uv:sync:
+    desc: Install dependencies using uv
+    cmd: uv sync
+
+  # ----------------------------------------------------------------------------
+  # Reflex Application Commands
+  # ----------------------------------------------------------------------------
+  run:
+    desc: Start the reflex web application
+    cmd: "{{.RUNNER}} reflex run"
+
+  run:debug:
+    desc: Start the reflex web application with debug logging
+    cmd: "{{.RUNNER}} reflex run --loglevel=debug"
+
+  run:prod:
+    desc: Start the reflex web application in prod mode
+    cmd: "{{.RUNNER}} reflex run --env prod"
+
+  # ----------------------------------------------------------------------------
+  # Quality Assurance (Tests, Lint, Format)
+  # ----------------------------------------------------------------------------
+  test:
+    desc: Run pytests with coverage
+    cmd: "{{.RUNNER}} pytest --cov"
+
+  lint:
+    desc: Run linting with ruff
+    cmd: "{{.RUNNER}} ruff check ."
+
+  format:
+    desc: Format code with ruff
+    cmds:
+      - "{{.RUNNER}} ruff format ."
+      - "{{.RUNNER}} ruff check --fix ."
+
+  clean:
+    desc: Clean cache and build artifacts
+    ignore_error: true
+    cmds:
+      - rm -rf __pycache__/ .cache/ .states/ .web/ assets/expternal/
+      - find . -type d -name "__pycache__" -exec rm -rf {} +
+      - find . -type f -name "*.pyc" -delete
+
+  # ----------------------------------------------------------------------------
+  # Database Commands (Namespace: db)
+  # ----------------------------------------------------------------------------
+  db:current:
+    desc: Run alembic current (check migration status)
+    cmd: "{{.RUNNER}} alembic current"
+
+  db:upgrade:
+    desc: Run alembic upgrade head
+    cmd: "{{.RUNNER}} alembic upgrade head"
+
+  db:history:
+    desc: Show alembic migration history
+    cmd: "{{.RUNNER}} alembic history"
+
+  db:downgrade:
+    desc: Downgrade database by one revision
+    cmd: "{{.RUNNER}} alembic downgrade -1"
+
+  # ----------------------------------------------------------------------------
+  # Docker Commands (Namespace: docker)
+  # ----------------------------------------------------------------------------
+  docker:build:
+    desc: Build Docker image locally
+    cmds:
+      - echo "🔨 Building Docker image {{.IMAGE_NAME}}:latest"
+      - docker build -t {{.IMAGE_NAME}}:latest .
+      - echo "✅ Docker image built successfully"
+
+  docker:test:
+    desc: Run and verify locally built image
+    cmds:
+      - echo "🧪 Testing locally built image {{.IMAGE_NAME}}:latest"
+      - docker compose up --build

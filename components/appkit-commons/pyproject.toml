@@ -24,9 +24,10 @@ dependencies = [
     "colorlog>=6.9.0",
     "cryptography>=46.0.2",
     "pydantic-settings>=2.10.1",
-    "pyyaml==6.0.2",
-    "sqlalchemy-utils==0.42.0",
-    "sqlalchemy==2.0.41",
+    "pyyaml>=6.0.2",
+    "sqlalchemy-utils>=0.42.0",
+    "sqlalchemy>=2.0.41",
+    "starlette>=0.48.0",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +36,11 @@ azure = [
     "azure-keyvault-secrets==4.10.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/jenreh/appkit"
+Documentation = "https://github.com/jenreh/appkit/tree/main/docs"
+Repository = "https://github.com/jenreh/appkit"
+Issues = "https://github.com/jenreh/appkit/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

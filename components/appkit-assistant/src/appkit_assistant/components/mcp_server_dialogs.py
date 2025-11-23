@@ -94,15 +94,12 @@ class ValidationState(rx.State):
     @rx.var
     def has_errors(self) -> bool:
         """Check if the form can be submitted."""
-        errors = bool(
+        return bool(
             self.url_error
             or self.name_error
             or self.description_error
             or self.prompt_error
         )
-
-        logger.debug("Has validation errors: %s", errors)
-        return errors
 
     @rx.var
     def prompt_remaining(self) -> int:

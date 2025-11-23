@@ -5,8 +5,12 @@ reflex:
   frontend_port: 8080
   backend_port: 3030
   workers: 3
-  default_timeout: 300  # seconds
-  backend_timeout: 300  # seconds
+  default_timeout: 300 # seconds
+  backend_timeout: 300 # seconds
 
 app:
   environment: container
+
+  database:
+    host: db
+    name: appkit-db
