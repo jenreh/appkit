@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y upgrade \
-    && apt-get -y install --no-install-recommends postgresql-client libpq-dev caddy unzip curl \
+    && apt-get -y install --no-install-recommends postgresql-client libpq-dev unzip curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
