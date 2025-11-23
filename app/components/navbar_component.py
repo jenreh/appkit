@@ -212,7 +212,7 @@ def logout_button() -> rx.Component:
             content="Abmelden",
         ),
         underline="none",
-        on_click=LoginState.logout,
+        on_click=[LoginState.terminate_session, LoginState.logout],
     )
 
 

@@ -95,6 +95,13 @@ class UserSession(rx.State):
 
         self.auth_token = ""  # Clear the auth_token in local storage
         self.user_id = 0
+        self.reset()
+        return rx.clear_session_storage()
+
+    @rx.event
+    async def clear_session_storage_token(self) -> EventSpec:
+        """Clear the 'token' from browser session storage."""
+        return rx.call_script("sessionStorage.removeItem('token')")
 
 
 class LoginState(UserSession):
@@ -300,15 +307,8 @@ class LoginState(UserSession):
             self.is_loading = False
 
     @rx.event
-    async def clear_session_storage_token(self) -> EventSpec:
-        """Clear the 'token' from browser session storage."""
-        return rx.call_script("sessionStorage.removeItem('token')")
-
-    @rx.event
     async def logout(self) -> EventSpec:
         """Logout user and terminate session."""
-
-        await self.terminate_session()
         return rx.redirect(LOGOUT_ROUTE)
 
     @rx.event
