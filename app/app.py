@@ -133,5 +133,5 @@ app = rx.App(
     stylesheets=base_stylesheets,
     style=base_style,
 )
-
-app._api.add_middleware(ForceHTTPSMiddleware)
+# Add the HTTPS redirect middleware for Azure deployments
+app._api.add_middleware(ForceHTTPSMiddleware)  # noqa: SLF001
