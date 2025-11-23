@@ -3,6 +3,7 @@ name: 02 Build and Publish Artifacts/Libs on Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   build-and-publish:
