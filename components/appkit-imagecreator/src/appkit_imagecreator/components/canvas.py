@@ -1,7 +1,7 @@
 import reflex as rx
 
 from appkit_imagecreator.components.react_zoom import image_zoom
-from appkit_imagecreator.states import CopyLocalState, GeneratorState, copy_script
+from appkit_imagecreator.states import GeneratorState
 
 image_props = {
     "decoding": "auto",
@@ -90,28 +90,6 @@ def download_button(button_props: dict[str, str]) -> rx.Component:
             **button_props,
             color_scheme="gray",
             on_click=GeneratorState.download_image,
-        ),
-    )
-
-
-def copy_button(button_props: dict[str, str]) -> rx.Component:
-    return rx.cond(
-        CopyLocalState.value,
-        rx.tooltip(
-            rx.icon_button(
-                rx.icon("clipboard-check", size=20),
-                **button_props,
-                color_scheme="green",
-            ),
-            content="Copied",
-            open=CopyLocalState.value,
-            side="top",
-        ),
-        rx.icon_button(
-            rx.icon("clipboard", size=20),
-            **button_props,
-            color_scheme="gray",
-            on_click=[copy_script(), GeneratorState.copy_image],
         ),
     )
 

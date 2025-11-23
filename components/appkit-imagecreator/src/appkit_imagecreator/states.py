@@ -19,8 +19,6 @@ from appkit_imagecreator.configuration import prompt_list
 DEFAULT_IMAGE = "/img/default.jpg"
 API_TOKEN_ENV_VAR = "TOGETHER_API_KEY"  # noqa
 
-CopyLocalState = rx._x.client_state(default=False, var_name="copying")  # noqa
-
 
 general_dimensions: list[tuple[int, int]] = [
     (1536, 1024),
@@ -139,15 +137,6 @@ class GeneratorState(rx.State):
 
         self.is_downloading = False
         yield
-
-    async def copy_image(self) -> any:
-        try:
-            image_url = self.output_image
-            if image_url == DEFAULT_IMAGE:
-                image_url = f"{self.router.page.host}{DEFAULT_IMAGE}"
-            yield rx.set_clipboard(image_url)
-        except Exception as e:
-            yield rx.toast.error(f"Fehler beim kopieren: {e}", close_button=True)
 
     def set_output_image(self, image: str) -> None:
         self.output_image = image

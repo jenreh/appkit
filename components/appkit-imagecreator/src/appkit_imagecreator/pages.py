@@ -2,18 +2,15 @@ import reflex as rx
 
 from appkit_imagecreator.components.canvas import (
     button_props,
-    copy_button,
     download_button,
     image_list,
     image_ui,
 )
 from appkit_imagecreator.components.sidebar import sidebar
-from appkit_imagecreator.states import CopyLocalState
 
 
 def image_generator_page() -> rx.Component:
     return rx.flex(
-        CopyLocalState,
         sidebar(),
         rx.scroll_area(
             rx.center(
@@ -37,7 +34,6 @@ def image_generator_page() -> rx.Component:
         rx.box(
             rx.hstack(
                 download_button(button_props),
-                copy_button(button_props),
                 justify="end",
                 align="center",
             ),
