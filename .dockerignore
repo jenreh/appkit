@@ -21,10 +21,12 @@
 **/*.pyc
 **/*.pyd
 **/*.pyo
+assets/external/*
 coverage.xml
 docs
 infra
 Makefile
 nosetests.xml
 scripts
+Taskfile.yml
 tests

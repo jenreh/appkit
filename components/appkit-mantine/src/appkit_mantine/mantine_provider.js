@@ -1,26 +1,16 @@
-import { createElement, useContext, useEffect, useState, useRef } from "react";
+import { createElement, useContext } from "react";
 import { MantineProvider as MantineCoreProvider } from "@mantine/core";
-
 import { ColorModeContext } from "$/utils/context";
 
 export default function MantineProvider({ children }) {
-  const { resolvedColorMode } = useContext(ColorModeContext);
-  const [stableColorMode, setStableColorMode] = useState(null);
-  const timerRef = useRef(null);
+  const { resolvedColorMode } = useContext(ColorModeContext) || {};
 
-  useEffect(() => {
-    setStableColorMode(resolvedColorMode);
-  }, [resolvedColorMode]);
-
-  if (!stableColorMode) {
-    return children;
-  }
+  const mode = resolvedColorMode ?? "light";
 
   return createElement(
     MantineCoreProvider,
     {
-      key: stableColorMode,
-      forceColorScheme: stableColorMode,
+      forceColorScheme: mode,
     },
     children
   );

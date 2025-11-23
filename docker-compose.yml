@@ -23,6 +23,29 @@ services:
     ports:
       - "3030:3030"
       - "8080:8080"
+      - "80:80"
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /reflexapp/app
+        - action: sync
+          path: ./components
+          target: /reflexapp/components
+        - action: sync
+          path: ./assets
+          target: /reflexapp/assets
+        - action: sync
+          path: ./configuration
+          target: /reflexapp/configuration
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock
+        - action: rebuild
+          path: ./Dockerfile
+        - action: rebuild
+          path: ./start.sh
 
   db:
     container_name: appkit-db

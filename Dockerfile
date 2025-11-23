@@ -12,8 +12,9 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy uv from the official image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Copy uv and bun from official images (simpler than curl install)
+RUN export UV_INSTALL_DIR=/bin && curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN export BUN_INSTALL=/usr/local && curl -fsSL https://bun.sh/install | bash
 
 # ───────────────────────────  Stage 2 ─ Runtime  ────────────────────────────
 FROM builder AS final
@@ -26,24 +27,22 @@ ENV PORT=$PORT REFLEX_API_URL=${API_URL:-http://localhost:$PORT}
 ENV WORK=/reflexapp
 WORKDIR ${WORK}
 
-# Copy project configuration files first for better caching
-COPY pyproject.toml uv.lock .python-version alembic.ini README.md start.sh Caddyfile ${WORK}/
+COPY pyproject.toml uv.lock README.md .python-version ${WORK}/
+COPY components ${WORK}/components
 
-# Copy all source code including workspace members
-COPY rxconfig.py ${WORK}/
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --all-extras
+
+COPY alembic.ini start.sh rxconfig.py ${WORK}/
 COPY configuration ${WORK}/configuration
 COPY assets ${WORK}/assets
 COPY alembic ${WORK}/alembic
-COPY components ${WORK}/components
 COPY app ${WORK}/app
 
-# Install dependencies using uv sync (installs workspace members automatically)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --all-extras && \
+    uv sync --frozen --all-extras && \
     chmod +x ${WORK}/start.sh
 
-# Expose ports
 EXPOSE $PORT $BACKEND_PORT
 
-# Run the application
 CMD ["./start.sh"]

@@ -4,6 +4,7 @@ import logging
 
 import reflex as rx
 
+from appkit_commons.middleware import ForceHTTPSMiddleware
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
     github_oauth_callback_page,
@@ -132,4 +133,5 @@ app = rx.App(
     stylesheets=base_stylesheets,
     style=base_style,
 )
-# app.add_page(index)
+
+app._api.add_middleware(ForceHTTPSMiddleware)
