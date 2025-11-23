@@ -3,7 +3,7 @@ name = "appkit-mantine"
 version = "0.7.4"
 description = "Mantine UI input components for Reflex with type safety and comprehensive examples"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 license = { text = "MIT" }
 keywords = [
     "reflex",
@@ -16,17 +16,15 @@ keywords = [
     "web",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Framework :: AsyncIO",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
-    "reflex>=0.8.12",
+    "reflex>=0.8.20",
 ]
 
 [project.urls]
