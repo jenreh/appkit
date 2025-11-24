@@ -93,8 +93,6 @@ class UserSession(rx.State):
                 session, self.user_id, self.auth_token
             )
 
-        self.auth_token = ""  # Clear the auth_token in local storage
-        self.user_id = 0
         self.reset()
         return rx.clear_session_storage()
 

@@ -135,7 +135,7 @@ class OAuthService:
     ) -> dict[str, Any]:
         """Normalize user data from different providers."""
         if provider == OAuthProvider.GITHUB:
-            return {
+            user_data = {
                 "id": str(user_data.get("id", "")),
                 "email": user_data.get("email") or "",
                 "name": user_data.get("name") or "",
@@ -144,8 +144,8 @@ class OAuthService:
             }
 
         if provider == OAuthProvider.AZURE:
-            return {
-                "id": user_data.get("sub", ""),
+            user_data = {
+                "id": user_data.get("id") or user_data.get("sub") or "",
                 "email": self._convert_upn_to_email(user_data.get("email"))
                 or user_data.get("mail")
                 or "",
@@ -154,6 +154,7 @@ class OAuthService:
                 "username": user_data.get("preferred_username", ""),
             }
 
+        user_data["email"] = user_data["email"].lower()
         return user_data
 
     def _convert_upn_to_email(self, user_principal_name: str) -> str:
