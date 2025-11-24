@@ -120,38 +120,48 @@ def login_form(
                     class_name="items-center w-full",
                 ),
                 rx.vstack(
-                    rx.button(
-                        rx.color_mode_cond(
-                            rx.image("/icons/GitHub_light.svg", class_name=icon_class),
-                            rx.image("/icons/GitHub_dark.svg", class_name=icon_class),
+                    rx.cond(
+                        LoginState.enable_github_oauth,
+                        rx.button(
+                            rx.color_mode_cond(
+                                rx.image(
+                                    "/icons/GitHub_light.svg", class_name=icon_class
+                                ),
+                                rx.image(
+                                    "/icons/GitHub_dark.svg", class_name=icon_class
+                                ),
+                            ),
+                            "Mit Github anmelden",
+                            variant="outline",
+                            size="3",
+                            class_name="relative flex w-full",
+                            loading=rx.cond(
+                                LoginState.is_loading,
+                                True,
+                                False,
+                            ),
+                            on_click=[
+                                LoginState.login_with_provider(OAuthProvider.GITHUB),
+                            ],
                         ),
-                        "Mit Github anmelden",
-                        variant="outline",
-                        size="3",
-                        class_name="relative flex w-full",
-                        loading=rx.cond(
-                            LoginState.is_loading,
-                            True,
-                            False,
-                        ),
-                        on_click=[
-                            LoginState.login_with_provider(OAuthProvider.GITHUB),
-                        ],
                     ),
-                    rx.button(
-                        rx.image("/icons/microsoft.svg", class_name=icon_class),
-                        "Mit Microsoft anmelden",
-                        variant="outline",
-                        size="3",
-                        class_name="relative flex w-full",
-                        loading=rx.cond(
-                            LoginState.is_loading,
-                            True,
-                            False,
+                    rx.cond(
+                        LoginState.enable_azure_oauth,
+                        rx.button(
+                            rx.image("/icons/microsoft.svg", class_name=icon_class),
+                            "Mit Microsoft anmelden",
+                            variant="outline",
+                            size="3",
+                            class_name="relative flex w-full",
+                            loading=rx.cond(
+                                LoginState.is_loading,
+                                True,
+                                False,
+                            ),
+                            on_click=[
+                                LoginState.login_with_provider(OAuthProvider.AZURE),
+                            ],
                         ),
-                        on_click=[
-                            LoginState.login_with_provider(OAuthProvider.AZURE),
-                        ],
                     ),
                     class_name="w-full gap-1",
                 ),

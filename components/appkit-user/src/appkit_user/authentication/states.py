@@ -116,6 +116,16 @@ class LoginState(UserSession):
     error_message: str = ""
     _oauth_service: OAuthService = OAuthService()
 
+    @rx.var
+    def enable_azure_oauth(self) -> bool:
+        """Whether Azure OAuth is enabled."""
+        return self._oauth_service.azure_enabled
+
+    @rx.var
+    def enable_github_oauth(self) -> bool:
+        """Whether GitHub OAuth is enabled."""
+        return self._oauth_service.github_enabled
+
     @rx.event
     async def login_with_password(self, form_data: dict) -> AsyncGenerator:
         """
