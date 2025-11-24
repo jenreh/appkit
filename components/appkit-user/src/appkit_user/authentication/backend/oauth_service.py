@@ -44,6 +44,8 @@ class OAuthService:
     providers: dict[OAuthProvider, OAuthConfig]
     github_config: GithubOAuthConfig
     azure_config: AzureOAuthConfig
+    azure_enabled: bool = False
+    github_enabled: bool = False
 
     def __init__(self, config: AuthenticationConfiguration | None = None) -> None:
         """Initialize OAuth service with configuration."""
@@ -75,7 +77,9 @@ class OAuthService:
             OAuthProvider.AZURE: self.azure_config,
         }
 
-    def _initialzize_github_config(self, github_config: GithubOAuthConfig) -> None:
+    def _initialzize_github_config(
+        self, github_config: GithubOAuthConfig | None
+    ) -> None:
         if github_config is None:
             self.github_config = GithubOAuthConfig(
                 client_id=os.getenv("GITHUB_CLIENT_ID", ""),
@@ -83,13 +87,14 @@ class OAuthService:
             )
         else:
             self.github_config = github_config
+            self.github_enabled = True
 
         if self.github_config.redirect_url is None:
             self.github_config.redirect_url = (
                 f"{self.server_url}:{self.server_port}/oauth/github/callback"
             )
 
-    def _initialize_azure_config(self, azure_config: AzureOAuthConfig) -> None:
+    def _initialize_azure_config(self, azure_config: AzureOAuthConfig | None) -> None:
         if azure_config is None:
             self.azure_config = AzureOAuthConfig(
                 client_id=os.getenv("AZURE_CLIENT_ID", ""),
@@ -98,6 +103,7 @@ class OAuthService:
             )
         else:
             self.azure_config = azure_config
+            self.azure_enabled = True
 
         if self.azure_config.redirect_url is None:
             self.azure_config.redirect_url = (
@@ -129,7 +135,7 @@ class OAuthService:
     ) -> dict[str, Any]:
         """Normalize user data from different providers."""
         if provider == OAuthProvider.GITHUB:
-            return {
+            user_data = {
                 "id": str(user_data.get("id", "")),
                 "email": user_data.get("email") or "",
                 "name": user_data.get("name") or "",
@@ -138,8 +144,8 @@ class OAuthService:
             }
 
         if provider == OAuthProvider.AZURE:
-            return {
-                "id": user_data.get("sub", ""),
+            user_data = {
+                "id": user_data.get("id") or user_data.get("sub") or "",
                 "email": self._convert_upn_to_email(user_data.get("email"))
                 or user_data.get("mail")
                 or "",
@@ -148,6 +154,7 @@ class OAuthService:
                 "username": user_data.get("preferred_username", ""),
             }
 
+        user_data["email"] = user_data["email"].lower()
         return user_data
 
     def _convert_upn_to_email(self, user_principal_name: str) -> str:

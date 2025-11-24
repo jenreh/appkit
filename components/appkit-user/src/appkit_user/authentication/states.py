@@ -93,8 +93,6 @@ class UserSession(rx.State):
                 session, self.user_id, self.auth_token
             )
 
-        self.auth_token = ""  # Clear the auth_token in local storage
-        self.user_id = 0
         self.reset()
         return rx.clear_session_storage()
 
@@ -115,6 +113,16 @@ class LoginState(UserSession):
 
     error_message: str = ""
     _oauth_service: OAuthService = OAuthService()
+
+    @rx.var
+    def enable_azure_oauth(self) -> bool:
+        """Whether Azure OAuth is enabled."""
+        return self._oauth_service.azure_enabled
+
+    @rx.var
+    def enable_github_oauth(self) -> bool:
+        """Whether GitHub OAuth is enabled."""
+        return self._oauth_service.github_enabled
 
     @rx.event
     async def login_with_password(self, form_data: dict) -> AsyncGenerator:

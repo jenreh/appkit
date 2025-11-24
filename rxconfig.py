@@ -15,8 +15,6 @@ logger = logging.getLogger(__name__)
 database: DatabaseConfig | None = service_registry().get(DatabaseConfig)
 reflex: ReflexConfig | None = service_registry().get(ReflexConfig)
 
-logger.debug("Database URL: %s", database.url)
-
 config = rx.Config(
     app_name="app",
     frontend_port=reflex.frontend_port if reflex else 8080,
