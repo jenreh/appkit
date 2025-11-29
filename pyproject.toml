@@ -56,10 +56,10 @@ appkit-ui = { workspace = true }
 appkit-user = { workspace = true }
 
 [tool.bumpversion]
-current_version = "0.8.0"
 commit = false
+current_version = "0.8.0"
 tag = false
-allow-dirty = true
+allow-dirty = false
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"
