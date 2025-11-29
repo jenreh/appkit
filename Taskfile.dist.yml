@@ -7,6 +7,7 @@ vars:
   PROJECT: appkit
   IMAGE_NAME: appkit
   RUNNER: uv run
+  DRY_RUN: 1
 
 tasks:
   default:
@@ -91,3 +92,21 @@ tasks:
     cmds:
       - echo "🧪 Testing locally built image {{.IMAGE_NAME}}:latest"
       - docker compose up --build
+
+  release:
+    desc: Bump version, sync dependencies, commit, and create GitHub release
+    # Usage: task release -- [major|minor|patch]
+    cmds:
+      # 1. Bump version (uses CLI args if provided, defaults to 'patch')
+      - uvx bump-my-version bump {{.CLI_ARGS | default "patch"}}
+
+      # 2. Sync lockfile with new version
+      - uv sync
+
+      # 3. Commit and push changes
+      - git add -A
+      - 'git commit -m "chore: release v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2)"'
+      - git push
+
+      # 4. Create GitHub release with auto-generated notes
+      - 'gh release create v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2) --generate-notes'
