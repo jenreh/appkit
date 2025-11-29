@@ -77,7 +77,7 @@ class ProfileState(rx.State):
     def set_confirm_password(self, password: str) -> None:
         self.confirm_password = password
         if self.new_password != password:
-            self.password_error = "Passwörter stimmen nicht überein."  # noqa: S105 # pragma: allowlist secret
+            self.password_error = "Passwörter stimmen nicht überein."  # noqa: S105 # gitleaks:allow
         else:
             self.password_error = ""
 

@@ -15,8 +15,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "e28d60677b52"  # pragma: allowlist secret
-down_revision: str | None = "208ad327e9f4"  # pragma: allowlist secret
+revision: str = "e28d60677b52"
+down_revision: str | None = "208ad327e9f4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

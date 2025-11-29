@@ -29,17 +29,6 @@ repos:
         args: ["--fix=lf"]
       - id: name-tests-test
         args: ["--pytest"]
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
-    hooks:
-      - id: detect-secrets
-        args: ["--baseline", ".secrets.baseline"]
-        exclude: |
-          (?x)(
-            package.lock.json|
-            uv.lock|
-            \.secrets\.baseline
-          )  # Exclude lock files and baseline itself
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.0
     hooks:

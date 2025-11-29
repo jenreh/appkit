@@ -1,0 +1,30 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist for uv and reflex.dev"
+paths = [
+    # --- UV Specifics ---
+    '''uv\.lock''', # Essential: uv lockfile hashes look like secrets
+    '''\.venv/.*''', # Just in case venv isn't in .gitignore
+
+    # --- Reflex.dev Specifics ---
+    '''\.web/.*''', # Reflex compiled frontend artifacts
+    '''assets/.*''', # Static assets (images/fonts) can trigger entropy checks
+    '''alembic/versions/.*''', # Migration scripts have random revision IDs
+    '''rxconfig\.py''', # Config often has non-sensitive keys flagged
+
+    # --- Standard Python ---
+    '''tests/.*''',
+    '''__pycache__/.*''',
+]
+regexes = [
+    # Matches "secret:" followed by letters, numbers, dashes, or underscores
+    '''secret:[a-zA-Z0-9\-_]+''',
+]
+
+[[rules]]
+# Ignore the specific dummy secret if you use Reflex's tutorial templates
+id = "reflex-dummy-secret"
+description = "Ignore Reflex tutorial dummy keys"
+regex = '''(my_secret_key|sk_test_4eC39HqLyjWDarjtT1zdp7dc)'''

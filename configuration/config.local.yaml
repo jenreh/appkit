@@ -16,11 +16,11 @@ app:
 
     oauth_providers:
       - provider: "github"
-        client_id: secret:mn-oauth-github-client-id # pragma: allowlist secret
-        client_secret: secret:mn-oauth-github-client-secret # pragma: allowlist secret
+        client_id: secret:mn-oauth-github-client-id
+        client_secret: secret:mn-oauth-github-client-secret
         redirect_url: http://localhost:8080/oauth/github/callback
       - provider: "azure"
-        client_id: secret:mn-oauth-azure-client-id # pragma: allowlist secret
-        client_secret: secret:mn-oauth-azure-client-secret # pragma: allowlist secret
-        tenant_id: secret:mn-oauth-azure-tenant-id # pragma: allowlist secret
+        client_id: secret:mn-oauth-azure-client-id
+        client_secret: secret:mn-oauth-azure-client-secret
+        tenant_id: secret:mn-oauth-azure-tenant-id
         redirect_url: http://localhost:8080/oauth/azure/callback

@@ -14,12 +14,12 @@ app:
   backend_timeout: 180 # seconds
 
   database:
-    username: secret:mn-db-user # pragma: allowlist secret
-    password: secret:mn-db-password # pragma: allowlist secret
-    host: secret:mn-db-host # pragma: allowlist secret
+    username: secret:mn-db-user
+    password: secret:mn-db-password
+    host: secret:mn-db-host
     port: 5432
-    name: secret:mn-db-name # pragma: allowlist secret
-    encryption_key: secret:mn-db-encryption-key # pragma: allowlist secret
+    name: secret:mn-db-name
+    encryption_key: secret:mn-db-encryption-key
     pool_size: 10 # change only when needed
     max_overflow: 30 # change only when needed
     echo: False # Set to True to enable SQL logging
@@ -32,18 +32,18 @@ app:
 
     oauth_providers:
       - provider: "github"
-        client_id: secret:mn-oauth-github-client-id # pragma: allowlist secret
-        client_secret: secret:mn-oauth-github-client-secret # pragma: allowlist secret
+        client_id: secret:mn-oauth-github-client-id
+        client_secret: secret:mn-oauth-github-client-secret
         redirect_url: https://localhost:8080/oauth/github/callback
 
   assistant:
-    perplexity_api_key: secret:mn-perplexity-api-key # pragma: allowlist secret
+    perplexity_api_key: secret:mn-perplexity-api-key
     openai_base_url: secret:mn-openai-api-endpoint
-    openai_api_key: secret:mn-openai-api-key # pragma: allowlist secret
+    openai_api_key: secret:mn-openai-api-key
 
   imagegenerator:
-    blackforestlabs_api_key: secret:mn-blackforestlabs-api-key # pragma allowlist secret
-    google_api_key: secret:mn-google-api-key # pragma: allowlist secret
-    openai_api_key: secret:mn-openai-api-key # pragma: allowlist secret
-    openai_base_url: secret:mn-openai-api-endpoint # pragma: allowlist secret
+    blackforestlabs_api_key: secret:mn-blackforestlabs-api-key
+    google_api_key: secret:mn-google-api-key
+    openai_api_key: secret:mn-openai-api-key
+    openai_base_url: secret:mn-openai-api-endpoint
     tmp_dir: ./uploaded_files
