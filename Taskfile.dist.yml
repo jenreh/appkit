@@ -105,7 +105,7 @@ tasks:
 
       # 3. Commit and push changes
       - git add -A
-      - 'git commit -m "chore: release v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2)"'
+      - 'git diff --cached --quiet || git commit -m "chore: release v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2)"'
       - git push
 
       # 4. Create GitHub release with auto-generated notes
