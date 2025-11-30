@@ -1,8 +1,9 @@
+from datetime import datetime
 from enum import StrEnum
 
 import reflex as rx
 from pydantic import BaseModel
-from sqlmodel import Field
+from sqlmodel import Column, DateTime, Field
 
 from appkit_commons.database.entities import EncryptedString
 
@@ -92,6 +93,14 @@ class ThreadModel(BaseModel):
     ai_model: str = ""
 
 
+class MCPAuthType(StrEnum):
+    """Enum for MCP server authentication types."""
+
+    NONE = "none"
+    API_KEY = "api_key"
+    OAUTH_DISCOVERY = "oauth_discovery"
+
+
 class MCPServer(rx.Model, table=True):
     """Model for MCP (Model Context Protocol) server configuration."""
 
@@ -103,3 +112,38 @@ class MCPServer(rx.Model, table=True):
     url: str = Field(nullable=False)
     headers: str = Field(nullable=False, sa_type=EncryptedString)
     prompt: str = Field(default="", max_length=2000, nullable=True)
+
+    # Authentication type
+    auth_type: str = Field(default=MCPAuthType.NONE, nullable=False)
+
+    # Optional discovery URL override
+    discovery_url: str | None = Field(default=None, nullable=True)
+
+    # Cached OAuth/Discovery metadata (read-only for user mostly)
+    oauth_issuer: str | None = Field(default=None, nullable=True)
+    oauth_authorize_url: str | None = Field(default=None, nullable=True)
+    oauth_token_url: str | None = Field(default=None, nullable=True)
+    oauth_scopes: str | None = Field(
+        default=None, nullable=True
+    )  # Space separated scopes
+
+    # Timestamp when discovery was last successfully run
+    oauth_discovered_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+
+
+class SystemPrompt(rx.Model, table=True):
+    """Model for system prompt versioning and management.
+
+    Each save creates a new immutable version. Supports up to 20,000 characters.
+    """
+
+    __tablename__ = "system_prompt"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=200, nullable=False)
+    prompt: str = Field(max_length=20000, nullable=False)
+    version: int = Field(nullable=False)
+    user_id: int = Field(nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

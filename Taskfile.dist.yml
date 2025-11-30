@@ -88,6 +88,12 @@ tasks:
   # Database Commands (Namespace: db)
   # ----------------------------------------------------------------------------
 
+  db:revision:
+    desc: |
+      Create new Alembic migration (Usage: task db:revision -- "your message here")
+    cmds:
+      - '{{.RUNNER}} alembic revision -m "{{.CLI_ARGS}}"'
+
   db:current:
     desc: Run alembic current (check migration status)
     cmd: "{{.RUNNER}} alembic current"
