@@ -1,7 +1,3 @@
-# app/components/system_prompt_editor.py
-
-"""System Prompt Editor UI Komponente."""
-
 import reflex as rx
 
 import appkit_mantine as mn
@@ -10,7 +6,13 @@ from appkit_ui.components.dialogs import delete_dialog
 
 
 def system_prompt_editor() -> rx.Component:
-    """Admin-UI für das System Prompt Versioning mit appkit-mantine & appkit-ui."""
+    """Admin-UI für das System Prompt Versioning mit appkit-mantine & appkit-ui.
+
+    Uses a hybrid approach for the textarea:
+    - default_value + on_change prevents cursor jumping during typing
+    - key prop forces re-render when selecting a different version
+    - This gives us both smooth editing AND the ability to update from select
+    """
     return rx.vstack(
         mn.markdown_preview(
             source=(
@@ -31,19 +33,16 @@ automatisch einfügen kann."""
             rows=21,
             variant="filled",
             width="100%",
+            key=SystemPromptState.textarea_key,
         ),
         rx.hstack(
             mn.select(
                 placeholder="Aktuell",
                 data=SystemPromptState.versions,
-                value=rx.cond(
-                    SystemPromptState.selected_version_id == 0,
-                    "",
-                    str(SystemPromptState.selected_version_id),
-                ),
+                value=SystemPromptState.selected_version_str,
                 on_change=SystemPromptState.set_selected_version,
-                clearable=True,
-                searchable=True,
+                clearable=False,
+                searchable=False,
                 width="280px",
             ),
             delete_dialog(
@@ -52,6 +51,8 @@ automatisch einfügen kann."""
                 on_click=SystemPromptState.delete_version,
                 icon_button=True,
                 class_name="dialog",
+                variant="outline",
+                color_scheme="red",
                 disabled=SystemPromptState.is_loading
                 | (SystemPromptState.selected_version_id == 0),
             ),

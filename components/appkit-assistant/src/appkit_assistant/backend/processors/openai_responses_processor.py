@@ -12,7 +12,7 @@ from appkit_assistant.backend.models import (
     MessageType,
 )
 from appkit_assistant.backend.processors.openai_base import BaseOpenAIProcessor
-from appkit_assistant.backend.system_prompt import SYSTEM_PROMPT
+from appkit_assistant.backend.system_prompt_cache import get_system_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -404,7 +404,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         )
 
         # Convert messages to responses format with system message
-        input_messages = self._convert_messages_to_responses_format(
+        input_messages = await self._convert_messages_to_responses_format(
             messages, mcp_prompt=mcp_prompt
         )
 
@@ -453,7 +453,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         prompt_string = "\n".join(prompts) if prompts else ""
         return tools, prompt_string
 
-    def _convert_messages_to_responses_format(
+    async def _convert_messages_to_responses_format(
         self, messages: list[Message], mcp_prompt: str = ""
     ) -> list[dict[str, Any]]:
         """Convert messages to the responses API input format.
@@ -471,7 +471,8 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         else:
             mcp_prompt = ""
 
-        system_text = SYSTEM_PROMPT.format(mcp_prompts=mcp_prompt)
+        system_prompt_template = await get_system_prompt()
+        system_text = system_prompt_template.format(mcp_prompts=mcp_prompt)
         input_messages.append(
             {
                 "role": "system",
