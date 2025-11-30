@@ -79,6 +79,14 @@ def navbar_admin_items() -> rx.Component:
             ),
             role=ASSISTANT_ROLE.name,
         ),
+        requires_role(
+            admin_sidebar_item(
+                label="System Prompt",
+                icon="plug",
+                url="/admin/system-prompt",
+            ),
+            role=ASSISTANT_ROLE.name,
+        ),
         width="95%",
         spacing="1",
     )

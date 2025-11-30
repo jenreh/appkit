@@ -1,13 +1,18 @@
 # app/state/system_prompt_state.py
 
 import logging
+from collections.abc import AsyncGenerator
+from typing import Any, Final
 
 import reflex as rx
 from reflex.state import State
 
 from appkit_assistant.backend.repositories import SystemPromptRepository
+from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
+
+MAX_PROMPT_LENGTH: Final[int] = 10000
 
 
 class SystemPromptState(State):
@@ -29,10 +34,11 @@ class SystemPromptState(State):
             prompts = await SystemPromptRepository.get_all()
             self.versions = [
                 {
-                    "id": p.id,
-                    "version": p.version,
-                    "created_at": p.created_at.strftime("%d.%m.%Y %H:%M"),
-                    "user_id": p.user_id,
+                    "value": str(p.version),
+                    "label": (
+                        f"Version {p.version} - "
+                        f"{p.created_at.strftime('%d.%m.%Y %H:%M')}"
+                    ),
                 }
                 for p in prompts
             ]
@@ -62,7 +68,7 @@ class SystemPromptState(State):
         self.current_prompt = value
         self.char_count = len(value)
 
-    async def save_current(self) -> None:
+    async def save_current(self) -> AsyncGenerator[Any, Any]:
         # ... (unverändert)
         if self.current_prompt == self.last_saved_prompt:
             await rx.toast.info("Es wurden keine Änderungen erkannt.")
@@ -73,7 +79,7 @@ class SystemPromptState(State):
             await rx.toast.error("Prompt darf nicht leer sein.")
             return
 
-        if len(self.current_prompt) > 20000:
+        if len(self.current_prompt) > MAX_PROMPT_LENGTH:
             self.error_message = "Prompt darf maximal 20.000 Zeichen enthalten."
             await rx.toast.error("Prompt ist zu lang (max. 20.000 Zeichen).")
             return
@@ -81,7 +87,8 @@ class SystemPromptState(State):
         self.is_loading = True
         self.error_message = ""
         try:
-            user_id = int(self.router.session.client_token.get("user_id", 0))
+            user_session: UserSession = await self.get_state(UserSession)
+            user_id = user_session.user_id
 
             await SystemPromptRepository.create(
                 prompt=self.current_prompt,
@@ -91,7 +98,7 @@ class SystemPromptState(State):
             self.last_saved_prompt = self.current_prompt
             await self.load_versions()
 
-            await rx.toast.success("Neue Version erfolgreich gespeichert.")
+            yield rx.toast.success("Neue Version erfolgreich gespeichert.")
             logger.info("Saved new system prompt version by user %s", user_id)
         except Exception as exc:
             self.error_message = f"Fehler beim Speichern: {exc!s}"
@@ -115,7 +122,8 @@ class SystemPromptState(State):
                 self.current_prompt = prompt.prompt
                 self.char_count = len(prompt.prompt)  # Update Zähler
                 await rx.toast.success(
-                    f"Auf Version {prompt.version} zurückgesetzt (noch nicht gespeichert)."
+                    f"Auf Version {prompt.version} zurückgesetzt "
+                    "(noch nicht gespeichert)."
                 )
                 logger.info("Reverted current draft to version %s", prompt.version)
             else:

@@ -1,10 +1,11 @@
 """Repository for MCP server data access operations."""
 
 import logging
+from datetime import UTC, datetime
 
 import reflex as rx
 
-from appkit_assistant.backend.models import MCPServer
+from appkit_assistant.backend.models import MCPServer, SystemPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -93,4 +94,90 @@ class MCPServerRepository:
                 logger.debug("Deleted MCP server: %s", server.name)
                 return True
             logger.warning("MCP server with ID %s not found for deletion", server_id)
+            return False
+
+
+class SystemPromptRepository:
+    """Repository class for system prompt database operations.
+
+    Implements append-only versioning with full CRUD capabilities.
+    """
+
+    @staticmethod
+    async def get_all() -> list[SystemPrompt]:
+        """Retrieve all system prompt versions ordered by version descending."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                SystemPrompt.select().order_by(SystemPrompt.version.desc())
+            )
+            return result.all()
+
+    @staticmethod
+    async def get_latest() -> SystemPrompt | None:
+        """Retrieve the latest system prompt version."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                SystemPrompt.select().order_by(SystemPrompt.version.desc()).limit(1)
+            )
+            return result.first()
+
+    @staticmethod
+    async def get_by_id(prompt_id: int) -> SystemPrompt | None:
+        """Retrieve a system prompt by ID."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                SystemPrompt.select().where(SystemPrompt.id == prompt_id)
+            )
+            return result.first()
+
+    @staticmethod
+    async def create(prompt: str, user_id: int) -> SystemPrompt:
+        """Neue System Prompt Version anlegen.
+
+        Version ist fortlaufende Ganzzahl, beginnend bei 1.
+        """
+        async with rx.asession() as session:
+            result = await session.exec(
+                SystemPrompt.select().order_by(SystemPrompt.version.desc()).limit(1)
+            )
+            latest = result.first()
+            next_version = (latest.version + 1) if latest else 1
+
+            name = f"Version {next_version}"
+
+            system_prompt = SystemPrompt(
+                name=name,
+                prompt=prompt,
+                version=next_version,
+                user_id=user_id,
+                created_at=datetime.now(UTC),
+            )
+            session.add(system_prompt)
+            await session.commit()
+            await session.refresh(system_prompt)
+
+            logger.info(
+                "Created system prompt version %s for user %s",
+                next_version,
+                user_id,
+            )
+            return system_prompt
+
+    @staticmethod
+    async def delete(prompt_id: int) -> bool:
+        """Delete a system prompt version by ID."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                SystemPrompt.select().where(SystemPrompt.id == prompt_id)
+            )
+            prompt = result.first()
+            if prompt:
+                await session.delete(prompt)
+                await session.commit()
+                logger.info("Deleted system prompt version: %s", prompt.version)
+                return True
+            logger.warning(
+                "System prompt with ID %s not found for deletion",
+                prompt_id,
+            )
             return False
