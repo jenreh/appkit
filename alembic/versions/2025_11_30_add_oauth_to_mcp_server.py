@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "2025_11_30_add_oauth_to_mcp_server"
+revision: str = "20251130_add_oauth_to_mcp_server"
 down_revision: str | None = "5f4e3d2c1b0a"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

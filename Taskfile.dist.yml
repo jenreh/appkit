@@ -143,3 +143,25 @@ tasks:
       - 'git diff --cached --quiet || git commit -m "chore: release v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2)"'
       - git push
       - 'gh release create v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2) --generate-notes'
+
+  # ----------------------------------------------------------------------------
+  # PyPI Publishing Commands (Namespace: publish)
+  # ----------------------------------------------------------------------------
+
+  release:publish:
+    desc: Build and publish all library modules to PyPI
+    cmds:
+      - echo "📦 Building and publishing appkit-assistant..."
+      - uv build --package appkit-assistant
+      - echo "📦 Building and publishing appkit-commons..."
+      - uv build --package appkit-commons
+      - echo "📦 Building and publishing appkit-imagecreator..."
+      - uv build --package appkit-imagecreator
+      - echo "📦 Building and publishing appkit-mantine..."
+      - uv build --package appkit-mantine
+      - echo "📦 Building and publishing appkit-ui..."
+      - uv build --package appkit-ui
+      - echo "📦 Building and publishing appkit-user..."
+      - uv build --package appkit-user
+      - uv publish
+      - echo "✅ All modules published successfully"
