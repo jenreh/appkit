@@ -216,9 +216,9 @@ class ThreadState(rx.State):
     @rx.var
     def last_assistant_message_text(self) -> str:
         """Get the text of the last assistant message in the conversation."""
-        for i in range(len(self.messages) - 1, -1, -1):
-            if self.messages[i].type == MessageType.ASSISTANT:
-                return self.messages[i].text
+        for message in reversed(self.messages):
+            if message.type == MessageType.ASSISTANT:
+                return message.text
         return ""
 
     @rx.var
@@ -516,8 +516,9 @@ class ThreadState(rx.State):
         tool_id = chunk.chunk_metadata.get("tool_id")
         if not tool_id:
             # Generate a tool ID if not provided
-            tool_count = len(
-                [i for i in self.thinking_items if i.type == ThinkingType.TOOL_CALL]
+            # Use generator expression for memory efficiency
+            tool_count = sum(
+                1 for i in self.thinking_items if i.type == ThinkingType.TOOL_CALL
             )
             tool_id = f"tool_{tool_count}"
 
