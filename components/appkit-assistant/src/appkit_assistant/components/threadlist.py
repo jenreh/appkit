@@ -46,22 +46,26 @@ class ThreadList:
                 min_width="0",
                 title=thread.title,
             ),
-            rx.tooltip(
-                rx.button(
-                    rx.icon(
-                        "trash",
-                        size=13,
-                        stroke_width=1.5,
+            rx.cond(
+                ThreadListState.loading_thread_id == thread.thread_id,
+                rx.spinner(size="1", margin_left="6px", margin_right="6px"),
+                rx.tooltip(
+                    rx.button(
+                        rx.icon(
+                            "trash",
+                            size=13,
+                            stroke_width=1.5,
+                        ),
+                        variant="ghost",
+                        size="1",
+                        margin_left="0px",
+                        margin_right="0px",
+                        color_scheme="gray",
+                        on_click=ThreadListState.delete_thread(thread.thread_id),
                     ),
-                    variant="ghost",
-                    size="1",
-                    margin_left="0px",
-                    margin_right="0px",
-                    color_scheme="gray",
-                    on_click=ThreadListState.delete_thread(thread.thread_id),
+                    content="Chat löschen",
+                    flex_shrink=0,
                 ),
-                content="Chat löschen",
-                flex_shrink=0,
             ),
             on_click=ThreadListState.select_thread(thread.thread_id),
             flex_direction=["row"],
@@ -108,27 +112,37 @@ class ThreadList:
         """List component for displaying threads."""
         return rx.scroll_area(
             rx.cond(
-                ThreadListState.has_threads,
-                rx.foreach(
-                    ThreadListState.threads,
-                    ThreadList.thread_list_item,
+                ThreadListState.loading,
+                rx.vstack(
+                    rx.skeleton(height="40px", width="100%"),
+                    rx.skeleton(height="40px", width="100%"),
+                    rx.skeleton(height="40px", width="100%"),
+                    spacing="2",
                 ),
-                rx.text(
-                    "Keine Chats vorhanden.",
-                    size="2",
-                    white_space="nowrap",
-                    overflow="hidden",
-                    text_overflow="ellipsis",
-                    flex_grow="1",
-                    min_width="0",
-                    margin_right="10px",
-                    margin_bottom="8px",
-                    padding="6px",
-                    align="center",
+                rx.cond(
+                    ThreadListState.has_threads,
+                    rx.foreach(
+                        ThreadListState.threads,
+                        ThreadList.thread_list_item,
+                    ),
+                    rx.text(
+                        "Keine Chats vorhanden.",
+                        size="2",
+                        white_space="nowrap",
+                        overflow="hidden",
+                        text_overflow="ellipsis",
+                        flex_grow="1",
+                        min_width="0",
+                        margin_right="10px",
+                        margin_bottom="8px",
+                        padding="6px",
+                        align="center",
+                    ),
                 ),
             ),
             scrollbars="vertical",
             padding_right="3px",
             type="auto",
+            on_mount=ThreadListState.load_threads,
             **props,
         )

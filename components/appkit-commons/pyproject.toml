@@ -32,7 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 azure = [
-    "azure-identity==1.23.1",
+    "azure-identity==1.25.1",
     "azure-keyvault-secrets==4.10.0",
 ]
 

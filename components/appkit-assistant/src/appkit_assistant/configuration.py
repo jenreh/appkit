@@ -8,3 +8,4 @@ class AssistantConfig(BaseConfig):
     openai_base_url: str | None = None
     openai_api_key: SecretStr | None = None
     google_api_key: SecretStr | None = None
+    azure_ai_projects_endpoint: str | None = None

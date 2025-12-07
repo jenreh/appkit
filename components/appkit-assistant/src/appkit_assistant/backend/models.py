@@ -1,9 +1,12 @@
+import json
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 import reflex as rx
 from pydantic import BaseModel
 from sqlalchemy import Unicode
+from sqlalchemy.sql import func
 from sqlalchemy_utils import StringEncryptedType
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 from sqlmodel import Column, DateTime, Field
@@ -14,6 +17,21 @@ from appkit_commons.registry import service_registry
 
 db_config = service_registry().get(DatabaseConfig)
 SECRET_VALUE = db_config.encryption_key.get_secret_value()
+
+
+class EncryptedJSON(EncryptedString):
+    """Custom type for storing encrypted JSON data."""
+
+    def process_bind_param(self, value: Any, dialect: Any) -> str | None:
+        if value is not None:
+            value = json.dumps(value)
+        return super().process_bind_param(value, dialect)
+
+    def process_result_value(self, value: Any, dialect: Any) -> Any | None:
+        value = super().process_result_value(value, dialect)
+        if value is not None:
+            return json.loads(value)
+        return value
 
 
 class ChunkType(StrEnum):
@@ -112,7 +130,7 @@ class MCPAuthType(StrEnum):
 class MCPServer(rx.Model, table=True):
     """Model for MCP (Model Context Protocol) server configuration."""
 
-    __tablename__ = "mcp_server"
+    __tablename__ = "assistant_mcp_servers"
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(unique=True, max_length=100, nullable=False)
@@ -144,7 +162,7 @@ class MCPServer(rx.Model, table=True):
 class OpenAIAgent(rx.Model, table=True):
     """Model for OpenAI Agent configuration."""
 
-    __tablename__ = "openai_agent"
+    __tablename__ = "assistant_agents"
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(unique=True, max_length=100, nullable=False)
@@ -163,7 +181,7 @@ class SystemPrompt(rx.Model, table=True):
     Each save creates a new immutable version. Supports up to 20,000 characters.
     """
 
-    __tablename__ = "system_prompt"
+    __tablename__ = "assistant_system_prompt"
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200, nullable=False)
@@ -171,3 +189,26 @@ class SystemPrompt(rx.Model, table=True):
     version: int = Field(nullable=False)
     user_id: int = Field(nullable=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AssistantThread(rx.Model, table=True):
+    """Model for storing chat threads in the database."""
+
+    __tablename__ = "assistant_thread"
+
+    id: int | None = Field(default=None, primary_key=True)
+    thread_id: str = Field(unique=True, index=True, nullable=False)
+    user_id: int = Field(index=True, nullable=False)
+    title: str = Field(default="", nullable=False)
+    state: str = Field(default=ThreadStatus.NEW, nullable=False)
+    ai_model: str = Field(default="", nullable=False)
+    active: bool = Field(default=False, nullable=False)
+    messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    )

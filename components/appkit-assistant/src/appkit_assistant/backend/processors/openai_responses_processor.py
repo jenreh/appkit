@@ -454,7 +454,10 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         return tools, prompt_string
 
     async def _convert_messages_to_responses_format(
-        self, messages: list[Message], mcp_prompt: str = ""
+        self,
+        messages: list[Message],
+        mcp_prompt: str = "",
+        use_system_prompt: bool = True,
     ) -> list[dict[str, Any]]:
         """Convert messages to the responses API input format.
 
@@ -471,14 +474,15 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         else:
             mcp_prompt = ""
 
-        system_prompt_template = await get_system_prompt()
-        system_text = system_prompt_template.format(mcp_prompts=mcp_prompt)
-        input_messages.append(
-            {
-                "role": "system",
-                "content": [{"type": "input_text", "text": system_text}],
-            }
-        )
+        if use_system_prompt:
+            system_prompt_template = await get_system_prompt()
+            system_text = system_prompt_template.format(mcp_prompts=mcp_prompt)
+            input_messages.append(
+                {
+                    "role": "system",
+                    "content": [{"type": "input_text", "text": system_text}],
+                }
+            )
 
         # Add conversation messages
         for msg in messages:

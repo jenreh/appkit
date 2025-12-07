@@ -258,10 +258,15 @@ def add_mcp_server_button() -> rx.Component:
         rx.dialog.trigger(
             rx.button(
                 rx.icon("plus"),
-                rx.text("Neuen MCP Server anlegen", display=["none", "none", "block"]),
-                size="3",
+                rx.text(
+                    "Neuen MCP Server anlegen",
+                    display=["none", "none", "block"],
+                    size="2",
+                ),
+                size="2",
                 variant="solid",
                 on_click=[ValidationState.initialize(server=None)],
+                margin_bottom="15px",
             ),
         ),
         rx.dialog.content(

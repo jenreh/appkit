@@ -4,8 +4,17 @@ import logging
 from datetime import UTC, datetime
 
 import reflex as rx
+from sqlalchemy.orm import defer
 
-from appkit_assistant.backend.models import MCPServer, OpenAIAgent, SystemPrompt
+from appkit_assistant.backend.models import (
+    AssistantThread,
+    MCPServer,
+    Message,
+    OpenAIAgent,
+    SystemPrompt,
+    ThreadModel,
+    ThreadStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +114,17 @@ class OpenAIAgentRepository:
         """Retrieve all OpenAI Agents ordered by name."""
         async with rx.asession() as session:
             result = await session.exec(OpenAIAgent.select().order_by(OpenAIAgent.name))
+            return result.all()
+
+    @staticmethod
+    async def get_all_active() -> list[OpenAIAgent]:
+        """Retrieve all active OpenAI Agents ordered by name."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                OpenAIAgent.select()
+                .where(OpenAIAgent.is_active == True)  # noqa: E712
+                .order_by(OpenAIAgent.name)
+            )
             return result.all()
 
     @staticmethod
@@ -268,3 +288,135 @@ class SystemPromptRepository:
                 prompt_id,
             )
             return False
+
+
+class ThreadRepository:
+    """Repository class for Thread database operations."""
+
+    @staticmethod
+    async def get_by_user(user_id: int) -> list[ThreadModel]:
+        """Retrieve all threads for a user."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                AssistantThread.select()
+                .where(AssistantThread.user_id == user_id)
+                .order_by(AssistantThread.updated_at.desc())
+            )
+            threads = result.all()
+            return [
+                ThreadModel(
+                    thread_id=t.thread_id,
+                    title=t.title,
+                    state=ThreadStatus(t.state),
+                    ai_model=t.ai_model,
+                    active=t.active,
+                    messages=[Message(**m) for m in t.messages],
+                )
+                for t in threads
+            ]
+
+    @staticmethod
+    async def save_thread(thread: ThreadModel, user_id: int) -> None:
+        """Save or update a thread."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                AssistantThread.select().where(
+                    AssistantThread.thread_id == thread.thread_id
+                )
+            )
+            db_thread = result.first()
+
+            messages_dict = [m.dict() for m in thread.messages]
+
+            if db_thread:
+                # Ensure user owns the thread or handle shared threads logic if needed
+                # For now, we assume thread_id is unique enough,
+                # but checking user_id is safer
+                if db_thread.user_id != user_id:
+                    logger.warning(
+                        "User %s tried to update thread %s belonging to user %s",
+                        user_id,
+                        thread.thread_id,
+                        db_thread.user_id,
+                    )
+                    return
+
+                db_thread.title = thread.title
+                db_thread.state = thread.state.value
+                db_thread.ai_model = thread.ai_model
+                db_thread.active = thread.active
+                db_thread.messages = messages_dict
+                session.add(db_thread)
+            else:
+                db_thread = AssistantThread(
+                    thread_id=thread.thread_id,
+                    user_id=user_id,
+                    title=thread.title,
+                    state=thread.state.value,
+                    ai_model=thread.ai_model,
+                    active=thread.active,
+                    messages=messages_dict,
+                )
+                session.add(db_thread)
+
+            await session.commit()
+
+    @staticmethod
+    async def delete_thread(thread_id: str, user_id: int) -> None:
+        """Delete a thread."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                AssistantThread.select().where(
+                    AssistantThread.thread_id == thread_id,
+                    AssistantThread.user_id == user_id,
+                )
+            )
+            thread = result.first()
+            if thread:
+                await session.delete(thread)
+                await session.commit()
+
+    @staticmethod
+    async def get_summaries_by_user(user_id: int) -> list[ThreadModel]:
+        """Retrieve thread summaries (no messages) for a user."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                AssistantThread.select()
+                .where(AssistantThread.user_id == user_id)
+                .options(defer(AssistantThread.messages))
+                .order_by(AssistantThread.updated_at.desc())
+            )
+            threads = result.all()
+            return [
+                ThreadModel(
+                    thread_id=t.thread_id,
+                    title=t.title,
+                    state=ThreadStatus(t.state),
+                    ai_model=t.ai_model,
+                    active=t.active,
+                    messages=[],  # Empty messages for summary
+                )
+                for t in threads
+            ]
+
+    @staticmethod
+    async def get_thread_by_id(thread_id: str, user_id: int) -> ThreadModel | None:
+        """Retrieve a full thread by ID."""
+        async with rx.asession() as session:
+            result = await session.exec(
+                AssistantThread.select().where(
+                    AssistantThread.thread_id == thread_id,
+                    AssistantThread.user_id == user_id,
+                )
+            )
+            t = result.first()
+            if not t:
+                return None
+            return ThreadModel(
+                thread_id=t.thread_id,
+                title=t.title,
+                state=ThreadStatus(t.state),
+                ai_model=t.ai_model,
+                active=t.active,
+                messages=[Message(**m) for m in t.messages],
+            )

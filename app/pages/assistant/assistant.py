@@ -1,5 +1,6 @@
 """Welcome to Reflex! This file outlines the steps to create a basic app."""
 
+import asyncio
 import logging
 
 import reflex as rx
@@ -7,11 +8,11 @@ import reflex as rx
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.models import AIModel
 from appkit_assistant.backend.processors.ai_models import (
-    GPT_5,
     GPT_5_1,
     GPT_5_MINI,
-    O4_MINI,
-    GPT_4o,
+)
+from appkit_assistant.backend.processors.azure_agent_processor import (
+    AzureAgentProcessor,
 )
 from appkit_assistant.backend.processors.lorem_ipsum_processor import (
     LoremIpsumProcessor,
@@ -19,11 +20,7 @@ from appkit_assistant.backend.processors.lorem_ipsum_processor import (
 from appkit_assistant.backend.processors.openai_responses_processor import (
     OpenAIResponsesProcessor,
 )
-from appkit_assistant.backend.processors.perplexity_processor import (
-    SONAR,
-    SONAR_DEEP_RESEARCH,
-    PerplexityProcessor,
-)
+from appkit_assistant.backend.repositories import OpenAIAgentRepository
 from appkit_assistant.components import (
     Suggestion,
 )
@@ -65,21 +62,19 @@ def initialize_model_manager() -> list[AIModel]:
     model_manager.register_processor("lorem_ipsum", LoremIpsumProcessor())
     config = service_registry().get(AssistantConfig)
 
-    if config.perplexity_api_key is not None:
-        model_manager.register_processor(
-            "perplexity",
-            PerplexityProcessor(
-                api_key=config.perplexity_api_key.get_secret_value(),
-                models={SONAR.id: SONAR, SONAR_DEEP_RESEARCH.id: SONAR_DEEP_RESEARCH},
-            ),
-        )
+    # if config.perplexity_api_key is not None:
+    #     model_manager.register_processor(
+    #         "perplexity",
+    #         PerplexityProcessor(
+    #             api_key=config.perplexity_api_key.get_secret_value(),
+    #             models={SONAR.id: SONAR, SONAR_DEEP_RESEARCH.id: SONAR_DEEP_RESEARCH},
+    #         ),
+    #     )
 
     models = {
-        GPT_5.id: GPT_5,
+        # GPT_5.id: GPT_5,
         GPT_5_1.id: GPT_5_1,
         GPT_5_MINI.id: GPT_5_MINI,
-        GPT_4o.id: GPT_4o,
-        O4_MINI.id: O4_MINI,
     }
 
     model_manager.register_processor(
@@ -91,6 +86,40 @@ def initialize_model_manager() -> list[AIModel]:
             is_azure=True,
         ),
     )
+
+    # Register Azure Agent processors from database
+    try:
+        active_agents = asyncio.run(OpenAIAgentRepository.get_all_active())
+
+        for agent in active_agents:
+            agent_model = AIModel(
+                id=f"azure-agent-{agent.id}",
+                text=agent.name,
+                description=agent.description,
+                icon="bot",
+                stream=True,
+                supports_tools=False,
+                model="agent_reference",
+            )
+            model_manager.register_processor(
+                agent_model.id,
+                AzureAgentProcessor(
+                    endpoint=agent.endpoint,
+                    models={agent_model.id: agent_model},
+                    api_key=agent.api_key,
+                    name=agent.name,
+                ),
+            )
+            logger.info(
+                "Registered Azure Agent processor: %s (ID: %d)",
+                agent.name,
+                agent.id,
+            )
+    except Exception as e:
+        logger.warning(
+            "Failed to load Azure Agents from database: %s",
+            str(e),
+        )
 
     model_manager.set_default_model(GPT_5_MINI.id)
     return model_manager.get_all_models()
@@ -107,9 +136,9 @@ default_model = ModelManager().get_default_model()
     navbar=app_navbar(),
     with_header=True,
     on_load=[
-        ThreadState.initialize(),
         ThreadState.set_initial_suggestions(suggestions),
         ThreadListState.initialize(autosave=True, auto_create_default=True),
+        ThreadState.initialize(),
     ],
 )
 def assistant_page() -> rx.Component:
@@ -140,7 +169,9 @@ def assistant_page() -> rx.Component:
                     rx.vstack(
                         rx.center(
                             Assistant.thread(
-                                welcome_message="👋 Hallo, wie kann ich Dir heute helfen?",
+                                welcome_message=(
+                                    "👋 Hallo, wie kann ich Dir heute helfen?"
+                                ),
                                 with_attachments=False,
                                 with_scroll_to_bottom=False,
                                 with_thread_list=True,

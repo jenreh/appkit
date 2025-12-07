@@ -182,10 +182,13 @@ def add_openai_agent_button() -> rx.Component:
         rx.dialog.trigger(
             rx.button(
                 rx.icon("plus"),
-                rx.text("Neuen Agent anlegen", display=["none", "none", "block"]),
-                size="3",
+                rx.text(
+                    "Neuen Agent anlegen", display=["none", "none", "block"], size="2"
+                ),
+                size="2",
                 variant="solid",
                 on_click=[OpenAIAgentValidationState.initialize(agent=None)],
+                margin_bottom="15px",
             ),
         ),
         rx.dialog.content(

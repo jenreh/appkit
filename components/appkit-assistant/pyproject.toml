@@ -1,4 +1,13 @@
 [project]
+dependencies = [
+    "appkit-commons",
+    "appkit-mantine",
+    "appkit-ui",
+    "azure-ai-projects>=2.0.0b2",
+    "azure-identity==1.25.1",
+    "openai>=2.3.0",
+    "reflex>=0.8.20",
+]
 name = "appkit-assistant"
 version = "0.9.0"
 description = "Add your description here"
@@ -20,13 +29,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: User Interfaces",
-]
-dependencies = [
-    "appkit-commons",
-    "appkit-mantine",
-    "appkit-ui",
-    "openai>=2.3.0",
-    "reflex>=0.8.20",
 ]
 
 [project.urls]

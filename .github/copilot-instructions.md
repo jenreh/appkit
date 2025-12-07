@@ -18,7 +18,8 @@ description: "Main Copilot instructions for the appkit project - Reflex-Mantine 
 3. **Small, safe changes.** Prefer smallest viable diff; add tests for new behavior **before** code.
 4. **Consistency > cleverness.** Follow this file’s SOPs and stack idioms.
 5. **Memory multiplies.** Persist decisions, patterns, error signatures, and proven fixes.
-6. Do not generate extensive documentation, summaries or comments unless explicitly requested.
+6. Do NOT generate extensive documentation, summaries or comments unless explicitly requested.
+7. Do NOT use --autogenerate for new Alembic migrations; write them manually.
 
 > Rule of thumb: prefer *local* changes over cross-module refactors.
 
