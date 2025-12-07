@@ -72,18 +72,9 @@ def navbar_admin_items() -> rx.Component:
         ),
         requires_role(
             admin_sidebar_item(
-                label="MCP Server",
-                icon="plug",
-                svg="/icons/mcp.svg",
-                url="/admin/mcp-servers",
-            ),
-            role=ASSISTANT_ROLE.name,
-        ),
-        requires_role(
-            admin_sidebar_item(
-                label="System Prompt",
-                icon="message-square-quote",
-                url="/admin/system-prompt",
+                label="Assistant",
+                icon="bot",
+                url="/admin/assistant",
             ),
             role=ASSISTANT_ROLE.name,
         ),

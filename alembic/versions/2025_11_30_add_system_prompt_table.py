@@ -88,8 +88,8 @@ def upgrade() -> None:
     op.execute(
         sa.text(
             "INSERT INTO system_prompt (name, prompt, version, user_id, created_at) "
-            "VALUES ('Version 1', DEFAULT_PROMPT, 1, 1, CURRENT_TIMESTAMP)"
-        )
+            "VALUES ('Version 1', :prompt, 1, 1, CURRENT_TIMESTAMP)"
+        ).bindparams(prompt=DEFAULT_PROMPT)
     )
 
 

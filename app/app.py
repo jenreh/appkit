@@ -16,9 +16,8 @@ from appkit_user.user_management.pages import (  # noqa: F401
 )
 
 from app.components.navbar import app_navbar
+from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
 from app.pages.assistant.assistant import assistant_page  # noqa: F401
-from app.pages.assistant.mcp_servers import mcp_servers_page  # noqa: F401
-from app.pages.assistant.system_prompt import system_prompt_page  # noqa: F401
 
 # from app.pages.assitant.assistant import assistant_page  # noqa: F401
 from app.pages.examples.action_icon_examples import action_icon_examples  # noqa: F401

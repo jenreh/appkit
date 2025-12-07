@@ -1,6 +1,8 @@
 from logging.config import fileConfig
+from typing import Any
 
 from sqlalchemy import engine_from_config, pool
+from sqlmodel import SQLModel
 
 from appkit_commons.database.entities import Base
 
@@ -20,7 +22,8 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = Base.metadata
+
+target_metadata = [Base.metadata, SQLModel.metadata]
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -32,6 +35,42 @@ def get_database_url() -> str:
     """Get database URL, trying multiple sources."""
 
     return configuration.app.database.url
+
+
+def include_object(
+    obj: Any, name: str, type_: str, reflected: bool, compare_to: Any | None
+) -> bool:
+    # Exclude specific tables
+    if type_ == "table" and name in [
+        "hours_employee_booking",
+        "server",
+        "hours_import_summary",
+        "aggregated_usage_data",
+        "aggregated_usage_data_monthly",
+        "userrights",
+        "hours_project_numbers",
+    ]:
+        return False
+
+    # Skip tables that are reflected but not in our metadata
+    if type_ == "table" and reflected and compare_to is None:
+        return False
+
+    # Skip indexes on excluded tables
+    return not (
+        type_ == "index"
+        and hasattr(obj, "table")
+        and obj.table.name
+        in [
+            "hours_employee_booking",
+            "server",
+            "hours_import_summary",
+            "aggregated_usage_data",
+            "aggregated_usage_data_monthly",
+            "userrights",
+            "hours_project_numbers",
+        ]
+    )
 
 
 def run_migrations_offline() -> None:
@@ -78,7 +117,14 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+            compare_type=True,
+            compare_server_default=True,
+            render_as_batch=True,
+        )
 
         with context.begin_transaction():
             context.run_migrations()

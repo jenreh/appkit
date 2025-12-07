@@ -1,11 +1,19 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 
 import reflex as rx
 from pydantic import BaseModel
+from sqlalchemy import Unicode
+from sqlalchemy_utils import StringEncryptedType
+from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 from sqlmodel import Column, DateTime, Field
 
+from appkit_commons.database.configuration import DatabaseConfig
 from appkit_commons.database.entities import EncryptedString
+from appkit_commons.registry import service_registry
+
+db_config = service_registry().get(DatabaseConfig)
+SECRET_VALUE = db_config.encryption_key.get_secret_value()
 
 
 class ChunkType(StrEnum):
@@ -131,6 +139,22 @@ class MCPServer(rx.Model, table=True):
     oauth_discovered_at: datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
+
+
+class OpenAIAgent(rx.Model, table=True):
+    """Model for OpenAI Agent configuration."""
+
+    __tablename__ = "openai_agent"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, max_length=100, nullable=False)
+    description: str = Field(default="", max_length=255, nullable=True)
+    endpoint: str = Field(nullable=False)
+    api_key: str = Field(
+        nullable=False,
+        sa_type=StringEncryptedType(Unicode, SECRET_VALUE, FernetEngine),
+    )
+    is_active: bool = Field(default=True, nullable=False)
 
 
 class SystemPrompt(rx.Model, table=True):
