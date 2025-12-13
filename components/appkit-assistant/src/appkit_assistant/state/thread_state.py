@@ -294,19 +294,19 @@ class ThreadState(rx.State):
             if self._thread.title in {"", "Neuer Chat"}:
                 self._thread.title = prompt.strip() if prompt.strip() else "Neuer Chat"
 
-            # Add current thread to thread list
+            # Add current thread to thread list (create new list for reactivity)
             self._thread.active = True
-            threadlist_state.threads.insert(0, self._thread)
+            threadlist_state.threads = [self._thread, *threadlist_state.threads]
 
             # Set as active thread in list
             threadlist_state.active_thread_id = self._thread.thread_id
             logger.debug("Added thread to list: %s", self._thread.thread_id)
         else:
-            # Thread exists - update the existing entry in the list
-            for i, t in enumerate(threadlist_state.threads):
-                if t.thread_id == self._thread.thread_id:
-                    threadlist_state.threads[i] = self._thread
-                    break
+            # Thread exists - update existing (create new list for reactivity)
+            threadlist_state.threads = [
+                self._thread if t.thread_id == self._thread.thread_id else t
+                for t in threadlist_state.threads
+            ]
             logger.debug("Updated existing thread in list: %s", self._thread.thread_id)
 
         # Always save to database if autosave is enabled
@@ -580,15 +580,15 @@ class ThreadListState(rx.State):
         """Check if there are any threads."""
         return len(self.threads) > 0
 
-    async def initialize(
-        self, autosave: bool = False, auto_create_default: bool = False
-    ) -> AsyncGenerator[Any, Any]:
+    async def initialize(self, autosave: bool = False) -> AsyncGenerator[Any, Any]:
         """Initialize the thread list state.
 
         Args:
             autosave: Enable auto-saving threads to database.
-            auto_create_default: If True, create and select a default thread
-                when no threads exist.
+
+        Note: Does not activate any thread automatically. Threads are loaded
+        in the background and user can start chatting immediately with the
+        temporary thread from ThreadState.
         """
         if self._initialized:
             return
@@ -597,11 +597,11 @@ class ThreadListState(rx.State):
         async for _ in self.load_threads():
             yield
 
-        # Auto-create default thread if enabled and no threads exist
-        if auto_create_default and not self.has_threads:
-            await self.create_thread()
-
-        logger.debug("Initialized thread list state")
+        logger.debug(
+            "Initialized thread list state with %d threads (autosave=%s)",
+            len(self.threads),
+            self.autosave,
+        )
 
     async def load_threads(self) -> AsyncGenerator[Any, Any]:
         """Load threads from database."""
@@ -633,17 +633,9 @@ class ThreadListState(rx.State):
                     user_session.user.user_id
                 )
                 self._initialized = True
-
-                if self.threads:
-                    # If active thread is set but not in list, or not set, select first
-                    if not self.active_thread_id or not any(
-                        t.thread_id == self.active_thread_id for t in self.threads
-                    ):
-                        self.active_thread_id = self.threads[0].thread_id
-
-                    await self._select_thread_internal(self.active_thread_id)
-                else:
-                    self.active_thread_id = ""
+                logger.debug(
+                    "Loaded %d threads without activating any", len(self.threads)
+                )
         except Exception as e:
             logger.error("Error loading threads from database: %s", e)
             self.threads = []
@@ -831,17 +823,20 @@ class ThreadListState(rx.State):
                     for msg in full_thread.messages:
                         msg.done = True
 
-                    # Update list with full thread
-                    for i, t in enumerate(self.threads):
-                        if t.thread_id == thread_id:
-                            self.threads[i] = full_thread
-                            break
+                    # Update list with full thread (create new list for reactivity)
+                    self.threads = [
+                        full_thread if t.thread_id == thread_id else t
+                        for t in self.threads
+                    ]
                     selected_thread = full_thread
         except Exception as e:
             logger.error("Error fetching full thread %s: %s", thread_id, e)
 
-        for thread in self.threads:
-            thread.active = thread.thread_id == thread_id
+        # Update active status (create new list for reactivity)
+        self.threads = [
+            ThreadModel(**{**t.model_dump(), "active": t.thread_id == thread_id})
+            for t in self.threads
+        ]
         self.active_thread_id = thread_id
 
         if selected_thread:

@@ -1,6 +1,5 @@
 """Welcome to Reflex! This file outlines the steps to create a basic app."""
 
-import asyncio
 import logging
 
 import reflex as rx
@@ -11,16 +10,12 @@ from appkit_assistant.backend.processors.ai_models import (
     GPT_5_1,
     GPT_5_MINI,
 )
-from appkit_assistant.backend.processors.azure_agent_processor import (
-    AzureAgentProcessor,
-)
 from appkit_assistant.backend.processors.lorem_ipsum_processor import (
     LoremIpsumProcessor,
 )
 from appkit_assistant.backend.processors.openai_responses_processor import (
     OpenAIResponsesProcessor,
 )
-from appkit_assistant.backend.repositories import OpenAIAgentRepository
 from appkit_assistant.components import (
     Suggestion,
 )
@@ -87,40 +82,6 @@ def initialize_model_manager() -> list[AIModel]:
         ),
     )
 
-    # Register Azure Agent processors from database
-    try:
-        active_agents = asyncio.run(OpenAIAgentRepository.get_all_active())
-
-        for agent in active_agents:
-            agent_model = AIModel(
-                id=f"azure-agent-{agent.id}",
-                text=agent.name,
-                description=agent.description,
-                icon="bot",
-                stream=True,
-                supports_tools=False,
-                model="agent_reference",
-            )
-            model_manager.register_processor(
-                agent_model.id,
-                AzureAgentProcessor(
-                    endpoint=agent.endpoint,
-                    models={agent_model.id: agent_model},
-                    api_key=agent.api_key,
-                    name=agent.name,
-                ),
-            )
-            logger.info(
-                "Registered Azure Agent processor: %s (ID: %d)",
-                agent.name,
-                agent.id,
-            )
-    except Exception as e:
-        logger.warning(
-            "Failed to load Azure Agents from database: %s",
-            str(e),
-        )
-
     model_manager.set_default_model(GPT_5_MINI.id)
     return model_manager.get_all_models()
 
@@ -137,7 +98,7 @@ default_model = ModelManager().get_default_model()
     with_header=True,
     on_load=[
         ThreadState.set_initial_suggestions(suggestions),
-        ThreadListState.initialize(autosave=True, auto_create_default=True),
+        ThreadListState.initialize(autosave=True),
         ThreadState.initialize(),
     ],
 )

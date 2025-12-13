@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from appkit_assistant.components import mcp_servers_table, openai_agents_table
+from appkit_assistant.components import mcp_servers_table
 from appkit_assistant.components.system_prompt_editor import system_prompt_editor
 from appkit_assistant.state.system_prompt_state import SystemPromptState
 from appkit_ui.components.header import header
@@ -40,17 +40,12 @@ def admin_assistant_page() -> rx.Component:
             rx.tabs(
                 rx.tabs.list(
                     rx.tabs.trigger("MCP Server", value="mcp"),
-                    rx.tabs.trigger("Azure Agenten", value="agents"),
                     rx.tabs.trigger("System Prompt", value="system_prompt"),
                     margin_bottom="21px",
                 ),
                 rx.tabs.content(
                     mcp_servers_table(),
                     value="mcp",
-                ),
-                rx.tabs.content(
-                    openai_agents_table(),
-                    value="agents",
                 ),
                 rx.tabs.content(
                     system_prompt_editor(),

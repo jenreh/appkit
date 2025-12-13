@@ -10,7 +10,6 @@ from appkit_assistant.backend.models import (
     AssistantThread,
     MCPServer,
     Message,
-    OpenAIAgent,
     SystemPrompt,
     ThreadModel,
     ThreadStatus,
@@ -103,104 +102,6 @@ class MCPServerRepository:
                 logger.debug("Deleted MCP server: %s", server.name)
                 return True
             logger.warning("MCP server with ID %s not found for deletion", server_id)
-            return False
-
-
-class OpenAIAgentRepository:
-    """Repository class for OpenAI Agent database operations."""
-
-    @staticmethod
-    async def get_all() -> list[OpenAIAgent]:
-        """Retrieve all OpenAI Agents ordered by name."""
-        async with rx.asession() as session:
-            result = await session.exec(OpenAIAgent.select().order_by(OpenAIAgent.name))
-            return result.all()
-
-    @staticmethod
-    async def get_all_active() -> list[OpenAIAgent]:
-        """Retrieve all active OpenAI Agents ordered by name."""
-        async with rx.asession() as session:
-            result = await session.exec(
-                OpenAIAgent.select()
-                .where(OpenAIAgent.is_active == True)  # noqa: E712
-                .order_by(OpenAIAgent.name)
-            )
-            return result.all()
-
-    @staticmethod
-    async def get_by_id(agent_id: int) -> OpenAIAgent | None:
-        """Retrieve an OpenAI Agent by ID."""
-        async with rx.asession() as session:
-            result = await session.exec(
-                OpenAIAgent.select().where(OpenAIAgent.id == agent_id)
-            )
-            return result.first()
-
-    @staticmethod
-    async def create(
-        name: str,
-        endpoint: str,
-        api_key: str,
-        description: str | None = None,
-        is_active: bool = True,
-    ) -> OpenAIAgent:
-        """Create a new OpenAI Agent."""
-        async with rx.asession() as session:
-            agent = OpenAIAgent(
-                name=name,
-                endpoint=endpoint,
-                api_key=api_key,
-                description=description,
-                is_active=is_active,
-            )
-            session.add(agent)
-            await session.commit()
-            await session.refresh(agent)
-            logger.debug("Created OpenAI Agent: %s", name)
-            return agent
-
-    @staticmethod
-    async def update(
-        agent_id: int,
-        name: str,
-        endpoint: str,
-        api_key: str,
-        description: str | None = None,
-        is_active: bool = True,
-    ) -> OpenAIAgent | None:
-        """Update an existing OpenAI Agent."""
-        async with rx.asession() as session:
-            result = await session.exec(
-                OpenAIAgent.select().where(OpenAIAgent.id == agent_id)
-            )
-            agent = result.first()
-            if agent:
-                agent.name = name
-                agent.endpoint = endpoint
-                agent.api_key = api_key
-                agent.description = description
-                agent.is_active = is_active
-                await session.commit()
-                await session.refresh(agent)
-                logger.debug("Updated OpenAI Agent: %s", name)
-                return agent
-            logger.warning("OpenAI Agent with ID %s not found for update", agent_id)
-            return None
-
-    @staticmethod
-    async def delete(agent_id: int) -> bool:
-        """Delete an OpenAI Agent by ID."""
-        async with rx.asession() as session:
-            result = await session.exec(
-                OpenAIAgent.select().where(OpenAIAgent.id == agent_id)
-            )
-            agent = result.first()
-            if agent:
-                await session.delete(agent)
-                await session.commit()
-                logger.debug("Deleted OpenAI Agent: %s", agent.name)
-                return True
-            logger.warning("OpenAI Agent with ID %s not found for deletion", agent_id)
             return False
 
 

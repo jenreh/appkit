@@ -17,7 +17,6 @@ from appkit_assistant.state.thread_state import (
     ThreadListState,
 )
 from appkit_assistant.components.mcp_server_table import mcp_servers_table
-from appkit_assistant.components.openai_agent_table import openai_agents_table
 
 __all__ = [
     "AIModel",
@@ -36,5 +35,4 @@ __all__ = [
     "ThreadStatus",
     "composer",
     "mcp_servers_table",
-    "openai_agents_table",
 ]
