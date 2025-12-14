@@ -12,10 +12,8 @@ from appkit_assistant.backend.models import (
     ThreadModel,
     ThreadStatus,
 )
-from appkit_assistant.state.thread_state import (
-    ThreadState,
-    ThreadListState,
-)
+from appkit_assistant.state.thread_list_state import ThreadListState
+from appkit_assistant.state.thread_state import ThreadState
 from appkit_assistant.components.mcp_server_table import mcp_servers_table
 
 __all__ = [

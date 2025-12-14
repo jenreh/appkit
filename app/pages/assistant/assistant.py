@@ -21,7 +21,8 @@ from appkit_assistant.components import (
 )
 from appkit_assistant.components.thread import Assistant
 from appkit_assistant.configuration import AssistantConfig
-from appkit_assistant.state.thread_state import ThreadListState, ThreadState
+from appkit_assistant.state.thread_list_state import ThreadListState
+from appkit_assistant.state.thread_state import ThreadState
 from appkit_commons.registry import service_registry
 from appkit_mantine import mermaid_zoom_script
 from appkit_ui.components.header import header

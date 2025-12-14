@@ -4,14 +4,11 @@ from collections.abc import Callable
 import reflex as rx
 
 import appkit_mantine as mn
+from appkit_assistant.backend.models import Message, MessageType
 from appkit_assistant.components import composer
 from appkit_assistant.components.message import MessageComponent
 from appkit_assistant.components.threadlist import ThreadList
-from appkit_assistant.state.thread_state import (
-    Message,
-    MessageType,
-    ThreadState,
-)
+from appkit_assistant.state.thread_state import ThreadState
 
 logger = logging.getLogger(__name__)
 

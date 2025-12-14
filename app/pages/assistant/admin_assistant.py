@@ -18,11 +18,12 @@ class AdminAssistantState(rx.State):
     active_tab: str = "mcp"
     system_prompt_loaded: bool = False
 
-    def on_tab_change(self, value: str) -> None:
+    async def on_tab_change(self, value: str) -> None:
         """Handle tab changes and load system prompt data when needed."""
         self.active_tab = value
         if value == "system_prompt" and not self.system_prompt_loaded:
-            SystemPromptState.load_versions()
+            system_prompt_state = await self.get_state(SystemPromptState)
+            await system_prompt_state.load_versions()
             self.system_prompt_loaded = True
 
 

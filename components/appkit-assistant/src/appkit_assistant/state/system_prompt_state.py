@@ -25,7 +25,6 @@ class SystemPromptState(State):
     is_loading: bool = False
     error_message: str = ""
     char_count: int = 0
-    # Trigger to force textarea update when selecting a version
     textarea_key: int = 0
 
     async def load_versions(self) -> None:
@@ -45,12 +44,10 @@ class SystemPromptState(State):
                 for p in prompts
             ]
 
-            # Populate map for fast switching
             self.prompt_map = {str(p.version): p.prompt for p in prompts}
 
             if prompts:
                 latest = prompts[0]
-                # Automatically select the latest version
                 self.selected_version_id = latest.version
 
                 if not self.current_prompt:
@@ -64,8 +61,9 @@ class SystemPromptState(State):
                     self.current_prompt = ""
                 self.last_saved_prompt = self.current_prompt
 
-            # Zähler initial setzen
             self.char_count = len(self.current_prompt)
+            # Force textarea to re-render with loaded content
+            self.textarea_key += 1
 
             logger.info("Loaded %s system prompt versions", len(self.versions))
         except Exception as exc:
