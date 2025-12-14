@@ -1,6 +1,10 @@
 import reflex as rx
 
-from appkit_assistant.state.thread_state import ThreadListState, ThreadModel
+from appkit_assistant.state.thread_state import (
+    ThreadListState,
+    ThreadModel,
+    ThreadState,
+)
 
 
 class ThreadList:
@@ -13,7 +17,7 @@ class ThreadList:
                     rx.text(title),
                     size="2",
                     margin_right="28px",
-                    on_click=ThreadListState.create_thread(),
+                    on_click=ThreadState.new_thread(),
                     width="95%",
                 ),
                 content="Neuen Chat starten",
@@ -67,7 +71,7 @@ class ThreadList:
                     flex_shrink=0,
                 ),
             ),
-            on_click=ThreadListState.select_thread(thread.thread_id),
+            on_click=ThreadState.load_thread(thread.thread_id),
             flex_direction=["row"],
             margin_right="10px",
             margin_bottom="8px",
@@ -112,25 +116,23 @@ class ThreadList:
         """List component for displaying threads."""
         return rx.scroll_area(
             rx.cond(
-                ThreadListState.loading,
-                rx.vstack(
-                    rx.skeleton(height="40px", width="100%"),
-                    rx.skeleton(height="40px", width="100%"),
-                    rx.skeleton(height="40px", width="100%"),
-                    spacing="2",
+                ThreadListState.has_threads,
+                rx.foreach(
+                    ThreadListState.threads,
+                    ThreadList.thread_list_item,
                 ),
                 rx.cond(
-                    ThreadListState.has_threads,
-                    rx.foreach(
-                        ThreadListState.threads,
-                        ThreadList.thread_list_item,
+                    ThreadListState.loading,
+                    rx.vstack(
+                        rx.skeleton(height="34px", width="210px"),
+                        rx.skeleton(height="34px", width="210px"),
+                        rx.skeleton(height="34px", width="210px"),
+                        spacing="2",
                     ),
                     rx.text(
-                        "Keine Chats vorhanden.",
+                        "Noch keine Chats vorhanden. "
+                        "Klicke auf 'Neuer Chat', um zu beginnen.",
                         size="2",
-                        white_space="nowrap",
-                        overflow="hidden",
-                        text_overflow="ellipsis",
                         flex_grow="1",
                         min_width="0",
                         margin_right="10px",
@@ -143,6 +145,5 @@ class ThreadList:
             scrollbars="vertical",
             padding_right="3px",
             type="auto",
-            on_mount=ThreadListState.load_threads,
             **props,
         )

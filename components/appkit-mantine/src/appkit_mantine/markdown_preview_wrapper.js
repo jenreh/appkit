@@ -424,3 +424,5 @@ export function MarkdownPreviewWrapper(props) {
         ...rest,
     });
 }
+
+export default MarkdownPreviewWrapper;

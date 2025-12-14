@@ -20,6 +20,7 @@ description: "Main Copilot instructions for the appkit project - Reflex-Mantine 
 5. **Memory multiplies.** Persist decisions, patterns, error signatures, and proven fixes.
 6. Do NOT generate extensive documentation, summaries or comments unless explicitly requested.
 7. Do NOT use --autogenerate for new Alembic migrations; write them manually.
+8. Do NOT use "cat" to create new files; ALWAYS use the available tools!
 
 > Rule of thumb: prefer *local* changes over cross-module refactors.
 

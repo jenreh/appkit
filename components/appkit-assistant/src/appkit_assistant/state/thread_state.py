@@ -1,3 +1,21 @@
+"""Thread state management for the assistant.
+
+This module contains two state classes with clearly separated responsibilities:
+
+ThreadState: Manages the current active thread
+- Creating new threads (not persisted until first response)
+- Loading threads from database when selected from list
+- Processing messages and handling responses
+- Persisting thread data to database
+- Notifying ThreadListState when a new thread is created
+
+ThreadListState: Manages the thread list sidebar
+- Loading thread summaries from database
+- Adding new threads to the list (called by ThreadState)
+- Deleting threads from database and list
+- Tracking which thread is currently active/loading
+"""
+
 import logging
 import uuid
 from collections.abc import AsyncGenerator
@@ -48,13 +66,24 @@ class Thinking(BaseModel):
 
 
 class ThreadState(rx.State):
+    """State for managing the current active thread.
+
+    Responsibilities:
+    - Managing the current thread data and messages
+    - Creating new empty threads
+    - Loading threads from database when selected
+    - Processing messages and streaming responses
+    - Persisting thread data to database (incrementally)
+    - Notifying ThreadListState when new threads are created
+    """
+
     _thread: ThreadModel = ThreadModel(thread_id=str(uuid.uuid4()), prompt="")
     ai_models: list[AIModel] = []
     selected_model: str = ""
     processing: bool = False
     messages: list[Message] = []
     prompt: str = ""
-    suggestions: list[Suggestion] = [Suggestion(prompt="Wie kann ich dir helfen?")]
+    suggestions: list[Suggestion] = []
 
     # Chunk processing state
     thinking_items: list[Thinking] = []  # Consolidated reasoning and tool calls
@@ -74,8 +103,83 @@ class ThreadState(rx.State):
     # Thread list integration
     with_thread_list: bool = False
 
+    # Internal state
+    _initialized: bool = False
+    _current_user_id: str = ""
+
+    # -------------------------------------------------------------------------
+    # Computed properties
+    # -------------------------------------------------------------------------
+
+    @rx.var
+    def get_selected_model(self) -> str:
+        """Get the currently selected model ID."""
+        return self.selected_model
+
+    @rx.var
+    def has_ai_models(self) -> bool:
+        """Check if there are any chat models."""
+        return len(self.ai_models) > 0
+
+    @rx.var
+    def has_suggestions(self) -> bool:
+        """Check if there are any suggestions."""
+        return len(self.suggestions) > 0
+
+    @rx.var
+    def has_thinking_content(self) -> bool:
+        """Check if there are any thinking items to display."""
+        return len(self.thinking_items) > 0
+
+    @rx.var
+    def selected_model_supports_tools(self) -> bool:
+        """Check if the currently selected model supports tools."""
+        if not self.selected_model:
+            return False
+        model = ModelManager().get_model(self.selected_model)
+        return model.supports_tools if model else False
+
+    @rx.var
+    def get_unique_reasoning_sessions(self) -> list[str]:
+        """Get unique reasoning session IDs."""
+        return [
+            item.id
+            for item in self.thinking_items
+            if item.type == ThinkingType.REASONING
+        ]
+
+    @rx.var
+    def get_unique_tool_calls(self) -> list[str]:
+        """Get unique tool call IDs."""
+        return [
+            item.id
+            for item in self.thinking_items
+            if item.type == ThinkingType.TOOL_CALL
+        ]
+
+    @rx.var
+    def get_last_assistant_message_text(self) -> str:
+        """Get the text of the last assistant message in the conversation."""
+        for message in reversed(self.messages):
+            if message.type == MessageType.ASSISTANT:
+                return message.text
+        return ""
+
+    # -------------------------------------------------------------------------
+    # Initialization and thread management
+    # -------------------------------------------------------------------------
+
+    @rx.event
     def initialize(self) -> None:
-        """Initialize the state."""
+        """Initialize the state with models and a new empty thread.
+
+        Only initializes once per user session. Resets when user changes.
+        """
+        # If already initialized, skip
+        if self._initialized:
+            logger.debug("Thread state already initialized")
+            return
+
         model_manager = ModelManager()
         self.ai_models = model_manager.get_all_models()
         self.selected_model = model_manager.get_default_model()
@@ -90,76 +194,138 @@ class ThreadState(rx.State):
             active=True,
         )
         self.messages = []
-        logger.debug("Initialized thread state: %s", self._thread)
+        self.thinking_items = []
+        self.image_chunks = []
+        self.prompt = ""
+        self.show_thinking = False
+        self._initialized = True
+        logger.debug("Initialized thread state: %s", self._thread.thread_id)
 
+    @rx.event
+    def new_thread(self) -> None:
+        """Create a new empty thread (not persisted, not in list yet).
+
+        Called when user clicks "New Chat" or when active thread is deleted.
+        If current thread is already empty/new with no messages, does nothing.
+        """
+        # Ensure state is initialized first
+        if not self._initialized:
+            self.initialize()
+
+        # Don't create new if current thread is already empty
+        if self._thread.state == ThreadStatus.NEW and not self.messages:
+            logger.debug("Thread already empty, skipping new_thread")
+            return
+
+        self._thread = ThreadModel(
+            thread_id=str(uuid.uuid4()),
+            title="Neuer Chat",
+            prompt="",
+            messages=[],
+            state=ThreadStatus.NEW,
+            ai_model=self.selected_model or ModelManager().get_default_model(),
+            active=True,
+        )
+        self.messages = []
+        self.thinking_items = []
+        self.image_chunks = []
+        self.prompt = ""
+        self.show_thinking = False
+        logger.debug("Created new empty thread: %s", self._thread.thread_id)
+
+    @rx.event
     def set_thread(self, thread: ThreadModel) -> None:
-        """Set the current thread model."""
+        """Set the current thread model (internal use)."""
         self._thread = thread
         self.messages = thread.messages
         self.selected_model = thread.ai_model
+        self.thinking_items = []
+        self.prompt = ""
         logger.debug("Set current thread: %s", thread.thread_id)
 
+    @rx.event(background=True)
+    async def load_thread(self, thread_id: str) -> AsyncGenerator[Any, Any]:
+        """Load and select a thread by ID from database.
+
+        Called when user clicks on a thread in the sidebar.
+        Loads full thread data and updates both ThreadState and ThreadListState.
+
+        Args:
+            thread_id: The ID of the thread to load.
+        """
+        async with self:
+            user_session: UserSession = await self.get_state(UserSession)
+            is_authenticated = await user_session.is_authenticated
+            user_id = user_session.user.user_id if user_session.user else None
+
+            # Set loading state in ThreadListState
+            threadlist_state: ThreadListState = await self.get_state(ThreadListState)
+            threadlist_state.loading_thread_id = thread_id
+        yield
+
+        if not is_authenticated or not user_id:
+            async with self:
+                threadlist_state: ThreadListState = await self.get_state(
+                    ThreadListState
+                )
+                threadlist_state.loading_thread_id = ""
+            return
+
+        try:
+            full_thread = await ThreadRepository.get_thread_by_id(thread_id, user_id)
+
+            if not full_thread:
+                logger.warning("Thread %s not found in database", thread_id)
+                async with self:
+                    threadlist_state: ThreadListState = await self.get_state(
+                        ThreadListState
+                    )
+                    threadlist_state.loading_thread_id = ""
+                return
+
+            # Mark all messages as done (loaded from DB)
+            for msg in full_thread.messages:
+                msg.done = True
+
+            async with self:
+                # Update self with loaded thread
+                self._thread = full_thread
+                self.messages = full_thread.messages
+                self.selected_model = full_thread.ai_model
+                self.thinking_items = []
+                self.prompt = ""
+
+                # Update active state in ThreadListState
+                threadlist_state: ThreadListState = await self.get_state(
+                    ThreadListState
+                )
+                threadlist_state.threads = [
+                    ThreadModel(
+                        **{**t.model_dump(), "active": t.thread_id == thread_id}
+                    )
+                    for t in threadlist_state.threads
+                ]
+                threadlist_state.active_thread_id = thread_id
+                threadlist_state.loading_thread_id = ""
+
+                logger.debug("Loaded thread: %s", thread_id)
+
+        except Exception as e:
+            logger.error("Error loading thread %s: %s", thread_id, e)
+            async with self:
+                threadlist_state: ThreadListState = await self.get_state(
+                    ThreadListState
+                )
+                threadlist_state.loading_thread_id = ""
+
+    # -------------------------------------------------------------------------
+    # Prompt and model management
+    # -------------------------------------------------------------------------
+
+    @rx.event
     def set_prompt(self, prompt: str) -> None:
         """Set the current prompt."""
         self.prompt = prompt
-
-    @rx.var
-    def has_ai_models(self) -> bool:
-        """Check if there are any chat models."""
-        return len(self.ai_models) > 0
-
-    @rx.var
-    def has_suggestions(self) -> bool:
-        """Check if there are any suggestions."""
-        return self.suggestions is not None and len(self.suggestions) > 0
-
-    @rx.var
-    def get_ai_model(self) -> str | None:
-        """Get the selected chat model."""
-        return self.selected_model
-
-    @rx.var
-    def current_model_supports_tools(self) -> bool:
-        """Check if the currently selected model supports tools."""
-        if not self.selected_model:
-            return False
-        model = ModelManager().get_model(self.selected_model)
-        return model.supports_tools if model else False
-
-    @rx.var
-    def unique_reasoning_sessions(self) -> list[str]:
-        """Get unique reasoning session IDs."""
-        return [
-            item.id
-            for item in self.thinking_items
-            if item.type == ThinkingType.REASONING
-        ]
-
-    @rx.var
-    def unique_tool_calls(self) -> list[str]:
-        """Get unique tool call IDs."""
-        return [
-            item.id
-            for item in self.thinking_items
-            if item.type == ThinkingType.TOOL_CALL
-        ]
-
-    @rx.var
-    def last_assistant_message_text(self) -> str:
-        """Get the text of the last assistant message in the conversation."""
-        for message in reversed(self.messages):
-            if message.type == MessageType.ASSISTANT:
-                return message.text
-        return ""
-
-    @rx.var
-    def has_thinking_content(self) -> bool:
-        """Check if there are any thinking items to display."""
-        return len(self.thinking_items) > 0
-
-    @rx.event
-    def update_prompt(self, value: str) -> None:
-        self.prompt = value
 
     @rx.event
     def set_suggestions(self, suggestions: list[Suggestion]) -> None:
@@ -167,30 +333,70 @@ class ThreadState(rx.State):
         self.suggestions = suggestions
 
     @rx.event
-    def set_initial_suggestions(self, suggestions: list[dict | Suggestion]) -> None:
-        """Set initial suggestions during page load.
+    def set_selected_model(self, model_id: str) -> None:
+        """Set the selected model."""
+        self.selected_model = model_id
+        self._thread.ai_model = model_id
 
-        Can be called via on_load callback to initialize suggestions
-        from the assistant page or other sources.
+    @rx.event
+    def set_with_thread_list(self, with_thread_list: bool) -> None:
+        """Set whether thread list integration is enabled."""
+        self.with_thread_list = with_thread_list
 
-        Args:
-            suggestions: List of suggestions (dict or Suggestion objects) to display.
-        """
-        # Convert dicts to Suggestion objects
-        # (Reflex serializes Pydantic models to dicts during event invocation)
-        converted = []
-        for item in suggestions:
-            if isinstance(item, dict):
-                converted.append(Suggestion(**item))
-            elif isinstance(item, Suggestion):
-                converted.append(item)
-            else:
-                log = logging.getLogger(__name__)
-                log.warning("Unknown suggestion type: %s", type(item))
-        self.suggestions = converted
+    # -------------------------------------------------------------------------
+    # UI state management
+    # -------------------------------------------------------------------------
+
+    @rx.event
+    def toggle_thinking_expanded(self) -> None:
+        """Toggle the expanded state of the thinking section."""
+        self.thinking_expanded = not self.thinking_expanded
+
+    # -------------------------------------------------------------------------
+    # MCP Server tool support
+    # -------------------------------------------------------------------------
+
+    @rx.event
+    async def load_mcp_servers(self) -> None:
+        """Load available MCP servers from the database."""
+        self.available_mcp_servers = await MCPServerRepository.get_all()
+
+    @rx.event
+    def toogle_tools_modal(self, show: bool) -> None:
+        """Set the visibility of the tools modal."""
+        self.show_tools_modal = show
+
+    @rx.event
+    def toggle_mcp_server_selection(self, server_id: int, selected: bool) -> None:
+        """Toggle MCP server selection in the modal."""
+        self.server_selection_state[server_id] = selected
+        if selected and server_id not in self.temp_selected_mcp_servers:
+            self.temp_selected_mcp_servers.append(server_id)
+        elif not selected and server_id in self.temp_selected_mcp_servers:
+            self.temp_selected_mcp_servers.remove(server_id)
+
+    @rx.event
+    def apply_mcp_server_selection(self) -> None:
+        """Apply the temporary MCP server selection."""
+        self.selected_mcp_servers = [
+            server
+            for server in self.available_mcp_servers
+            if server.id in self.temp_selected_mcp_servers
+        ]
+        self.show_tools_modal = False
+
+    @rx.event
+    def is_mcp_server_selected(self, server_id: int) -> bool:
+        """Check if an MCP server is selected."""
+        return server_id in self.temp_selected_mcp_servers
+
+    # -------------------------------------------------------------------------
+    # Clear/reset
+    # -------------------------------------------------------------------------
 
     @rx.event
     def clear(self) -> None:
+        """Clear the current thread messages (keeps thread ID)."""
         self._thread.messages = []
         self._thread.state = ThreadStatus.NEW
         self._thread.ai_model = ModelManager().get_default_model()
@@ -199,14 +405,33 @@ class ThreadState(rx.State):
         self.prompt = ""
         self.messages = []
         self.selected_mcp_servers = []
-        self.thinking_items = []  # Clear thinking items only on explicit clear
+        self.thinking_items = []
         self.image_chunks = []
         self.show_thinking = False
 
-    @rx.event(background=True)
-    async def process_message(self) -> None:
-        logger.debug("Sending message: %s", self.prompt)
+    # -------------------------------------------------------------------------
+    # Message processing
+    # -------------------------------------------------------------------------
 
+    @rx.event(background=True)
+    async def submit_message(self) -> AsyncGenerator[Any, Any]:
+        """Submit a message and process the response."""
+        await self._process_message()
+
+        yield rx.call_script("""
+            const textarea = document.getElementById('composer-area');
+            if (textarea) {
+                textarea.value = '';
+                textarea.style.height = 'auto';
+                textarea.style.height = textarea.scrollHeight + 'px';
+            }
+        """)
+
+    async def _process_message(self) -> None:
+        """Process the current message and stream the response."""
+        logger.debug("Processing message: %s", self.prompt)
+
+        # Read state values first
         async with self:
             if self.processing or not self.prompt.strip():
                 return
@@ -218,6 +443,9 @@ class ThreadState(rx.State):
             current_prompt = self.prompt.strip()
             self.prompt = ""
 
+            # Track if this is a new thread not yet in list
+            is_new_thread = self._thread.state == ThreadStatus.NEW
+
             # Add user message and empty assistant message
             self.messages.extend(
                 [
@@ -226,112 +454,122 @@ class ThreadState(rx.State):
                 ]
             )
 
-            if not self.get_ai_model:
+            selected_model = self.get_selected_model
+            mcp_servers = self.selected_mcp_servers
+
+        if not selected_model:
+            async with self:
                 self._add_error_message("Kein Chat-Modell ausgewählt")
                 self.processing = False
-                return
+            return
 
-        # Get processor outside context to avoid blocking
-        processor = ModelManager().get_processor_for_model(self.get_ai_model)
+        processor = ModelManager().get_processor_for_model(selected_model)
         if not processor:
             async with self:
                 self._add_error_message(
-                    f"Keinen Adapter für das Modell gefunden: {self.get_ai_model}"
+                    f"Keinen Adapter für das Modell gefunden: {selected_model}"
                 )
                 self.processing = False
             return
 
         try:
-            # Process chunks
+            first_response_received = False
+
             async for chunk in processor.process(
                 self.messages,
-                self.get_ai_model,
-                mcp_servers=self.selected_mcp_servers,
+                selected_model,
+                mcp_servers=mcp_servers,
             ):
                 async with self:
                     self._handle_chunk(chunk)
 
+                    # After first TEXT chunk, add thread to list if new
+                    if (
+                        not first_response_received
+                        and chunk.type == ChunkType.TEXT
+                        and is_new_thread
+                        and self.with_thread_list
+                    ):
+                        first_response_received = True
+                        self._thread.state = ThreadStatus.ACTIVE
+                        if self._thread.title in {"", "Neuer Chat"}:
+                            self._thread.title = current_prompt[:100]
+                        await self._notify_thread_created()
+
             async with self:
                 self.show_thinking = False
 
-                # Update thread if using thread list
+                # Update thread with current messages
+                self._thread.messages = self.messages
+                self._thread.ai_model = self.selected_model
+
+                # Persist incrementally after each successful response
                 if self.with_thread_list:
-                    await self._update_thread_list()
+                    await self._save_thread_to_db()
 
         except Exception as ex:
             async with self:
+                # Mark thread with error state
+                self._thread.state = ThreadStatus.ERROR
+
                 if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
                     self.messages.pop()  # Remove empty assistant message
                 self.messages.append(Message(text=str(ex), type=MessageType.ERROR))
+
+                # If thread was just created, still add to list with error state
+                if (
+                    is_new_thread
+                    and self.with_thread_list
+                    and not first_response_received
+                ):
+                    if self._thread.title in {"", "Neuer Chat"}:
+                        self._thread.title = current_prompt[:100]
+                    await self._notify_thread_created()
+
+                # Persist error state
+                self._thread.messages = self.messages
+                if self.with_thread_list:
+                    await self._save_thread_to_db()
+
         finally:
             async with self:
                 if self.messages:
                     self.messages[-1].done = True
                 self.processing = False
 
-    @rx.event
-    async def persist_current_thread(self, prompt: str = "") -> None:
-        """Persist the current temporary thread to the thread list.
+    # -------------------------------------------------------------------------
+    # Thread persistence (internal)
+    # -------------------------------------------------------------------------
 
-        Converts the temporary ThreadState._thread to a persistent entry in
-        ThreadListState so it appears in the thread list. This is called
-        when the user first submits a message.
+    async def _notify_thread_created(self) -> None:
+        """Notify ThreadListState that a new thread was created.
 
-        Args:
-            prompt: The user's message prompt (used for thread title).
+        Called after the first successful response chunk.
+        Adds the thread to ThreadListState without a full reload.
 
-        Idempotent: calling multiple times won't create duplicates if the
-        thread is already in the list.
+        Note: Called from within an async with self block, so don't create a new one.
         """
-        # Get ThreadListState to add the thread
         threadlist_state: ThreadListState = await self.get_state(ThreadListState)
+        await threadlist_state.add_thread(self._thread)
 
-        # Check if thread already exists in list (idempotency check)
-        existing_thread = await threadlist_state.get_thread(self._thread.thread_id)
-        if not existing_thread:
-            # Only add to list if not already present
-            # Update thread title based on first message if title is still default
-            if self._thread.title in {"", "Neuer Chat"}:
-                self._thread.title = prompt.strip() if prompt.strip() else "Neuer Chat"
+    async def _save_thread_to_db(self) -> None:
+        """Persist current thread to database.
 
-            # Add current thread to thread list (create new list for reactivity)
-            self._thread.active = True
-            threadlist_state.threads = [self._thread, *threadlist_state.threads]
+        Called incrementally after each successful response.
+        """
+        user_session: UserSession = await self.get_state(UserSession)
+        user_id = user_session.user.user_id if user_session.user else None
 
-            # Set as active thread in list
-            threadlist_state.active_thread_id = self._thread.thread_id
-            logger.debug("Added thread to list: %s", self._thread.thread_id)
-        else:
-            # Thread exists - update existing (create new list for reactivity)
-            threadlist_state.threads = [
-                self._thread if t.thread_id == self._thread.thread_id else t
-                for t in threadlist_state.threads
-            ]
-            logger.debug("Updated existing thread in list: %s", self._thread.thread_id)
+        if user_id:
+            try:
+                await ThreadRepository.save_thread(self._thread, user_id)
+                logger.debug("Saved thread to DB: %s", self._thread.thread_id)
+            except Exception as e:
+                logger.error("Error saving thread %s: %s", self._thread.thread_id, e)
 
-        # Always save to database if autosave is enabled
-        # (thread content may have changed)
-        if threadlist_state.autosave:
-            await threadlist_state.save_thread(self._thread)
-
-        logger.debug("Persisted thread: %s", self._thread.thread_id)
-
-    @rx.event
-    async def submit_message(self) -> AsyncGenerator[Any, Any]:
-        """Submit a message and reset the textarea."""
-        # Persist the current thread before processing the message
-        # Pass the prompt so we can use it as the thread title
-        await self.persist_current_thread(prompt=self.prompt)
-        yield ThreadState.process_message
-
-        yield rx.call_script("""
-            const textarea = document.getElementById('composer-area');
-            if (textarea) {
-                textarea.value = '';
-                textarea.style.height = 'auto';
-                textarea.style.height = textarea.scrollHeight + 'px';
-            }
-        """)
+    # -------------------------------------------------------------------------
+    # Chunk handling (internal)
+    # -------------------------------------------------------------------------
 
     def _clear_chunks(self) -> None:
         """Clear all chunk categorization lists except thinking_items for display."""
@@ -362,14 +600,14 @@ class ThreadState(rx.State):
             logger.warning("Unhandled chunk type: %s - %s", chunk.type, chunk.text)
 
     def _get_or_create_thinking_item(
-        self, item_id: str, type: ThinkingType, **kwargs
+        self, item_id: str, thinking_type: ThinkingType, **kwargs
     ) -> Thinking:
         """Get existing thinking item or create new one."""
         for item in self.thinking_items:
-            if item.type == type and item.id == item_id:
+            if item.type == thinking_type and item.id == item_id:
                 return item
 
-        new_item = Thinking(type=type, id=item_id, **kwargs)
+        new_item = Thinking(type=thinking_type, id=item_id, **kwargs)
         self.thinking_items = [*self.thinking_items, new_item]
         return new_item
 
@@ -433,7 +671,6 @@ class ThreadState(rx.State):
         tool_id = chunk.chunk_metadata.get("tool_id")
         if not tool_id:
             # Generate a tool ID if not provided
-            # Use generator expression for memory efficiency
             tool_count = sum(
                 1 for i in self.thinking_items if i.type == ThinkingType.TOOL_CALL
             )
@@ -495,362 +732,239 @@ class ThreadState(rx.State):
         logger.error(error_msg)
         self.messages.append(Message(text=error_msg, type=MessageType.ERROR))
 
-    async def _update_thread_list(self) -> None:
-        """Update the thread list with current messages."""
-        threadlist_state: ThreadListState = await self.get_state(ThreadListState)
-        if self._thread.title in {"", "Neuer Chat"}:
-            self._thread.title = (
-                self.messages[0].text if self.messages else "Neuer Chat"
-            )
-
-        self._thread.messages = self.messages
-        self._thread.ai_model = self.selected_model
-        await threadlist_state.update_thread(self._thread)
-
-    def toggle_thinking_expanded(self) -> None:
-        """Toggle the expanded state of the thinking section."""
-        self.thinking_expanded = not self.thinking_expanded
-
-    # MCP Server tool support event handlers
-    @rx.event
-    async def load_available_mcp_servers(self) -> None:
-        """Load available MCP servers from the database."""
-        self.available_mcp_servers = await MCPServerRepository.get_all()
-
-    @rx.event
-    def open_tools_modal(self) -> None:
-        """Open the tools modal."""
-        self.temp_selected_mcp_servers = [
-            server.id for server in self.selected_mcp_servers if server.id
-        ]
-        self.server_selection_state = {
-            server.id: server.id in self.temp_selected_mcp_servers
-            for server in self.available_mcp_servers
-            if server.id
-        }
-        self.show_tools_modal = True
-
-    @rx.event
-    def set_show_tools_modal(self, show: bool) -> None:
-        """Set the visibility of the tools modal."""
-        self.show_tools_modal = show
-
-    @rx.event
-    def toggle_mcp_server_selection(self, server_id: int, selected: bool) -> None:
-        """Toggle MCP server selection in the modal."""
-        self.server_selection_state[server_id] = selected
-        if selected and server_id not in self.temp_selected_mcp_servers:
-            self.temp_selected_mcp_servers.append(server_id)
-        elif not selected and server_id in self.temp_selected_mcp_servers:
-            self.temp_selected_mcp_servers.remove(server_id)
-
-    @rx.event
-    def apply_mcp_server_selection(self) -> None:
-        """Apply the temporary MCP server selection."""
-        self.selected_mcp_servers = [
-            server
-            for server in self.available_mcp_servers
-            if server.id in self.temp_selected_mcp_servers
-        ]
-        self.show_tools_modal = False
-
-    def is_mcp_server_selected(self, server_id: int) -> bool:
-        """Check if an MCP server is selected."""
-        return server_id in self.temp_selected_mcp_servers
-
-    def set_selected_model(self, model_id: str) -> None:
-        """Set the selected model."""
-        self.selected_model = model_id
-        self._thread.ai_model = model_id
-
 
 class ThreadListState(rx.State):
-    """State for the thread list component."""
+    """State for managing the thread list sidebar.
 
+    Responsibilities:
+    - Loading thread summaries from database on initialization
+    - Adding new threads to the list (called by ThreadState)
+    - Deleting threads from database and list
+    - Tracking active/loading thread IDs
+
+    Does NOT:
+    - Create new threads (ThreadState.new_thread does this)
+    - Load full thread data (ThreadState.get_thread does this)
+    - Persist thread data (ThreadState handles this)
+    """
+
+    # Public state
     threads: list[ThreadModel] = []
     active_thread_id: str = ""
     loading_thread_id: str = ""
     loading: bool = True
-    autosave: bool = False
+
+    # Private state
     _initialized: bool = False
     _current_user_id: str = ""
+
+    # -------------------------------------------------------------------------
+    # Computed properties
+    # -------------------------------------------------------------------------
 
     @rx.var
     def has_threads(self) -> bool:
         """Check if there are any threads."""
         return len(self.threads) > 0
 
-    async def initialize(self, autosave: bool = False) -> AsyncGenerator[Any, Any]:
-        """Initialize the thread list state.
+    # -------------------------------------------------------------------------
+    # Initialization
+    # -------------------------------------------------------------------------
 
-        Args:
-            autosave: Enable auto-saving threads to database.
-
-        Note: Does not activate any thread automatically. Threads are loaded
-        in the background and user can start chatting immediately with the
-        temporary thread from ThreadState.
-        """
-        if self._initialized:
-            return
-
-        self.autosave = autosave
-        async for _ in self.load_threads():
-            yield
-
-        logger.debug(
-            "Initialized thread list state with %d threads (autosave=%s)",
-            len(self.threads),
-            self.autosave,
-        )
-
-    async def load_threads(self) -> AsyncGenerator[Any, Any]:
-        """Load threads from database."""
-        user_session = await self.get_state(UserSession)
-
-        # Check if user changed - if so, reset initialization
-        current_user_id = user_session.user.user_id if user_session.user else ""
-        if self._current_user_id != current_user_id:
-            self._initialized = False
-            self._current_user_id = current_user_id
-            self.threads = []
-            self.active_thread_id = ""
-
-        if self._initialized:
-            self.loading = False
-            return
-
-        self.loading = True
+    @rx.event(background=True)
+    async def initialize(self) -> AsyncGenerator[Any, Any]:
+        """Initialize thread list - load summaries from database."""
+        async with self:
+            if self._initialized:
+                return
+            self.loading = True
         yield
 
-        if not await user_session.is_authenticated:
-            self.threads = []
-            self.loading = False
-            return
+        async for _ in self._load_threads():
+            yield
 
-        try:
-            if user_session.user:
-                self.threads = await ThreadRepository.get_summaries_by_user(
-                    user_session.user.user_id
-                )
-                self._initialized = True
-                logger.debug(
-                    "Loaded %d threads without activating any", len(self.threads)
-                )
-        except Exception as e:
-            logger.error("Error loading threads from database: %s", e)
-            self.threads = []
-            self.active_thread_id = ""
+    async def _load_threads(self) -> AsyncGenerator[Any, Any]:
+        """Load thread summaries from database (internal)."""
+        async with self:
+            user_session: UserSession = await self.get_state(UserSession)
+            current_user_id = user_session.user.user_id if user_session.user else ""
+            is_authenticated = await user_session.is_authenticated
 
-        self.loading = False
-
-    async def save_thread(self, thread: ThreadModel) -> None:
-        """Save a single thread to database."""
-        user_session = await self.get_state(UserSession)
-        if not await user_session.is_authenticated:
-            logger.debug(
-                "Skipping save - user not authenticated for thread %s", thread.thread_id
-            )
-            return
-
-        try:
-            if user_session.user:
-                current_user_id = user_session.user.user_id
-                logger.debug(
-                    "Saving thread %s for user %s", thread.thread_id, current_user_id
-                )
-
-                # Check if thread is in current user's loaded threads
-                thread_exists = any(
-                    t.thread_id == thread.thread_id for t in self.threads
-                )
-                logger.debug(
-                    "Thread %s exists in loaded threads: %s (total: %d)",
-                    thread.thread_id,
-                    thread_exists,
-                    len(self.threads),
-                )
-                if not thread_exists:
-                    logger.warning(
-                        "Skipping save - thread %s not in loaded threads",
-                        thread.thread_id,
-                    )
-                    return
-
-                await ThreadRepository.save_thread(thread, current_user_id)
+            # Handle user change
+            if self._current_user_id != current_user_id:
                 logger.info(
-                    "Successfully saved thread %s to database", thread.thread_id
+                    "User changed from '%s' to '%s' - resetting state",
+                    self._current_user_id or "(none)",
+                    current_user_id or "(none)",
                 )
-            else:
-                logger.warning("No user in session, cannot save thread")
-        except Exception as e:
-            logger.error("Error saving thread %s: %s", thread.thread_id, e)
+                self._initialized = False
+                self._current_user_id = current_user_id
+                self._clear_threads()
+                yield
 
-    async def save_threads(self) -> None:
-        """Deprecated: Save all threads. Use save_thread instead."""
-        logger.warning("save_threads called but is deprecated for DB storage")
+                # Reset ThreadState
+                thread_state: ThreadState = await self.get_state(ThreadState)
+                thread_state.new_thread()
 
-    async def reset_thread_store(self) -> None:
-        """Reset the thread store (clear list)."""
-        self.threads = []
-        self.active_thread_id = ""
+            if self._initialized:
+                self.loading = False
+                yield
+                return
 
-    async def get_thread(self, thread_id: str) -> ThreadModel | None:
-        """Get a thread by its ID."""
-        for thread in self.threads:
-            if thread.thread_id == thread_id:
-                return thread
-        return None
+            # Check authentication
+            if not is_authenticated:
+                self._clear_threads()
+                self._current_user_id = ""
+                self.loading = False
+                yield
+                return
 
-    async def create_thread(self) -> None:
-        """Create a new thread."""
-        new_thread = ThreadModel(
-            thread_id=str(uuid.uuid4()),
-            title="Neuer Chat",
-            prompt="",
-            messages=[],
-            state=ThreadStatus.NEW,
-            ai_model=ModelManager().get_default_model(),
-            active=True,
-        )
-        self.threads.insert(0, new_thread)
-        await self._select_thread_internal(new_thread.thread_id)
+            user_id = user_session.user.user_id if user_session.user else None
 
-        # Save immediately to persist the new thread
-        if self.autosave:
-            await self.save_thread(new_thread)
-
-        logger.debug("Created new thread: %s", new_thread)
-
-    async def update_thread(self, thread: ThreadModel) -> None:
-        """Update a thread."""
-        existing_thread = await self.get_thread(thread.thread_id)
-        if existing_thread:
-            existing_thread.title = thread.title
-            existing_thread.messages = thread.messages
-            existing_thread.state = thread.state
-            existing_thread.active = thread.active
-            existing_thread.ai_model = thread.ai_model
-            logger.debug(
-                "Updated existing thread in list: %s (autosave=%s)",
-                thread.thread_id,
-                self.autosave,
-            )
-        else:
-            logger.warning(
-                "Thread %s not found in list during update", thread.thread_id
-            )
-
-        if self.autosave:
-            logger.debug("Attempting to save thread: %s", thread.thread_id)
-            await self.save_thread(thread)
-        else:
-            logger.debug("Autosave disabled, skipping save")
-        logger.debug("Updated thread: %s", thread.thread_id)
-
-    async def delete_thread(self, thread_id: str) -> AsyncGenerator[Any, Any]:
-        """Delete a thread."""
-        user_session = await self.get_state(UserSession)
-        if not await user_session.is_authenticated:
+        if not user_id:
+            async with self:
+                self.loading = False
+            yield
             return
 
-        thread = await self.get_thread(thread_id)
-        if not thread:
+        # Fetch threads from database
+        try:
+            threads = await ThreadRepository.get_summaries_by_user(user_id)
+            async with self:
+                self.threads = threads
+                self._initialized = True
+                logger.debug("Loaded %d threads", len(threads))
+            yield
+        except Exception as e:
+            logger.error("Error loading threads: %s", e)
+            async with self:
+                self._clear_threads()
+            yield
+        finally:
+            async with self:
+                self.loading = False
+            yield
+
+    # -------------------------------------------------------------------------
+    # Thread list management
+    # -------------------------------------------------------------------------
+
+    async def add_thread(self, thread: ThreadModel) -> None:
+        """Add a new thread to the list.
+
+        Called by ThreadState via get_state() after first successful response.
+        Not an @rx.event so it can be called directly from background tasks.
+        Does not persist to DB - ThreadState handles persistence.
+
+        Args:
+            thread: The thread model to add.
+        """
+        # Check if already in list (idempotent)
+        existing = next(
+            (t for t in self.threads if t.thread_id == thread.thread_id),
+            None,
+        )
+        if existing:
+            logger.debug("Thread already in list: %s", thread.thread_id)
+            return
+
+        # Deactivate other threads
+        self.threads = [
+            ThreadModel(**{**t.model_dump(), "active": False}) for t in self.threads
+        ]
+        # Add new thread at beginning (mark as active)
+        thread.active = True
+        self.threads = [thread, *self.threads]
+        self.active_thread_id = thread.thread_id
+        logger.debug("Added thread to list: %s", thread.thread_id)
+
+    @rx.event(background=True)
+    async def delete_thread(self, thread_id: str) -> AsyncGenerator[Any, Any]:
+        """Delete a thread from database and list.
+
+        If the deleted thread was the active thread, resets ThreadState
+        to show an empty thread.
+
+        Args:
+            thread_id: The ID of the thread to delete.
+        """
+        async with self:
+            user_session: UserSession = await self.get_state(UserSession)
+            is_authenticated = await user_session.is_authenticated
+            user_id = user_session.user.user_id if user_session.user else None
+
+            thread_to_delete = next(
+                (t for t in self.threads if t.thread_id == thread_id), None
+            )
+            was_active = thread_id == self.active_thread_id
+
+        if not is_authenticated or not user_id:
+            return
+
+        if not thread_to_delete:
             yield rx.toast.error(
                 "Chat nicht gefunden.", position="top-right", close_button=True
             )
-            logger.warning("Thread with ID %s not found.", thread_id)
+            logger.warning("Thread %s not found for deletion", thread_id)
             return
 
-        was_active = thread_id == self.active_thread_id
-
         try:
-            if user_session.user:
-                await ThreadRepository.delete_thread(
-                    thread_id, user_session.user.user_id
-                )
-                self.threads.remove(thread)
+            # Delete from database
+            await ThreadRepository.delete_thread(thread_id, user_id)
 
-                yield rx.toast.info(
-                    f"Chat '{thread.title}' erfolgreich gelöscht.",
-                    position="top-right",
-                    close_button=True,
-                )
+            async with self:
+                # Remove from list
+                self.threads = [t for t in self.threads if t.thread_id != thread_id]
 
                 if was_active:
-                    thread_state: ThreadState = await self.get_state(ThreadState)
-                    thread_state.initialize()
                     self.active_thread_id = ""
+                    # Reset ThreadState to empty thread
+                    thread_state: ThreadState = await self.get_state(ThreadState)
+                    thread_state.new_thread()
 
-                    # If other threads remain, select the first one
-                    if self.threads:
-                        await self._select_thread_internal(self.threads[0].thread_id)
+            yield rx.toast.info(
+                f"Chat '{thread_to_delete.title}' gelöscht.",
+                position="top-right",
+                close_button=True,
+            )
 
         except Exception as e:
-            logger.error("Error deleting thread: %s", e)
-            yield rx.toast.error("Fehler beim Löschen des Chats.")
+            logger.error("Error deleting thread %s: %s", thread_id, e)
+            yield rx.toast.error(
+                "Fehler beim Löschen des Chats.",
+                position="top-right",
+                close_button=True,
+            )
 
-    async def select_thread(self, thread_id: str) -> AsyncGenerator[Any, Any]:
-        """Select a thread (Event Handler)."""
-        self.loading_thread_id = thread_id
-        yield
-        await self._select_thread_internal(thread_id)
+    # -------------------------------------------------------------------------
+    # Logout handling
+    # -------------------------------------------------------------------------
+
+    @rx.event
+    async def reset_on_logout(self) -> None:
+        """Reset state on user logout to prevent data leakage."""
+        logger.info(
+            "Resetting ThreadListState on logout for user: %s",
+            self._current_user_id,
+        )
+
+        self._clear_threads()
+        self.loading = False
+        self._initialized = False
+        self._current_user_id = ""
+
+        # Reset ThreadState
+        thread_state: ThreadState = await self.get_state(ThreadState)
+        thread_state.new_thread()
+
+        logger.debug("ThreadListState reset complete")
+
+    # -------------------------------------------------------------------------
+    # Internal helpers
+    # -------------------------------------------------------------------------
+
+    def _clear_threads(self) -> None:
+        """Clear thread-related state."""
+        self.threads = []
+        self.active_thread_id = ""
         self.loading_thread_id = ""
-
-    async def _select_thread_internal(self, thread_id: str) -> None:
-        """Internal logic to select a thread."""
-        user_session = await self.get_state(UserSession)
-        if not await user_session.is_authenticated:
-            return
-
-        # Find the thread in the list
-        selected_thread = None
-        for thread in self.threads:
-            if thread.thread_id == thread_id:
-                selected_thread = thread
-                break
-
-        if not selected_thread:
-            return
-
-        # Fetch full thread details from DB
-        try:
-            if user_session.user:
-                full_thread = await ThreadRepository.get_thread_by_id(
-                    thread_id, user_session.user.user_id
-                )
-                if full_thread:
-                    # Ensure all messages are marked as done when loaded from DB
-                    for msg in full_thread.messages:
-                        msg.done = True
-
-                    # Update list with full thread (create new list for reactivity)
-                    self.threads = [
-                        full_thread if t.thread_id == thread_id else t
-                        for t in self.threads
-                    ]
-                    selected_thread = full_thread
-        except Exception as e:
-            logger.error("Error fetching full thread %s: %s", thread_id, e)
-
-        # Update active status (create new list for reactivity)
-        self.threads = [
-            ThreadModel(**{**t.model_dump(), "active": t.thread_id == thread_id})
-            for t in self.threads
-        ]
-        self.active_thread_id = thread_id
-
-        if selected_thread:
-            thread_state: ThreadState = await self.get_state(ThreadState)
-            thread_state.set_thread(selected_thread)
-            thread_state.messages = selected_thread.messages
-            thread_state.selected_model = selected_thread.ai_model
-            thread_state.with_thread_list = True
-        self.active_thread_id = thread_id
-        self.loading_thread_id = ""
-
-        if selected_thread:
-            thread_state: ThreadState = await self.get_state(ThreadState)
-            thread_state.set_thread(selected_thread)
-            thread_state.messages = selected_thread.messages
-            thread_state.selected_model = selected_thread.ai_model
-            thread_state.with_thread_list = True

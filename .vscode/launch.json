@@ -2,16 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "reflex",
-            "type": "python",
-            "request": "launch",
-            "module": "reflex",
-            "args": [
-                "run"
-            ],
-            "justMyCode": true
-        },
-        {
             "name": "Reflex Debug",
             "type": "debugpy",
             "request": "launch",
@@ -22,7 +12,9 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "env": {
-                "REFLEX_USE_TURBOPACK": "1"
+                //"REFLEX_USE_TURBOPACK": "1",
+                //"VITE_FORCE_FULL_RELOAD": "1",
+                "VITE_EXPERIMENTAL_HMR": "1"
             },
             "autoReload": {
                 "enable": true,

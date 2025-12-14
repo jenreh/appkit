@@ -54,7 +54,7 @@ class MessageComponent:
 
         # Show thinking content only for the last assistant message
         should_show_thinking = (
-            message.text == ThreadState.last_assistant_message_text
+            message.text == ThreadState.get_last_assistant_message_text
         ) & ThreadState.has_thinking_content
 
         # Main content area with all components
@@ -74,9 +74,9 @@ class MessageComponent:
                 ),
                 title="Denkprozess & Werkzeuge",
                 info_text=(
-                    f"{ThreadState.unique_reasoning_sessions.length()} "
+                    f"{ThreadState.get_unique_reasoning_sessions.length()} "
                     f"Nachdenken, "
-                    f"{ThreadState.unique_tool_calls.length()} Werkzeuge"
+                    f"{ThreadState.get_unique_tool_calls.length()} Werkzeuge"
                 ),
                 show_condition=should_show_thinking,
                 expanded=ThreadState.thinking_expanded,

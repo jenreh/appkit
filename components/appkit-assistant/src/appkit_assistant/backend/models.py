@@ -63,6 +63,7 @@ class ThreadStatus(StrEnum):
     ACTIVE = "active"
     IDLE = "idle"
     WAITING = "waiting"
+    ERROR = "error"
     DELETED = "deleted"
     ARCHIVED = "archived"
 

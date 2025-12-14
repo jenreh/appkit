@@ -163,11 +163,8 @@ class RichTextEditor(NoSSRComponent):
     tag = "RichTextEditorWrapper"
 
     # Point to our custom wrapper component (same directory as this module)
-    library = "$/public/" + asset(
-        path="tiptap_wrapper.js",
-        shared=True,
-    )
-    is_default = False
+    library = None
+    is_default = True
 
     lib_dependencies: list[str] = [
         f"@mantine/tiptap@{MANTINE_VERSION}",
@@ -244,6 +241,33 @@ class RichTextEditor(NoSSRComponent):
 
     Allows you to apply custom CSS classes to editor parts.
     """
+
+    def _get_dynamic_imports(self) -> str:
+        """Get the dynamic import for the custom wrapper component.
+
+        Returns:
+            The dynamic import code for the tiptap wrapper.
+        """
+        # Get the asset path for the wrapper
+        wrapper_path = asset(path="tiptap_wrapper.js", shared=True)
+        # Format as module import path
+        import_path = f"$/public/{wrapper_path}"
+
+        # Return the dynamic import with ClientSide wrapper and lazy loading
+        return f"""const {self.tag} = ClientSide(lazy(() =>
+    import('{import_path}').then((mod) => ({{ default: mod.RichTextEditorWrapper }}))
+))"""
+
+    def add_imports(self) -> dict[str, list[str]]:
+        """Add necessary imports for lazy loading.
+
+        Returns:
+            The imports needed for ClientSide and lazy.
+        """
+        return {
+            "react": ["lazy"],
+            f"$/{rx.constants.Dirs.UTILS}/context": ["ClientSide"],
+        }
 
     @staticmethod
     def _get_app_wrap_components() -> dict[tuple[int, str], rx.Component]:

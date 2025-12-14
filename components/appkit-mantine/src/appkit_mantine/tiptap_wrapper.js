@@ -233,3 +233,5 @@ export const RichTextEditorWrapper = memo(function Wrapper(props) {
     createElement(MantineRichTextEditor.Content, null)
   );
 });
+
+export default RichTextEditorWrapper;

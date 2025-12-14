@@ -87,7 +87,6 @@ def initialize_model_manager() -> list[AIModel]:
 
 
 initialize_model_manager()
-default_model = ModelManager().get_default_model()
 
 
 @authenticated(
@@ -97,9 +96,9 @@ default_model = ModelManager().get_default_model()
     navbar=app_navbar(),
     with_header=True,
     on_load=[
-        ThreadState.set_initial_suggestions(suggestions),
-        ThreadListState.initialize(autosave=True),
+        ThreadState.set_suggestions(suggestions),
         ThreadState.initialize(),
+        ThreadListState.initialize(),
     ],
 )
 def assistant_page() -> rx.Component:
@@ -116,7 +115,6 @@ def assistant_page() -> rx.Component:
                 rx.flex(
                     rx.vstack(
                         Assistant.thread_list(
-                            default_model=default_model,
                             width="100%",
                             margin_top="6px",
                             **assistant_styles,  # type: ignore

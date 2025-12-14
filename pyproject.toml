@@ -13,7 +13,7 @@ dependencies = [
     "appkit-user",
     "psycopg>=3.3.2",
     "psycopg-binary>=3.3.2",
-    "reflex==0.8.21",
+    "reflex>=0.8.22",
 ]
 
 [dependency-groups]

@@ -3,6 +3,7 @@ import logging
 import reflex as rx
 
 import appkit_mantine as mn
+from appkit_assistant.state.thread_state import ThreadListState
 from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.states import LoginState
@@ -212,7 +213,11 @@ def logout_button() -> rx.Component:
             content="Abmelden",
         ),
         underline="none",
-        on_click=[LoginState.terminate_session, LoginState.logout],
+        on_click=[
+            ThreadListState.reset_on_logout,
+            LoginState.terminate_session,
+            LoginState.logout,
+        ],
     )
 
 

@@ -92,6 +92,6 @@ def tools_popover() -> rx.Component:
             side="top",
         ),
         open=ThreadState.show_tools_modal,
-        on_open_change=ThreadState.set_show_tools_modal,
+        on_open_change=ThreadState.toogle_tools_modal,
         placement="bottom-start",
     )

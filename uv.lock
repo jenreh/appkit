@@ -82,7 +82,7 @@ requires-dist = [
     { name = "appkit-user", editable = "components/appkit-user" },
     { name = "psycopg", specifier = ">=3.3.2" },
     { name = "psycopg-binary", specifier = ">=3.3.2" },
-    { name = "reflex", specifier = "==0.8.21" },
+    { name = "reflex", specifier = ">=0.8.22" },
 ]
 
 [package.metadata.requires-dev]
@@ -111,7 +111,7 @@ requires-dist = [
     { name = "appkit-mantine", editable = "components/appkit-mantine" },
     { name = "appkit-ui", editable = "components/appkit-ui" },
     { name = "openai", specifier = ">=2.3.0" },
-    { name = "reflex", specifier = ">=0.8.20" },
+    { name = "reflex", specifier = ">=0.8.22" },
 ]
 
 [[package]]
@@ -166,7 +166,7 @@ requires-dist = [
     { name = "google-genai", specifier = ">=1.26.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "openai", specifier = ">=2.3.0" },
-    { name = "reflex", specifier = ">=0.8.20" },
+    { name = "reflex", specifier = ">=0.8.22" },
 ]
 
 [[package]]
@@ -178,7 +178,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "reflex", specifier = ">=0.8.20" }]
+requires-dist = [{ name = "reflex", specifier = ">=0.8.22" }]
 
 [[package]]
 name = "appkit-ui"
@@ -192,7 +192,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "appkit-mantine", editable = "components/appkit-mantine" },
-    { name = "reflex", specifier = ">=0.8.20" },
+    { name = "reflex", specifier = "==0.8.22" },
 ]
 
 [[package]]
@@ -1228,7 +1228,7 @@ wheels = [
 
 [[package]]
 name = "reflex"
-version = "0.8.21"
+version = "0.8.22"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
@@ -1249,9 +1249,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1e/7d/5e31f160bf68ab186ec162acd865bd06ead121663e0a2e6b3b30f047a031/reflex-0.8.21.tar.gz", hash = "sha256:59c9154bef318d0feefc3c334d267dea7054b60990329f80cef0bc5b5a18a09c", size = 563499, upload-time = "2025-11-24T20:59:08.123Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/b1/7f0d739783edaa6022790a55af38b870cb15f25f04743dd3c73479f3c0b6/reflex-0.8.22.tar.gz", hash = "sha256:4636b6318521ef0f74c40e884dcc1b93792c29dea11fe6706ac30e3fde4fb146", size = 563768, upload-time = "2025-12-09T21:10:08.85Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/07/4e675b1d0d63c15bffa294ac2983c27307b081847ac4a172a47fb5f588a7/reflex-0.8.21-py3-none-any.whl", hash = "sha256:c11e1d532928dfbd38958999ad86d6beb963adad2b98de83186b5deace964819", size = 804701, upload-time = "2025-11-24T20:59:05.899Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/99/89d4983201d060c722a15c2194df24532cc7f44c041fa3b2dbf44ef7fa45/reflex-0.8.22-py3-none-any.whl", hash = "sha256:088a35b509f784280c697ccf4c428be894c8d9d9d7a458a525f06c86d496c9c9", size = 805020, upload-time = "2025-12-09T21:10:06.621Z" },
 ]
 
 [[package]]

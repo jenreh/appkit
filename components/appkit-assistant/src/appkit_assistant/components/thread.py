@@ -10,7 +10,6 @@ from appkit_assistant.components.threadlist import ThreadList
 from appkit_assistant.state.thread_state import (
     Message,
     MessageType,
-    ThreadListState,
     ThreadState,
 )
 
@@ -55,7 +54,7 @@ class Assistant:
                         lambda suggestion: Assistant.suggestion(
                             prompt=suggestion.prompt,
                             icon=suggestion.icon,
-                            update_prompt=ThreadState.update_prompt,
+                            update_prompt=ThreadState.set_prompt,
                         ),
                     ),
                     spacing="4",
@@ -122,7 +121,7 @@ class Assistant:
                 ),
                 rx.hstack(
                     composer.tools(
-                        show=with_tools and ThreadState.current_model_supports_tools
+                        show=with_tools and ThreadState.selected_model_supports_tools
                     ),
                     composer.add_attachment(show=with_attachments),
                     composer.clear(show=with_clear),
@@ -155,9 +154,6 @@ class Assistant:
         # Use ThreadState.set_suggestions() event handler to update suggestions
         # if suggestions is not None:
         #     ThreadState.set_suggestions(suggestions)
-
-        if with_thread_list:
-            ThreadState.with_thread_list = with_thread_list
 
         return rx.flex(
             rx.cond(
@@ -207,7 +203,10 @@ class Assistant:
                 spacing="0",
                 flex_shrink=0,
                 z_index=1000,
-                on_mount=ThreadState.load_available_mcp_servers,
+                on_mount=[
+                    ThreadState.set_with_thread_list(with_thread_list),
+                    ThreadState.load_mcp_servers,
+                ],
             ),
             **props,
         )
@@ -216,12 +215,8 @@ class Assistant:
     def thread_list(
         *items,
         with_footer: bool = False,
-        default_model: str | None = None,
         **props,
     ) -> rx.Component:
-        if default_model:
-            ThreadListState.default_model = default_model
-
         return rx.flex(
             rx.flex(
                 ThreadList.header(
