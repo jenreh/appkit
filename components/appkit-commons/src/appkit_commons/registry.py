@@ -169,7 +169,7 @@ class ServiceRegistry:
 
     def list_registered(self) -> list[type[Any]]:
         """Get a list of all registered class types."""
-        return list(self._instances.keys())
+        return list(self._instances)
 
     def has(self, instance_type: type[T]) -> bool:
         """Check if an instance is registered for the given class type."""

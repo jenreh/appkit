@@ -132,7 +132,7 @@ def render_options_example() -> rx.Component:
         rx.vstack(
             rx.heading("render_option Example", size="4"),
             mn.autocomplete(
-                data=list(users_data.keys()),
+                data=list(users_data),
                 render_option=render_option_js,
                 max_dropdown_height=300,
                 label="Employee of the month",

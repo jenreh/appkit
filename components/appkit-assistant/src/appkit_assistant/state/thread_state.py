@@ -624,16 +624,11 @@ class ThreadState(rx.State):
             self.current_tool_session = tool_id
             return tool_id
 
-        if chunk.type == ChunkType.TOOL_CALL:
-            tool_count = sum(
-                1 for i in self.thinking_items if i.type == ThinkingType.TOOL_CALL
-            )
-            self.current_tool_session = f"tool_{tool_count}"
+        # Return existing session if available and not creating a new tool call
+        if self.current_tool_session and chunk.type != ChunkType.TOOL_CALL:
             return self.current_tool_session
 
-        if self.current_tool_session:
-            return self.current_tool_session
-
+        # Count tools only once - needed for new TOOL_CALL or when no session exists
         tool_count = sum(
             1 for i in self.thinking_items if i.type == ThinkingType.TOOL_CALL
         )
@@ -672,7 +667,8 @@ class ThreadState(rx.State):
                 return item
 
         new_item = Thinking(type=thinking_type, id=item_id, **kwargs)
-        self.thinking_items = [*self.thinking_items, new_item]
+        # Append instead of list unpacking - caller will trigger update via .copy()
+        self.thinking_items.append(new_item)
         return new_item
 
     def _handle_reasoning_chunk(self, chunk: Chunk) -> None:

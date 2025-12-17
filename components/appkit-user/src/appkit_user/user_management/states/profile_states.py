@@ -17,9 +17,7 @@ MIN_PASSWORD_LENGTH: Final[int] = 12
 # - At least one digit
 # - At least one special character (anything other than letters and digits)
 PASSWORD_REGEX = re.compile(
-    r"^(?=.{"
-    + str(MIN_PASSWORD_LENGTH)
-    + r",})(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).*$"
+    rf"^(?=.{{{MIN_PASSWORD_LENGTH},}})(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).*$"
 )
 
 

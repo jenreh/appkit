@@ -94,7 +94,7 @@ class ImageGeneratorRegistry:
 
     def get_generator_ids(self) -> list[str]:
         """Get the IDs of all registered generators."""
-        return list(self._generators.keys())
+        return list(self._generators)
 
     def get_default_generator(self) -> ImageGenerator:
         """Get the default generator."""
