@@ -11,12 +11,11 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, Literal
 
-import reflex as rx
 from reflex.assets import asset
-from reflex.components.component import ImportVar, NoSSRComponent
+from reflex.components.component import ImportVar
 from reflex.vars.base import Var
 
-from appkit_mantine.base import MemoizedMantineProvider
+from appkit_mantine.base import MantineNoSSRComponentBase
 
 MARKDOWN_PREVIEW_VERSION: str = "^5.1.5"
 REHYPE_SANITIZE_VERSION: str = "^6.0.0"
@@ -25,7 +24,7 @@ MERMAID_VERSION: str = "^11.0.0"
 KATEX_VERSION: str = "^0.16.0"
 
 
-class MarkdownPreview(NoSSRComponent):
+class MarkdownPreview(MantineNoSSRComponentBase):
     """Client-side markdown renderer with optional diagram and math support.
 
     This component wraps `@uiw/react-markdown-preview` and enhances it with a
@@ -155,24 +154,6 @@ class MarkdownPreview(NoSSRComponent):
         return f"""const {self.tag} = ClientSide(lazy(() =>
     import('{import_path}').then((mod) => ({{ default: mod.MarkdownPreviewWrapper }}))
 ))"""
-
-    def add_imports(self) -> dict[str, list[str]]:
-        """Add necessary imports for lazy loading.
-
-        Returns:
-            The imports needed for ClientSide and lazy.
-        """
-        return {
-            "react": ["lazy"],
-            f"$/{rx.constants.Dirs.UTILS}/context": ["ClientSide"],
-        }
-
-    @staticmethod
-    def _get_app_wrap_components() -> dict[tuple[int, str], rx.Component]:
-        """Ensure the Mantine provider wraps applications using this component."""
-        return {
-            (44, "MantineProvider"): MemoizedMantineProvider.create(),
-        }
 
 
 markdown_preview = MarkdownPreview.create
