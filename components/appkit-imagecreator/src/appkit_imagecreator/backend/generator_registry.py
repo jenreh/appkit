@@ -104,5 +104,8 @@ class ImageGeneratorRegistry:
         return next(iter(self._generators.values()))
 
 
-# Create a global instance of the registry
+# Global registry instance (singleton pattern)
+# Performance note: This singleton avoids repeated initialization of generators
+# and maintains a shared cache of configured image generation services across
+# the application. The registry is created once at module import time.
 generator_registry: Final = ImageGeneratorRegistry()

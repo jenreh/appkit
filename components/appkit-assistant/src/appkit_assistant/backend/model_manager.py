@@ -108,7 +108,8 @@ class ModelManager:
         """
         if self._default_model_id is None:
             if self._models:
-                self._default_model_id = next(iter(self._models.keys()))
+                # Get first model key directly from dict
+                self._default_model_id = next(iter(self._models))
                 logger.debug(
                     "Using first available model %s as default", self._default_model_id
                 )
