@@ -1,4 +1,6 @@
 import datetime
+import json
+from typing import Any
 
 from cryptography.fernet import Fernet
 from sqlalchemy import (
@@ -40,6 +42,21 @@ class EncryptedString(TypeDecorator):
     def process_result_value(self, value: any, dialect: Dialect) -> str | None:  # noqa: ARG002
         if value is not None:
             return self.cipher.decrypt(value.encode()).decode()
+        return value
+
+
+class EncryptedJSON(EncryptedString):
+    """Custom type for storing encrypted JSON data."""
+
+    def process_bind_param(self, value: Any, dialect: Dialect) -> str | None:
+        if value is not None:
+            value = json.dumps(value)
+        return super().process_bind_param(value, dialect)
+
+    def process_result_value(self, value: Any, dialect: Dialect) -> Any | None:
+        value = super().process_result_value(value, dialect)
+        if value is not None:
+            return json.loads(value)
         return value
 
 
