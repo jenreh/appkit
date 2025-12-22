@@ -76,9 +76,12 @@ class OpenAIImageGenerator(ImageGenerator):
     ) -> ImageGeneratorResponse:
         output_format = "jpeg"
         prompt = self._format_prompt(input_data.prompt, input_data.negative_prompt)
+        original_prompt = prompt
 
         if input_data.enhance_prompt:
             prompt = await self._enhance_prompt(prompt)
+
+        enhanced_prompt = prompt if input_data.enhance_prompt else original_prompt
 
         response = await self.client.images.generate(
             model=self.model,
@@ -114,6 +117,11 @@ class OpenAIImageGenerator(ImageGenerator):
                 state=ImageResponseState.FAILED,
                 images=[],
                 error="Es wurden keine Bilder generiert oder von der API abgerufen.",
+                enhanced_prompt=enhanced_prompt,
             )
 
-        return ImageGeneratorResponse(state=ImageResponseState.SUCCEEDED, images=images)
+        return ImageGeneratorResponse(
+            state=ImageResponseState.SUCCEEDED,
+            images=images,
+            enhanced_prompt=enhanced_prompt,
+        )

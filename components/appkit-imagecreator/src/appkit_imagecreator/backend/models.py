@@ -35,6 +35,7 @@ class ImageGeneratorResponse(BaseModel):
     state: ImageResponseState
     images: list[str]
     error: str = ""
+    enhanced_prompt: str = ""  # The actual AI-enhanced prompt used for generation
 
 
 class ImageGenerator(ABC):

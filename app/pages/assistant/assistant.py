@@ -6,13 +6,10 @@ import reflex as rx
 
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.models import AIModel
-from appkit_assistant.backend.processors.ai_models import (
-    GPT_5_1,
-    GPT_5_MINI,
-)
 from appkit_assistant.backend.processors.lorem_ipsum_processor import (
     LoremIpsumProcessor,
 )
+from appkit_assistant.backend.processors.openai_base import GPT_5_1, GPT_5_2, GPT_5_MINI
 from appkit_assistant.backend.processors.openai_responses_processor import (
     OpenAIResponsesProcessor,
 )
@@ -68,9 +65,9 @@ def initialize_model_manager() -> list[AIModel]:
     #     )
 
     models = {
-        # GPT_5.id: GPT_5,
         GPT_5_1.id: GPT_5_1,
         GPT_5_MINI.id: GPT_5_MINI,
+        GPT_5_2.id: GPT_5_2,
     }
 
     model_manager.register_processor(

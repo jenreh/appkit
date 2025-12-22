@@ -56,9 +56,12 @@ class GoogleImageGenerator(ImageGenerator):
         self, input_data: GenerationInput
     ) -> ImageGeneratorResponse:
         prompt = self._format_prompt(input_data.prompt, input_data.negative_prompt)
+        original_prompt = prompt
 
         if input_data.enhance_prompt:
             prompt = self._enhance_prompt(prompt)
+
+        enhanced_prompt = prompt if input_data.enhance_prompt else original_prompt
 
         response = self.client.models.generate_images(
             model=self.model,
@@ -81,4 +84,8 @@ class GoogleImageGenerator(ImageGenerator):
             )
             images.append(image_url)
 
-        return ImageGeneratorResponse(state=ImageResponseState.SUCCEEDED, images=images)
+        return ImageGeneratorResponse(
+            state=ImageResponseState.SUCCEEDED,
+            images=images,
+            enhanced_prompt=enhanced_prompt,
+        )

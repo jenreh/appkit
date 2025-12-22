@@ -109,9 +109,11 @@ class BlackForestLabsImageGenerator(ImageGenerator):
                 state=ImageResponseState.FAILED,
                 images=[],
                 error=final_error_message,
+                enhanced_prompt=prompt,  # BFL does enhancement server-side
             )
 
         return ImageGeneratorResponse(
             state=ImageResponseState.SUCCEEDED,
             images=[image_url],
+            enhanced_prompt=prompt,  # BFL does enhancement server-side via prompt_upsampling
         )

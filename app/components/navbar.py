@@ -94,7 +94,7 @@ def navbar_items() -> rx.Component:
         sidebar_item(
             label="Bildgenerator",
             icon="image",
-            url="/image-generator",
+            url="/image-gallery",
         ),
         rx.text("Inputs", size="2", weight="bold", style=sub_heading_styles),
         rx.list.unordered(

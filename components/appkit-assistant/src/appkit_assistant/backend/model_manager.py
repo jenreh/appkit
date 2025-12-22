@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import logging
 import threading
-from typing import Optional
 
 from appkit_assistant.backend.models import AIModel
 from appkit_assistant.backend.processor import Processor
@@ -11,13 +12,13 @@ logger = logging.getLogger(__name__)
 class ModelManager:
     """Singleton service manager for AI processing services."""
 
-    _instance: Optional["ModelManager"] = None
+    _instance: ModelManager | None = None
     _lock = threading.Lock()
     _default_model_id = (
         None  # Default model ID will be set to the first registered model
     )
 
-    def __new__(cls) -> "ModelManager":
+    def __new__(cls) -> ModelManager:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:

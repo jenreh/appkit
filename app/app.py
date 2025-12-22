@@ -3,8 +3,11 @@
 import logging
 
 import reflex as rx
+from fastapi import FastAPI
+from starlette.types import ASGIApp
 
 from appkit_commons.middleware import ForceHTTPSMiddleware
+from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
     github_oauth_callback_page,
@@ -52,6 +55,7 @@ from app.pages.examples.tags_input_examples import tags_input_examples  # noqa: 
 from app.pages.examples.textarea_examples import textarea_examples_page  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
 from app.pages.image_creator import image_creator_page  # noqa: F401
+from app.pages.image_gallery import image_gallery  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
 logging.basicConfig(level=logging.DEBUG)
@@ -107,6 +111,12 @@ def index() -> rx.Component:
                 rx.list.item(rx.link("ScrollArea", href="/scroll-area")),
                 rx.list.item(rx.link("Table", href="/table")),
             ),
+            rx.text.strong("AI Tools:", size="3"),
+            rx.list.unordered(
+                rx.list.item(rx.link("Image Generator", href="/image-generator")),
+                rx.list.item(rx.link("Image Gallery (New)", href="/image-gallery")),
+                rx.list.item(rx.link("Assistant", href="/assistant")),
+            ),
             spacing="2",
             justify="center",
             margin_top="0",
@@ -129,9 +139,19 @@ base_style = {
     },
 }
 
+# Create FastAPI app for custom API routes
+api_app = FastAPI(title="AppKit API")
+api_app.include_router(image_api_router)
+
+
+# Middleware transformer for HTTPS redirect
+def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
+    """Wrap the ASGI app with HTTPS redirect middleware."""
+    return ForceHTTPSMiddleware(asgi_app)
+
+
 app = rx.App(
     stylesheets=base_stylesheets,
     style=base_style,
+    api_transformer=[api_app, add_https_middleware],
 )
-# Add the HTTPS redirect middleware for Azure deployments
-app._api.add_middleware(ForceHTTPSMiddleware)  # noqa: SLF001
