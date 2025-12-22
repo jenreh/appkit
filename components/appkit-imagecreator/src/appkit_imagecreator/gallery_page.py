@@ -10,6 +10,7 @@ This module provides the UI components for the image gallery:
 
 import reflex as rx
 
+import appkit_mantine as mn
 from appkit_imagecreator.backend.gallery_models import GeneratedImageModel
 from appkit_imagecreator.gallery_state import ImageGalleryState
 from appkit_ui.components.header import header
@@ -818,6 +819,156 @@ def zoom_modal() -> rx.Component:
 
 
 # -----------------------------------------------------------------------------
+# History Drawer Component
+# -----------------------------------------------------------------------------
+
+
+def _history_image_card(image: GeneratedImageModel) -> rx.Component:
+    """Render a single image card in the history drawer.
+
+    Shows only X button on hover (no pencil/edit button).
+    Clicking the image adds it to the main grid.
+    """
+    # X button - delete from database (shown on hover)
+    delete_button = rx.icon_button(
+        rx.icon("x", size=14),
+        size="1",
+        variant="solid",
+        color_scheme="red",
+        position="absolute",
+        top="4px",
+        right="4px",
+        border_radius="full",
+        cursor="pointer",
+        z_index="10",
+        on_click=ImageGalleryState.delete_image_from_db(image.id),
+    )
+
+    # Hover overlay container
+    hover_overlay = rx.box(
+        delete_button,
+        position="absolute",
+        inset="0",
+        background="rgba(0,0,0,0.3)",
+        opacity="0",
+        transition="opacity 0.2s ease-in-out",
+        border_radius="6px",
+        class_name="history-hover-overlay",
+    )
+
+    # Deleting overlay with spinner
+    deleting_overlay = rx.cond(
+        ImageGalleryState.deleting_image_id == image.id.to_string(),
+        rx.box(
+            rx.center(
+                rx.spinner(size="3", color="white"),
+                width="100%",
+                height="100%",
+            ),
+            position="absolute",
+            inset="0",
+            background="rgba(0,0,0,0.6)",
+            border_radius="6px",
+            z_index="20",
+            pointer_events="none",
+        ),
+        rx.fragment(),  # Empty fragment when not deleting
+    )
+
+    return rx.box(
+        rx.box(
+            rx.image(
+                src=image.image_url,
+                width="100%",
+                height="100%",
+                object_fit="cover",
+                loading="lazy",
+                border_radius="6px",
+                cursor="pointer",
+            ),
+            hover_overlay,
+            deleting_overlay,
+            position="relative",
+            width="100%",
+            aspect_ratio="1",
+            overflow="hidden",
+            border_radius="6px",
+            _hover={
+                "& .history-hover-overlay": {"opacity": "1"},
+            },
+            on_click=lambda: ImageGalleryState.add_history_image_to_grid(image.id),
+        ),
+        width="100%",
+    )
+
+
+def history_drawer() -> rx.Component:
+    """History drawer using rx.drawer that slides in from the right.
+
+    Shows all images of the user with delete capability.
+    Clicking an image adds it to the main grid.
+    """
+    drawer_content = rx.vstack(
+        # Header
+        rx.hstack(
+            rx.text("History", size="4", weight="medium"),
+            width="100%",
+            padding="16px",
+            border_bottom=f"1px solid {rx.color('gray', 4)}",
+            align="center",
+        ),
+        # Image grid
+        rx.scroll_area(
+            rx.cond(
+                ImageGalleryState.history_images.length() > 0,
+                rx.box(
+                    rx.foreach(
+                        ImageGalleryState.history_images,
+                        _history_image_card,
+                    ),
+                    display="grid",
+                    grid_template_columns="repeat(2, 1fr)",
+                    gap="8px",
+                    padding="12px",
+                ),
+                rx.center(
+                    rx.vstack(
+                        rx.icon("image-off", size=32, color=rx.color("gray", 8)),
+                        rx.text(
+                            "No images yet",
+                            size="2",
+                            color=rx.color("gray", 9),
+                        ),
+                        spacing="2",
+                    ),
+                    height="200px",
+                ),
+            ),
+            height="calc(100vh - 60px)",
+        ),
+        width="320px",
+        height="100vh",
+        background=rx.color("gray", 1),
+        border_left=f"1px solid {rx.color('gray', 4)}",
+        display="flex",
+        flex_direction="column",
+    )
+
+    return mn.drawer(
+        drawer_content,
+        title="Historie",
+        position="right",
+        offset="9px",
+        radius="md",
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+        with_close_button=True,
+        close_on_click_outside=True,
+        opened=ImageGalleryState.history_drawer_open,
+        on_close=ImageGalleryState.close_history_drawer,
+    )
+
+
+# -----------------------------------------------------------------------------
 # Header Component
 # -----------------------------------------------------------------------------
 
@@ -825,33 +976,29 @@ def zoom_modal() -> rx.Component:
 def gallery_header() -> rx.Component:
     """Header with title and action buttons."""
     return rx.hstack(
-        rx.text("Images", size="5", weight="medium"),
         rx.spacer(),
-        rx.hstack(
-            rx.button(
-                rx.icon("eraser", size=16),
-                rx.text("Clear"),
-                variant="ghost",
-                size="2",
-                color_scheme="gray",
-                on_click=ImageGalleryState.clear_all_images,
-                cursor="pointer",
-            ),
-            rx.button(
-                rx.icon("history", size=16),
-                rx.text("History"),
-                variant="ghost",
-                size="2",
-                color_scheme="gray",
-                on_click=ImageGalleryState.toggle_history_drawer,
-                cursor="pointer",
-            ),
-            spacing="2",
+        rx.button(
+            rx.icon("brush", size=16),
+            rx.text(" Clear"),
+            variant="ghost",
+            size="2",
+            color_scheme="gray",
+            on_click=ImageGalleryState.clear_all_images,
+            cursor="pointer",
+            margin_right="12px",
         ),
+        rx.button(
+            rx.icon("history", size=16),
+            rx.text(" Historie"),
+            variant="ghost",
+            size="2",
+            color_scheme="gray",
+            on_click=ImageGalleryState.toggle_history_drawer,
+            cursor="pointer",
+            margin_right="12px",
+        ),
+        spacing="3",
         width="100%",
-        padding="16px 24px",
-        border_bottom=f"1px solid {rx.color('gray', 4)}",
-        align="center",
     )
 
 
@@ -864,7 +1011,7 @@ def image_gallery_page() -> rx.Component:
     """Main image gallery page component."""
     return rx.box(
         # Header
-        header("Bildgenerator"),
+        header("Bildgenerator", indent=True, header_items=gallery_header()),
         # Main content area with scrollable grid
         rx.scroll_area(
             image_grid(),
@@ -885,6 +1032,8 @@ def image_gallery_page() -> rx.Component:
         ),
         # Zoom modal
         zoom_modal(),
+        # History drawer
+        history_drawer(),
         # Initialize on mount
         on_mount=ImageGalleryState.initialize,
         width="100%",

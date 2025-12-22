@@ -1,6 +1,7 @@
 """Repository for generated images database operations."""
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
@@ -26,6 +27,44 @@ class GeneratedImageRepository:
                 GeneratedImage.select()
                 .options(defer(GeneratedImage.image_data))
                 .where(GeneratedImage.user_id == user_id)
+                .order_by(GeneratedImage.created_at.desc())
+                .limit(limit)
+            )
+            images = result.all()
+            return [
+                GeneratedImageModel(
+                    id=img.id,
+                    user_id=img.user_id,
+                    prompt=img.prompt,
+                    enhanced_prompt=img.enhanced_prompt,
+                    style=img.style,
+                    model=img.model,
+                    content_type=img.content_type,
+                    width=img.width,
+                    height=img.height,
+                    quality=img.quality,
+                    config=img.config,
+                    created_at=img.created_at,
+                )
+                for img in images
+            ]
+
+    @staticmethod
+    async def get_today_by_user(
+        user_id: int, limit: int = 100
+    ) -> list[GeneratedImageModel]:
+        """Retrieve today's generated images for a user (without blob data)."""
+        today_start = datetime.now(UTC).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        async with rx.asession() as session:
+            result = await session.exec(
+                GeneratedImage.select()
+                .options(defer(GeneratedImage.image_data))
+                .where(
+                    GeneratedImage.user_id == user_id,
+                    GeneratedImage.created_at >= today_start,
+                )
                 .order_by(GeneratedImage.created_at.desc())
                 .limit(limit)
             )

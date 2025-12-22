@@ -35,6 +35,7 @@ from appkit_mantine.markdown_preview import (
     markdown_preview,
 )
 from appkit_mantine.markdown_zoom import mermaid_zoom_script
+from appkit_mantine.drawer import drawer
 
 __all__ = [
     "MANTINE_LIBARY",
@@ -47,6 +48,7 @@ __all__ = [
     "ToolbarControlGroup",
     "action_icon",
     "button",
+    "drawer",
     "form",
     "markdown_preview",
     "mermaid_zoom_script",

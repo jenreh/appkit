@@ -49,8 +49,10 @@ class ImageGalleryState(rx.State):
     popup menus for style, size, quality, and count selection.
     """
 
-    # Stored images
+    # Stored images (today's images for grid)
     images: list[GeneratedImageModel] = []
+    # All images for history
+    history_images: list[GeneratedImageModel] = []
     loading_images: bool = False
 
     # Generation state
@@ -95,6 +97,7 @@ class ImageGalleryState(rx.State):
 
     # History drawer state
     history_drawer_open: bool = False
+    deleting_image_id: str = ""
 
     # Initialization
     _initialized: bool = False
@@ -167,6 +170,7 @@ class ImageGalleryState(rx.State):
                 self._initialized = False
                 self._current_user_id = current_user_id
                 self.images = []
+                self.history_images = []
                 yield
 
             if self._initialized:
@@ -177,6 +181,7 @@ class ImageGalleryState(rx.State):
             # Check authentication
             if not is_authenticated:
                 self.images = []
+                self.history_images = []
                 self._current_user_id = 0
                 self.loading_images = False
                 yield
@@ -192,16 +197,26 @@ class ImageGalleryState(rx.State):
 
         # Fetch images from database
         try:
-            images = await GeneratedImageRepository.get_by_user(user_id)
+            # Load today's images for grid
+            today_images = await GeneratedImageRepository.get_today_by_user(user_id)
+            # Load all images for history
+            all_images = await GeneratedImageRepository.get_by_user(user_id)
             async with self:
-                self.images = images
+                self.images = today_images
+                self.history_images = all_images
                 self._initialized = True
-                logger.debug("Loaded %d images for user %s", len(images), user_id)
+                logger.debug(
+                    "Loaded %d today's images, %d total for user %s",
+                    len(today_images),
+                    len(all_images),
+                    user_id,
+                )
             yield
         except Exception as e:
             logger.error("Error loading images: %s", e)
             async with self:
                 self.images = []
+                self.history_images = []
             yield
         finally:
             async with self:
@@ -416,8 +431,9 @@ class ImageGalleryState(rx.State):
                         },
                     )
                     async with self:
-                        # Prepend new image to the list
+                        # Prepend new image to both lists
                         self.images = [saved_image, *self.images]
+                        self.history_images = [saved_image, *self.history_images]
                     yield
                 except httpx.HTTPError as e:
                     logger.error("Error fetching image from URL: %s", e)
@@ -610,3 +626,44 @@ class ImageGalleryState(rx.State):
     def close_history_drawer(self) -> None:
         """Close the history drawer."""
         self.history_drawer_open = False
+
+    @rx.event
+    async def delete_image_from_db(self, image_id: str) -> None:
+        """Delete an image from the database and update both lists."""
+        user_id = self._current_user_id
+        if not user_id:
+            logger.warning("Cannot delete image: user not authenticated")
+            return
+        # Show loading overlay
+        self.deleting_image_id = image_id
+        yield
+        try:
+            logger.info("Deleting image from database: %s", image_id)
+            await GeneratedImageRepository.delete(int(image_id), user_id)
+            # Remove from both lists
+            self.images = [img for img in self.images if img.id != image_id]
+            self.history_images = [
+                img for img in self.history_images if img.id != image_id
+            ]
+            logger.info("Image deleted successfully: %s", image_id)
+        finally:
+            # Clear loading overlay
+            self.deleting_image_id = ""
+
+    @rx.event
+    def add_history_image_to_grid(self, image_id: str) -> None:
+        """Add an image from history to the main grid (today's images).
+
+        If the image is already in the grid, do nothing.
+        """
+        # Check if image is already in grid
+        if any(img.id == image_id for img in self.images):
+            logger.debug("Image %s already in grid", image_id)
+            return
+        # Find the image in history
+        for img in self.history_images:
+            if img.id == image_id:
+                # Prepend to grid
+                self.images = [img, *self.images]
+                logger.info("Added history image %s to grid", image_id)
+                break
