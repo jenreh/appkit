@@ -10,8 +10,8 @@ This module provides the UI components for the image gallery:
 
 import reflex as rx
 
-import appkit_mantine as mn
 from appkit_imagecreator.backend.gallery_models import GeneratedImageModel
+from appkit_imagecreator.components.history import history_drawer
 from appkit_imagecreator.gallery_state import ImageGalleryState
 from appkit_ui.components.header import header
 
@@ -54,31 +54,38 @@ def _style_item(style_data: tuple[str, dict]) -> rx.Component:
 
 
 def style_popup() -> rx.Component:
-    """Popup for selecting image style."""
+    """Popup for selecting image style with dynamic image trigger."""
     return rx.popover.root(
         rx.popover.trigger(
-            rx.hstack(
-                rx.icon("palette", size=20, color=rx.color("gray", 11)),
+            # Ein rx.box Container sorgt für konsistentes Layout als Button
+            rx.box(
                 rx.cond(
                     ImageGalleryState.selected_style != "",
-                    rx.text(
-                        ImageGalleryState.selected_style,
-                        size="2",
-                        color=rx.color("gray", 11),
+                    # FALL 1: Style ausgewählt -> Zeige das Bild des Styles
+                    rx.image(
+                        src=ImageGalleryState.selected_style_path,
+                        width="24px",
+                        height="24px",
+                        object_fit="cover",
+                        border_radius="4px",
+                        alt=ImageGalleryState.selected_style,
                     ),
+                    # FALL 2: Kein Style -> Zeige das Palette-Icon
+                    rx.icon("palette", size=20, color=rx.color("gray", 11)),
                 ),
+                # Styling für den Trigger-Button selbst
                 cursor="pointer",
-                spacing="2",
-                align="center",
                 padding="8px",
                 border_radius="8px",
+                display="flex",
+                align_items="center",
+                justify_content="center",
                 _hover={"background": rx.color("gray", 3)},
+                transition="background 0.2s",
             ),
         ),
         rx.popover.content(
             rx.vstack(
-                rx.text("Style", weight="medium", size="3"),
-                rx.separator(size="4"),
                 rx.flex(
                     rx.foreach(
                         ImageGalleryState.styles_preset,
@@ -86,7 +93,7 @@ def style_popup() -> rx.Component:
                     ),
                     wrap="wrap",
                     gap="3",
-                    max_width="320px",
+                    max_width="240px",
                 ),
                 spacing="3",
                 padding="4px",
@@ -126,28 +133,6 @@ def _size_option(option: dict) -> rx.Component:
     )
 
 
-def _quality_option(quality: str) -> rx.Component:
-    """Render a quality option item."""
-    return rx.box(
-        rx.hstack(
-            rx.cond(
-                ImageGalleryState.selected_quality == quality,
-                rx.icon("check", size=16, color=rx.color("accent", 9)),
-                rx.box(width="16px"),
-            ),
-            rx.text(quality, size="2"),
-            spacing="2",
-            align="center",
-            width="100%",
-        ),
-        padding="8px 12px",
-        cursor="pointer",
-        border_radius="4px",
-        _hover={"background": rx.color("gray", 3)},
-        on_click=ImageGalleryState.set_selected_quality(quality),
-    )
-
-
 def config_popup() -> rx.Component:
     """Popup for selecting size and quality."""
     return rx.popover.root(
@@ -162,35 +147,12 @@ def config_popup() -> rx.Component:
         ),
         rx.popover.content(
             rx.vstack(
-                # Size section
-                rx.text("Size", weight="medium", size="2", color=rx.color("gray", 10)),
                 rx.vstack(
                     rx.foreach(ImageGalleryState.size_options, _size_option),
                     spacing="1",
                     width="100%",
                 ),
-                rx.separator(size="4"),
-                # Quality section
-                rx.text(
-                    "Quality", weight="medium", size="2", color=rx.color("gray", 10)
-                ),
-                rx.vstack(
-                    rx.foreach(ImageGalleryState.quality_options, _quality_option),
-                    spacing="1",
-                    width="100%",
-                ),
-                rx.separator(size="4"),
-                # Advanced section (placeholder)
-                rx.text(
-                    "Advanced",
-                    weight="medium",
-                    size="2",
-                    color=rx.color("gray", 10),
-                    cursor="pointer",
-                    _hover={"color": rx.color("gray", 12)},
-                ),
                 spacing="3",
-                padding="4px",
                 min_width="200px",
             ),
             side="top",
@@ -269,7 +231,7 @@ def model_selector() -> rx.Component:
         rx.select.trigger(
             placeholder="Model",
             variant="ghost",
-            size="2",
+            margin_left="3px",
         ),
         rx.select.content(
             rx.foreach(
@@ -375,11 +337,6 @@ def prompt_input_bar() -> rx.Component:
                 rx.tooltip(
                     rx.box(
                         rx.hstack(
-                            rx.switch(
-                                checked=ImageGalleryState.enhance_prompt,
-                                on_change=ImageGalleryState.set_enhance_prompt,
-                                size="1",
-                            ),
                             rx.icon(
                                 "sparkles",
                                 size=14,
@@ -388,6 +345,11 @@ def prompt_input_bar() -> rx.Component:
                                     rx.color("blue", 10),
                                     rx.color("gray", 9),
                                 ),
+                            ),
+                            rx.switch(
+                                checked=ImageGalleryState.enhance_prompt,
+                                on_change=ImageGalleryState.set_enhance_prompt,
+                                size="1",
                             ),
                             spacing="1",
                             align="center",
@@ -399,13 +361,12 @@ def prompt_input_bar() -> rx.Component:
                     ),
                     content="Prompt automatisch verbessern (KI optimiert den Prompt)",
                 ),
-                rx.box(
-                    rx.icon("paperclip", size=18, color=rx.color("gray", 9)),
-                    cursor="not-allowed",
-                    opacity="0.5",
-                    padding="8px",
-                ),
-                rx.spacer(),
+                # rx.box(
+                #     rx.icon("paperclip", size=18, color=rx.color("gray", 9)),
+                #     cursor="not-allowed",
+                #     opacity="0.5",
+                #     padding="8px",
+                # ),
                 model_selector(),
                 width="100%",
                 align="center",
@@ -489,8 +450,8 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
 
     # Hover overlay container
     gradient_bg = (
-        "linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, "
-        "transparent 30%, transparent 70%, rgba(0,0,0,0.3) 100%)"
+        "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, "
+        "transparent 20%, transparent 80%, rgba(0,0,0,0.1) 100%)"
     )
     hover_overlay = rx.box(
         action_buttons,
@@ -501,31 +462,29 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
         transition="opacity 0.2s ease-in-out",
         border_radius="8px",
         class_name="hover-overlay",
+        on_click=ImageGalleryState.open_zoom_modal(image.id),
     )
 
     return rx.box(
-        rx.box(
-            rx.image(
-                src=image.image_url,
-                width="100%",
-                height="100%",
-                object_fit="cover",
-                loading="lazy",
-                border_radius="8px",
-                cursor="pointer",
-                on_click=ImageGalleryState.open_zoom_modal(image.id),
-            ),
-            hover_overlay,
-            position="relative",
+        rx.image(
+            src=image.image_url,
             width="100%",
-            aspect_ratio="1",
-            overflow="hidden",
+            height="100%",
+            object_fit="cover",
+            loading="lazy",
             border_radius="8px",
-            _hover={
-                "& .hover-overlay": {"opacity": "1"},
-            },
+            cursor="pointer",
         ),
+        hover_overlay,
+        position="relative",
         width="100%",
+        aspect_ratio="1",
+        overflow="hidden",
+        border_radius="8px",
+        border=f"1px solid {rx.color('gray', 4)}",
+        _hover={
+            "& .hover-overlay": {"opacity": "1"},
+        },
     )
 
 
@@ -533,35 +492,59 @@ def _generating_card() -> rx.Component:
     """Render a loading card while image is being generated."""
     # CSS for animated gradient background
     css_code = """
+@property --bg-start {
+  syntax: '<color>';
+  initial-value: rgba(255,255,255,0.95);
+  inherits: false;
+}
+
+@property --bg-mid {
+  syntax: '<color>';
+  initial-value: rgba(245,245,245,0.9);
+  inherits: false;
+}
+
+@property --bg-end {
+  syntax: '<color>';
+  initial-value: rgba(230,230,230,0.85);
+  inherits: false;
+}
+
+/* 2. Apply the gradient once using the variables */
+.generating-bg {
+  /* Note: 400% size zooms in significantly; ensure this matches your design intent */
+  background-size: 400% 400%;
+  background-image: radial-gradient(
+    circle at center,
+    var(--bg-start) 0%,
+    var(--bg-mid) 50%,
+    var(--bg-end) 100%
+  );
+  animation: bgCycle 10s linear infinite;
+}
+
+/* 3. Animate only the variable values */
 @keyframes bgCycle {
   0% {
-    background: radial-gradient(circle at center,
-      rgba(255,255,255,0.95) 0%,
-      rgba(245,245,245,0.9) 50%,
-      rgba(230,230,230,0.85) 100%);
+    --bg-start: rgba(255,255,255,0.95);
+    --bg-mid:   rgba(245,245,245,0.9);
+    --bg-end:   rgba(230,230,230,0.85);
   }
   33% {
-    background: radial-gradient(circle at center,
-      rgba(255,240,230,0.95) 0%,
-      rgba(255,220,200,0.9) 50%,
-      rgba(255,200,170,0.85) 100%);
+    --bg-start: rgba(255,240,230,0.95);
+    --bg-mid:   rgba(255,220,200,0.9);
+    --bg-end:   rgba(255,200,170,0.85);
   }
   66% {
-    background: radial-gradient(circle at center,
-      rgba(230,245,255,0.95) 0%,
-      rgba(200,230,255,0.9) 50%,
-      rgba(170,215,255,0.85) 100%);
+    --bg-start: rgba(230,245,255,0.95);
+    --bg-mid:   rgba(200,230,255,0.9);
+    --bg-end:   rgba(170,215,255,0.85);
   }
   100% {
-    background: radial-gradient(circle at center,
-      rgba(255,255,255,0.95) 0%,
-      rgba(245,245,245,0.9) 50%,
-      rgba(230,230,230,0.85) 100%);
+    --bg-start: rgba(255,255,255,0.95);
+    --bg-mid:   rgba(245,245,245,0.9);
+    --bg-end:   rgba(230,230,230,0.85);
   }
-}
-.generating-bg {
-  background-size: 400% 400%;
-  animation: bgCycle 10s linear infinite;
 }
 """
 
@@ -694,7 +677,7 @@ def image_grid() -> rx.Component:
 # -----------------------------------------------------------------------------
 
 
-def zoom_modal() -> rx.Component:
+def image_zoom_modal() -> rx.Component:
     """Modal for viewing image in full size with details."""
     return rx.dialog.root(
         rx.dialog.content(
@@ -819,156 +802,6 @@ def zoom_modal() -> rx.Component:
 
 
 # -----------------------------------------------------------------------------
-# History Drawer Component
-# -----------------------------------------------------------------------------
-
-
-def _history_image_card(image: GeneratedImageModel) -> rx.Component:
-    """Render a single image card in the history drawer.
-
-    Shows only X button on hover (no pencil/edit button).
-    Clicking the image adds it to the main grid.
-    """
-    # X button - delete from database (shown on hover)
-    delete_button = rx.icon_button(
-        rx.icon("x", size=14),
-        size="1",
-        variant="solid",
-        color_scheme="red",
-        position="absolute",
-        top="4px",
-        right="4px",
-        border_radius="full",
-        cursor="pointer",
-        z_index="10",
-        on_click=ImageGalleryState.delete_image_from_db(image.id),
-    )
-
-    # Hover overlay container
-    hover_overlay = rx.box(
-        delete_button,
-        position="absolute",
-        inset="0",
-        background="rgba(0,0,0,0.3)",
-        opacity="0",
-        transition="opacity 0.2s ease-in-out",
-        border_radius="6px",
-        class_name="history-hover-overlay",
-    )
-
-    # Deleting overlay with spinner
-    deleting_overlay = rx.cond(
-        ImageGalleryState.deleting_image_id == image.id.to_string(),
-        rx.box(
-            rx.center(
-                rx.spinner(size="3", color="white"),
-                width="100%",
-                height="100%",
-            ),
-            position="absolute",
-            inset="0",
-            background="rgba(0,0,0,0.6)",
-            border_radius="6px",
-            z_index="20",
-            pointer_events="none",
-        ),
-        rx.fragment(),  # Empty fragment when not deleting
-    )
-
-    return rx.box(
-        rx.box(
-            rx.image(
-                src=image.image_url,
-                width="100%",
-                height="100%",
-                object_fit="cover",
-                loading="lazy",
-                border_radius="6px",
-                cursor="pointer",
-            ),
-            hover_overlay,
-            deleting_overlay,
-            position="relative",
-            width="100%",
-            aspect_ratio="1",
-            overflow="hidden",
-            border_radius="6px",
-            _hover={
-                "& .history-hover-overlay": {"opacity": "1"},
-            },
-            on_click=lambda: ImageGalleryState.add_history_image_to_grid(image.id),
-        ),
-        width="100%",
-    )
-
-
-def history_drawer() -> rx.Component:
-    """History drawer using rx.drawer that slides in from the right.
-
-    Shows all images of the user with delete capability.
-    Clicking an image adds it to the main grid.
-    """
-    drawer_content = rx.vstack(
-        # Header
-        rx.hstack(
-            rx.text("History", size="4", weight="medium"),
-            width="100%",
-            padding="16px",
-            border_bottom=f"1px solid {rx.color('gray', 4)}",
-            align="center",
-        ),
-        # Image grid
-        rx.scroll_area(
-            rx.cond(
-                ImageGalleryState.history_images.length() > 0,
-                rx.box(
-                    rx.foreach(
-                        ImageGalleryState.history_images,
-                        _history_image_card,
-                    ),
-                    display="grid",
-                    grid_template_columns="repeat(2, 1fr)",
-                    gap="8px",
-                    padding="12px",
-                ),
-                rx.center(
-                    rx.vstack(
-                        rx.icon("image-off", size=32, color=rx.color("gray", 8)),
-                        rx.text(
-                            "No images yet",
-                            size="2",
-                            color=rx.color("gray", 9),
-                        ),
-                        spacing="2",
-                    ),
-                    height="200px",
-                ),
-            ),
-            height="calc(100vh - 60px)",
-        ),
-        width="320px",
-        height="100vh",
-        background=rx.color("gray", 1),
-        border_left=f"1px solid {rx.color('gray', 4)}",
-        display="flex",
-        flex_direction="column",
-    )
-
-    return mn.drawer(
-        drawer_content,
-        title="Historie",
-        position="right",
-        offset="9px",
-        radius="md",
-        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
-        with_close_button=True,
-        close_on_click_outside=True,
-        opened=ImageGalleryState.history_drawer_open,
-        on_close=ImageGalleryState.close_history_drawer,
-    )
-
-
-# -----------------------------------------------------------------------------
 # Header Component
 # -----------------------------------------------------------------------------
 
@@ -978,12 +811,12 @@ def gallery_header() -> rx.Component:
     return rx.hstack(
         rx.spacer(),
         rx.button(
-            rx.icon("brush", size=16),
-            rx.text(" Clear"),
+            rx.icon("paintbrush", size=16),
+            rx.text(" Raster leeren"),
             variant="ghost",
             size="2",
             color_scheme="gray",
-            on_click=ImageGalleryState.clear_all_images,
+            on_click=ImageGalleryState.clear_grid_view,
             cursor="pointer",
             margin_right="12px",
         ),
@@ -993,7 +826,7 @@ def gallery_header() -> rx.Component:
             variant="ghost",
             size="2",
             color_scheme="gray",
-            on_click=ImageGalleryState.toggle_history_drawer,
+            on_click=ImageGalleryState.toggle_history,
             cursor="pointer",
             margin_right="12px",
         ),
@@ -1010,31 +843,25 @@ def gallery_header() -> rx.Component:
 def image_gallery_page() -> rx.Component:
     """Main image gallery page component."""
     return rx.box(
-        # Header
         header("Bildgenerator", indent=True, header_items=gallery_header()),
-        # Main content area with scrollable grid
         rx.scroll_area(
             image_grid(),
             height="calc(100vh - 60px)",
             width="100%",
         ),
-        # Floating prompt input
         rx.box(
             prompt_input_bar(),
             position="fixed",
             bottom="24px",
-            left="50%",
+            left="calc(50% + 9em)",
             transform="translateX(-50%)",
             width="100%",
             max_width="700px",
             padding="0 24px",
             z_index="100",
         ),
-        # Zoom modal
-        zoom_modal(),
-        # History drawer
+        image_zoom_modal(),
         history_drawer(),
-        # Initialize on mount
         on_mount=ImageGalleryState.initialize,
         width="100%",
         height="100vh",

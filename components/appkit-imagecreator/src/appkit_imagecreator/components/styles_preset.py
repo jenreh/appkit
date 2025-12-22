@@ -31,4 +31,8 @@ styles_preset = {
         "path": "/styles/lowpoly.webp",
         "prompt": "## Style hints: low-poly isometric 3D render; clean geometric forms; flat shading; minimal polygon count; real-time engine quality; simple white background",  # noqa: E501
     },
+    "Keins": {
+        "path": "/styles/keins.webp",
+        "prompt": "",  # noqa: E501
+    },
 }

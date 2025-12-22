@@ -97,7 +97,7 @@ class ImageGalleryState(rx.State):
 
     # History drawer state
     history_drawer_open: bool = False
-    deleting_image_id: str = ""
+    deleting_image_id: int
 
     # Initialization
     _initialized: bool = False
@@ -240,6 +240,17 @@ class ImageGalleryState(rx.State):
         """Set the selected style."""
         self.selected_style = style if style != self.selected_style else ""
         self.style_popup_open = False
+
+    @rx.var
+    def selected_style_path(self) -> str:
+        """Get the image path directly from the styles_preset dictionary."""
+        style_data = self.styles_preset.get(self.selected_style, {})
+        path = style_data.get("path", "")
+
+        if path and not path.startswith(("http", "/")):
+            return f"/{path}"
+
+        return path
 
     @rx.event
     def close_style_popup(self) -> None:
@@ -461,59 +472,12 @@ class ImageGalleryState(rx.State):
     # Image management
     # -------------------------------------------------------------------------
 
-    @rx.event(background=True)
-    async def delete_image(self, image_id: int) -> AsyncGenerator[Any, Any]:
-        """Delete an image by ID."""
-        async with self:
-            user_session: UserSession = await self.get_state(UserSession)
-            user_id = user_session.user.user_id if user_session.user else None
-
-        if not user_id:
-            yield rx.toast.error("Nicht autorisiert.", close_button=True)
-            return
-
-        try:
-            deleted = await GeneratedImageRepository.delete(image_id, user_id)
-            if deleted:
-                async with self:
-                    self.images = [img for img in self.images if img.id != image_id]
-                    # Close zoom modal if showing deleted image
-                    if self.zoom_image and self.zoom_image.id == image_id:
-                        self.zoom_modal_open = False
-                        self.zoom_image = None
-                yield rx.toast.success("Bild gelöscht.", close_button=True)
-            else:
-                yield rx.toast.error(
-                    "Bild konnte nicht gelöscht werden.",
-                    close_button=True,
-                )
-        except Exception as e:
-            logger.error("Error deleting image: %s", e)
-            yield rx.toast.error(f"Fehler: {e!s}", close_button=True)
-        yield
-
-    @rx.event(background=True)
-    async def clear_all_images(self) -> AsyncGenerator[Any, Any]:
+    @rx.event()
+    async def clear_grid_view(self) -> AsyncGenerator[Any, Any]:
         """Clear all images for the current user."""
-        async with self:
-            user_session: UserSession = await self.get_state(UserSession)
-            user_id = user_session.user.user_id if user_session.user else None
-
-        if not user_id:
-            yield rx.toast.error("Nicht autorisiert.", close_button=True)
-            return
-
-        try:
-            count = await GeneratedImageRepository.delete_all_by_user(user_id)
-            async with self:
-                self.images = []
-                self.zoom_modal_open = False
-                self.zoom_image = None
-            yield rx.toast.success(f"{count} Bilder gelöscht.", close_button=True)
-        except Exception as e:
-            logger.error("Error clearing images: %s", e)
-            yield rx.toast.error(f"Fehler: {e!s}", close_button=True)
-        yield
+        self.images = []
+        self.zoom_modal_open = False
+        self.zoom_image = None
 
     # -------------------------------------------------------------------------
     # Zoom modal handlers
@@ -618,7 +582,7 @@ class ImageGalleryState(rx.State):
     # -------------------------------------------------------------------------
 
     @rx.event
-    def toggle_history_drawer(self) -> None:
+    def toggle_history(self) -> None:
         """Toggle the history drawer."""
         self.history_drawer_open = not self.history_drawer_open
 
@@ -627,28 +591,41 @@ class ImageGalleryState(rx.State):
         """Close the history drawer."""
         self.history_drawer_open = False
 
-    @rx.event
-    async def delete_image_from_db(self, image_id: str) -> None:
+    @rx.event(background=True)
+    async def delete_image_from_db(self, image_id: str) -> AsyncGenerator[Any, Any]:
         """Delete an image from the database and update both lists."""
-        user_id = self._current_user_id
-        if not user_id:
-            logger.warning("Cannot delete image: user not authenticated")
-            return
-        # Show loading overlay
-        self.deleting_image_id = image_id
+        async with self:
+            user_id = self._current_user_id
+            if not user_id:
+                logger.warning("Cannot delete image: user not authenticated")
+                yield rx.toast.error("Nicht autorisiert.", close_button=True)
+                return
+
+            self.deleting_image_id = image_id
         yield
+
         try:
             logger.info("Deleting image from database: %s", image_id)
             await GeneratedImageRepository.delete(int(image_id), user_id)
-            # Remove from both lists
-            self.images = [img for img in self.images if img.id != image_id]
-            self.history_images = [
-                img for img in self.history_images if img.id != image_id
-            ]
-            logger.info("Image deleted successfully: %s", image_id)
+
+            async with self:
+                # Remove from both lists
+                self.images = [img for img in self.images if img.id != int(image_id)]
+                self.history_images = [
+                    img for img in self.history_images if img.id != int(image_id)
+                ]
+                logger.info("Image deleted successfully: %s", image_id)
+
+            yield rx.toast.success("Bild gelöscht.", close_button=True)
+
+        except Exception as e:
+            logger.error("Error deleting image: %s", e)
+            yield rx.toast.error(f"Fehler beim Löschen: {e!s}", close_button=True)
         finally:
-            # Clear loading overlay
-            self.deleting_image_id = ""
+            async with self:
+                # Clear loading overlay
+                self.deleting_image_id = ""
+            yield
 
     @rx.event
     def add_history_image_to_grid(self, image_id: str) -> None:
