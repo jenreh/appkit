@@ -42,6 +42,19 @@ class ImageGeneratorRegistry:
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
                 backend_server=backend_server,
+                model="gpt-image-1-mini",
+                label="OpenAI GPT-Image-1-mini",
+                id="gpt-image-1-mini",
+            )
+        )
+        self.register(
+            OpenAIImageGenerator(
+                api_key=self.config.openai_api_key.get_secret_value(),
+                base_url=self.config.openai_base_url,
+                backend_server=backend_server,
+                model="gpt-image-1.5",
+                label="OpenAI GPT-Image-1.5",
+                id="gpt-image-1.5",
             )
         )
         self.register(
@@ -54,6 +67,26 @@ class ImageGeneratorRegistry:
                 id="FLUX-1.1-pro",
             )
         )
+        self.register(
+            OpenAIImageGenerator(
+                api_key=self.config.openai_api_key.get_secret_value(),
+                base_url=self.config.openai_base_url,
+                backend_server=backend_server,
+                model="FLUX.1-Kontext-pro",
+                label="Blackforest Labs FLUX.1-Kontext-pro",
+                id="FLUX.1-Kontext-pro",
+            )
+        )
+        # self.register(
+        #     OpenAIImageGenerator(
+        #         api_key=self.config.openai_api_key.get_secret_value(),
+        #         base_url=self.config.openai_base_url,
+        #         backend_server=backend_server,
+        #         model="flux.2-pro",
+        #         label="Blackforest Labs FLUX.2-pro",
+        #         id="FLUX.2-pro",
+        #     )
+        # )
         self.register(
             GoogleImageGenerator(
                 api_key=self.config.google_api_key.get_secret_value(),
