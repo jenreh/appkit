@@ -138,7 +138,11 @@ class SystemPromptCache:
         return self._cached_version if self._is_cache_valid() else None
 
 
-# Global cache instance
+# Global cache instance (singleton pattern)
+# Performance note: This singleton provides a shared cache for system prompts
+# with TTL-based invalidation, avoiding redundant database queries. The cache
+# uses asyncio locks for thread-safe concurrent access and lazy-loads on first use.
+# Configured with 5-minute TTL (CACHE_TTL_SECONDS) to balance freshness and performance.
 _prompt_cache = SystemPromptCache()
 
 
