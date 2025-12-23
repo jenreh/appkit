@@ -4,8 +4,8 @@
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_imagecreator.backend.gallery_models import GeneratedImageModel
-from appkit_imagecreator.gallery_state import ImageGalleryState
+from appkit_imagecreator.backend.models import GeneratedImageModel
+from appkit_imagecreator.state import ImageGalleryState
 
 
 def _history_image_card(image: GeneratedImageModel) -> rx.Component:

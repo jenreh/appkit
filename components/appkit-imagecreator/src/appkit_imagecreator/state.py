@@ -17,15 +17,15 @@ from typing import Any
 import httpx
 import reflex as rx
 
-from appkit_imagecreator.backend.gallery_models import GeneratedImageModel
-from appkit_imagecreator.backend.gallery_repository import GeneratedImageRepository
 from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.models import (
+    GeneratedImageModel,
     GenerationInput,
     ImageGeneratorResponse,
     ImageResponseState,
 )
-from appkit_imagecreator.components.styles_preset import styles_preset
+from appkit_imagecreator.backend.repository import GeneratedImageRepository
+from appkit_imagecreator.configuration import styles_preset
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)

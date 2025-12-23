@@ -1,11 +1,11 @@
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_imagecreator.backend.gallery_models import GeneratedImageModel
+from appkit_imagecreator.backend.models import GeneratedImageModel
 from appkit_imagecreator.components.count import count_popup
 from appkit_imagecreator.components.image_props import image_props_popup
 from appkit_imagecreator.components.styles import style_popup
-from appkit_imagecreator.gallery_state import ImageGalleryState
+from appkit_imagecreator.state import ImageGalleryState
 
 # -----------------------------------------------------------------------------
 # Prompt Input Component

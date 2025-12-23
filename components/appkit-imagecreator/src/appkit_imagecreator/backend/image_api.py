@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from appkit_imagecreator.backend.gallery_repository import GeneratedImageRepository
+from appkit_imagecreator.backend.repository import GeneratedImageRepository
 
 logger = logging.getLogger(__name__)
 

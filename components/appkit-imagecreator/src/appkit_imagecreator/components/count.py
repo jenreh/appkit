@@ -1,6 +1,6 @@
 import reflex as rx
 
-from appkit_imagecreator.gallery_state import ImageGalleryState
+from appkit_imagecreator.state import ImageGalleryState
 
 # -----------------------------------------------------------------------------
 # Count Popup Component

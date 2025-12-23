@@ -54,8 +54,7 @@ from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.tags_input_examples import tags_input_examples  # noqa: F401
 from app.pages.examples.textarea_examples import textarea_examples_page  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
-from app.pages.image_creator import image_creator_page  # noqa: F401
-from app.pages.image_gallery import image_gallery  # noqa: F401
+from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
 logging.basicConfig(level=logging.DEBUG)
@@ -81,7 +80,11 @@ def index() -> rx.Component:
                 rx.link("Mantine UI", href="https://mantine.dev/", is_external=True),
                 margin_bottom="24px",
             ),
-            # rx.separator(margin="12px"),
+            rx.text.strong("AI Tools:", size="3"),
+            rx.list.unordered(
+                rx.list.item(rx.link("Image Generator", href="/image-gallery")),
+                rx.list.item(rx.link("Assistant", href="/assistant")),
+            ),
             rx.text.strong("Inputs:", size="3"),
             rx.list.unordered(
                 rx.list.item(rx.link("Text Inputs", href="/inputs")),
@@ -110,12 +113,6 @@ def index() -> rx.Component:
                 rx.list.item(rx.link("Number Formatter", href="/number-formatter")),
                 rx.list.item(rx.link("ScrollArea", href="/scroll-area")),
                 rx.list.item(rx.link("Table", href="/table")),
-            ),
-            rx.text.strong("AI Tools:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("Image Generator", href="/image-generator")),
-                rx.list.item(rx.link("Image Gallery (New)", href="/image-gallery")),
-                rx.list.item(rx.link("Assistant", href="/assistant")),
             ),
             spacing="2",
             justify="center",

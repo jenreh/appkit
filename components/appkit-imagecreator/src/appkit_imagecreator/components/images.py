@@ -1,7 +1,7 @@
 import reflex as rx
 
-from appkit_imagecreator.backend.gallery_models import GeneratedImageModel
-from appkit_imagecreator.gallery_state import ImageGalleryState
+from appkit_imagecreator.backend.models import GeneratedImageModel
+from appkit_imagecreator.state import ImageGalleryState
 
 # -----------------------------------------------------------------------------
 # Image Grid Component

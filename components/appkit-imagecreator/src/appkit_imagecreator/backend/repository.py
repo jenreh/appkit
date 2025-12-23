@@ -7,7 +7,7 @@ from typing import Any
 import reflex as rx
 from sqlalchemy.orm import defer
 
-from appkit_imagecreator.backend.gallery_models import (
+from appkit_imagecreator.backend.models import (
     GeneratedImage,
     GeneratedImageModel,
 )

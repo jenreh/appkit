@@ -1,3 +1,8 @@
+"""Image Gallery page with authentication wrapper.
+
+This page provides the new image creator UI with a modern gallery interface.
+"""
+
 import reflex as rx
 
 from appkit_imagecreator.pages import image_generator_page
@@ -9,19 +14,19 @@ from app.roles import IMAGE_GENERATOR_ROLE
 
 
 @authenticated(
-    route="/image-generator",
-    title="Assistant",
-    description="A demo page for the Assistant UI.",
+    route="/image-gallery",
+    title="Image Gallery",
+    description="Generate and manage AI-created images.",
     navbar=app_navbar(),
     with_header=True,
 )
-def image_creator_page() -> rx.Component:
+def image_gallery() -> rx.Component:
+    """Image gallery page with role-based access control."""
     return requires_role(
         image_generator_page(),
         role=IMAGE_GENERATOR_ROLE.name,
         fallback=rx.text(
-            "Zugriff verweigert. Sie haben keine Berechtigung, um Bilder ",
-            "zu generieren. ",
+            "Zugriff verweigert. Sie haben keine Berechtigung für den Bildgenerator. ",
             rx.link(
                 "Anmelden",
                 href="/login",
