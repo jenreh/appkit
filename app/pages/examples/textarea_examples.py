@@ -406,36 +406,6 @@ def live_character_count_example() -> rx.Component:
     )
 
 
-def textarea_states_example() -> rx.Component:
-    """Demonstrate different states."""
-    return rx.card(
-        rx.heading("States", size="4"),
-        rx.vstack(
-            mn.textarea(
-                placeholder="Disabled textarea",
-                label="Disabled",
-                disabled=True,
-                value="This textarea is disabled",
-            ),
-            mn.textarea(
-                placeholder="Error state",
-                label="With Error",
-                error="This field has an error",
-            ),
-            mn.textarea(
-                placeholder="Required field",
-                label="Required",
-                description="This field is required",
-                required=True,
-            ),
-            spacing="4",
-            width="100%",
-        ),
-        spacing="3",
-        width="100%",
-    )
-
-
 def complete_form_example() -> rx.Component:
     """Complete form with multiple textareas."""
     return rx.card(

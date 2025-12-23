@@ -80,6 +80,46 @@ class MantineComponentBase(rx.Component):
         }
 
 
+class MantineNoSSRComponentBase(rx.components.component.NoSSRComponent):
+    """Base class for Mantine components that need NoSSR (client-side only) rendering.
+
+    Provides the same Mantine provider wrapping as MantineComponentBase but for
+    components that must be rendered client-side only (e.g., rich text editors,
+    markdown previews with dynamic features).
+
+    Use this instead of NoSSRComponent when creating Mantine components that
+    require client-side only rendering.
+
+    Example:
+        ```python
+        class ClientSideMantineComponent(MantineNoSSRComponentBase):
+            tag = "ClientComponent"
+            library = "some-client-library@1.0.0"
+        ```
+    """
+
+    def add_imports(self) -> dict[str, list[str]]:
+        """Add necessary imports for lazy loading.
+
+        Returns:
+            The imports needed for ClientSide and lazy.
+        """
+        return {
+            "react": ["lazy"],
+            f"$/{rx.constants.Dirs.UTILS}/context": ["ClientSide"],
+        }
+
+    @staticmethod
+    def _get_app_wrap_components() -> dict[tuple[int, str], rx.Component]:
+        """Ensure MantineProvider is wrapped around the entire app.
+
+        This is required for Mantine components to work properly.
+        """
+        return {
+            (44, "MantineProvider"): MemoizedMantineProvider.create(),
+        }
+
+
 class MantineProvider(MantineComponentBase):
     """Mantine Provider - Required wrapper for all Mantine components.
 
