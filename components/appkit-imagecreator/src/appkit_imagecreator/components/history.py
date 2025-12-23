@@ -14,7 +14,6 @@ def _history_image_card(image: GeneratedImageModel) -> rx.Component:
     Shows only X button on hover (no pencil/edit button).
     Clicking the image adds it to the main grid.
     """
-    # X button - delete from database (shown on hover)
     delete_button = rx.icon_button(
         rx.icon("x", size=14),
         size="1",
@@ -29,7 +28,6 @@ def _history_image_card(image: GeneratedImageModel) -> rx.Component:
         on_click=lambda: ImageGalleryState.delete_image_from_db(image.id),
     )
 
-    # Hover overlay container - nur anzeigen, wenn NICHT gerade gelöscht wird
     hover_overlay = rx.cond(
         ImageGalleryState.deleting_image_id != image.id,
         rx.box(
@@ -42,10 +40,9 @@ def _history_image_card(image: GeneratedImageModel) -> rx.Component:
             border_radius="6px",
             class_name="history-hover-overlay",
         ),
-        rx.fragment(),  # Leer, wenn gerade gelöscht wird
+        rx.fragment(),
     )
 
-    # Deleting overlay with spinner
     deleting_overlay = rx.cond(
         ImageGalleryState.deleting_image_id == image.id,
         rx.box(
@@ -91,10 +88,42 @@ def _history_image_card(image: GeneratedImageModel) -> rx.Component:
     )
 
 
+def _history_date_group(
+    date_label: str, images: list[GeneratedImageModel]
+) -> rx.Component:
+    """Render a group of images for a specific date."""
+    return rx.vstack(
+        rx.heading(
+            date_label,
+            size="5",
+            weight="bold",
+            color=rx.color("gray", 12),
+            padding_left="12px",
+            padding_top="8px",
+            padding_bottom="8px",
+        ),
+        rx.box(
+            rx.foreach(
+                images,
+                _history_image_card,
+            ),
+            display="grid",
+            grid_template_columns="repeat(3, 1fr)",
+            gap="8px",
+            padding_left="12px",
+            padding_right="12px",
+            padding_bottom="16px",
+        ),
+        width="100%",
+        spacing="0",
+        align="start",
+    )
+
+
 def history_drawer() -> rx.Component:
     """History drawer using rx.drawer that slides in from the right.
 
-    Shows all images of the user with delete capability.
+    Shows all images of the user grouped by date with delete capability.
     Clicking an image adds it to the main grid.
     """
     drawer_content = rx.vstack(
@@ -102,13 +131,10 @@ def history_drawer() -> rx.Component:
             ImageGalleryState.history_images.length() > 0,
             rx.box(
                 rx.foreach(
-                    ImageGalleryState.history_images,
-                    _history_image_card,
+                    ImageGalleryState.history_images_by_date,
+                    lambda group: _history_date_group(group[0], group[1]),
                 ),
-                display="grid",
-                grid_template_columns="repeat(3, 1fr)",
-                gap="8px",
-                padding="12px",
+                width="100%",
             ),
             rx.center(
                 rx.vstack(
@@ -132,6 +158,7 @@ def history_drawer() -> rx.Component:
         padding="0",
         margin="0",
         flex_direction="column",
+        overflow_y="auto",
     )
 
     return mn.drawer(

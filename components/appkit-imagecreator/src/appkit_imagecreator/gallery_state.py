@@ -9,7 +9,9 @@ This module contains ImageGalleryState which manages:
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from collections.abc import AsyncGenerator
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -302,10 +304,10 @@ class ImageGalleryState(rx.State):
         self.config_popup_open = False
 
     @rx.event
-    def set_selected_count(self, count: int) -> None:
+    def set_selected_count(self, value: list[int | float]) -> None:
         """Set the number of images to generate."""
-        self.selected_count = count
-        self.count_popup_open = False
+        self.selected_count = value[0] if value else 1
+        # self.count_popup_open = False
 
     @rx.event
     def close_count_popup(self) -> None:
@@ -644,3 +646,49 @@ class ImageGalleryState(rx.State):
                 self.images = [img, *self.images]
                 logger.info("Added history image %s to grid", image_id)
                 break
+
+    @rx.var
+    def history_images_by_date(self) -> list[tuple[str, list[GeneratedImageModel]]]:
+        """Group history images by date (day).
+
+        Returns list of tuples: (date_label, images_list)
+        Sorted by date descending (newest first).
+        """
+        if not self.history_images:
+            return []
+
+        grouped: dict[datetime, list[GeneratedImageModel]] = defaultdict(list)
+
+        for img in self.history_images:
+            if img.created_at:
+                date_key = img.created_at.date()
+                grouped[date_key].append(img)
+
+        # Sort by date descending
+        sorted_groups = sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+
+        # Format date labels (deutsch)
+        result = []
+        month_names = {
+            1: "Jan.",
+            2: "Feb.",
+            3: "März",
+            4: "Apr.",
+            5: "Mai",
+            6: "Juni",
+            7: "Juli",
+            8: "Aug.",
+            9: "Sep.",
+            10: "Okt.",
+            11: "Nov.",
+            12: "Dez.",
+        }
+
+        for date_key, imgs in sorted_groups:
+            day = date_key.day
+            month = month_names[date_key.month]
+            year = date_key.year
+            date_label = f"{day}. {month} {year}"
+            result.append((date_label, imgs))
+
+        return result
