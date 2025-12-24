@@ -15,14 +15,15 @@ def _history_image_card(image: GeneratedImageModel) -> rx.Component:
     Clicking the image adds it to the main grid.
     """
     delete_button = rx.icon_button(
-        rx.icon("x", size=14),
+        rx.icon("trash", size=14),
         size="1",
         variant="solid",
         color_scheme="red",
+        radius="full",
+        border_radius="6px",
         position="absolute",
         top="4px",
         right="4px",
-        border_radius="full",
         cursor="pointer",
         z_index="10",
         on_click=lambda: ImageGalleryState.delete_image_from_db(image.id),

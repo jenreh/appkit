@@ -6,6 +6,9 @@ from appkit_commons.registry import service_registry
 from appkit_imagecreator.backend.generators import (
     GoogleImageGenerator,
 )
+from appkit_imagecreator.backend.generators.nano_banana import (
+    NanoBananaImageGenerator,
+)
 from appkit_imagecreator.backend.generators.openai import OpenAIImageGenerator
 from appkit_imagecreator.backend.models import ImageGenerator
 from appkit_imagecreator.configuration import ImageGeneratorConfig
@@ -43,7 +46,7 @@ class ImageGeneratorRegistry:
                 base_url=self.config.openai_base_url,
                 backend_server=backend_server,
                 model="gpt-image-1-mini",
-                label="OpenAI GPT-Image-1-mini",
+                label="OpenAI GPT-Image-1 mini",
                 id="gpt-image-1-mini",
             )
         )
@@ -91,15 +94,33 @@ class ImageGeneratorRegistry:
             GoogleImageGenerator(
                 api_key=self.config.google_api_key.get_secret_value(),
                 backend_server=backend_server,
+                model="imagen-3.0-generate-002",
+                label="Google Imagen 3",
+                id="imagen-3",
             )
         )
         self.register(
             GoogleImageGenerator(
                 api_key=self.config.google_api_key.get_secret_value(),
                 backend_server=backend_server,
-                model="imagen-3.0-generate-002",
-                label="Google Imagen 3",
-                id="imagen-3",
+            )
+        )
+        self.register(
+            NanoBananaImageGenerator(
+                api_key=self.config.google_api_key.get_secret_value(),
+                backend_server=backend_server,
+                model="gemini-2.5-flash-image",
+                label="Google Nano Banana",
+                id="nano-banana",
+            )
+        )
+        self.register(
+            NanoBananaImageGenerator(
+                api_key=self.config.google_api_key.get_secret_value(),
+                backend_server=backend_server,
+                model="gemini-3-pro-image-preview",
+                label="Google Nano Banana Pro",
+                id="nano-banana-pro",
             )
         )
 

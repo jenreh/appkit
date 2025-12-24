@@ -124,49 +124,69 @@ def _reference_image_upload() -> rx.Component:
     )
 
 
+def _clear(show: bool = True) -> rx.Component | None:
+    if not show:
+        return None
+
+    return rx.tooltip(
+        rx.button(
+            rx.icon("paintbrush", size=17),
+            variant="ghost",
+            padding="8px",
+            margin_right="12px",
+            on_click=lambda: ImageGalleryState.set_prompt(""),
+            type="reset",
+        ),
+        content="Prompt löschen",
+    )
+
+
 def prompt_input_bar() -> rx.Component:
     """Floating prompt input bar with toolbar icons."""
     return rx.box(
         rx.vstack(
-            # Selected images row
-            rx.cond(
-                ImageGalleryState.selected_images.length() > 0,
-                rx.hstack(
-                    rx.foreach(
-                        ImageGalleryState.selected_images,
-                        _selected_image_thumbnail,
+            rx.form(
+                # Selected images row
+                rx.cond(
+                    ImageGalleryState.selected_images.length() > 0,
+                    rx.hstack(
+                        rx.foreach(
+                            ImageGalleryState.selected_images,
+                            _selected_image_thumbnail,
+                        ),
+                        spacing="2",
+                        padding_bottom="8px",
                     ),
-                    spacing="2",
-                    padding_bottom="8px",
                 ),
-            ),
-            rx.hstack(
-                mn.textarea(
-                    placeholder="Beschreibe das Bild, das du erstellen möchtest...",
-                    value=ImageGalleryState.prompt,
-                    on_change=ImageGalleryState.set_prompt,
+                rx.hstack(
+                    mn.textarea(
+                        placeholder="Beschreibe das Bild, das du erstellen möchtest...",
+                        default_value=ImageGalleryState.prompt,
+                        on_blur=ImageGalleryState.set_prompt,
+                        width="100%",
+                        autosize=True,
+                        min_rows=2,
+                        max_rows=5,
+                        variant="unstyled",
+                    ),
                     width="100%",
-                    autosize=True,
-                    min_rows=2,
-                    max_rows=5,
-                    variant="unstyled",
+                    align="end",
+                    spacing="3",
                 ),
-                width="100%",
-                align="end",
-                spacing="3",
-            ),
-            rx.hstack(
-                style_popup(),
-                image_props_popup(),
-                count_popup(),
-                _enhance_prompt_checkbox(),
-                # _reference_image_upload(),
-                _model_selector(),
-                rx.spacer(),
-                _submit(),
-                width="100%",
-                align="center",
-                spacing="1",
+                rx.hstack(
+                    style_popup(),
+                    image_props_popup(),
+                    count_popup(),
+                    _enhance_prompt_checkbox(),
+                    # _reference_image_upload(),
+                    _model_selector(),
+                    rx.spacer(),
+                    _clear(),
+                    _submit(),
+                    width="100%",
+                    align="center",
+                    spacing="1",
+                ),
             ),
             width="100%",
             spacing="2",

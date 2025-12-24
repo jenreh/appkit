@@ -367,6 +367,18 @@ def image_zoom_modal() -> rx.Component:
                                 rx.separator(size="4"),
                                 rx.hstack(
                                     rx.text(
+                                        "Modell:",
+                                        size="2",
+                                        color=rx.color("gray", 9),
+                                    ),
+                                    rx.text(
+                                        ImageGalleryState.zoom_image.model,
+                                        size="2",
+                                    ),
+                                    spacing="2",
+                                ),
+                                rx.hstack(
+                                    rx.text(
                                         "Qualität:",
                                         size="2",
                                         color=rx.color("gray", 9),
@@ -379,11 +391,13 @@ def image_zoom_modal() -> rx.Component:
                                         ),
                                         size="2",
                                     ),
+                                    spacing="2",
+                                ),
+                                rx.hstack(
                                     rx.text(
                                         "Größe:",
                                         size="2",
                                         color=rx.color("gray", 9),
-                                        margin_left="16px",
                                     ),
                                     rx.text(
                                         f"{ImageGalleryState.zoom_image.width}x"
@@ -391,9 +405,8 @@ def image_zoom_modal() -> rx.Component:
                                         size="2",
                                     ),
                                     spacing="2",
-                                    wrap="wrap",
                                 ),
-                                spacing="4",
+                                spacing="3",
                                 align="start",
                                 width="100%",
                             ),
