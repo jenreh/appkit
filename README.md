@@ -31,11 +31,15 @@ Appkit is structured as a workspace of specialized modules, each solving specifi
 - Model Context Protocol (MCP) server management
 - Secure server credential handling with encryption
 
+![Assistant](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-assistant/docs/assistant.png)
+
 **[appkit-imagecreator](./components/appkit-imagecreator)** - Multi-AI image generation
 
 - Google Gemini and OpenAI integration
 - Unified API for image generation workflows
 - Production-ready error handling and streaming
+
+![Image Creator](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-imagecreator/docs/imagecreator.jpeg)
 
 **[appkit-user](./components/appkit-user)** - Enterprise user management
 
@@ -43,6 +47,8 @@ Appkit is structured as a workspace of specialized modules, each solving specifi
 - Role-based access control (RBAC)
 - Multi-tenant user profiles and project organization
 - Session management and security
+
+![User manager](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-user/docs/user_manager.png)
 
 ### Shared Infrastructure
 
