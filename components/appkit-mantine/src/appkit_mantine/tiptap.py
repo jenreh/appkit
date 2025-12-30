@@ -14,11 +14,10 @@ from typing import Final, Literal
 import reflex as rx
 from pydantic import BaseModel
 from reflex.assets import asset
-from reflex.components.component import NoSSRComponent
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
-from appkit_mantine.base import MANTINE_VERSION, MemoizedMantineProvider
+from appkit_mantine.base import MANTINE_VERSION, MantineNoSSRComponentBase
 
 TIPTAP_REACT_VERSION: Final[str] = "^2.10.4"
 TIPTAP_VERSION: Final[str] = (
@@ -132,7 +131,7 @@ class EditorToolbarConfig(BaseModel):
     sticky_offset: int | str | None = None
 
 
-class RichTextEditor(NoSSRComponent):
+class RichTextEditor(MantineNoSSRComponentBase):
     """Mantine RichTextEditor - WYSIWYG editor with automatic hook management.
 
     Based on: https://mantine.dev/x/tiptap/
@@ -257,28 +256,6 @@ class RichTextEditor(NoSSRComponent):
         return f"""const {self.tag} = ClientSide(lazy(() =>
     import('{import_path}').then((mod) => ({{ default: mod.RichTextEditorWrapper }}))
 ))"""
-
-    def add_imports(self) -> dict[str, list[str]]:
-        """Add necessary imports for lazy loading.
-
-        Returns:
-            The imports needed for ClientSide and lazy.
-        """
-        return {
-            "react": ["lazy"],
-            f"$/{rx.constants.Dirs.UTILS}/context": ["ClientSide"],
-        }
-
-    @staticmethod
-    def _get_app_wrap_components() -> dict[tuple[int, str], rx.Component]:
-        """Ensure MantineProvider is wrapped around the entire app.
-
-        This is required for Mantine components to work properly, including
-        the RichTextEditor and all its sub-components.
-        """
-        return {
-            (44, "MantineProvider"): MemoizedMantineProvider.create(),
-        }
 
     @classmethod
     def create(

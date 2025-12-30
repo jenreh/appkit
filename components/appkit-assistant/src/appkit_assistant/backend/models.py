@@ -1,4 +1,3 @@
-import json
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
@@ -9,26 +8,11 @@ from sqlalchemy.sql import func
 from sqlmodel import Column, DateTime, Field
 
 from appkit_commons.database.configuration import DatabaseConfig
-from appkit_commons.database.entities import EncryptedString
+from appkit_commons.database.entities import EncryptedJSON, EncryptedString
 from appkit_commons.registry import service_registry
 
 db_config = service_registry().get(DatabaseConfig)
 SECRET_VALUE = db_config.encryption_key.get_secret_value()
-
-
-class EncryptedJSON(EncryptedString):
-    """Custom type for storing encrypted JSON data."""
-
-    def process_bind_param(self, value: Any, dialect: Any) -> str | None:
-        if value is not None:
-            value = json.dumps(value)
-        return super().process_bind_param(value, dialect)
-
-    def process_result_value(self, value: Any, dialect: Any) -> Any | None:
-        value = super().process_result_value(value, dialect)
-        if value is not None:
-            return json.loads(value)
-        return value
 
 
 class ChunkType(StrEnum):
