@@ -90,6 +90,7 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
     return rx.box(
         rx.image(
             src=image.image_url,
+            key=f"img-{image.id}",
             width="100%",
             height="100%",
             object_fit="cover",
@@ -98,6 +99,7 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
             cursor="pointer",
         ),
         hover_overlay,
+        key=f"card-{image.id}",
         position="relative",
         width="100%",
         aspect_ratio="1",

@@ -82,11 +82,6 @@ class ImageGalleryState(rx.State):
     # Prompt enhancement
     enhance_prompt: bool = True
 
-    @rx.event
-    def set_enhance_prompt(self, value: bool) -> None:
-        """Set the enhance_prompt flag."""
-        self.enhance_prompt = value
-
     # Model selection
     generator: str = generator_registry.get_default_generator().id
     generators: list[dict[str, str]] = generator_registry.list_generators()
@@ -324,6 +319,11 @@ class ImageGalleryState(rx.State):
         """Set the selected generator/model."""
         self.generator = generator_id
 
+    @rx.event
+    def set_enhance_prompt(self, value: bool) -> None:
+        """Set the enhance_prompt flag."""
+        self.enhance_prompt = value
+
     # -------------------------------------------------------------------------
     # Prompt handlers
     # -------------------------------------------------------------------------
@@ -368,7 +368,9 @@ class ImageGalleryState(rx.State):
         return None
 
     @rx.event(background=True)
-    async def generate_images(self) -> AsyncGenerator[Any, Any]:  # noqa: PLR0915
+    async def generate_images(  # noqa: PLR0912, PLR0915
+        self,
+    ) -> AsyncGenerator[Any, Any]:
         """Generate images based on current settings."""
         # Validation
         async with self:
