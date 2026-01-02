@@ -91,7 +91,7 @@ requires-dist = [
     { name = "appkit-user", editable = "components/appkit-user" },
     { name = "psycopg", specifier = ">=3.3.2" },
     { name = "psycopg-binary", specifier = ">=3.3.2" },
-    { name = "reflex", specifier = ">=0.8.22" },
+    { name = "reflex", specifier = ">=0.8.24.post1" },
 ]
 
 [package.metadata.requires-dev]
@@ -205,7 +205,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "appkit-mantine", editable = "components/appkit-mantine" },
-    { name = "reflex", specifier = "==0.8.22" },
+    { name = "reflex", specifier = "==0.8.24.post1" },
 ]
 
 [[package]]
@@ -1314,7 +1314,7 @@ wheels = [
 
 [[package]]
 name = "reflex"
-version = "0.8.22"
+version = "0.8.24.post1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alembic" },
@@ -1335,9 +1335,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d3/b1/7f0d739783edaa6022790a55af38b870cb15f25f04743dd3c73479f3c0b6/reflex-0.8.22.tar.gz", hash = "sha256:4636b6318521ef0f74c40e884dcc1b93792c29dea11fe6706ac30e3fde4fb146", size = 563768, upload-time = "2025-12-09T21:10:08.85Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/5f/f9d4880d8de98f7faaf987550384bce52871bf6dd5ae9bd3992f6120578e/reflex-0.8.24.post1.tar.gz", hash = "sha256:a016e844846ffc5ef460ed098a17bcf02b11acc9b15192fa234f29294586b080", size = 571019, upload-time = "2025-12-22T20:22:24.499Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0b/99/89d4983201d060c722a15c2194df24532cc7f44c041fa3b2dbf44ef7fa45/reflex-0.8.22-py3-none-any.whl", hash = "sha256:088a35b509f784280c697ccf4c428be894c8d9d9d7a458a525f06c86d496c9c9", size = 805020, upload-time = "2025-12-09T21:10:06.621Z" },
+    { url = "https://files.pythonhosted.org/packages/73/ba/2ef17f78a5fcea091fb509a550ae03a93515cd774f969ae89a8b51025e1f/reflex-0.8.24.post1-py3-none-any.whl", hash = "sha256:c1023a754d0eee1161351688dbf9e05d11f570c082859e34c03e354d324deb58", size = 813241, upload-time = "2025-12-22T20:22:26.113Z" },
 ]
 
 [[package]]

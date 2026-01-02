@@ -24,6 +24,8 @@ TIPTAP_REACT_VERSION: Final[str] = "^2.10.4"
 TIPTAP_VERSION: Final[str] = (
     TIPTAP_REACT_VERSION  # Same version for all @tiptap packages
 )
+_TIPTAP_WRAPPER = asset(path="tiptap_wrapper.js", shared=True)
+_TIPTAP_WRAPPER_IMPORT = f"$/public/{_TIPTAP_WRAPPER}"
 
 
 class ToolbarControlGroup(list, enum.Enum):
@@ -163,7 +165,7 @@ class RichTextEditor(NoSSRComponent):
     tag = "RichTextEditorWrapper"
 
     # Point to our custom wrapper component (same directory as this module)
-    library = None
+    library = _TIPTAP_WRAPPER_IMPORT
     is_default = True
 
     lib_dependencies: list[str] = [
@@ -241,22 +243,6 @@ class RichTextEditor(NoSSRComponent):
 
     Allows you to apply custom CSS classes to editor parts.
     """
-
-    def _get_dynamic_imports(self) -> str:
-        """Get the dynamic import for the custom wrapper component.
-
-        Returns:
-            The dynamic import code for the tiptap wrapper.
-        """
-        # Get the asset path for the wrapper
-        wrapper_path = asset(path="tiptap_wrapper.js", shared=True)
-        # Format as module import path
-        import_path = f"$/public/{wrapper_path}"
-
-        # Return the dynamic import with ClientSide wrapper and lazy loading
-        return f"""const {self.tag} = ClientSide(lazy(() =>
-    import('{import_path}').then((mod) => ({{ default: mod.RichTextEditorWrapper }}))
-))"""
 
     def add_imports(self) -> dict[str, list[str]]:
         """Add necessary imports for lazy loading.
