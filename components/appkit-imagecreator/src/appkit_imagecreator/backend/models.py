@@ -1,12 +1,9 @@
 import logging
-import uuid  # Added import
 from abc import ABC
 from datetime import UTC, datetime
 from enum import StrEnum
-from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
-import anyio  # Added import
 import reflex as rx
 from pydantic import BaseModel, computed_field
 from sqlalchemy import JSON, Column, DateTime, LargeBinary
@@ -14,10 +11,8 @@ from sqlmodel import Field
 
 from appkit_commons.configuration.configuration import ReflexConfig
 from appkit_commons.registry import service_registry
-from appkit_imagecreator.configuration import ImageGeneratorConfig
 
 logger = logging.getLogger(__name__)
-TMP_PATH: Final[str] = service_registry().get(ImageGeneratorConfig).tmp_dir
 
 
 def get_image_api_base_url() -> str:
@@ -90,30 +85,56 @@ class ImageResponseState(StrEnum):
 
 class GenerationInput(BaseModel):
     prompt: str
+    negative_prompt: str = ""
     width: int = 1024
     height: int = 1024
-    negative_prompt: str = ""
     steps: int = 4
     n: int = 1
     seed: int = 0
     enhance_prompt: bool = True
+    image_paths: list[str] = []
+
+
+class GeneratedImageData(BaseModel):
+    """Single generated image with raw data or external URL.
+
+    Used to pass image data from generators to the state layer.
+    Either image_bytes or external_url should be set, not both.
+    """
+
+    image_bytes: bytes | None = None
+    external_url: str | None = None
+    content_type: str = "image/png"
 
 
 class ImageGeneratorResponse(BaseModel):
+    """Response from image generation.
+
+    Attributes:
+        state: Success or failure state
+        generated_images: List of generated images with bytes or URLs (preferred)
+        images: DEPRECATED - List of image URLs for backwards compatibility
+        error: Error message if generation failed
+        enhanced_prompt: The AI-enhanced prompt used for generation
+    """
+
     state: ImageResponseState
-    images: list[str]
+    generated_images: list[GeneratedImageData] = []
     error: str = ""
-    enhanced_prompt: str = ""  # The actual AI-enhanced prompt used for generation
+    enhanced_prompt: str = ""
 
 
 class ImageGenerator(ABC):
-    """Base class for image generation."""
+    """Base class for image generation.
+
+    Subclasses implement _perform_generation() to call their respective APIs
+    and return GeneratedImageData with raw bytes or external URLs.
+    """
 
     id: str
     model: str
     label: str
     api_key: str
-    backend_server: str | None = None
 
     def __init__(
         self,
@@ -121,11 +142,9 @@ class ImageGenerator(ABC):
         label: str,
         model: str,
         api_key: str,
-        backend_server: str | None = None,
     ):
         self.id = id
         self.model = model
-        self.backend_server = backend_server
         self.label = label
         self.api_key = api_key
 
@@ -138,39 +157,24 @@ class ImageGenerator(ABC):
             ).strip()
         return prompt.strip()
 
-    async def _save_image_to_tmp_and_get_url(
+    def _create_generated_image_data(
         self,
         image_bytes: bytes,
-        tmp_file_prefix: str,
-        output_format: str,
-    ) -> str:
+        content_type: str = "image/png",
+    ) -> GeneratedImageData:
+        """Create GeneratedImageData from raw image bytes.
+
+        Args:
+            image_bytes: Raw binary image data
+            content_type: MIME type of the image (e.g., 'image/png', 'image/jpeg')
+
+        Returns:
+            GeneratedImageData with the image bytes set
         """
-        Saves image bytes to a uniquely named file in the temporary directory
-        and returns the full URL to access it.
-        """
-        if not self.backend_server:
-            logger.error(
-                "backend_server is not configured for generator %s. "
-                "Cannot save image to local temp and construct URL.",
-                self.id,
-            )
-            raise ValueError(
-                f"backend_server ist für Generator {self.id} nicht konfiguriert, "
-                "um die Bild-URL zu erstellen."
-            )
-
-        tmp_dir = Path(TMP_PATH)
-        tmp_dir.mkdir(parents=True, exist_ok=True)  # Ensure base temp directory exists
-
-        random_id = uuid.uuid4().hex
-        filename = f"{tmp_file_prefix}-{random_id}.{output_format}"
-        file_path = tmp_dir / filename
-
-        async with await anyio.open_file(file_path, "wb") as f:
-            logger.debug("Writing image to %s", file_path)
-            await f.write(image_bytes)
-
-        return f"{self.backend_server}/_upload/{filename}"
+        return GeneratedImageData(
+            image_bytes=image_bytes,
+            content_type=content_type,
+        )
 
     def _aspect_ratio(self, width: int, height: int) -> str:
         """Calculate the aspect ratio based on width and height."""
@@ -205,20 +209,24 @@ class ImageGenerator(ABC):
             "Subclasses must implement the _perform_generation method."
         )
 
-    def clean_tmp_path(self, prefix: str) -> Path:
-        """remove all images beginning with prefix from TMP_PATH"""
-        tmp_path = Path(TMP_PATH)
+    async def edit(self, input_data: GenerationInput) -> ImageGeneratorResponse:
+        """
+        Edits images based on the input data.
+        Handles common error logging and response for failures.
+        """
+        try:
+            return await self._perform_edit(input_data)
+        except Exception as e:
+            logger.exception("Error during image editing with %s", self.id)
+            return ImageGeneratorResponse(
+                state=ImageResponseState.FAILED, images=[], error=str(e)
+            )
 
-        if not tmp_path.exists():
-            logger.info("Temporary path %s does not exist. Creating it.", tmp_path)
-            tmp_path.mkdir(parents=True, exist_ok=True)
-        elif not tmp_path.is_dir():
-            logger.error("Temporary path %s is not a directory.", tmp_path)
-            raise NotADirectoryError(f"Temporary path {tmp_path} is not a directory.")
-
-        for file in tmp_path.iterdir():
-            if file.is_file() and file.name.startswith(prefix):
-                logger.debug("Removing temporary file: %s", file)
-                file.unlink()
-
-        return tmp_path
+    async def _perform_edit(
+        self, input_data: GenerationInput
+    ) -> ImageGeneratorResponse:
+        """
+        Subclasses must implement this method to perform the actual image editing.
+        Raises NotImplementedError if editing is not supported.
+        """
+        raise NotImplementedError("Subclasses must implement the _perform_edit method.")

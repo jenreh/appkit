@@ -4,6 +4,7 @@ import logging
 import httpx
 
 from appkit_imagecreator.backend.models import (
+    GeneratedImageData,
     GenerationInput,
     ImageGenerator,
     ImageGeneratorResponse,
@@ -14,7 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class BlackForestLabsImageGenerator(ImageGenerator):
-    """Generator for the Together AI API (Flux Schnell model)."""
+    """Generator for the Black Forest Labs API (Flux models).
+
+    Note: BFL returns external URLs for images, not raw bytes.
+    The state layer will need to fetch the bytes from these URLs.
+    """
 
     def __init__(
         self,
@@ -22,14 +27,12 @@ class BlackForestLabsImageGenerator(ImageGenerator):
         label: str = "Flux.1 Kontext [Pro]",
         id: str = "flux-kontext-pro",  # noqa: A002
         model: str = "flux-kontext-pro",
-        backend_server: str | None = None,
     ) -> None:
         super().__init__(
             id=id,
             label=label,
             model=model,
             api_key=api_key,
-            backend_server=backend_server,
         )
 
     async def _perform_generation(
@@ -107,13 +110,15 @@ class BlackForestLabsImageGenerator(ImageGenerator):
             )
             return ImageGeneratorResponse(
                 state=ImageResponseState.FAILED,
-                images=[],
+                generated_images=[],
                 error=final_error_message,
                 enhanced_prompt=prompt,  # BFL does enhancement server-side
             )
 
+        # BFL returns external URL - state layer will fetch bytes
+        # BFL does enhancement server-side via prompt_upsampling
         return ImageGeneratorResponse(
             state=ImageResponseState.SUCCEEDED,
-            images=[image_url],
-            enhanced_prompt=prompt,  # BFL does enhancement server-side via prompt_upsampling
+            generated_images=[GeneratedImageData(external_url=image_url)],
+            enhanced_prompt=prompt,
         )

@@ -1,5 +1,4 @@
 import logging
-from typing import Final
 
 from google import genai
 
@@ -12,8 +11,6 @@ from appkit_imagecreator.backend.models import (
 
 logger = logging.getLogger(__name__)
 
-TMP_IMG_FILE: Final[str] = "imagen-image"
-
 
 class GoogleImageGenerator(ImageGenerator):
     """Generator for the Google Imagen API."""
@@ -24,14 +21,12 @@ class GoogleImageGenerator(ImageGenerator):
         label: str = "Google Imagen 4",
         id: str = "imagen-4",  # noqa: A002
         model: str = "imagen-4.0-generate-preview-06-06",
-        backend_server: str | None = None,
     ) -> None:
         super().__init__(
             id=id,
             label=label,
             model=model,
             api_key=api_key,
-            backend_server=backend_server,
         )
         self.client = genai.Client(api_key=self.api_key)
 
@@ -72,20 +67,15 @@ class GoogleImageGenerator(ImageGenerator):
             ),
         )
 
-        self.clean_tmp_path(TMP_IMG_FILE)
         output_format = "jpeg"
-        images = []
-
-        for img in response.generated_images:
-            image_url = await self._save_image_to_tmp_and_get_url(
-                image_bytes=img.image.image_bytes,
-                tmp_file_prefix=TMP_IMG_FILE,
-                output_format=output_format,
-            )
-            images.append(image_url)
+        content_type = f"image/{output_format}"
+        generated_images = [
+            self._create_generated_image_data(img.image.image_bytes, content_type)
+            for img in response.generated_images
+        ]
 
         return ImageGeneratorResponse(
             state=ImageResponseState.SUCCEEDED,
-            images=images,
+            generated_images=generated_images,
             enhanced_prompt=enhanced_prompt,
         )

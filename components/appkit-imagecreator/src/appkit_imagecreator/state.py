@@ -19,6 +19,7 @@ import reflex as rx
 
 from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.models import (
+    GeneratedImageData,
     GeneratedImageModel,
     GenerationInput,
     ImageGeneratorResponse,
@@ -342,17 +343,41 @@ class ImageGalleryState(rx.State):
     # Image generation
     # -------------------------------------------------------------------------
 
+    async def _get_image_bytes(self, img_data: GeneratedImageData) -> bytes | None:
+        """Extract bytes from GeneratedImageData, fetching from URL if needed.
+
+        Args:
+            img_data: Generated image data with either bytes or external URL
+
+        Returns:
+            Raw image bytes or None if extraction failed
+        """
+        if img_data.image_bytes:
+            return img_data.image_bytes
+
+        if img_data.external_url:
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(img_data.external_url, timeout=60.0)
+                    resp.raise_for_status()
+                    return resp.content
+            except httpx.HTTPError as e:
+                logger.error("Failed to fetch image from URL: %s", e)
+                return None
+
+        return None
+
     @rx.event(background=True)
     async def generate_images(self) -> AsyncGenerator[Any, Any]:  # noqa: PLR0915
         """Generate images based on current settings."""
+        # Validation
         async with self:
             if not self.prompt.strip():
                 yield rx.toast.warning("Bitte gib einen Prompt ein.", close_button=True)
                 return
 
             self.is_generating = True
-            self.generating_prompt = self.prompt  # Store for display
-            # Close all popups
+            self.generating_prompt = self.prompt
             self.style_popup_open = False
             self.config_popup_open = False
             self.count_popup_open = False
@@ -371,7 +396,7 @@ class ImageGalleryState(rx.State):
                 )
                 return
 
-            # Build style prompt
+            # Build generation input
             async with self:
                 style_prompt = ""
                 if self.selected_style and self.selected_style in self.styles_preset:
@@ -379,22 +404,30 @@ class ImageGalleryState(rx.State):
                         "\n" + self.styles_preset[self.selected_style]["prompt"]
                     )
 
-                enhanced_prompt = self.prompt + style_prompt
-                should_enhance = self.enhance_prompt
+                full_prompt = self.prompt + style_prompt
                 generation_input = GenerationInput(
-                    prompt=enhanced_prompt,
+                    prompt=full_prompt,
                     width=self.selected_width,
                     height=self.selected_height,
                     n=self.selected_count,
-                    enhance_prompt=should_enhance,
+                    enhance_prompt=self.enhance_prompt,
                 )
-
                 client = generator_registry.get(self.generator)
+
+                # Capture state values for database save
+                prompt = self.prompt
+                style = self.selected_style
+                model = self.generator
+                width = self.selected_width
+                height = self.selected_height
+                quality = self.selected_quality
+                should_enhance = self.enhance_prompt
+                count = self.selected_count
 
             # Generate images
             response: ImageGeneratorResponse = await client.generate(generation_input)
 
-            if response.state != ImageResponseState.SUCCEEDED or not response.images:
+            if response.state != ImageResponseState.SUCCEEDED:
                 async with self:
                     self.is_generating = False
                 yield rx.toast.error(
@@ -403,60 +436,62 @@ class ImageGalleryState(rx.State):
                 )
                 return
 
-            # Save generated images to database
-            async with self:
-                prompt = self.prompt
-                style = self.selected_style
-                model = self.generator
-                width = self.selected_width
-                height = self.selected_height
-                quality = self.selected_quality
-                # Use the AI-enhanced prompt from the generator response
-                final_enhanced_prompt = response.enhanced_prompt or enhanced_prompt
+            if not response.generated_images:
+                async with self:
+                    self.is_generating = False
+                yield rx.toast.error(
+                    "Keine Bilder generiert.",
+                    close_button=True,
+                )
+                return
 
-            for image_url in response.images:
+            # Save each generated image to database
+            enhanced_prompt = response.enhanced_prompt or full_prompt
+            saved_count = 0
+
+            for img_data in response.generated_images:
+                image_bytes = await self._get_image_bytes(img_data)
+                if not image_bytes:
+                    logger.warning("Could not get bytes for generated image")
+                    continue
+
                 try:
-                    # Fetch image bytes from the URL
-                    async with httpx.AsyncClient() as http_client:
-                        img_response = await http_client.get(image_url, timeout=60.0)
-                        img_response.raise_for_status()
-                        image_data = img_response.content
-                        content_type = img_response.headers.get(
-                            "content-type", "image/png"
-                        )
-
                     saved_image = await GeneratedImageRepository.create(
                         user_id=user_id,
                         prompt=prompt,
                         model=model,
-                        image_data=image_data,
-                        content_type=content_type,
+                        image_data=image_bytes,
+                        content_type=img_data.content_type,
                         width=width,
                         height=height,
-                        enhanced_prompt=final_enhanced_prompt,
+                        enhanced_prompt=enhanced_prompt,
                         style=style if style else None,
                         quality=quality if quality != "Auto" else None,
                         config={
                             "size": f"{width}x{height}",
                             "quality": quality,
-                            "count": self.selected_count,
+                            "count": count,
                             "enhance_prompt": should_enhance,
                         },
                     )
                     async with self:
-                        # Prepend new image to both lists
                         self.images = [saved_image, *self.images]
                         self.history_images = [saved_image, *self.history_images]
+                    saved_count += 1
                     yield
-                except httpx.HTTPError as e:
-                    logger.error("Error fetching image from URL: %s", e)
                 except Exception as e:
                     logger.error("Error saving generated image: %s", e)
 
-            yield rx.toast.success(
-                f"{len(response.images)} Bild(er) erfolgreich generiert!",
-                close_button=True,
-            )
+            if saved_count > 0:
+                yield rx.toast.success(
+                    f"{saved_count} Bild(er) erfolgreich generiert!",
+                    close_button=True,
+                )
+            else:
+                yield rx.toast.error(
+                    "Keine Bilder konnten gespeichert werden.",
+                    close_button=True,
+                )
 
         except Exception as e:
             logger.exception("Error generating images")

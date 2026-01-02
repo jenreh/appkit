@@ -1,10 +1,11 @@
 import base64
 import logging
-from typing import Final
 
+import httpx
 from openai import AsyncAzureOpenAI
 
 from appkit_imagecreator.backend.models import (
+    GeneratedImageData,
     GenerationInput,
     ImageGenerator,
     ImageGeneratorResponse,
@@ -12,8 +13,6 @@ from appkit_imagecreator.backend.models import (
 )
 
 logger = logging.getLogger(__name__)
-
-TMP_IMG_FILE: Final[str] = "gpt-image"
 
 
 class OpenAIImageGenerator(ImageGenerator):
@@ -25,7 +24,6 @@ class OpenAIImageGenerator(ImageGenerator):
         id: str = "gpt-image-1",  # noqa: A002
         label: str = "OpenAI GPT-Image-1",
         model: str = "gpt-image-1",
-        backend_server: str | None = None,
         base_url: str | None = None,
     ) -> None:
         super().__init__(
@@ -33,7 +31,6 @@ class OpenAIImageGenerator(ImageGenerator):
             label=label,
             model=model,
             api_key=api_key,
-            backend_server=backend_server,
         )
         # self.client = AsyncOpenAI(api_key=self.api_key)
 
@@ -92,36 +89,44 @@ class OpenAIImageGenerator(ImageGenerator):
             output_compression=95,
         )
 
-        self.clean_tmp_path(TMP_IMG_FILE)
+        generated_images: list[GeneratedImageData] = []
+        content_type = f"image/{output_format}"
 
-        images = []
         for img in response.data:
-            if img.url:
-                images.append(img.url)
-            elif img.b64_json:
+            if img.b64_json:
+                # Prefer base64 data - decode and return bytes directly
                 image_bytes = base64.b64decode(img.b64_json)
-                image_url = await self._save_image_to_tmp_and_get_url(
-                    image_bytes=image_bytes,
-                    tmp_file_prefix=TMP_IMG_FILE,
-                    output_format=output_format,
+                generated_images.append(
+                    self._create_generated_image_data(image_bytes, content_type)
                 )
-                images.append(image_url)
+            elif img.url:
+                # Fetch image from URL and return bytes
+                try:
+                    async with httpx.AsyncClient() as client:
+                        resp = await client.get(img.url, timeout=60.0)
+                        resp.raise_for_status()
+                        img_data = self._create_generated_image_data(
+                            resp.content, content_type
+                        )
+                        generated_images.append(img_data)
+                except httpx.HTTPError as e:
+                    logger.warning("Failed to fetch image from URL %s: %s", img.url, e)
             else:
                 logger.warning("Image data from OpenAI is neither b64_json nor a URL.")
 
-        if not images:
+        if not generated_images:
             logger.error(
                 "No images were successfully processed or retrieved from OpenAI."
             )
             return ImageGeneratorResponse(
                 state=ImageResponseState.FAILED,
-                images=[],
+                generated_images=[],
                 error="Es wurden keine Bilder generiert oder von der API abgerufen.",
                 enhanced_prompt=enhanced_prompt,
             )
 
         return ImageGeneratorResponse(
             state=ImageResponseState.SUCCEEDED,
-            images=images,
+            generated_images=generated_images,
             enhanced_prompt=enhanced_prompt,
         )
