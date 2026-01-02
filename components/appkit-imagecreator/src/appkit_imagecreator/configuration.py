@@ -8,6 +8,7 @@ class ImageGeneratorConfig(BaseConfig):
     """required for Google image models (Imagen3, Imagen4)"""
     blackforestlabs_api_key: SecretStr
     """required for Black Forest Labs Flux models"""
+    blackforestlabs_base_url: str | None = None
     openai_api_key: SecretStr
     """required for OpenAI images models (GPT-Image-1)"""
     openai_base_url: str | None = None

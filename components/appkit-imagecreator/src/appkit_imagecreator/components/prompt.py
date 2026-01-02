@@ -135,7 +135,7 @@ def _clear(show: bool = True) -> rx.Component | None:
             variant="ghost",
             padding="8px",
             margin_right="12px",
-            on_click=lambda: ImageGalleryState.set_prompt(""),
+            on_click=lambda: ImageGalleryState.clear_prompt(),
             type="reset",
         ),
         content="Prompt löschen",

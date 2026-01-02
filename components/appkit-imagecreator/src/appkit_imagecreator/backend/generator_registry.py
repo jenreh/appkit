@@ -3,8 +3,8 @@ from typing import Final
 
 from appkit_commons.configuration.configuration import ReflexConfig
 from appkit_commons.registry import service_registry
-from appkit_imagecreator.backend.generators import (
-    GoogleImageGenerator,
+from appkit_imagecreator.backend.generators.black_forest_labs import (
+    BlackForestLabsImageGenerator,
 )
 from appkit_imagecreator.backend.generators.nano_banana import (
     NanoBananaImageGenerator,
@@ -38,8 +38,8 @@ class ImageGeneratorRegistry:
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
                 model="gpt-image-1-mini",
-                label="OpenAI GPT-Image-1 mini",
-                id="gpt-image-1-mini",
+                label="OpenAI GPT-Image-1 mini (Azure)",
+                id="azure-gpt-image-1-mini",
             )
         )
         self.register(
@@ -47,39 +47,8 @@ class ImageGeneratorRegistry:
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
                 model="gpt-image-1.5",
-                label="OpenAI GPT-Image-1.5",
-                id="gpt-image-1.5",
-            )
-        )
-        self.register(
-            OpenAIImageGenerator(
-                api_key=self.config.openai_api_key.get_secret_value(),
-                base_url=self.config.openai_base_url,
-                model="FLUX-1.1-pro",
-                label="Blackforest Labs FLUX 1.1-pro",
-                id="FLUX-1.1-pro",
-            )
-        )
-        self.register(
-            OpenAIImageGenerator(
-                api_key=self.config.openai_api_key.get_secret_value(),
-                base_url=self.config.openai_base_url,
-                model="FLUX.1-Kontext-pro",
-                label="Blackforest Labs FLUX.1-Kontext-pro",
-                id="FLUX.1-Kontext-pro",
-            )
-        )
-        self.register(
-            GoogleImageGenerator(
-                api_key=self.config.google_api_key.get_secret_value(),
-                model="imagen-3.0-generate-002",
-                label="Google Imagen 3",
-                id="imagen-3",
-            )
-        )
-        self.register(
-            GoogleImageGenerator(
-                api_key=self.config.google_api_key.get_secret_value(),
+                label="OpenAI GPT-Image-1.5 (Azure)",
+                id="azure-gpt-image-1.5",
             )
         )
         self.register(
@@ -98,6 +67,34 @@ class ImageGeneratorRegistry:
                 id="nano-banana-pro",
             )
         )
+        self.register(
+            OpenAIImageGenerator(
+                api_key=self.config.openai_api_key.get_secret_value(),
+                base_url=self.config.openai_base_url,
+                model="FLUX.1-Kontext-pro",
+                label="Blackforest Labs FLUX.1-Kontext-pro (Azure)",
+                id="FLUX.1-Kontext-pro",
+            )
+        )
+        self.register(
+            BlackForestLabsImageGenerator(
+                api_key=self.config.blackforestlabs_api_key.get_secret_value(),
+                base_url=self.config.blackforestlabs_base_url,
+                model="flux-2-pro",
+                label="Blackforest Labs FLUX.2-pro (Azure)",
+                id="azure-flux-2-pro",
+                supports_size=True,
+            )
+        )
+        # self.register(
+        #     BlackForestLabsImageGenerator(
+        #         api_key=self.config.blackforestlabs_api_key.get_secret_value(),
+        #         model="flux-2-pro",
+        #         label="Blackforest Labs FLUX.2-pro (org)",
+        #         id="bfl-flux-2-pro",
+        #         supports_size=True,
+        #     )
+        # )
 
     def register(self, generator: ImageGenerator) -> None:
         """Register a new generator in the registry."""

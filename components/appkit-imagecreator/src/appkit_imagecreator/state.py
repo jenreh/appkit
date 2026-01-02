@@ -44,6 +44,9 @@ QUALITY_OPTIONS: list[str] = ["Auto", "High", "Medium", "Low"]
 # Count options
 COUNT_OPTIONS: list[int] = [1, 2, 3, 4]
 
+# Maximum number of reference images for image-to-image
+MAX_REFERENCE_IMAGES = 16
+
 
 class ImageGalleryState(rx.State):
     """State for the image gallery UI.
@@ -134,6 +137,16 @@ class ImageGalleryState(rx.State):
     def count_options(self) -> list[int]:
         """Get available count options."""
         return COUNT_OPTIONS
+
+    @rx.var
+    def is_edit_mode(self) -> bool:
+        """Check if we're in edit mode (reference images selected)."""
+        return len(self.selected_images) > 0
+
+    @rx.var
+    def selected_images_count(self) -> int:
+        """Number of selected reference images."""
+        return len(self.selected_images)
 
     # -------------------------------------------------------------------------
     # Initialization
@@ -324,6 +337,12 @@ class ImageGalleryState(rx.State):
         """Set the enhance_prompt flag."""
         self.enhance_prompt = value
 
+    @rx.event
+    def clear_prompt(self) -> None:
+        """Clear all selected reference images."""
+        self.selected_images = []
+        self.prompt = ""
+
     # -------------------------------------------------------------------------
     # Prompt handlers
     # -------------------------------------------------------------------------
@@ -371,7 +390,11 @@ class ImageGalleryState(rx.State):
     async def generate_images(  # noqa: PLR0912, PLR0915
         self,
     ) -> AsyncGenerator[Any, Any]:
-        """Generate images based on current settings."""
+        """Generate or edit images based on current settings.
+
+        If selected_images is not empty, uses the edit API with those images
+        as references. Otherwise, generates new images from scratch.
+        """
         # Validation
         async with self:
             if not self.prompt.strip():
@@ -407,12 +430,28 @@ class ImageGalleryState(rx.State):
                     )
 
                 full_prompt = self.prompt + style_prompt
+
+                # Check for reference images (image-to-image mode)
+                has_references = len(self.selected_images) > 0
+                reference_ids = [
+                    img.id for img in self.selected_images[:MAX_REFERENCE_IMAGES]
+                ]
+
+                # Warn if more than max images selected
+                if len(self.selected_images) > MAX_REFERENCE_IMAGES:
+                    yield rx.toast.info(
+                        f"Maximal {MAX_REFERENCE_IMAGES} Referenzbilder "
+                        "werden verwendet.",
+                        close_button=True,
+                    )
+
                 generation_input = GenerationInput(
                     prompt=full_prompt,
                     width=self.selected_width,
                     height=self.selected_height,
                     n=self.selected_count,
                     enhance_prompt=self.enhance_prompt,
+                    reference_image_ids=reference_ids,
                 )
                 client = generator_registry.get(self.generator)
 
@@ -426,8 +465,40 @@ class ImageGalleryState(rx.State):
                 should_enhance = self.enhance_prompt
                 count = self.selected_count
 
-            # Generate images
-            response: ImageGeneratorResponse = await client.generate(generation_input)
+            # Branch based on whether we have reference images
+            if has_references:
+                # Fetch reference image bytes from database
+                reference_images: list[tuple[bytes, str]] = []
+                for img_id in reference_ids:
+                    result = await GeneratedImageRepository.get_image_data(img_id)
+                    if result:
+                        reference_images.append(result)
+                    else:
+                        logger.warning(
+                            "Reference image %d not found in database", img_id
+                        )
+
+                if not reference_images:
+                    async with self:
+                        self.is_generating = False
+                    yield rx.toast.error(
+                        "Referenzbilder konnten nicht geladen werden.",
+                        close_button=True,
+                    )
+                    return
+
+                logger.info(
+                    "Editing with %d reference images",
+                    len(reference_images),
+                )
+
+                # Call edit API
+                response: ImageGeneratorResponse = await client.edit(
+                    generation_input, reference_images
+                )
+            else:
+                # Standard generation (no references)
+                response = await client.generate(generation_input)
 
             if response.state != ImageResponseState.SUCCEEDED:
                 async with self:
@@ -458,6 +529,16 @@ class ImageGalleryState(rx.State):
                     continue
 
                 try:
+                    # Build config dict with optional reference image info
+                    config_dict: dict[str, Any] = {
+                        "size": f"{width}x{height}",
+                        "quality": quality,
+                        "count": count,
+                        "enhance_prompt": should_enhance,
+                    }
+                    if has_references:
+                        config_dict["reference_image_ids"] = reference_ids
+
                     saved_image = await GeneratedImageRepository.create(
                         user_id=user_id,
                         prompt=prompt,
@@ -469,12 +550,7 @@ class ImageGalleryState(rx.State):
                         enhanced_prompt=enhanced_prompt,
                         style=style if style else None,
                         quality=quality if quality != "Auto" else None,
-                        config={
-                            "size": f"{width}x{height}",
-                            "quality": quality,
-                            "count": count,
-                            "enhance_prompt": should_enhance,
-                        },
+                        config=config_dict,
                     )
                     async with self:
                         self.images = [saved_image, *self.images]
