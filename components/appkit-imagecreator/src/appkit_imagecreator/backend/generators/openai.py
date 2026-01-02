@@ -57,7 +57,7 @@ class OpenAIImageGenerator(ImageGenerator):
                 },
                 {
                     "role": "user",
-                    "content": f"Enhance this prompt for image generation: {prompt}",
+                    "content": f"Enhance this prompt for image generation or image editing: {prompt}",
                 },
             ],
         )

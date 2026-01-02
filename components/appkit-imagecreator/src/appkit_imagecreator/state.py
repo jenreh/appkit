@@ -8,14 +8,18 @@ This module contains ImageGalleryState which manages:
 
 from __future__ import annotations
 
+import contextlib
+import io
+import locale
 import logging
 from collections import defaultdict
 from collections.abc import AsyncGenerator
-from datetime import datetime
+from datetime import date
 from typing import Any
 
 import httpx
 import reflex as rx
+from PIL import Image
 
 from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.models import (
@@ -31,21 +35,30 @@ from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
 
-# Size options matching the screenshot
+# Image size presets
 SIZE_OPTIONS: list[dict[str, str | int]] = [
     {"label": "Square (1024x1024)", "width": 1024, "height": 1024},
     {"label": "Portrait (1024x1536)", "width": 1024, "height": 1536},
     {"label": "Landscape (1536x1024)", "width": 1536, "height": 1024},
 ]
-
-# Quality options
 QUALITY_OPTIONS: list[str] = ["Auto", "High", "Medium", "Low"]
-
-# Count options
 COUNT_OPTIONS: list[int] = [1, 2, 3, 4]
 
-# Maximum number of reference images for image-to-image
-MAX_REFERENCE_IMAGES = 16
+# Upload constraints
+MAX_REFERENCE_IMAGES = 8
+MAX_FILES = 5
+MAX_SIZE_MB = 20
+MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
+ALLOWED_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
+ALLOWED_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
+
+# Content type mapping by extension
+CONTENT_TYPE_MAP = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+}
 
 
 class ImageGalleryState(rx.State):
@@ -60,6 +73,9 @@ class ImageGalleryState(rx.State):
     # All images for history
     history_images: list[GeneratedImageModel] = []
     loading_images: bool = False
+
+    # Upload state
+    is_uploading: bool = False
 
     # Generation state
     is_generating: bool = False
@@ -119,11 +135,6 @@ class ImageGalleryState(rx.State):
         return f"{self.selected_count}x"
 
     @rx.var
-    def style_label(self) -> str:
-        """Label showing selected style or empty."""
-        return self.selected_style if self.selected_style else ""
-
-    @rx.var
     def size_options(self) -> list[dict[str, Any]]:
         """Get available size options."""
         return SIZE_OPTIONS
@@ -147,6 +158,28 @@ class ImageGalleryState(rx.State):
     def selected_images_count(self) -> int:
         """Number of selected reference images."""
         return len(self.selected_images)
+
+    # -------------------------------------------------------------------------
+    # Helper methods
+    # -------------------------------------------------------------------------
+
+    def _find_image(self, image_id: int) -> GeneratedImageModel | None:
+        """Find an image by ID in the current images list."""
+        return next((img for img in self.images if img.id == image_id), None)
+
+    def _find_history_image(self, image_id: int) -> GeneratedImageModel | None:
+        """Find an image by ID in the history images list."""
+        return next((img for img in self.history_images if img.id == image_id), None)
+
+    def _close_all_popups(self) -> None:
+        """Close all popup menus."""
+        self.style_popup_open = False
+        self.config_popup_open = False
+        self.count_popup_open = False
+
+    def _is_image_selected(self, image_id: int) -> bool:
+        """Check if an image is already in selected images."""
+        return any(s.id == image_id for s in self.selected_images)
 
     # -------------------------------------------------------------------------
     # Initialization
@@ -235,50 +268,44 @@ class ImageGalleryState(rx.State):
             yield
 
     # -------------------------------------------------------------------------
-    # Style popup handlers
+    # Popup handlers
     # -------------------------------------------------------------------------
 
     @rx.event
     def toggle_style_popup(self) -> None:
         """Toggle the style selection popup."""
-        self.style_popup_open = not self.style_popup_open
-        # Close other popups
-        self.config_popup_open = False
-        self.count_popup_open = False
-
-    @rx.event
-    def set_selected_style(self, style: str) -> None:
-        """Set the selected style."""
-        self.selected_style = style if style != self.selected_style else ""
-        self.style_popup_open = False
-
-    @rx.var
-    def selected_style_path(self) -> str:
-        """Get the image path directly from the styles_preset dictionary."""
-        style_data = self.styles_preset.get(self.selected_style, {})
-        path = style_data.get("path", "")
-
-        if path and not path.startswith(("http", "/")):
-            return f"/{path}"
-
-        return path
-
-    @rx.event
-    def close_style_popup(self) -> None:
-        """Close the style popup."""
-        self.style_popup_open = False
-
-    # -------------------------------------------------------------------------
-    # Config popup handlers
-    # -------------------------------------------------------------------------
+        was_open = self.style_popup_open
+        self._close_all_popups()
+        self.style_popup_open = not was_open
 
     @rx.event
     def toggle_config_popup(self) -> None:
         """Toggle the config popup."""
-        self.config_popup_open = not self.config_popup_open
-        # Close other popups
+        was_open = self.config_popup_open
+        self._close_all_popups()
+        self.config_popup_open = not was_open
+
+    @rx.event
+    def toggle_count_popup(self) -> None:
+        """Toggle the count selection popup."""
+        was_open = self.count_popup_open
+        self._close_all_popups()
+        self.count_popup_open = not was_open
+
+    @rx.event
+    def set_selected_style(self, style: str) -> None:
+        """Set the selected style (toggle if same style selected)."""
+        self.selected_style = "" if style == self.selected_style else style
         self.style_popup_open = False
-        self.count_popup_open = False
+
+    @rx.var
+    def selected_style_path(self) -> str:
+        """Get the image path from the styles_preset dictionary."""
+        style_data = self.styles_preset.get(self.selected_style, {})
+        path = style_data.get("path", "")
+        if path and not path.startswith(("http", "/")):
+            return f"/{path}"
+        return path
 
     @rx.event
     def set_selected_size(self, size_label: str) -> None:
@@ -296,32 +323,9 @@ class ImageGalleryState(rx.State):
         self.selected_quality = quality
 
     @rx.event
-    def close_config_popup(self) -> None:
-        """Close the config popup."""
-        self.config_popup_open = False
-
-    # -------------------------------------------------------------------------
-    # Count popup handlers
-    # -------------------------------------------------------------------------
-
-    @rx.event
-    def toggle_count_popup(self) -> None:
-        """Toggle the count selection popup."""
-        self.count_popup_open = not self.count_popup_open
-        # Close other popups
-        self.style_popup_open = False
-        self.config_popup_open = False
-
-    @rx.event
     def set_selected_count(self, value: list[int | float]) -> None:
         """Set the number of images to generate."""
-        self.selected_count = value[0] if value else 1
-        # self.count_popup_open = False
-
-    @rx.event
-    def close_count_popup(self) -> None:
-        """Close the count popup."""
-        self.count_popup_open = False
+        self.selected_count = int(value[0]) if value else 1
 
     # -------------------------------------------------------------------------
     # Generator selection
@@ -403,9 +407,7 @@ class ImageGalleryState(rx.State):
 
             self.is_generating = True
             self.generating_prompt = self.prompt
-            self.style_popup_open = False
-            self.config_popup_open = False
-            self.count_popup_open = False
+            self._close_all_popups()
         yield
 
         try:
@@ -601,11 +603,9 @@ class ImageGalleryState(rx.State):
     @rx.event
     def open_zoom_modal(self, image_id: int) -> None:
         """Open the zoom modal for a specific image."""
-        for img in self.images:
-            if img.id == image_id:
-                self.zoom_image = img
-                self.zoom_modal_open = True
-                break
+        if img := self._find_image(image_id):
+            self.zoom_image = img
+            self.zoom_modal_open = True
 
     @rx.event
     def close_zoom_modal(self) -> None:
@@ -620,41 +620,167 @@ class ImageGalleryState(rx.State):
     @rx.event
     def add_image_to_prompt(self, image_id: int) -> None:
         """Add an image to the selected images for image-to-image generation."""
-        for img in self.images:
-            if img.id == image_id:
-                # Check if already selected
-                if not any(s.id == image_id for s in self.selected_images):
-                    self.selected_images = [*self.selected_images, img]
-                break
+        if self._is_image_selected(image_id):
+            return
+        if img := self._find_image(image_id):
+            self.selected_images = [*self.selected_images, img]
 
     @rx.event
     def remove_image_from_prompt(self, image_id: int) -> None:
         """Remove an image from the selected images."""
         self.selected_images = [s for s in self.selected_images if s.id != image_id]
 
+    async def handle_upload(
+        self, files: list[rx.UploadFile]
+    ) -> AsyncGenerator[Any, Any]:
+        """Handle uploaded reference images."""
+        user_session: UserSession = await self.get_state(UserSession)
+        user_id = user_session.user.user_id if user_session.user else 0
+
+        if not user_id:
+            yield rx.toast.error("Authentication required", close_button=True)
+            return
+
+        files_to_process = files[:MAX_FILES]
+        exceeded_limit = len(files) > MAX_FILES
+
+        self.is_uploading = True
+        yield
+
+        uploaded_ids, skipped = await self._process_upload_files(
+            files_to_process, user_id
+        )
+
+        self._initialized = False
+        async for _ in self._load_images():
+            yield
+
+        self._auto_select_uploaded_images(uploaded_ids)
+
+        self.is_uploading = False
+        yield
+
+        for result in self._show_upload_results(
+            len(uploaded_ids), skipped, exceeded_limit
+        ):
+            yield result
+
+    async def _process_upload_files(
+        self, files: list[rx.UploadFile], user_id: int
+    ) -> tuple[list[int], list[str]]:
+        """Process and save uploaded files. Returns (uploaded_ids, skipped_files)."""
+        uploaded_ids: list[int] = []
+        skipped: list[str] = []
+
+        for file in files:
+            filename = file.filename or "unknown"
+            ext_idx = filename.rfind(".")
+            file_ext = filename[ext_idx:].lower() if ext_idx >= 0 else ""
+
+            skip_reason = self._validate_upload_file(file, file_ext)
+            if skip_reason:
+                skipped.append(f"{filename} ({skip_reason})")
+                logger.warning("Skipped %s: %s", filename, skip_reason)
+                continue
+
+            try:
+                image_data = await file.read()
+                img = Image.open(io.BytesIO(image_data))
+                content_type = CONTENT_TYPE_MAP.get(
+                    file_ext, file.content_type or "image/png"
+                )
+
+                saved = await GeneratedImageRepository.create(
+                    user_id=user_id,
+                    prompt="",
+                    model="",
+                    image_data=image_data,
+                    content_type=content_type,
+                    width=img.size[0],
+                    height=img.size[1],
+                    style=None,
+                    enhanced_prompt=None,
+                    quality=None,
+                    config=None,
+                    is_uploaded=True,
+                )
+                uploaded_ids.append(saved.id)
+                logger.info("Uploaded %s for user %d", filename, user_id)
+            except Exception as e:
+                skipped.append(f"{filename} (error: {e!s})")
+                logger.exception("Failed to process %s", filename)
+
+        return uploaded_ids, skipped
+
+    @staticmethod
+    def _validate_upload_file(file: rx.UploadFile, file_ext: str) -> str | None:
+        """Validate file type and size. Returns error reason or None if valid."""
+        is_valid_type = (
+            file.content_type in ALLOWED_TYPES or file_ext in ALLOWED_EXTENSIONS
+        )
+        if not is_valid_type:
+            return "unsupported format"
+        if file.size and file.size > MAX_SIZE_BYTES:
+            return f"exceeds {MAX_SIZE_MB}MB limit"
+        return None
+
+    def _auto_select_uploaded_images(self, uploaded_ids: list[int]) -> None:
+        """Auto-select uploaded images."""
+        for img_id in uploaded_ids:
+            if self._is_image_selected(img_id):
+                continue
+            if img := self._find_image(img_id):
+                self.selected_images = [*self.selected_images, img]
+
+    @staticmethod
+    def _show_upload_results(
+        uploaded_count: int, skipped: list[str], exceeded_limit: bool
+    ) -> list[rx.event.EventSpec]:
+        """Generate toast notifications for upload results."""
+        results = []
+        if uploaded_count > 0:
+            msg = f"Uploaded {uploaded_count} image(s)"
+            if skipped:
+                msg += f", skipped {len(skipped)}"
+                results.append(rx.toast.warning(msg, close_button=True))
+            else:
+                results.append(rx.toast.success(msg, close_button=True))
+        elif skipped:
+            results.append(
+                rx.toast.error(f"Failed: {', '.join(skipped[:3])}", close_button=True)
+            )
+        if exceeded_limit:
+            results.append(
+                rx.toast.info(
+                    f"Only first {MAX_FILES} images uploaded", close_button=True
+                )
+            )
+        return results
+
     @rx.event
     def copy_config_to_prompt(self, image_id: int) -> None:
         """Copy the prompt and configuration from an image to the input fields."""
-        for img in self.images:
-            if img.id == image_id:
-                self.prompt = img.prompt
-                self.selected_style = img.style or ""
-                self.selected_quality = img.quality or "Auto"
-                self.selected_width = img.width
-                self.selected_height = img.height
-                self.generator = img.model  # Set the generator/model
-                # Find matching size label
-                for opt in SIZE_OPTIONS:
-                    if opt["width"] == img.width and opt["height"] == img.height:
-                        self.selected_size = opt["label"]
-                        break
-                # Try to restore count and enhance_prompt from config if available
-                if img.config:
-                    if "count" in img.config:
-                        self.selected_count = img.config["count"]
-                    if "enhance_prompt" in img.config:
-                        self.enhance_prompt = img.config["enhance_prompt"]
+        img = self._find_image(image_id)
+        if not img:
+            return
+
+        self.prompt = img.prompt
+        self.selected_style = img.style or ""
+        self.selected_quality = img.quality or "Auto"
+        self.selected_width = img.width
+        self.selected_height = img.height
+        self.generator = img.model
+
+        # Find matching size label
+        for opt in SIZE_OPTIONS:
+            if opt["width"] == img.width and opt["height"] == img.height:
+                self.selected_size = opt["label"]
                 break
+
+        # Restore count and enhance_prompt from config if available
+        if img.config:
+            self.selected_count = img.config.get("count", self.selected_count)
+            self.enhance_prompt = img.config.get("enhance_prompt", self.enhance_prompt)
 
     @rx.event
     def remove_image_from_view(self, image_id: int) -> None:
@@ -666,12 +792,8 @@ class ImageGalleryState(rx.State):
     @rx.event(background=True)
     async def download_image(self, image_id: int) -> AsyncGenerator[Any, Any]:
         """Download an image file."""
-        # Find the image
-        image = None
-        for img in self.images:
-            if img.id == image_id:
-                image = img
-                break
+        async with self:
+            image = self._find_image(image_id)
 
         if not image:
             yield rx.toast.error("Bild nicht gefunden", close_button=True)
@@ -744,64 +866,35 @@ class ImageGalleryState(rx.State):
 
     @rx.event
     def add_history_image_to_grid(self, image_id: str) -> None:
-        """Add an image from history to the main grid (today's images).
-
-        If the image is already in the grid, do nothing.
-        """
-        # Check if image is already in grid
-        if any(img.id == image_id for img in self.images):
-            logger.debug("Image %s already in grid", image_id)
-            return
-        # Find the image in history
-        for img in self.history_images:
-            if img.id == image_id:
-                # Prepend to grid
-                self.images = [img, *self.images]
-                logger.info("Added history image %s to grid", image_id)
-                break
+        """Add an image from history to the main grid."""
+        int_id = int(image_id)
+        if self._find_image(int_id):
+            return  # Already in grid
+        if img := self._find_history_image(int_id):
+            self.images = [img, *self.images]
+            logger.info("Added history image %s to grid", image_id)
 
     @rx.var
     def history_images_by_date(self) -> list[tuple[str, list[GeneratedImageModel]]]:
-        """Group history images by date (day).
-
-        Returns list of tuples: (date_label, images_list)
-        Sorted by date descending (newest first).
-        """
+        """Group history images by date, sorted descending."""
         if not self.history_images:
             return []
 
-        grouped: dict[datetime, list[GeneratedImageModel]] = defaultdict(list)
-
+        grouped: dict[date, list[GeneratedImageModel]] = defaultdict(list)
         for img in self.history_images:
             if img.created_at:
-                date_key = img.created_at.date()
-                grouped[date_key].append(img)
+                grouped[img.created_at.date()].append(img)
 
-        # Sort by date descending
         sorted_groups = sorted(grouped.items(), key=lambda x: x[0], reverse=True)
 
-        # Format date labels (deutsch)
-        result = []
-        month_names = {
-            1: "Jan.",
-            2: "Feb.",
-            3: "März",
-            4: "Apr.",
-            5: "Mai",
-            6: "Juni",
-            7: "Juli",
-            8: "Aug.",
-            9: "Sep.",
-            10: "Okt.",
-            11: "Nov.",
-            12: "Dez.",
-        }
+        return [
+            (self._format_date_label(date_key), imgs)
+            for date_key, imgs in sorted_groups
+        ]
 
-        for date_key, imgs in sorted_groups:
-            day = date_key.day
-            month = month_names[date_key.month]
-            year = date_key.year
-            date_label = f"{day}. {month} {year}"
-            result.append((date_label, imgs))
-
-        return result
+    @staticmethod
+    def _format_date_label(d: date) -> str:
+        """Format date as German label (e.g., '2. Jan. 2026')."""
+        with contextlib.suppress(locale.Error):
+            locale.setlocale(locale.LC_TIME, "de_DE.UTF-8")
+        return d.strftime("%-d. %b %Y")

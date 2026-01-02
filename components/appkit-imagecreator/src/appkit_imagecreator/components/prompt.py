@@ -71,6 +71,7 @@ def _model_selector() -> rx.Component:
             variant="ghost",
             margin_left="3px",
             size="1",
+            max_width="276px",
         ),
         rx.select.content(
             rx.foreach(
@@ -117,11 +118,29 @@ def _enhance_prompt_checkbox() -> rx.Component:
 
 
 def _reference_image_upload() -> rx.Component:
-    return rx.box(
-        rx.icon("paperclip", size=18, color=rx.color("gray", 9)),
-        cursor="not-allowed",
-        opacity="0.5",
-        padding="8px",
+    """Upload reference images from local files."""
+    return rx.tooltip(
+        rx.upload.root(
+            rx.box(
+                rx.icon("paperclip", size=18, color=rx.color("gray", 9)),
+                cursor="pointer",
+                padding="8px",
+                border_radius="8px",
+                _hover={"background": rx.color("gray", 3)},
+            ),
+            id="image_upload",
+            accept={
+                "image/jpeg": [".jpg", ".jpeg"],
+                "image/png": [".png"],
+                "image/webp": [".webp"],
+            },
+            multiple=True,
+            max_files=5,
+            on_drop=ImageGalleryState.handle_upload(
+                rx.upload_files(upload_id="image_upload")
+            ),
+        ),
+        content="Upload up to 5 reference images (JPG, PNG, WebP, max 20MB each)",
     )
 
 
@@ -179,7 +198,7 @@ def prompt_input_bar() -> rx.Component:
                     image_props_popup(),
                     count_popup(),
                     _enhance_prompt_checkbox(),
-                    # _reference_image_upload(),
+                    _reference_image_upload(),
                     _model_selector(),
                     rx.spacer(),
                     _clear(),

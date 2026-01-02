@@ -43,7 +43,7 @@ class GoogleImageGenerator(ImageGenerator):
                 "compliance rules are followed. Do not ask followup "
                 "questions, just generate the plain, raw, optimized prompt "
                 "withoud any additional text, headlines or questions."
-                f"Enhance this prompt for image generation: {prompt}"
+                f"Enhance this prompt for image generation or image editing: {prompt}"
             ),
         )
 

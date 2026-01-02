@@ -44,6 +44,7 @@ class GeneratedImageRepository:
                     height=img.height,
                     quality=img.quality,
                     config=img.config,
+                    is_uploaded=img.is_uploaded,
                     created_at=img.created_at,
                 )
                 for img in images
@@ -82,6 +83,7 @@ class GeneratedImageRepository:
                     height=img.height,
                     quality=img.quality,
                     config=img.config,
+                    is_uploaded=img.is_uploaded,
                     created_at=img.created_at,
                 )
                 for img in images
@@ -121,6 +123,7 @@ class GeneratedImageRepository:
         style: str | None = None,
         quality: str | None = None,
         config: dict[str, Any] | None = None,
+        is_uploaded: bool = False,
     ) -> GeneratedImageModel:
         """Create a new generated image record with blob data."""
         async with rx.asession() as session:
@@ -136,6 +139,7 @@ class GeneratedImageRepository:
                 height=height,
                 quality=quality,
                 config=config,
+                is_uploaded=is_uploaded,
             )
             session.add(image)
             await session.commit()
@@ -153,6 +157,7 @@ class GeneratedImageRepository:
                 height=image.height,
                 quality=image.quality,
                 config=image.config,
+                is_uploaded=image.is_uploaded,
                 created_at=image.created_at,
             )
 

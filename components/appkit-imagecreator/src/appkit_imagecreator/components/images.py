@@ -10,6 +10,23 @@ from appkit_imagecreator.state import ImageGalleryState
 
 def _image_card(image: GeneratedImageModel) -> rx.Component:
     """Render a single image card in the grid."""
+    # Upload badge for uploaded images (top right)
+    upload_badge = rx.cond(
+        image.is_uploaded,
+        rx.box(
+            rx.icon_button(
+                rx.icon("upload", size=14, color="white"),
+                position="absolute",
+                top="8px",
+                right="8px",
+                z_index="10",
+                background=rx.color("blue", 9),
+                border_radius="full",
+                padding="4px",
+            ),
+        ),
+    )
+
     # Action buttons container - shown on hover
     # Each button stops event propagation via empty lambda wrapper
     action_buttons = rx.fragment(
@@ -78,6 +95,7 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
 
     hover_overlay = rx.box(
         action_buttons,
+        upload_badge,
         position="absolute",
         inset="0",
         background="transparent",
@@ -105,10 +123,49 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
         aspect_ratio="1",
         overflow="hidden",
         border_radius="8px",
-        border=f"1px solid {rx.color('gray', 4)}",
+        border=rx.cond(
+            image.is_uploaded,
+            f"1px solid {rx.color('blue', 8)}",
+            f"1px solid {rx.color('gray', 4)}",
+        ),
         _hover={
             "& .hover-overlay": {"opacity": "1"},
         },
+    )
+
+
+def _uploading_card() -> rx.Component:
+    """Render a loading card while images are being uploaded."""
+    return rx.box(
+        rx.box(
+            # Content overlay
+            rx.vstack(
+                rx.spinner(size="3"),
+                rx.text(
+                    "Uploading images...",
+                    size="2",
+                    color=rx.color("gray", 11),
+                    text_align="center",
+                ),
+                spacing="3",
+                position="absolute",
+                top="50%",
+                left="50%",
+                transform="translate(-50%, -50%)",
+                width="100%",
+                padding="16px",
+                align="center",
+                justify="center",
+            ),
+            position="relative",
+            width="100%",
+            aspect_ratio="1",
+            overflow="hidden",
+            border_radius="8px",
+            border=f"1px solid {rx.color('blue', 6)}",
+            background=rx.color("blue", 2),
+        ),
+        width="100%",
     )
 
 
@@ -251,10 +308,17 @@ def image_grid() -> rx.Component:
             padding="64px",
         ),
         rx.cond(
-            ImageGalleryState.has_images | ImageGalleryState.is_generating,
+            ImageGalleryState.has_images
+            | ImageGalleryState.is_generating
+            | ImageGalleryState.is_uploading,
             rx.box(
                 rx.box(
-                    # Show generating card first when generating
+                    # Show uploading card first when uploading
+                    rx.cond(
+                        ImageGalleryState.is_uploading,
+                        _uploading_card(),
+                    ),
+                    # Show generating card when generating
                     rx.cond(
                         ImageGalleryState.is_generating,
                         _generating_card(),

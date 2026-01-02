@@ -80,6 +80,11 @@ def _history_image_card(image: GeneratedImageModel) -> rx.Component:
             aspect_ratio="1",
             overflow="hidden",
             border_radius="6px",
+            border=rx.cond(
+                image.is_uploaded,
+                f"1px solid {rx.color('blue', 8)}",
+                f"1px solid {rx.color('gray', 4)}",
+            ),
             _hover={
                 "& .history-hover-overlay": {"opacity": "1"},
             },
