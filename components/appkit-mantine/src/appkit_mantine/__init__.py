@@ -36,6 +36,7 @@ from appkit_mantine.markdown_preview import (
 )
 from appkit_mantine.markdown_zoom import mermaid_zoom_script
 from appkit_mantine.drawer import drawer
+from appkit_mantine.modal import modal
 
 __all__ = [
     "MANTINE_LIBARY",
@@ -52,6 +53,7 @@ __all__ = [
     "form",
     "markdown_preview",
     "mermaid_zoom_script",
+    "modal",
     "nav_link",
     "navigation_progress",
     "number_formatter",

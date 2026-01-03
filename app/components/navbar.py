@@ -119,6 +119,7 @@ def navbar_items() -> rx.Component:
         rx.text("Others", size="2", weight="bold", style=sub_heading_styles),
         rx.list.unordered(
             rx.list.item(rx.link("Markdown Preview", href="/markdown-preview")),
+            rx.list.item(rx.link("Modal", href="/modal")),
             rx.list.item(rx.link("Navigation Progress", href="/nprogress")),
             rx.list.item(rx.link("Nav Link", href="/nav-link")),
             rx.list.item(rx.link("Number Formatter", href="/number-formatter")),

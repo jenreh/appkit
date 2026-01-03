@@ -35,6 +35,7 @@ from app.pages.examples.json_input_examples import json_input_examples  # noqa: 
 from app.pages.examples.markdown_preview_examples import (
     markdown_preview_examples,  # noqa: F401
 )
+from app.pages.examples.modal_examples import modal_examples  # noqa: F401
 from app.pages.examples.multi_select_examples import multi_select_examples  # noqa: F401
 from app.pages.examples.nav_link_examples import nav_link_examples  # noqa: F401
 from app.pages.examples.nprogress_examples import nprogress_examples_page  # noqa: F401
@@ -108,6 +109,7 @@ def index() -> rx.Component:
             rx.text.strong("Others:", size="3"),
             rx.list.unordered(
                 rx.list.item(rx.link("Markdown Preview", href="/markdown-preview")),
+                rx.list.item(rx.link("Modal", href="/modal")),
                 rx.list.item(rx.link("Navigation Progress", href="/nprogress")),
                 rx.list.item(rx.link("Nav Link", href="/nav-link")),
                 rx.list.item(rx.link("Number Formatter", href="/number-formatter")),
