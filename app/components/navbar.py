@@ -98,7 +98,8 @@ def navbar_items() -> rx.Component:
         ),
         rx.text("Inputs", size="2", weight="bold", style=sub_heading_styles),
         rx.list.unordered(
-            rx.list.item(rx.link("Text Input", href="/inputs")),
+            rx.list.item(rx.link("Inputs", href="/inputs")),
+            rx.list.item(rx.link("TextInput", href="/text-input")),
             rx.list.item(rx.link("Password Input", href="/password")),
             rx.list.item(rx.link("Date Input", href="/date")),
             rx.list.item(rx.link("Number Input", href="/number")),

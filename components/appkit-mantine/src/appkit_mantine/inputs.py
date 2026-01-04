@@ -17,6 +17,7 @@ from appkit_mantine.password_input import PasswordInput
 from appkit_mantine.rich_select import RichSelect
 from appkit_mantine.select import Select
 from appkit_mantine.tags_input import TagsInput
+from appkit_mantine.text_input import TextInput
 
 
 class Input(MantineInputComponentBase):
@@ -134,6 +135,7 @@ class InputNamespace(rx.ComponentNamespace):
     """Namespace for Combobox components."""
 
     input = staticmethod(Input.create)
+    text = staticmethod(TextInput.create)
     password = staticmethod(PasswordInput.create)
     number = staticmethod(NumberInput.create)
     masked = staticmethod(MaskedInput.create)

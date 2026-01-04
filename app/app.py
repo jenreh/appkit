@@ -53,6 +53,9 @@ from app.pages.examples.scroll_area_examples import scroll_area_examples  # noqa
 from app.pages.examples.select_examples import select_examples  # noqa: F401
 from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.tags_input_examples import tags_input_examples  # noqa: F401
+from app.pages.examples.text_input_examples import (
+    text_input_examples_page,  # noqa: F401
+)
 from app.pages.examples.textarea_examples import textarea_examples_page  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
 from app.pages.image_creator import image_gallery  # noqa: F401
@@ -89,6 +92,7 @@ def index() -> rx.Component:
             rx.text.strong("Inputs:", size="3"),
             rx.list.unordered(
                 rx.list.item(rx.link("Text Inputs", href="/inputs")),
+                rx.list.item(rx.link("TextInput", href="/text-input")),
                 rx.list.item(rx.link("Password Input", href="/password")),
                 rx.list.item(rx.link("Date Input", href="/date")),
                 rx.list.item(rx.link("Number Input", href="/number")),
