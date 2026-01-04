@@ -45,7 +45,7 @@ from reflex.vars.base import Var
 public_provider_path = "$/public/" + asset(path="mantine_provider.js", shared=True)
 
 MANTINE_LIBARY: Final[str] = "@mantine/core"
-MANTINE_VERSION: Final[str] = "8.3.3"
+MANTINE_VERSION: Final[str] = "8.3.10"
 
 
 class MemoizedMantineProvider(rx.Component):
