@@ -59,7 +59,7 @@ wheels = [
 
 [[package]]
 name = "appkit"
-version = "0.14.0"
+version = "0.14.1"
 source = { editable = "." }
 dependencies = [
     { name = "appkit-assistant" },
@@ -104,7 +104,7 @@ dev = [
 
 [[package]]
 name = "appkit-assistant"
-version = "0.14.0"
+version = "0.14.1"
 source = { editable = "components/appkit-assistant" }
 dependencies = [
     { name = "appkit-commons" },
@@ -125,7 +125,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-commons"
-version = "0.14.0"
+version = "0.14.1"
 source = { editable = "components/appkit-commons" }
 dependencies = [
     { name = "colorlog" },
@@ -159,7 +159,7 @@ provides-extras = ["azure"]
 
 [[package]]
 name = "appkit-imagecreator"
-version = "0.14.0"
+version = "0.14.1"
 source = { editable = "components/appkit-imagecreator" }
 dependencies = [
     { name = "appkit-commons" },
@@ -184,7 +184,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mantine"
-version = "0.14.0"
+version = "0.14.1"
 source = { editable = "components/appkit-mantine" }
 dependencies = [
     { name = "reflex" },
@@ -195,7 +195,7 @@ requires-dist = [{ name = "reflex", specifier = ">=0.8.22" }]
 
 [[package]]
 name = "appkit-ui"
-version = "0.14.0"
+version = "0.14.1"
 source = { editable = "components/appkit-ui" }
 dependencies = [
     { name = "appkit-mantine" },
@@ -210,7 +210,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-user"
-version = "0.14.0"
+version = "0.14.1"
 source = { editable = "components/appkit-user" }
 dependencies = [
     { name = "appkit-commons" },
