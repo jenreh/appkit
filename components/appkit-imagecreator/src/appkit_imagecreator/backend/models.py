@@ -58,6 +58,8 @@ class GeneratedImage(rx.Model, table=True):
 class GeneratedImageModel(BaseModel):
     """Pydantic model for GeneratedImage data transfer (without binary data)."""
 
+    model_config = {"from_attributes": True}
+
     id: int
     user_id: int
     prompt: str

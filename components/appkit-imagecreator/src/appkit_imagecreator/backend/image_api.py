@@ -5,7 +5,8 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from appkit_imagecreator.backend.repository import GeneratedImageRepository
+from appkit_commons.database.session import get_asyncdb_session
+from appkit_imagecreator.backend.repository import image_repo
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ async def get_image(image_id: int) -> Response:
     Raises:
         HTTPException: If the image is not found.
     """
-    result = await GeneratedImageRepository.get_image_data(image_id)
+    async with get_asyncdb_session() as session:
+        result = await image_repo.find_image_data(session, image_id)
 
     if result is None:
         logger.warning("Image not found: %d", image_id)

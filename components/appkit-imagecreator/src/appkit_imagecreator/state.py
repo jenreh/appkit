@@ -21,15 +21,17 @@ import httpx
 import reflex as rx
 from PIL import Image
 
+from appkit_commons.database.session import get_asyncdb_session
 from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.models import (
+    GeneratedImage,
     GeneratedImageData,
     GeneratedImageModel,
     GenerationInput,
     ImageGeneratorResponse,
     ImageResponseState,
 )
-from appkit_imagecreator.backend.repository import GeneratedImageRepository
+from appkit_imagecreator.backend.repository import image_repo
 from appkit_imagecreator.configuration import styles_preset
 from appkit_user.authentication.states import UserSession
 
@@ -237,10 +239,22 @@ class ImageGalleryState(rx.State):
 
         # Fetch images from database
         try:
-            # Load today's images for grid
-            today_images = await GeneratedImageRepository.get_today_by_user(user_id)
-            # Load all images for history
-            all_images = await GeneratedImageRepository.get_by_user(user_id)
+            async with get_asyncdb_session() as session:
+                # Load today's images for grid
+                today_entities = await image_repo.find_today_by_user(session, user_id)
+                today_images = [
+                    GeneratedImageModel.model_validate(img) for img in today_entities
+                ]
+                today_ids = {img.id for img in today_images}
+
+                # Load all images for history, excluding today's images
+                all_raw_entities = await image_repo.find_by_user(session, user_id)
+                all_images = [
+                    GeneratedImageModel.model_validate(img)
+                    for img in all_raw_entities
+                    if img.id not in today_ids
+                ]
+
             async with self:
                 self.images = today_images
                 self.history_images = all_images
@@ -467,14 +481,17 @@ class ImageGalleryState(rx.State):
             if has_references:
                 # Fetch reference image bytes from database
                 reference_images: list[tuple[bytes, str]] = []
-                for img_id in reference_ids:
-                    result = await GeneratedImageRepository.get_image_data(img_id)
-                    if result:
-                        reference_images.append(result)
-                    else:
-                        logger.warning(
-                            "Reference image %d not found in database", img_id
-                        )
+                async with get_asyncdb_session() as session:
+                    for img_id in reference_ids:
+                        result = await image_repo.find_by_id(session, img_id)
+                        if result:
+                            reference_images.append(
+                                (result.image_data, result.content_type)
+                            )
+                        else:
+                            logger.warning(
+                                "Reference image %d not found in database", img_id
+                            )
 
                 if not reference_images:
                     async with self:
@@ -537,19 +554,22 @@ class ImageGalleryState(rx.State):
                     if has_references:
                         config_dict["reference_image_ids"] = reference_ids
 
-                    saved_image = await GeneratedImageRepository.create(
-                        user_id=user_id,
-                        prompt=prompt,
-                        model=model,
-                        image_data=image_bytes,
-                        content_type=img_data.content_type,
-                        width=width,
-                        height=height,
-                        enhanced_prompt=enhanced_prompt,
-                        style=style if style else None,
-                        quality=quality if quality != "Auto" else None,
-                        config=config_dict,
-                    )
+                    async with get_asyncdb_session() as session:
+                        new_image = GeneratedImage(
+                            user_id=user_id,
+                            prompt=prompt,
+                            model=model,
+                            image_data=image_bytes,
+                            content_type=img_data.content_type,
+                            width=width,
+                            height=height,
+                            enhanced_prompt=enhanced_prompt,
+                            style=style if style else None,
+                            quality=quality if quality != "Auto" else None,
+                            config=config_dict,
+                        )
+                        saved_entity = await image_repo.create(session, new_image)
+                        saved_image = GeneratedImageModel.model_validate(saved_entity)
                     async with self:
                         self.images = [saved_image, *self.images]
                         self.history_images = [saved_image, *self.history_images]
@@ -668,43 +688,45 @@ class ImageGalleryState(rx.State):
         uploaded_ids: list[int] = []
         skipped: list[str] = []
 
-        for file in files:
-            filename = file.filename or "unknown"
-            ext_idx = filename.rfind(".")
-            file_ext = filename[ext_idx:].lower() if ext_idx >= 0 else ""
+        async with get_asyncdb_session() as session:
+            for file in files:
+                filename = file.filename or "unknown"
+                ext_idx = filename.rfind(".")
+                file_ext = filename[ext_idx:].lower() if ext_idx >= 0 else ""
 
-            skip_reason = self._validate_upload_file(file, file_ext)
-            if skip_reason:
-                skipped.append(f"{filename} ({skip_reason})")
-                logger.warning("Skipped %s: %s", filename, skip_reason)
-                continue
+                skip_reason = self._validate_upload_file(file, file_ext)
+                if skip_reason:
+                    skipped.append(f"{filename} ({skip_reason})")
+                    logger.warning("Skipped %s: %s", filename, skip_reason)
+                    continue
 
-            try:
-                image_data = await file.read()
-                img = Image.open(io.BytesIO(image_data))
-                content_type = CONTENT_TYPE_MAP.get(
-                    file_ext, file.content_type or "image/png"
-                )
+                try:
+                    image_data = await file.read()
+                    img = Image.open(io.BytesIO(image_data))
+                    content_type = CONTENT_TYPE_MAP.get(
+                        file_ext, file.content_type or "image/png"
+                    )
 
-                saved = await GeneratedImageRepository.create(
-                    user_id=user_id,
-                    prompt="",
-                    model="",
-                    image_data=image_data,
-                    content_type=content_type,
-                    width=img.size[0],
-                    height=img.size[1],
-                    style=None,
-                    enhanced_prompt=None,
-                    quality=None,
-                    config=None,
-                    is_uploaded=True,
-                )
-                uploaded_ids.append(saved.id)
-                logger.info("Uploaded %s for user %d", filename, user_id)
-            except Exception as e:
-                skipped.append(f"{filename} (error: {e!s})")
-                logger.exception("Failed to process %s", filename)
+                    image_entity = GeneratedImage(
+                        user_id=user_id,
+                        prompt="",
+                        model="",
+                        image_data=image_data,
+                        content_type=content_type,
+                        width=img.size[0],
+                        height=img.size[1],
+                        style=None,
+                        enhanced_prompt=None,
+                        quality=None,
+                        config=None,
+                        is_uploaded=True,
+                    )
+                    saved = await image_repo.create(session, image_entity)
+                    uploaded_ids.append(saved.id)
+                    logger.info("Uploaded %s for user %d", filename, user_id)
+                except Exception as e:
+                    skipped.append(f"{filename} (error: {e!s})")
+                    logger.exception("Failed to process %s", filename)
 
         return uploaded_ids, skipped
 
@@ -797,12 +819,14 @@ class ImageGalleryState(rx.State):
 
         try:
             # Fetch image data from repository
-            result = await GeneratedImageRepository.get_image_data(image_id)
-            if result is None:
+            async with get_asyncdb_session() as session:
+                db_image = await image_repo.find_by_id(session, image_id)
+
+            if db_image is None:
                 yield rx.toast.error("Bilddaten nicht gefunden", close_button=True)
                 return
 
-            image_data, _ = result
+            image_data = db_image.image_data
             filename = f"image_{image.id}.png"
             # Download raw binary data
             yield rx.download(data=image_data, filename=filename)
@@ -839,7 +863,8 @@ class ImageGalleryState(rx.State):
 
         try:
             logger.info("Deleting image from database: %s", image_id)
-            await GeneratedImageRepository.delete(int(image_id), user_id)
+            async with get_asyncdb_session() as session:
+                await image_repo.delete_by_id_and_user(session, int(image_id), user_id)
 
             async with self:
                 # Remove from both lists
