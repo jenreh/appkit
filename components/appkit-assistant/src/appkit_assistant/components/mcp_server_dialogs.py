@@ -130,7 +130,7 @@ class ValidationState(rx.State):
 @var_operation
 def json(obj: rx.Var, indent: int = 4) -> CustomVarOperationReturn[RETURN]:
     return var_operation_return(
-        js_expression=f"JSON.stringify(JSON.parse({obj}), null, {indent})",
+        js_expression=f"JSON.stringify(JSON.parse({obj} || '{{}}'), null, {indent})",
         var_type=Any,
     )
 

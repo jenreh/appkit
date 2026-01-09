@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.models import (
     AIModel,
+    AssistantThread,
     Chunk,
     ChunkType,
     MCPServer,
@@ -31,8 +32,9 @@ from appkit_assistant.backend.models import (
     ThreadModel,
     ThreadStatus,
 )
-from appkit_assistant.backend.repositories import MCPServerRepository, ThreadRepository
+from appkit_assistant.backend.repositories import mcp_server_repo, thread_repo
 from appkit_assistant.state.thread_list_state import ThreadListState
+from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
@@ -268,20 +270,41 @@ class ThreadState(rx.State):
             return
 
         try:
-            full_thread = await ThreadRepository.get_thread_by_id(thread_id, user_id)
+            async with get_asyncdb_session() as session:
+                thread_entity = await thread_repo.find_by_thread_id_and_user(
+                    session, thread_id, user_id
+                )
+
+                if not thread_entity:
+                    logger.warning("Thread %s not found in database", thread_id)
+                    # We can't access self in here easily to clear loading state unless we break out
+                    # but we can check thread_entity after context
+
+                # Convert to ThreadModel if found
+                full_thread = None
+                if thread_entity:
+                    full_thread = ThreadModel(
+                        thread_id=thread_entity.thread_id,
+                        title=thread_entity.title,
+                        state=ThreadStatus(thread_entity.state),
+                        ai_model=thread_entity.ai_model,
+                        active=thread_entity.active,
+                        messages=[Message(**m) for m in thread_entity.messages],
+                    )
 
             if not full_thread:
-                logger.warning("Thread %s not found in database", thread_id)
-                async with self:
-                    threadlist_state: ThreadListState = await self.get_state(
-                        ThreadListState
-                    )
-                    threadlist_state.loading_thread_id = ""
-                return
+                if not thread_entity:  # it was not found
+                    async with self:
+                        threadlist_state: ThreadListState = await self.get_state(
+                            ThreadListState
+                        )
+                        threadlist_state.loading_thread_id = ""
+                    return
 
             # Mark all messages as done (loaded from DB)
-            for msg in full_thread.messages:
-                msg.done = True
+            if full_thread:
+                for msg in full_thread.messages:
+                    msg.done = True
 
             async with self:
                 # Update self with loaded thread
@@ -355,7 +378,10 @@ class ThreadState(rx.State):
     @rx.event
     async def load_mcp_servers(self) -> None:
         """Load available MCP servers from the database."""
-        self.available_mcp_servers = await MCPServerRepository.get_all()
+        async with get_asyncdb_session() as session:
+            servers = await mcp_server_repo.find_all_ordered_by_name(session)
+            # Create detached copies
+            self.available_mcp_servers = [MCPServer(**s.model_dump()) for s in servers]
 
     @rx.event
     def toogle_tools_modal(self, show: bool) -> None:
@@ -598,7 +624,40 @@ class ThreadState(rx.State):
 
         if user_id:
             try:
-                await ThreadRepository.save_thread(self._thread, user_id)
+                # Prepare entity data
+                messages_dict = [m.dict() for m in self._thread.messages]
+
+                async with get_asyncdb_session() as session:
+                    # Check if exists
+                    existing = await thread_repo.find_by_thread_id_and_user(
+                        session, self._thread.thread_id, user_id
+                    )
+
+                    if existing:
+                        existing.title = self._thread.title
+                        existing.state = (
+                            self._thread.state.value
+                            if hasattr(self._thread.state, "value")
+                            else self._thread.state
+                        )
+                        existing.ai_model = self._thread.ai_model
+                        existing.active = self._thread.active
+                        existing.messages = messages_dict
+                        await thread_repo.save(session, existing)
+                    else:
+                        new_thread = AssistantThread(
+                            thread_id=self._thread.thread_id,
+                            user_id=user_id,
+                            title=self._thread.title,
+                            state=self._thread.state.value
+                            if hasattr(self._thread.state, "value")
+                            else self._thread.state,
+                            ai_model=self._thread.ai_model,
+                            active=self._thread.active,
+                            messages=messages_dict,
+                        )
+                        await thread_repo.save(session, new_thread)
+
                 logger.debug("Saved thread to DB: %s", self._thread.thread_id)
             except Exception as e:
                 logger.error("Error saving thread %s: %s", self._thread.thread_id, e)

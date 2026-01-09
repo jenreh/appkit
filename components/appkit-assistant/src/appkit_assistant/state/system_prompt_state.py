@@ -5,8 +5,9 @@ from typing import Any, Final
 import reflex as rx
 from reflex.state import State
 
-from appkit_assistant.backend.repositories import SystemPromptRepository
+from appkit_assistant.backend.repositories import system_prompt_repo
 from appkit_assistant.backend.system_prompt_cache import invalidate_prompt_cache
+from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
@@ -32,31 +33,41 @@ class SystemPromptState(State):
         self.is_loading = True
         self.error_message = ""
         try:
-            prompts = await SystemPromptRepository.get_all()
-            self.versions = [
-                {
-                    "value": str(p.version),
-                    "label": (
-                        f"Version {p.version} - "
-                        f"{p.created_at.strftime('%d.%m.%Y %H:%M')}"
-                    ),
-                }
-                for p in prompts
-            ]
+            async with get_asyncdb_session() as session:
+                prompts = await system_prompt_repo.find_all_ordered_by_version_desc(
+                    session
+                )
 
-            self.prompt_map = {str(p.version): p.prompt for p in prompts}
+                self.versions = [
+                    {
+                        "value": str(p.version),
+                        "label": (
+                            f"Version {p.version} - "
+                            f"{p.created_at.strftime('%d.%m.%Y %H:%M')}"
+                        ),
+                    }
+                    for p in prompts
+                ]
 
-            if prompts:
-                latest = prompts[0]
-                self.selected_version_id = latest.version
+                self.prompt_map = {str(p.version): p.prompt for p in prompts}
 
-                if not self.current_prompt:
-                    self.current_prompt = latest.prompt
-                    self.last_saved_prompt = latest.prompt
+                latest_prompt = None
+                if prompts:
+                    latest_prompt = prompts[0]
+                    # Access attributes to ensure they are loaded/available
+                    self.selected_version_id = latest_prompt.version
+                    latest_prompt_text = latest_prompt.prompt
                 else:
-                    self.last_saved_prompt = latest.prompt
+                    self.selected_version_id = 0
+                    latest_prompt_text = None
+
+            if latest_prompt_text is not None:
+                if not self.current_prompt:
+                    self.current_prompt = latest_prompt_text
+                    self.last_saved_prompt = latest_prompt_text
+                else:
+                    self.last_saved_prompt = latest_prompt_text
             else:
-                self.selected_version_id = 0
                 if not self.current_prompt:
                     self.current_prompt = ""
                 self.last_saved_prompt = self.current_prompt
@@ -93,10 +104,12 @@ class SystemPromptState(State):
             user_session: UserSession = await self.get_state(UserSession)
             user_id = user_session.user_id
 
-            await SystemPromptRepository.create(
-                prompt=self.current_prompt,
-                user_id=user_id,
-            )
+            async with get_asyncdb_session() as session:
+                await system_prompt_repo.create_next_version(
+                    session,
+                    prompt=self.current_prompt,
+                    user_id=user_id,
+                )
 
             self.last_saved_prompt = self.current_prompt
 
@@ -124,7 +137,18 @@ class SystemPromptState(State):
         self.is_loading = True
         self.error_message = ""
         try:
-            success = await SystemPromptRepository.delete(self.selected_version_id)
+            async with get_asyncdb_session() as session:
+                if self.selected_version_id:
+                    prompt = await system_prompt_repo.find_by_id(
+                        session, self.selected_version_id
+                    )
+                    if prompt:
+                        success = await system_prompt_repo.delete(session, prompt)
+                    else:
+                        success = False
+                else:
+                    success = False
+
             if success:
                 self.selected_version_id = 0
 

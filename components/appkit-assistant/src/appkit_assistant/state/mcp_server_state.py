@@ -9,8 +9,9 @@ import reflex as rx
 
 from appkit_assistant.backend.models import MCPServer
 from appkit_assistant.backend.repositories import (
-    MCPServerRepository,
+    mcp_server_repo,
 )
+from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,9 @@ class MCPServerState(rx.State):
         """
         self.loading = True
         try:
-            self.servers = await MCPServerRepository.get_all()
+            async with get_asyncdb_session() as session:
+                servers = await mcp_server_repo.find_all_ordered_by_name(session)
+                self.servers = [MCPServer(**s.model_dump()) for s in servers]
             logger.debug("Loaded %d MCP servers", len(self.servers))
         except Exception as e:
             logger.error("Failed to load MCP servers: %s", e)
@@ -50,7 +53,13 @@ class MCPServerState(rx.State):
     async def get_server(self, server_id: int) -> None:
         """Get a specific MCP server by ID."""
         try:
-            self.current_server = await MCPServerRepository.get_by_id(server_id)
+            async with get_asyncdb_session() as session:
+                server = await mcp_server_repo.find_by_id(session, server_id)
+                if server:
+                    self.current_server = MCPServer(**server.model_dump())
+                else:
+                    self.current_server = None
+
             if not self.current_server:
                 logger.warning("MCP server with ID %d not found", server_id)
         except Exception as e:
@@ -64,7 +73,7 @@ class MCPServerState(rx.State):
         """Add a new MCP server."""
         try:
             headers = self._parse_headers_from_form(form_data)
-            server = await MCPServerRepository.create(
+            server_entity = MCPServer(
                 name=form_data["name"],
                 url=form_data["url"],
                 headers=headers,
@@ -72,12 +81,17 @@ class MCPServerState(rx.State):
                 prompt=form_data.get("prompt") or None,
             )
 
+            async with get_asyncdb_session() as session:
+                server = await mcp_server_repo.save(session, server_entity)
+                # Ensure we have the name before session closes if used later
+                server_name = server.name
+
             await self.load_servers()
             yield rx.toast.info(
                 "MCP Server {} wurde hinzugefügt.".format(form_data["name"]),
                 position="top-right",
             )
-            logger.debug("Added MCP server: %s", server.name)
+            logger.debug("Added MCP server: %s", server_name)
 
         except ValueError as e:
             logger.error("Invalid form data for MCP server: %s", e)
@@ -105,22 +119,34 @@ class MCPServerState(rx.State):
 
         try:
             headers = self._parse_headers_from_form(form_data)
-            updated_server = await MCPServerRepository.update(
-                server_id=self.current_server.id,
-                name=form_data["name"],
-                url=form_data["url"],
-                headers=headers,
-                description=form_data.get("description") or None,
-                prompt=form_data.get("prompt") or None,
-            )
+            updated_name = ""
 
-            if updated_server:
+            async with get_asyncdb_session() as session:
+                # Re-fetch server to ensure we have the latest and bound to session
+                existing_server = await mcp_server_repo.find_by_id(
+                    session, self.current_server.id
+                )
+
+                updated_server = None
+                if existing_server:
+                    existing_server.name = form_data["name"]
+                    existing_server.url = form_data["url"]
+                    existing_server.headers = headers
+                    existing_server.description = form_data.get("description") or None
+                    existing_server.prompt = form_data.get("prompt") or None
+
+                    updated_server = await mcp_server_repo.save(
+                        session, existing_server
+                    )
+                    updated_name = updated_server.name
+
+            if updated_name:
                 await self.load_servers()
                 yield rx.toast.info(
                     "MCP Server {} wurde aktualisiert.".format(form_data["name"]),
                     position="top-right",
                 )
-                logger.debug("Updated MCP server: %s", updated_server.name)
+                logger.debug("Updated MCP server: %s", updated_name)
             else:
                 yield rx.toast.error(
                     "MCP Server konnte nicht gefunden werden.",
@@ -143,19 +169,20 @@ class MCPServerState(rx.State):
     async def delete_server(self, server_id: int) -> AsyncGenerator[Any, Any]:
         """Delete an MCP server."""
         try:
-            # Get server name for the success message
-            server = await MCPServerRepository.get_by_id(server_id)
-            if not server:
-                yield rx.toast.error(
-                    "MCP Server nicht gefunden.",
-                    position="top-right",
-                )
-                return
+            async with get_asyncdb_session() as session:
+                # Get server name for the success message
+                server = await mcp_server_repo.find_by_id(session, server_id)
+                if not server:
+                    yield rx.toast.error(
+                        "MCP Server nicht gefunden.",
+                        position="top-right",
+                    )
+                    return
 
-            server_name = server.name
+                server_name = server.name
 
-            # Delete server using repository
-            success = await MCPServerRepository.delete(server_id)
+                # Delete server using repository
+                success = await mcp_server_repo.delete_by_id(session, server_id)
 
             if success:
                 await self.load_servers()
