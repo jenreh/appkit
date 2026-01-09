@@ -197,8 +197,10 @@ class ImageGalleryState(rx.State):
         """Load images from database (internal)."""
         async with self:
             user_session: UserSession = await self.get_state(UserSession)
-            current_user_id = user_session.user.user_id if user_session.user else 0
+
+            # Ensure we have the latest user state before determining ID
             is_authenticated = await user_session.is_authenticated
+            current_user_id = user_session.user.user_id if user_session.user else 0
 
             # Handle user change
             if self._current_user_id != current_user_id:
@@ -229,7 +231,7 @@ class ImageGalleryState(rx.State):
                 yield
                 return
 
-            user_id = user_session.user.user_id if user_session.user else None
+            user_id = current_user_id
 
         if not user_id:
             async with self:
@@ -245,14 +247,11 @@ class ImageGalleryState(rx.State):
                 today_images = [
                     GeneratedImageModel.model_validate(img) for img in today_entities
                 ]
-                today_ids = {img.id for img in today_images}
 
-                # Load all images for history, excluding today's images
+                # Load all images for history
                 all_raw_entities = await image_repo.find_by_user(session, user_id)
                 all_images = [
-                    GeneratedImageModel.model_validate(img)
-                    for img in all_raw_entities
-                    if img.id not in today_ids
+                    GeneratedImageModel.model_validate(img) for img in all_raw_entities
                 ]
 
             async with self:
