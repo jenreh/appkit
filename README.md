@@ -1,6 +1,6 @@
 # AppKit
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Pre-release](https://img.shields.io/badge/status-pre--release-orange.svg)](https://github.com/jenreh/appkit)
 
@@ -28,6 +28,7 @@ Appkit is structured as a workspace of specialized modules, each solving specifi
 **[appkit-assistant](./components/appkit-assistant)** - AI assistant with MCP server integration
 
 - OpenAI-powered conversational interface
+- Multi-model support (OpenAI, Perplexity, etc.)
 - Model Context Protocol (MCP) server management
 - Secure server credential handling with encryption
 
@@ -74,7 +75,7 @@ Appkit is structured as a workspace of specialized modules, each solving specifi
 - **Modular Design** - Workspace-based architecture allows independent component use
 - **Production Infrastructure** - Database migrations, logging, configuration management, and Docker support
 - **Clean Architecture** - Inheritance-based component design and clear separation of concerns
-- **Modern Stack** - Python 3.12+, Reflex 0.8.17+, React 18, SQLAlchemy 2.0, Pydantic, Alembic
+- **Modern Stack** - Python 3.13+, Reflex 0.8.24+, React 18, SQLAlchemy 2.0, Pydantic, Alembic
 
 ---
 
@@ -82,7 +83,7 @@ Appkit is structured as a workspace of specialized modules, each solving specifi
 
 ### Prerequisites
 
-- Python 3.12 or higher
+- Python 3.13 or higher
 - PostgreSQL (for development)
 
 ### Installation
@@ -97,10 +98,10 @@ cd appkit
 uv sync
 
 # Run migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Start the development server
-reflex run
+uv run reflex run
 ```
 
 Access the application at `http://localhost:3000`
@@ -141,12 +142,12 @@ app.add_page(index)
 
 ## 🏗️ Project Structure
 
-```
+```text
 appkit/
 ├── app/                          # Main Reflex application
 │   ├── pages/                    # Application pages
 │   │   ├── examples/             # Component showcase examples
-│   │   ├── assitant/             # AI assistant interface
+│   │   ├── assistant/            # AI assistant interface
 │   │   ├── image_creator.py      # Image generation UI
 │   │   └── users.py              # User management
 │   └── components/               # Shared UI components
@@ -311,7 +312,7 @@ user = await authenticate_oauth(provider="github", code=code)
 
 ## 📋 Pre-Release Status
 
-This project is in active development (v0.5.0). While core functionality is stable and used in production, the API may evolve. Check the [GitHub releases](https://github.com/jenreh/appkit/releases) for version-specific changes.
+This project is in active development (v0.13.1). While core functionality is stable and used in production, the API may evolve. Check the [GitHub releases](https://github.com/jenreh/appkit/releases) for version-specific changes.
 
 > **Note:** Component APIs in appkit-mantine are stable. Higher-level application features may change between releases.
 

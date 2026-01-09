@@ -5,7 +5,7 @@
 
 **Multi-provider AI image generation component for Reflex applications.**
 
-appkit-imagecreator provides a unified interface for generating images using multiple AI providers including Google Gemini (Imagen), OpenAI (DALL-E/GPT-Image), and Black Forest Labs (FLUX). It includes a complete Reflex UI for image generation workflows with prompt enhancement, parameter controls, and image management features.
+appkit-imagecreator provides a unified interface for generating images using multiple AI providers including Google Gemini (Nano Banana), Azure OpenAI (GPT-Image), and Black Forest Labs (FLUX via Azure). It includes a complete Reflex UI for image generation workflows with prompt enhancement, parameter controls, and image management features.
 
 ![Image Creator](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-imagecreator/docs/imagecreator.jpeg)
 
@@ -13,10 +13,10 @@ appkit-imagecreator provides a unified interface for generating images using mul
 
 ## ✨ Features
 
-- **Multi-Provider Support** - Google Gemini Imagen, OpenAI GPT-Image-1/DALL-E, Black Forest Labs FLUX
+- **Multi-Provider Support** - Google Nano Banana (Gemini 2.5/3.0), Azure OpenAI GPT-Image-1, Black Forest Labs FLUX (Azure)
 - **Unified API** - Consistent interface across all image generation providers
 - **Prompt Enhancement** - AI-powered prompt improvement using GPT models
-- **Interactive UI** - Complete image generation interface with canvas, sidebar controls, and image gallery
+- **Interactive UI** - Complete image generation interface with scrollable grid, floating prompt bar, and history drawer
 - **Parameter Control** - Configurable image dimensions, steps, negative prompts, and seeds
 - **Image Management** - Download, copy, and organize generated images
 - **Error Handling** - Robust error handling and user feedback
@@ -84,8 +84,8 @@ Generate images using the registry:
 from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.models import GenerationInput
 
-# Get a generator
-generator = generator_registry.get("gpt-image-1")
+# Get a generator (e.g., Azure GPT-Image-1 Mini)
+generator = generator_registry.get("azure-gpt-image-1-mini")
 
 # Create generation input
 input_data = GenerationInput(
@@ -131,10 +131,14 @@ from appkit_imagecreator.backend.generator_registry import generator_registry
 # List all generators
 generators = generator_registry.list_generators()
 print(generators)
-# [{"id": "gpt-image-1", "label": "OpenAI GPT-Image-1"}, ...]
+# [
+#   {"id": "azure-gpt-image-1-mini", "label": "OpenAI GPT-Image-1 mini (Azure)"},
+#   {"id": "nano-banana", "label": "Google Nano Banana"},
+#   ...
+# ]
 
 # Get a specific generator
-generator = generator_registry.get("imagen-3")
+generator = generator_registry.get("nano-banana")
 
 # Get default generator
 default_gen = generator_registry.get_default_generator()
@@ -209,14 +213,15 @@ app.add_page(image_generator_page, route="/image-generator")
 Use specific UI components:
 
 ```python
-from appkit_imagecreator.components.canvas import image_ui
-from appkit_imagecreator.components.sidebar import sidebar
+from appkit_imagecreator.components.images import image_grid
+from appkit_imagecreator.components.prompt import prompt_input_bar
+from appkit_imagecreator.components.history import history_drawer
 
 def custom_layout():
-    return rx.flex(
-        sidebar(),      # Generation controls
-        image_ui(),     # Image display canvas
-        flex_direction="row"
+    return rx.box(
+        image_grid(),      # Image display grid
+        prompt_input_bar(), # Floating generation controls
+        history_drawer(),  # Sidebar history
     )
 ```
 
@@ -232,9 +237,9 @@ Configure API keys and settings:
 from appkit_imagecreator.configuration import ImageGeneratorConfig
 
 config = ImageGeneratorConfig(
-    google_api_key="secret:google_gemini_key",
-    openai_api_key="secret:openai_key",
-    blackforestlabs_api_key="secret:bfl_key",
+    google_api_key="secret:google_gemini_key", # For Nano Banana (Gemini) models
+    openai_api_key="secret:openai_key", # For Azure GPT-Image models
+    blackforestlabs_api_key="secret:bfl_key", # For Azure Flux models
     openai_base_url="https://api.openai.com/v1",  # Optional custom endpoint
     tmp_dir="./tmp/images"  # Temp directory for generated images
 )
@@ -242,33 +247,43 @@ config = ImageGeneratorConfig(
 
 ### Provider-Specific Setup
 
-#### Google Gemini
+#### Google (Nano Banana / Gemini)
 
-Requires `google_api_key` for Imagen models:
+Uses the Google GenAI SDK. Configuration uses `google_api_key`.
+
+Available Generators:
+
+- `nano-banana`: Google Nano Banana (Gemini 2.5 Flash Image)
+- `nano-banana-pro`: Google Nano Banana Pro (Gemini 3 Pro Image Preview)
 
 ```python
-# Uses Imagen 3.0 by default
-generator = generator_registry.get("imagen-3")
+generator = generator_registry.get("nano-banana")
 ```
 
-#### OpenAI
+#### OpenAI (Azure)
 
-Supports DALL-E and GPT-Image-1:
+Configured for Azure OpenAI endpoints via `openai_api_key` and `openai_base_url`.
+
+Available Generators:
+
+- `azure-gpt-image-1-mini`: OpenAI GPT-Image-1 mini (Azure)
+- `azure-gpt-image-1.5`: OpenAI GPT-Image-1.5 (Azure)
+- `FLUX.1-Kontext-pro`: Blackforest Labs FLUX.1-Kontext-pro (via compatible endpoint)
 
 ```python
-# GPT-Image-1 (default)
-gpt_gen = generator_registry.get("gpt-image-1")
-
-# Custom OpenAI-compatible endpoint
-config.openai_base_url = "https://your-endpoint.com/v1"
+gpt_gen = generator_registry.get("azure-gpt-image-1-mini")
 ```
 
-#### Black Forest Labs
+#### Black Forest Labs (Azure)
 
-FLUX models for high-quality generation:
+Uses `blackforestlabs_api_key` and `blackforestlabs_base_url`.
+
+Available Generators:
+
+- `azure-flux-2-pro`: Blackforest Labs FLUX.2-pro (Azure)
 
 ```python
-flux_gen = generator_registry.get("FLUX-1.1-pro")
+flux_gen = generator_registry.get("azure-flux-2-pro")
 ```
 
 ---
@@ -284,16 +299,17 @@ flux_gen = generator_registry.get("FLUX-1.1-pro")
 
 ### Generators
 
-- `GoogleImageGenerator` - Google Gemini Imagen integration
-- `OpenAIImageGenerator` - OpenAI DALL-E/GPT-Image integration
-- `BlackForestLabsGenerator` - Black Forest Labs FLUX integration
+- `NanoBananaImageGenerator` - Google Nano Banana (Gemini) integration
+- `GoogleImageGenerator` - Base Google GenAI integration (for Nano Banana)
+- `OpenAIImageGenerator` - OpenAI/Azure GPT-Image integration
+- `BlackForestLabsImageGenerator` - Black Forest Labs FLUX integration
 
 ### Component API
 
 - `image_generator_page()` - Complete image generation page
-- `image_ui()` - Main image display and controls
-- `sidebar()` - Generation parameter controls
-- `image_list()` - Generated image gallery
+- `image_grid()` - Main scrollable image grid
+- `prompt_input_bar()` - Floating input with generation controls (size, style, quality)
+- `history_drawer()` - Slide-out drawer showing generation history
 
 ### State Management
 
@@ -350,7 +366,7 @@ Generate multiple images with different parameters:
 
 ```python
 async def batch_generate(prompts: list[str]) -> list[str]:
-    generator = generator_registry.get("gpt-image-1")
+    generator = generator_registry.get("azure-gpt-image-1-mini")
     images = []
 
     for prompt in prompts:

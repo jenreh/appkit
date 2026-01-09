@@ -15,6 +15,7 @@ appkit-assistant provides a complete conversational AI interface built on Reflex
 
 - **Multi-Model Support** - OpenAI Chat Completions, OpenAI Responses API, Perplexity, and fallback Lorem Ipsum processor
 - **MCP Server Integration** - Manage and connect to Model Context Protocol servers as tools
+- **System Prompt Management** - Versioned system prompts with admin editor interface
 - **Secure Credential Management** - Encrypted storage and handling of API keys and server credentials
 - **Reflex UI Components** - Pre-built assistant interface with composer, thread management, and message display
 - **Streaming Responses** - Real-time streaming of AI responses with chunked content
@@ -89,11 +90,11 @@ manager.register_processor("perplexity", PerplexityProcessor(assistant_config))
 
 ```python
 import reflex as rx
-import appkit_assistant as assistant
+from appkit_assistant.components import Assistant
 
 def assistant_page():
     return rx.container(
-        assistant.Assistant(),
+        Assistant(),
         height="100vh"
     )
 ```
@@ -163,10 +164,10 @@ async for chunk in processor.process(messages, "gpt-4", mcp_servers=[mcp_server]
 The main `Assistant` component provides a complete chat interface:
 
 ```python
-import appkit_assistant as assistant
+from appkit_assistant.components import Assistant
 
 def chat_page():
-    return assistant.Assistant()
+    return Assistant()
 ```
 
 #### Individual Components
@@ -174,12 +175,13 @@ def chat_page():
 Use individual components for custom layouts:
 
 ```python
-import appkit_assistant as assistant
+import reflex as rx
+from appkit_assistant.components import ThreadList, composer
 
 def custom_assistant():
     return rx.vstack(
-        assistant.ThreadList(),
-        assistant.composer(),
+        ThreadList(),
+        composer(),
         spacing="4"
     )
 ```
@@ -189,8 +191,21 @@ def custom_assistant():
 Display and manage MCP servers:
 
 ```python
+from appkit_assistant.components import mcp_servers_table
+
 def servers_page():
-    return assistant.mcp_servers_table()
+    return mcp_servers_table()
+```
+
+#### System Prompt Editor
+
+Admin interface for managing versioned system prompts:
+
+```python
+from appkit_assistant.components.system_prompt_editor import system_prompt_editor
+
+def prompt_editor_page():
+    return system_prompt_editor()
 ```
 
 ---
@@ -254,6 +269,8 @@ manager.register_processor("lorem", LoremIpsumProcessor())
 - `ThreadList` - Conversation thread list
 - `MessageComponent` - Individual message display
 - `mcp_servers_table` - MCP server management table
+- `system_prompt_editor` - Admin interface for system prompts
+
 
 ### State Management
 

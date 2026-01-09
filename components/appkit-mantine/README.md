@@ -116,6 +116,7 @@ app.add_page(login_form)
 | **`json_input`** | JSON input with formatting, validation, parser, pretty printing | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/json_input_examples.py) |
 | **`select`** | Dropdown select with data array, inherits input props | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/select_examples.py) |
 | **`multi_select`** | Multi-select dropdown for selecting multiple values | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/multi_select_examples.py) |
+| **`rich_select`** | Advanced select component with search and grouping | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/rich_select_examples.py) |
 | **`tags_input`** | Free-form tags input component | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/tags_input_examples.py) |
 | **`autocomplete`** | Autocomplete input with string data array | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/autocomplete_examples.py) |
 | **`rich_text_editor`** | WYSIWYG editor powered by Tiptap | [Guide](docs/MANTINE_TIPTAP_GUIDE.md) |
@@ -128,10 +129,18 @@ app.add_page(login_form)
 | **`action_icon`** | Lightweight button for icons with size, variant, radius, disabled state | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/action_icon_examples.py) |
 | **`button`** | Button with variants, sizes, gradient, loading states, sections | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/button_examples.py) |
 
+### Overlays
+
+| Component | Description | Documentation |
+|-----------|-------------|---------------|
+| **`modal`** | Accessible overlay dialog with focus trap and scroll lock | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/modal_examples.py) |
+| **`drawer`** | Overlay drawer area sliding from any side | [Docs](https://mantine.dev/core/drawer/) |
+
 ### Others
 
 | Component | Description | Documentation |
 |-----------|-------------|---------------|
+| **`markdown_preview`** | Markdown renderer with Mermaid diagrams and math support | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/markdown_preview_examples.py) |
 | **`navigation_progress`** | Page loading progress indicator | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/nprogress_examples.py) |
 | **`nav_link`** | Navigation link with label, description, icons, nested links, active/disabled states | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/nav_link_examples.py) |
 | **`number_formatter`** | Formats numeric input with parser/formatter, returns parsed value | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/number_formatter_examples.py) |
