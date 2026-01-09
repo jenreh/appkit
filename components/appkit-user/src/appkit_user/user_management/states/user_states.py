@@ -2,8 +2,8 @@ import reflex as rx
 from reflex.components.sonner.toast import Toaster
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.backend import user_repository
 from appkit_user.authentication.backend.models import Role, User, UserCreate
+from appkit_user.authentication.backend.user_repository import user_repo
 
 
 class UserState(rx.State):
@@ -26,7 +26,7 @@ class UserState(rx.State):
     async def load_users(self, limit: int = 200, offset: int = 0) -> None:
         self.is_loading = True
         async with get_asyncdb_session() as session:
-            user_entities = await user_repository.find_all(
+            user_entities = await user_repo.find_all_paginated(
                 session, limit=limit, offset=offset
             )
             self.users = [User(**user.to_dict()) for user in user_entities]
@@ -44,7 +44,7 @@ class UserState(rx.State):
         )
 
         async with get_asyncdb_session() as session:
-            await user_repository.create_user(session, new_user)
+            await user_repo.create_new_user(session, new_user)
 
         await self.load_users()
 
@@ -80,7 +80,7 @@ class UserState(rx.State):
         user.user_id = self.selected_user.user_id
 
         async with get_asyncdb_session() as session:
-            await user_repository.update_user(session, user)
+            await user_repo.update_from_model(session, user)
 
         await self.load_users()
 
@@ -91,14 +91,14 @@ class UserState(rx.State):
 
     async def delete_user(self, user_id: int) -> Toaster:
         async with get_asyncdb_session() as session:
-            user_entity = await user_repository.get_by_user_id(session, user_id)
+            user_entity = await user_repo.find_by_id(session, user_id)
             if not user_entity:
                 return rx.toast.error(
                     "Benutzer kann nicht gelöscht werden, er wurde nicht gefunden.",
                     position="top-right",
                 )
 
-            deleted = await user_repository.delete_user(session, user_id)
+            deleted = await user_repo.delete_by_id(session, user_id)
             if not deleted:
                 return rx.toast.error(
                     "Benutzer konnte nicht gelöscht werden.",
@@ -110,7 +110,7 @@ class UserState(rx.State):
 
     async def select_user(self, user_id: int) -> None:
         async with get_asyncdb_session() as session:
-            user_entity = await user_repository.get_by_user_id(session, user_id)
+            user_entity = await user_repo.find_by_id(session, user_id)
             self.selected_user = User(**user_entity.to_dict()) if user_entity else None
 
     async def user_has_role(self, role_name: str) -> bool:

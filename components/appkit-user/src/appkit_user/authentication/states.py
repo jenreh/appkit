@@ -9,13 +9,13 @@ import reflex as rx
 from reflex.event import EventSpec
 
 import appkit_user.authentication.backend.oauthstate_repository as oauth_state_repo
-import appkit_user.authentication.backend.user_repository as user_repo
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 from appkit_user.authentication.backend import user_session_repository as session_repo
 from appkit_user.authentication.backend.entities import OAuthStateEntity
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.backend.oauth_service import OAuthService
+from appkit_user.authentication.backend.user_repository import user_repo
 from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ class LoginState(UserSession):
                 (
                     user_entity,
                     status,
-                ) = await user_repo.get_user_status_by_email_and_password(
+                ) = await user_repo.get_login_status_by_credentials(
                     db, username, password
                 )
 
@@ -284,7 +284,7 @@ class LoginState(UserSession):
                 user_info = self._oauth_service.get_user_info(provider, token)
 
                 try:
-                    user_entity = await user_repo.get_or_create_user(
+                    user_entity = await user_repo.get_or_create_oauth_user(
                         db, user_info, provider, token
                     )
                 except ValueError as e:
