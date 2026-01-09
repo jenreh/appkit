@@ -6,7 +6,7 @@ Inspired by org.springframework.data.repository.CrudRepository
 from abc import ABC, abstractmethod
 from typing import Any, Protocol, TypeVar, cast
 
-from sqlmodel import select
+from sqlmodel import delete, select
 
 
 class HasId(Protocol):
@@ -122,7 +122,35 @@ class BaseRepository[T, S](ABC):
         For each entity: if it has an ID and exists, updates it.
         Otherwise, creates a new entity.
         """
-        return [await self.save(session, entity) for entity in entities]
+        # Separate entities with potentially existing IDs
+        ids_to_check = [e.id for e in entities if getattr(e, "id", None) is not None]
+
+        existing_map = {}
+        if ids_to_check:
+            found_entities = await self.find_all_by_ids(session, ids_to_check)
+            existing_map = {e.id: e for e in found_entities if e.id is not None}
+
+        results = []
+        for entity in entities:
+            entity_id = getattr(entity, "id", None)
+
+            # Update path
+            if entity_id is not None and entity_id in existing_map:
+                existing = existing_map[entity_id]
+                for key, value in vars(entity).items():
+                    if not key.startswith("_"):
+                        setattr(existing, key, value)
+                session.add(existing)
+                results.append(existing)
+            else:
+                # Create path
+                session.add(entity)
+                results.append(entity)
+
+        await session.flush()
+        for result in results:
+            await session.refresh(result)
+        return results
 
     # Read operations
     async def find_by_id(self, session: S, item_id: int) -> T | None:
@@ -184,18 +212,15 @@ class BaseRepository[T, S](ABC):
 
     async def delete_all(self, session: S) -> int:
         """Delete all instances. Returns count of deleted items."""
-        instances = await self.find_all(session)
-        count = len(instances)
-        for instance in instances:
-            await session.delete(instance)
+        stmt = delete(self.model_class)
+        result = await session.execute(stmt)
         await session.flush()
-        return count
+        return result.rowcount
 
     async def delete_all_by_ids(self, session: S, ids: list[int]) -> int:
         """Delete all instances by IDs. Returns count of deleted items."""
-        instances = await self.find_all_by_ids(session, ids)
-        count = len(instances)
-        for instance in instances:
-            await session.delete(instance)
+        model_with_id = cast(Any, self.model_class)
+        stmt = delete(self.model_class).where(model_with_id.id.in_(ids))
+        result = await session.execute(stmt)
         await session.flush()
-        return count
+        return result.rowcount
