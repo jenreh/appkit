@@ -188,12 +188,6 @@ class ImageGalleryState(rx.State):
     @rx.event(background=True)
     async def initialize(self) -> AsyncGenerator[Any, Any]:
         """Initialize the image gallery - load images from database."""
-        async with self:
-            if self._initialized:
-                return
-            self.loading_images = True
-        yield
-
         async for _ in self._load_images():
             yield
 
@@ -221,6 +215,8 @@ class ImageGalleryState(rx.State):
                 self.loading_images = False
                 yield
                 return
+
+            self.loading_images = True
 
             # Check authentication
             if not is_authenticated:

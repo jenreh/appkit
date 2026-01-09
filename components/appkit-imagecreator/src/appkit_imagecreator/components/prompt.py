@@ -4,6 +4,7 @@ import appkit_mantine as mn
 from appkit_imagecreator.backend.models import GeneratedImageModel
 from appkit_imagecreator.components.count import count_popup
 from appkit_imagecreator.components.image_props import image_props_popup
+from appkit_imagecreator.components.keyboard_handler import keyboard_shortcuts
 from appkit_imagecreator.components.styles import style_popup
 from appkit_imagecreator.state import ImageGalleryState
 
@@ -48,13 +49,12 @@ def _submit() -> rx.Component:
                 id="prompt-submit",
                 name="prompt_submit",
                 type="submit",
-                disabled=ImageGalleryState.prompt == "",
                 on_click=ImageGalleryState.generate_images,
             ),
             rx.button(
                 rx.icon("x", size=18),
                 color_scheme="tomato",
-                id="prompt-submit",
+                id="prompt-cancel",
                 name="prompt_submit",
                 type="submit",
                 on_click=ImageGalleryState.cancel_generation,
@@ -164,6 +164,7 @@ def _clear(show: bool = True) -> rx.Component | None:
 def prompt_input_bar() -> rx.Component:
     """Floating prompt input bar with toolbar icons."""
     return rx.box(
+        keyboard_shortcuts(),
         rx.vstack(
             rx.form(
                 # Selected images row
@@ -180,6 +181,7 @@ def prompt_input_bar() -> rx.Component:
                 ),
                 rx.hstack(
                     mn.textarea(
+                        id="image-prompt-area",
                         placeholder="Beschreibe das Bild, das du erstellen möchtest...",
                         default_value=ImageGalleryState.prompt,
                         on_blur=ImageGalleryState.set_prompt,
