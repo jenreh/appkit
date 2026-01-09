@@ -11,11 +11,11 @@ from reflex.event import EventSpec
 import appkit_user.authentication.backend.oauthstate_repository as oauth_state_repo
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
-from appkit_user.authentication.backend import user_session_repository as session_repo
 from appkit_user.authentication.backend.entities import OAuthStateEntity
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.backend.oauth_service import OAuthService
 from appkit_user.authentication.backend.user_repository import user_repo
+from appkit_user.authentication.backend.user_session_repository import session_repo
 from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class UserSession(rx.State):
             instance corresponding to the currently authenticated user.
         """
         async with get_asyncdb_session() as session:
-            user_session = await session_repo.get_user_session(
+            user_session = await session_repo.find_by_user_and_session_id(
                 session, self.user_id, self.auth_token
             )
 
@@ -89,7 +89,7 @@ class UserSession(rx.State):
     async def terminate_session(self) -> None:
         """Terminate the current session and clear storage."""
         async with get_asyncdb_session() as session:
-            await session_repo.delete_user_session(
+            await session_repo.delete_by_user_and_session_id(
                 session, self.user_id, self.auth_token
             )
 
@@ -167,7 +167,7 @@ class LoginState(UserSession):
                     return
 
                 self.auth_token = self._generate_auth_token()
-                await session_repo.create_or_update_user_session(
+                await session_repo.save(
                     db,
                     user_entity.id,
                     self.auth_token,
@@ -293,7 +293,7 @@ class LoginState(UserSession):
                     return
 
                 self.auth_token = self._generate_auth_token()
-                await session_repo.create_or_update_user_session(
+                await session_repo.save(
                     db,
                     user_entity.id,
                     self.auth_token,
