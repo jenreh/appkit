@@ -8,12 +8,12 @@ from typing import Final
 import reflex as rx
 from reflex.event import EventSpec
 
-import appkit_user.authentication.backend.oauthstate_repository as oauth_state_repo
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 from appkit_user.authentication.backend.entities import OAuthStateEntity
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.backend.oauth_service import OAuthService
+from appkit_user.authentication.backend.oauthstate_repository import oauth_state_repo
 from appkit_user.authentication.backend.user_repository import user_repo
 from appkit_user.authentication.backend.user_session_repository import session_repo
 from appkit_user.configuration import AuthenticationConfiguration
@@ -214,10 +214,8 @@ class LoginState(UserSession):
             )
             session_id = self.router.session.client_token
             async with get_asyncdb_session() as db:
-                await oauth_state_repo.cleanup_expired_oauth_states(db)
-                await oauth_state_repo.cleanup_oauth_states_for_session(
-                    db, session_id=session_id
-                )
+                await oauth_state_repo.delete_expired(db)
+                await oauth_state_repo.delete_by_session_id(db, session_id=session_id)
 
                 expires_at = datetime.now(UTC) + SESSION_TIMEOUT
                 oauth_state = OAuthStateEntity(
@@ -227,8 +225,7 @@ class LoginState(UserSession):
                     code_verifier=code_verifier,
                     expires_at=expires_at,
                 )
-                db.add(oauth_state)
-                await db.commit()
+                await oauth_state_repo.create(db, oauth_state)
 
             return rx.redirect(auth_url)
 
@@ -269,9 +266,9 @@ class LoginState(UserSession):
 
             # Verify state (CSRF protection)
             async with get_asyncdb_session() as db:
-                await oauth_state_repo.cleanup_expired_oauth_states(db)
+                await oauth_state_repo.delete_expired(db)
 
-                oauth_state = await oauth_state_repo.get_oauth_state(
+                oauth_state = await oauth_state_repo.find_valid_by_state_and_provider(
                     db, state=state, provider=provider
                 )
 
@@ -303,8 +300,7 @@ class LoginState(UserSession):
                 self.user_id = user_entity.id
                 self.user = User(**user_entity.to_dict())
 
-                await db.delete(oauth_state)
-                await db.commit()
+                await oauth_state_repo.delete(db, oauth_state)
 
             yield LoginState.redir()
 
