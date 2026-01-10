@@ -6,7 +6,7 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_assistant.backend.models import Message, MessageType
 from appkit_assistant.components import composer
-from appkit_assistant.components.message import MessageComponent
+from appkit_assistant.components.message import AuthCardComponent, MessageComponent
 from appkit_assistant.components.threadlist import ThreadList
 from appkit_assistant.state.thread_state import ThreadState
 
@@ -81,6 +81,8 @@ class Assistant:
                     messages,
                     lambda message: MessageComponent.render_message(message),
                 ),
+                # Auth card for MCP OAuth flow
+                AuthCardComponent.render(),
                 rx.spacer(
                     id="scroll-anchor",
                     display="hidden",
@@ -153,6 +155,102 @@ class Assistant:
         #     ThreadState.set_suggestions(suggestions)
 
         return rx.flex(
+            # Hidden element with user_id for OAuth validation
+            rx.el.input(
+                id="mcp-oauth-user-id",
+                type="hidden",
+                value=ThreadState.current_user_id,
+            ),
+            # Hidden button for OAuth callback - triggered by storage event
+            rx.el.button(
+                id="mcp-oauth-success-trigger",
+                style={"display": "none"},
+                on_click=lambda: ThreadState.handle_mcp_oauth_success_from_js(),
+            ),
+            # OAuth listener for localStorage changes (cross-window)
+            rx.script(
+                """
+                (function() {
+                    // Prevent double processing
+                    if (window._mcpOAuthListenerInstalled) {
+                        console.log('[OAuth] Listener already installed, skipping');
+                        return;
+                    }
+                    window._mcpOAuthListenerInstalled = true;
+                    var processing = false;
+
+                    function getCurrentUserId() {
+                        var el = document.getElementById('mcp-oauth-user-id');
+                        return el ? el.value : '';
+                    }
+                    function processOAuthResult(data) {
+                        if (processing) {
+                            console.log('[OAuth] Already processing, skip');
+                            return false;
+                        }
+                        processing = true;
+
+                        var currentUserId = getCurrentUserId();
+                        console.log('[OAuth] Processing, userId:', data.userId,
+                            'current:', currentUserId);
+                        // Security: only process if user_id matches (or not set)
+                        if (data.userId && currentUserId &&
+                            String(data.userId) !== String(currentUserId)) {
+                            console.log('[OAuth] Ignoring - user mismatch');
+                            processing = false;
+                            return false;
+                        }
+                        window._mcpOAuthData = data;
+                        var btn = document.getElementById(
+                            'mcp-oauth-success-trigger'
+                        );
+                        if (btn) {
+                            console.log('[OAuth] Clicking trigger button');
+                            btn.click();
+                        }
+                        // Reset after short delay to allow for page navigation
+                        setTimeout(function() { processing = false; }, 5000);
+                        return true;
+                    }
+                    function checkLocalStorage() {
+                        if (processing) return false;
+                        var stored = localStorage.getItem('mcp-oauth-result');
+                        if (stored) {
+                            console.log('[OAuth] Found in localStorage');
+                            try {
+                                var data = JSON.parse(stored);
+                                if (data.type === 'mcp-oauth-success') {
+                                    localStorage.removeItem('mcp-oauth-result');
+                                    return processOAuthResult(data);
+                                }
+                            } catch(e) { console.error('[OAuth] Parse error:', e); }
+                        }
+                        return false;
+                    }
+                    console.log('[OAuth] Installing listeners');
+                    window.addEventListener('storage', function(event) {
+                        if (event.key === 'mcp-oauth-result') {
+                            checkLocalStorage();
+                        }
+                    });
+                    window.addEventListener('focus', function() {
+                        checkLocalStorage();
+                    });
+                    document.addEventListener('visibilitychange', function() {
+                        if (!document.hidden) checkLocalStorage();
+                    });
+                    var intervalId = setInterval(function() {
+                        if (checkLocalStorage()) clearInterval(intervalId);
+                    }, 2000);
+                    checkLocalStorage();
+                    window.addEventListener('message', function(event) {
+                        if (event.data && event.data.type === 'mcp-oauth-success') {
+                            processOAuthResult(event.data);
+                        }
+                    });
+                })();
+                """
+            ),
             rx.cond(
                 ThreadState.messages,
                 Assistant.messages(

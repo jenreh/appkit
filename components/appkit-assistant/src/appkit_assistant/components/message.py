@@ -23,6 +23,68 @@ message_styles = {
 }
 
 
+class AuthCardComponent:
+    """Component for displaying MCP OAuth authentication cards."""
+
+    @staticmethod
+    def render() -> rx.Component:
+        """Render the auth required card when authentication is needed."""
+        return rx.cond(
+            ThreadState.show_auth_card,
+            rx.hstack(
+                rx.avatar(
+                    fallback="🔐",
+                    size="3",
+                    variant="soft",
+                    radius="full",
+                    margin_top="16px",
+                ),
+                rx.card(
+                    rx.vstack(
+                        rx.hstack(
+                            rx.text(
+                                "Anmeldung erforderlich",
+                                weight="bold",
+                                size="3",
+                            ),
+                            spacing="2",
+                        ),
+                        rx.text(
+                            rx.text.span(ThreadState.pending_auth_server_name),
+                            " benötigt Ihre Anmeldung, um fortzufahren.",
+                            size="2",
+                            color=rx.color("gray", 11),
+                        ),
+                        rx.hstack(
+                            rx.button(
+                                "Anmelden",
+                                on_click=ThreadState.start_mcp_oauth,
+                                color_scheme="amber",
+                                variant="solid",
+                            ),
+                            rx.button(
+                                "Abbrechen",
+                                on_click=ThreadState.dismiss_auth_card,
+                                color_scheme="gray",
+                                variant="solid",
+                            ),
+                            spacing="3",
+                            margin_top="2",
+                        ),
+                        spacing="3",
+                        padding="4",
+                    ),
+                    size="2",
+                    variant="surface",
+                    max_width="400px",
+                    margin_top="16px",
+                ),
+                style=message_styles,
+            ),
+            rx.fragment(),
+        )
+
+
 class MessageComponent:
     @staticmethod
     def human_message(message: str) -> rx.Component:

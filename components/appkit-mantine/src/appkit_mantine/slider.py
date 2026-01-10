@@ -92,7 +92,8 @@ class Slider(rx.Component):
 
 
 class RangeSlider(rx.Component):
-    """Mantine RangeSlider component - interactive input for selecting numeric ranges."""
+    """Mantine RangeSlider component - interactive input for selecting
+    numeric ranges."""
 
     library = "@mantine/core"
     tag = "RangeSlider"

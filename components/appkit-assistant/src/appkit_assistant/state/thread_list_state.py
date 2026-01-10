@@ -88,7 +88,7 @@ class ThreadListState(rx.State):
 
             # Handle user change
             if self._current_user_id != current_user_id:
-                logger.info(
+                logger.debug(
                     "User changed from '%s' to '%s' - resetting state",
                     self._current_user_id or "(none)",
                     current_user_id or "(none)",
@@ -265,7 +265,7 @@ class ThreadListState(rx.State):
         # Late import to avoid circular dependency
         from appkit_assistant.state.thread_state import ThreadState  # noqa: PLC0415
 
-        logger.info(
+        logger.debug(
             "Resetting ThreadListState on logout for user: %s",
             self._current_user_id,
         )
@@ -277,7 +277,7 @@ class ThreadListState(rx.State):
 
         # Reset ThreadState
         thread_state: ThreadState = await self.get_state(ThreadState)
-        thread_state.new_thread()
+        await thread_state.new_thread()
 
         logger.debug("ThreadListState reset complete")
 

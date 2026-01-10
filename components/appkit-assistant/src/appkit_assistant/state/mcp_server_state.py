@@ -3,11 +3,12 @@
 import json
 import logging
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
 
-from appkit_assistant.backend.models import MCPServer
+from appkit_assistant.backend.models import MCPAuthType, MCPServer
 from appkit_assistant.backend.repositories import (
     mcp_server_repo,
 )
@@ -73,12 +74,32 @@ class MCPServerState(rx.State):
         """Add a new MCP server."""
         try:
             headers = self._parse_headers_from_form(form_data)
+            auth_type = form_data.get("auth_type", MCPAuthType.API_KEY)
+
             server_entity = MCPServer(
                 name=form_data["name"],
                 url=form_data["url"],
                 headers=headers,
                 description=form_data.get("description") or None,
                 prompt=form_data.get("prompt") or None,
+                auth_type=auth_type,
+                oauth_client_id=(
+                    form_data.get("oauth_client_id")
+                    if auth_type == MCPAuthType.OAUTH_DISCOVERY
+                    else None
+                ),
+                oauth_client_secret=(
+                    form_data.get("oauth_client_secret")
+                    if auth_type == MCPAuthType.OAUTH_DISCOVERY
+                    else None
+                ),
+                oauth_issuer=form_data.get("oauth_issuer"),
+                oauth_authorize_url=form_data.get("oauth_authorize_url"),
+                oauth_token_url=form_data.get("oauth_token_url"),
+                oauth_scopes=form_data.get("oauth_scopes"),
+                oauth_discovered_at=(
+                    datetime.now(UTC) if form_data.get("oauth_issuer") else None
+                ),
             )
 
             async with get_asyncdb_session() as session:
@@ -119,6 +140,7 @@ class MCPServerState(rx.State):
 
         try:
             headers = self._parse_headers_from_form(form_data)
+            auth_type = form_data.get("auth_type", MCPAuthType.API_KEY)
             updated_name = ""
 
             async with get_asyncdb_session() as session:
@@ -134,6 +156,25 @@ class MCPServerState(rx.State):
                     existing_server.headers = headers
                     existing_server.description = form_data.get("description") or None
                     existing_server.prompt = form_data.get("prompt") or None
+                    existing_server.auth_type = auth_type
+                    existing_server.oauth_client_id = (
+                        form_data.get("oauth_client_id")
+                        if auth_type == MCPAuthType.OAUTH_DISCOVERY
+                        else None
+                    )
+                    existing_server.oauth_client_secret = (
+                        form_data.get("oauth_client_secret")
+                        if auth_type == MCPAuthType.OAUTH_DISCOVERY
+                        else None
+                    )
+                    existing_server.oauth_issuer = form_data.get("oauth_issuer")
+                    existing_server.oauth_authorize_url = form_data.get(
+                        "oauth_authorize_url"
+                    )
+                    existing_server.oauth_token_url = form_data.get("oauth_token_url")
+                    existing_server.oauth_scopes = form_data.get("oauth_scopes")
+                    if form_data.get("oauth_issuer"):
+                        existing_server.oauth_discovered_at = datetime.now(UTC)
 
                     updated_server = await mcp_server_repo.save(
                         session, existing_server

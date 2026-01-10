@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import Self
 
 from appkit_assistant.backend.models import AIModel
 from appkit_assistant.backend.processor import Processor
@@ -18,7 +19,7 @@ class ModelManager:
         None  # Default model ID will be set to the first registered model
     )
 
-    def __new__(cls) -> ModelManager:
+    def __new__(cls) -> Self:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:

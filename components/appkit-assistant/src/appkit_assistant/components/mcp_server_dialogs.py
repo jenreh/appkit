@@ -1,6 +1,7 @@
 """Dialog components for MCP server management."""
 
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import reflex as rx
@@ -8,7 +9,8 @@ from reflex.vars import var_operation, var_operation_return
 from reflex.vars.base import RETURN, CustomVarOperationReturn
 
 import appkit_mantine as mn
-from appkit_assistant.backend.models import MCPServer
+from appkit_assistant.backend.mcp_auth_service import MCPAuthService
+from appkit_assistant.backend.models import MCPAuthType, MCPServer
 from appkit_assistant.state.mcp_server_state import MCPServerState
 from appkit_ui.components.dialogs import (
     delete_dialog,
@@ -19,6 +21,9 @@ from appkit_ui.components.form_inputs import form_field
 
 logger = logging.getLogger(__name__)
 
+AUTH_TYPE_API_KEY = "api_key"
+AUTH_TYPE_OAUTH = "oauth"
+
 
 class ValidationState(rx.State):
     url: str = ""
@@ -26,10 +31,25 @@ class ValidationState(rx.State):
     desciption: str = ""
     prompt: str = ""
 
+    # Authentication type selection
+    auth_type: str = AUTH_TYPE_API_KEY
+
+    # OAuth fields
+    oauth_client_id: str = ""
+    oauth_client_secret: str = ""
+
+    # Discovered metadata
+    oauth_issuer: str = ""
+    oauth_authorize_url: str = ""
+    oauth_token_url: str = ""
+    oauth_scopes: str = ""
+
     url_error: str = ""
     name_error: str = ""
     description_error: str = ""
     prompt_error: str = ""
+    oauth_client_id_error: str = ""
+    oauth_client_secret_error: str = ""
 
     @rx.event
     def initialize(self, server: MCPServer | None = None) -> None:
@@ -40,16 +60,53 @@ class ValidationState(rx.State):
             self.name = ""
             self.desciption = ""
             self.prompt = ""
+            self.auth_type = AUTH_TYPE_API_KEY
+            self.oauth_client_id = ""
+            self.oauth_client_secret = ""
+            self.oauth_issuer = ""
+            self.oauth_authorize_url = ""
+            self.oauth_token_url = ""
+            self.oauth_scopes = ""
         else:
             self.url = server.url
             self.name = server.name
             self.desciption = server.description
             self.prompt = server.prompt or ""
+            # Determine auth type from server
+            if server.oauth_client_id:
+                self.auth_type = AUTH_TYPE_OAUTH
+                self.oauth_client_id = server.oauth_client_id or ""
+                self.oauth_client_secret = server.oauth_client_secret or ""
+            else:
+                self.auth_type = AUTH_TYPE_API_KEY
+                self.oauth_client_id = ""
+                self.oauth_client_secret = ""
+
+            # Load discovered metadata
+            self.oauth_issuer = server.oauth_issuer or ""
+            self.oauth_authorize_url = server.oauth_authorize_url or ""
+            self.oauth_token_url = server.oauth_token_url or ""
+            self.oauth_scopes = server.oauth_scopes or ""
 
         self.url_error = ""
         self.name_error = ""
         self.description_error = ""
         self.prompt_error = ""
+        self.oauth_client_id_error = ""
+        self.oauth_client_secret_error = ""
+
+    @rx.event
+    async def set_auth_type(self, auth_type: str) -> AsyncGenerator[Any, Any]:
+        """Set the authentication type."""
+        self.auth_type = auth_type
+        # Clear OAuth errors when switching to API key mode
+        if auth_type == AUTH_TYPE_API_KEY:
+            self.oauth_client_id_error = ""
+            self.oauth_client_secret_error = ""
+        elif auth_type == AUTH_TYPE_OAUTH:
+            # Trigger discovery
+            async for event in self.check_discovery():
+                yield event
 
     @rx.event
     def validate_url(self) -> None:
@@ -91,20 +148,43 @@ class ValidationState(rx.State):
         else:
             self.prompt_error = ""
 
+    @rx.event
+    def validate_oauth_client_id(self) -> None:
+        """Validate the OAuth client ID field."""
+        # Client ID might be optional for some public clients or implicit flows
+        # so we don't enforce it strictly here, but warn if missing for standard flows
+        self.oauth_client_id_error = ""
+
+    @rx.event
+    def validate_oauth_client_secret(self) -> None:
+        """Validate the OAuth client secret field."""
+        # Client Secret is optional for Public Clients (PKCE)
+        self.oauth_client_secret_error = ""
+
     @rx.var
     def has_errors(self) -> bool:
         """Check if the form can be submitted."""
-        return bool(
+        base_errors = bool(
             self.url_error
             or self.name_error
             or self.description_error
             or self.prompt_error
         )
+        if self.auth_type == AUTH_TYPE_OAUTH:
+            return base_errors or bool(
+                self.oauth_client_id_error or self.oauth_client_secret_error
+            )
+        return base_errors
 
     @rx.var
     def prompt_remaining(self) -> int:
         """Calculate remaining characters for prompt field."""
         return 2000 - len(self.prompt or "")
+
+    @rx.var
+    def is_oauth_mode(self) -> bool:
+        """Check if OAuth mode is selected."""
+        return self.auth_type == AUTH_TYPE_OAUTH
 
     def set_url(self, url: str) -> None:
         """Set the URL and validate it."""
@@ -126,12 +206,247 @@ class ValidationState(rx.State):
         self.prompt = prompt
         self.validate_prompt()
 
+    def set_oauth_client_id(self, client_id: str) -> None:
+        """Set the OAuth client ID and validate it."""
+        self.oauth_client_id = client_id
+        self.validate_oauth_client_id()
+
+    def set_oauth_client_secret(self, client_secret: str) -> None:
+        """Set the OAuth client secret and validate it."""
+        self.oauth_client_secret = client_secret
+        self.validate_oauth_client_secret()
+
+    def set_oauth_issuer(self, value: str) -> None:
+        """Set the OAuth issuer."""
+        self.oauth_issuer = value
+
+    def set_oauth_authorize_url(self, value: str) -> None:
+        """Set the OAuth authorization URL."""
+        self.oauth_authorize_url = value
+
+    def set_oauth_token_url(self, value: str) -> None:
+        """Set the OAuth token URL."""
+        self.oauth_token_url = value
+
+    def set_oauth_scopes(self, value: str) -> None:
+        """Set the OAuth scopes."""
+        self.oauth_scopes = value
+
+    async def check_discovery(self) -> AsyncGenerator[Any, Any]:
+        """Check for OAuth configuration at the given URL."""
+        if not self.url or self.url_error:
+            return
+
+        try:
+            # Create a throwaway service just for discovery
+            service = MCPAuthService(redirect_uri="")
+            result = await service.discover_oauth_config(self.url)
+            await service.close()
+
+            if result.error:
+                # No OAuth or error - stick to current settings or do nothing
+                logger.debug("OAuth discovery failed: %s", result.error)
+                return
+
+            # OAuth found! Update state
+            self.oauth_issuer = result.issuer or ""
+            self.oauth_authorize_url = result.authorization_endpoint or ""
+            self.oauth_token_url = result.token_endpoint or ""
+            self.oauth_scopes = " ".join(result.scopes_supported or [])
+
+            # Switch to OAuth mode and notify user
+            self.auth_type = AUTH_TYPE_OAUTH
+            yield rx.toast.success(
+                f"OAuth 2.0 Konfiguration gefunden: {self.oauth_issuer}",
+                position="top-right",
+            )
+            # Clear OAuth errors as we just switched and fields are empty
+            # (user needs to fill them)
+            self.oauth_client_id_error = ""
+            self.oauth_client_secret_error = ""
+
+        except Exception as e:
+            logger.error("Error during OAuth discovery: %s", e)
+
 
 @var_operation
 def json(obj: rx.Var, indent: int = 4) -> CustomVarOperationReturn[RETURN]:
     return var_operation_return(
         js_expression=f"JSON.stringify(JSON.parse({obj} || '{{}}'), null, {indent})",
         var_type=Any,
+    )
+
+
+def _auth_type_selector() -> rx.Component:
+    """Radio for selecting authentication type."""
+    return rx.box(
+        rx.text("Authentifizierung", size="2", weight="medium", mb="2"),
+        rx.radio_group.root(
+            rx.flex(
+                rx.flex(
+                    rx.radio_group.item(value=AUTH_TYPE_API_KEY),
+                    rx.text("HTTP Headers", size="2"),
+                    align="center",
+                    spacing="2",
+                ),
+                rx.flex(
+                    rx.radio_group.item(value=AUTH_TYPE_OAUTH),
+                    rx.text("OAuth 2.0", size="2"),
+                    align="center",
+                    spacing="2",
+                ),
+                spacing="4",
+            ),
+            value=ValidationState.auth_type,
+            on_change=ValidationState.set_auth_type,
+            name="auth_type",
+        ),
+        width="100%",
+        mb="3",
+    )
+
+
+def _api_key_auth_fields(server: MCPServer | None = None) -> rx.Component:
+    """Fields for API key / HTTP headers authentication."""
+    is_edit_mode = server is not None
+    return rx.cond(
+        ~ValidationState.is_oauth_mode,
+        mn.form.json(
+            name="headers_json",
+            label="HTTP Headers",
+            description=(
+                "Geben Sie die HTTP-Header im JSON-Format ein. "
+                'Beispiel: {"Content-Type": "application/json", '
+                '"Authorization": "Bearer token"}'
+            ),
+            placeholder="{}",
+            validation_error="Ungültiges JSON",
+            default_value=json(server.headers) if is_edit_mode else "{}",
+            format_on_blur=True,
+            autosize=True,
+            min_rows=4,
+            max_rows=6,
+            width="100%",
+        ),
+        rx.fragment(),
+    )
+
+
+def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
+    """Fields for OAuth 2.0 authentication."""
+    is_edit_mode = server is not None
+    return rx.cond(
+        ValidationState.is_oauth_mode,
+        rx.flex(
+            rx.box(
+                rx.callout(
+                    "OAuth 2.0 ermöglicht eine sichere Anmeldung über den "
+                    "Identitätsanbieter des MCP-Servers. Die OAuth-Endpunkte "
+                    "können automatisch ermittelt oder manuell konfiguriert werden.",
+                    icon="info",
+                    size="1",
+                    color="blue",
+                ),
+                width="100%",
+                mb="3",
+            ),
+            # Primary Fields (Client ID / Secret)
+            form_field(
+                name="oauth_client_id",
+                icon="key",
+                label="Client-ID",
+                hint="Die OAuth Client-ID (optional für Public Clients)",
+                type="text",
+                placeholder="client-id-xxx",
+                default_value=server.oauth_client_id if is_edit_mode else "",
+                value=ValidationState.oauth_client_id,
+                required=False,
+                on_change=ValidationState.set_oauth_client_id,
+                on_blur=ValidationState.validate_oauth_client_id,
+                validation_error=ValidationState.oauth_client_id_error,
+                autocomplete="off",
+            ),
+            form_field(
+                name="oauth_client_secret",
+                icon="lock",
+                label="Client-Secret",
+                hint="Das OAuth Client-Secret (optional für Public Clients)",
+                type="password",
+                placeholder="••••••••",
+                default_value=server.oauth_client_secret if is_edit_mode else "",
+                value=ValidationState.oauth_client_secret,
+                required=False,
+                on_change=ValidationState.set_oauth_client_secret,
+                on_blur=ValidationState.validate_oauth_client_secret,
+                validation_error=ValidationState.oauth_client_secret_error,
+                autocomplete="off",
+            ),
+            rx.text("OAuth Endpunkte & Scopes", size="2", weight="medium", mb="1"),
+            # Additional Discovery Fields (Editable)
+            form_field(
+                name="oauth_issuer",
+                icon="globe",
+                label="Issuer (Aussteller)",
+                hint="Die URL des OAuth Identity Providers",
+                type="text",
+                placeholder="https://auth.example.com",
+                default_value=server.oauth_issuer if is_edit_mode else "",
+                value=ValidationState.oauth_issuer,
+                required=False,
+                on_change=ValidationState.set_oauth_issuer,
+            ),
+            form_field(
+                name="oauth_authorize_url",
+                icon="arrow-right-left",
+                label="Authorization URL",
+                hint="Endpoint für den Login-Dialog",
+                type="text",
+                placeholder="https://auth.example.com/authorize",
+                default_value=server.oauth_authorize_url if is_edit_mode else "",
+                value=ValidationState.oauth_authorize_url,
+                required=False,
+                on_change=ValidationState.set_oauth_authorize_url,
+            ),
+            form_field(
+                name="oauth_token_url",
+                icon="key-round",
+                label="Token URL",
+                hint="Endpoint zum Tausch von Code gegen Token",
+                type="text",
+                placeholder="https://auth.example.com/token",
+                default_value=server.oauth_token_url if is_edit_mode else "",
+                value=ValidationState.oauth_token_url,
+                required=False,
+                on_change=ValidationState.set_oauth_token_url,
+            ),
+            form_field(
+                name="oauth_scopes",
+                icon="list-checks",
+                label="Scopes",
+                hint="Berechtigungen (Scopes), durch Leerzeichen getrennt",
+                type="text",
+                placeholder="openid profile email",
+                default_value=server.oauth_scopes if is_edit_mode else "",
+                value=ValidationState.oauth_scopes,
+                required=False,
+                on_change=ValidationState.set_oauth_scopes,
+            ),
+            # Hidden field to pass auth_type to form submission
+            rx.el.input(
+                type="hidden",
+                name="auth_type",
+                value=MCPAuthType.OAUTH_DISCOVERY,
+            ),
+            direction="column",
+            spacing="1",
+            width="100%",
+        ),
+        # Hidden field for non-OAuth mode
+        rx.el.input(
+            type="hidden",
+            name="auth_type",
+            value=MCPAuthType.API_KEY,
+        ),
     )
 
 
@@ -181,7 +496,7 @@ def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
             default_value=server.url if is_edit_mode else "",
             required=True,
             on_change=ValidationState.set_url,
-            on_blur=ValidationState.validate_url,
+            on_blur=[ValidationState.validate_url, ValidationState.check_discovery],
             validation_error=ValidationState.url_error,
         ),
         rx.flex(
@@ -225,23 +540,10 @@ def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
             spacing="0",
             width="100%",
         ),
-        mn.form.json(
-            name="headers_json",
-            label="HTTP Headers",
-            description=(
-                "Geben Sie die HTTP-Header im JSON-Format ein. "
-                'Beispiel: {"Content-Type": "application/json", '
-                '"Authorization": "Bearer token"}'
-            ),
-            placeholder="{}",
-            validation_error="Ungültiges JSON",
-            default_value=json(server.headers) if is_edit_mode else "{}",
-            format_on_blur=True,
-            autosize=True,
-            min_rows=4,
-            max_rows=6,
-            width="100%",
-        ),
+        # Authentication type selector and conditional fields
+        _auth_type_selector(),
+        _api_key_auth_fields(server),
+        _oauth_auth_fields(server),
     ]
 
     return rx.flex(

@@ -277,7 +277,7 @@ class BlackForestLabsImageGenerator(ImageGenerator):
         """
         prompt = self._format_prompt(input_data.prompt, input_data.negative_prompt)
 
-        logger.info(
+        logger.debug(
             "Editing with %d reference image(s) using %s",
             len(reference_images),
             self.model,
@@ -296,7 +296,7 @@ class BlackForestLabsImageGenerator(ImageGenerator):
         # Build base payload and add reference images
         payload = self._build_payload(input_data, prompt)
 
-        logger.info(
+        logger.debug(
             "Editing with reference images - size: %dx%d, model: %s",
             input_data.width,
             input_data.height,
@@ -314,7 +314,7 @@ class BlackForestLabsImageGenerator(ImageGenerator):
         payload_info = {
             k: v for k, v in payload.items() if not k.startswith("input_image")
         }
-        logger.info("Edit payload parameters: %s", payload_info)
+        logger.debug("Edit payload parameters: %s", payload_info)
 
         image_url, image_b64, error_msg = await self._call_bfl_api(payload)
         return self._build_response(image_url, image_b64, error_msg, prompt)

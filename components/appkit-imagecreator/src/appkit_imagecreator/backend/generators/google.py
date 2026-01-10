@@ -112,7 +112,7 @@ class GoogleImageGenerator(ImageGenerator):
 
         enhanced_prompt = prompt if input_data.enhance_prompt else original_prompt
 
-        logger.info(
+        logger.debug(
             "Editing with %d reference image(s) using model %s",
             len(reference_images),
             self.model,

@@ -55,9 +55,15 @@ class UserSession(rx.State):
             instance corresponding to the currently authenticated user.
         """
         async with get_asyncdb_session() as session:
-            user_session = await session_repo.find_by_user_and_session_id(
-                session, self.user_id, self.auth_token
-            )
+            if self.user_id > 0:
+                user_session = await session_repo.find_by_user_and_session_id(
+                    session, self.user_id, self.auth_token
+                )
+            else:
+                # Fallback: Recover by valid auth token alone (e.g. new tab/window)
+                user_session = await session_repo.find_by_session_id(
+                    session, self.auth_token
+                )
 
             if user_session is None or user_session.is_expired():
                 return None
@@ -70,6 +76,7 @@ class UserSession(rx.State):
                 user_entity = user_session.user
                 user = User(**user_entity.to_dict())
                 self.user = user
+                self.user_id = user.user_id
 
             await session.commit()
 

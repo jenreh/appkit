@@ -10,6 +10,7 @@ This module contains ThreadState which manages the current active thread:
 See thread_list_state.py for ThreadListState which manages the thread list sidebar.
 """
 
+import json
 import logging
 import uuid
 from collections.abc import AsyncGenerator
@@ -98,16 +99,29 @@ class ThreadState(rx.State):
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
 
+    # MCP OAuth state
+    pending_auth_server_id: str = ""
+    pending_auth_server_name: str = ""
+    pending_auth_url: str = ""
+    show_auth_card: bool = False
+    pending_oauth_message: str = ""  # Message that triggered OAuth, resent on success
+
     # Thread list integration
     with_thread_list: bool = False
 
     # Internal state
     _initialized: bool = False
     _current_user_id: str = ""
+    _skip_user_message: bool = False  # Skip adding user message (for OAuth resend)
 
     # -------------------------------------------------------------------------
     # Computed properties
     # -------------------------------------------------------------------------
+
+    @rx.var
+    def current_user_id(self) -> str:
+        """Get the current user ID for OAuth validation."""
+        return self._current_user_id
 
     @rx.var
     def get_selected_model(self) -> str:
@@ -369,9 +383,15 @@ class ThreadState(rx.State):
         self.prompt = prompt
 
     @rx.event
-    def set_suggestions(self, suggestions: list[Suggestion]) -> None:
-        """Set custom suggestions for the thread."""
-        self.suggestions = suggestions
+    def set_suggestions(self, suggestions: list[Suggestion] | list[dict]) -> None:
+        """Set custom suggestions for the thread.
+
+        Accepts either Suggestion objects or dicts (for Reflex serialization).
+        """
+        if suggestions and isinstance(suggestions[0], dict):
+            self.suggestions = [Suggestion(**s) for s in suggestions]
+        else:
+            self.suggestions = suggestions  # type: ignore[assignment]
 
     @rx.event
     def set_selected_model(self, model_id: str) -> None:
@@ -487,12 +507,17 @@ class ThreadState(rx.State):
             )
             return
 
+        async with self:
+            user_session: UserSession = await self.get_state(UserSession)
+            user_id = user_session.user.user_id if user_session.user else None
+
         first_response_received = False
         try:
             async for chunk in processor.process(
                 self.messages,
                 selected_model,
                 mcp_servers=mcp_servers,
+                user_id=user_id,
             ):
                 first_response_received = await self._handle_stream_chunk(
                     chunk=chunk,
@@ -530,12 +555,16 @@ class ThreadState(rx.State):
             self.prompt = ""
 
             is_new_thread = self._thread.state == ThreadStatus.NEW
-            self.messages.extend(
-                [
-                    Message(text=current_prompt, type=MessageType.HUMAN),
-                    Message(text="", type=MessageType.ASSISTANT),
-                ]
-            )
+
+            # Add user message unless skipped (e.g., OAuth resend)
+            if self._skip_user_message:
+                self._skip_user_message = False
+            else:
+                self.messages.append(
+                    Message(text=current_prompt, type=MessageType.HUMAN)
+                )
+            # Always add assistant placeholder
+            self.messages.append(Message(text="", type=MessageType.ASSISTANT))
 
             selected_model = self.get_selected_model
             if not selected_model:
@@ -583,7 +612,9 @@ class ThreadState(rx.State):
         """Finalize state after a successful full response."""
         async with self:
             self.show_thinking = False
-            self._thread.messages = self.messages
+            # Convert Reflex proxy list to standard list to avoid Pydantic
+            # serializer warnings
+            self._thread.messages = list(self.messages)  # noqa: E501
             self._thread.ai_model = self.selected_model
 
             if self.with_thread_list:
@@ -610,7 +641,9 @@ class ThreadState(rx.State):
                     self._thread.title = current_prompt[:100]
                 await self._notify_thread_created()
 
-            self._thread.messages = self.messages
+            # Convert Reflex proxy list to standard list to avoid Pydantic serializer
+            # warnings
+            self._thread.messages = list(self.messages)  # noqa: E501
             if self.with_thread_list:
                 await self._save_thread_to_db()
 
@@ -738,6 +771,8 @@ class ThreadState(rx.State):
         elif chunk.type == ChunkType.COMPLETION:
             self.show_thinking = False
             logger.debug("Response generation completed")
+        elif chunk.type == ChunkType.AUTH_REQUIRED:
+            self._handle_auth_required_chunk(chunk)
         elif chunk.type == ChunkType.ERROR:
             self.messages.append(Message(text=chunk.text, type=MessageType.ERROR))
             logger.error("Chunk error: %s", chunk.text)
@@ -865,6 +900,111 @@ class ThreadState(rx.State):
             item.text += f"\n---\nAktion: {chunk.text}"
 
         self.thinking_items = self.thinking_items.copy()
+
+    def _handle_auth_required_chunk(self, chunk: Chunk) -> None:
+        """Handle AUTH_REQUIRED chunks by showing the auth card."""
+        self.pending_auth_server_id = chunk.chunk_metadata.get("server_id", "")
+        self.pending_auth_server_name = chunk.chunk_metadata.get("server_name", "")
+        self.pending_auth_url = chunk.chunk_metadata.get("auth_url", "")
+        self.show_auth_card = True
+        # Store the last user message to resend after successful OAuth
+        for msg in reversed(self.messages):
+            if msg.type == MessageType.HUMAN:
+                self.pending_oauth_message = msg.text
+                break
+        logger.debug(
+            "Auth required for server %s, showing auth card, pending message: %s",
+            self.pending_auth_server_name,
+            self.pending_oauth_message[:50] if self.pending_oauth_message else "None",
+        )
+
+    @rx.event
+    def start_mcp_oauth(self) -> rx.event.EventSpec:
+        """Start the OAuth flow by opening the auth URL in a popup window."""
+        if not self.pending_auth_url:
+            return rx.toast.error("Keine Authentifizierungs-URL verfügbar")
+
+        # NOTE: We do not append server_id here anymore to avoid errors with strict
+        # OAuth providers. server_id must be recovered from the state parameter in the
+        # callback.
+        auth_url = self.pending_auth_url
+
+        return rx.call_script(
+            f"window.open('{auth_url}', 'mcp_oauth', 'width=600,height=700')"
+        )
+
+    @rx.event
+    async def handle_mcp_oauth_success(
+        self, server_id: str, server_name: str
+    ) -> AsyncGenerator[Any, Any]:
+        """Handle successful OAuth completion from popup window."""
+        logger.debug("OAuth success for server %s (%s)", server_name, server_id)
+        self.show_auth_card = False
+        self.pending_auth_server_id = ""
+        self.pending_auth_server_name = ""
+        self.pending_auth_url = ""
+
+        # Check if we have a pending message to resend
+        pending_message = self.pending_oauth_message
+        self.pending_oauth_message = ""
+
+        if pending_message:
+            # Remove the incomplete assistant message from the failed attempt
+            if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
+                self.messages = self.messages[:-1]
+            # Add success message
+            self.messages.append(
+                Message(
+                    text=f"Erfolgreich mit {server_name} verbunden. "
+                    "Anfrage wird erneut gesendet...",
+                    type=MessageType.INFO,
+                )
+            )
+            # Resend the original message by setting prompt and yielding the event
+            self.prompt = pending_message
+            self._skip_user_message = True  # User message already in list
+            yield ThreadState.submit_message
+        else:
+            # No pending message - just show success
+            self.messages.append(
+                Message(
+                    text=f"Erfolgreich mit {server_name} verbunden.",
+                    type=MessageType.INFO,
+                )
+            )
+
+    @rx.event
+    def handle_mcp_oauth_success_from_js(self) -> rx.event.EventSpec:
+        """Handle OAuth success triggered from JS - retrieves data from window."""
+        return rx.call_script(
+            "window._mcpOAuthData ? JSON.stringify(window._mcpOAuthData) : '{}'",
+            callback=ThreadState.process_oauth_success_data,
+        )
+
+    @rx.event
+    async def process_oauth_success_data(
+        self, data_str: str
+    ) -> AsyncGenerator[Any, Any]:
+        """Process OAuth success data retrieved from window."""
+        try:
+            data = json.loads(data_str) if data_str else {}
+            server_id = data.get("serverId", "")
+            server_name = data.get("serverName", "Unknown")
+            logger.info(
+                "Processing OAuth success from JS: server_id=%s, server_name=%s",
+                server_id,
+                server_name,
+            )
+            # Yield events from handle_mcp_oauth_success
+            async for event in self.handle_mcp_oauth_success(server_id, server_name):
+                yield event
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse OAuth data from JS: %s", data_str)
+
+    @rx.event
+    def dismiss_auth_card(self) -> None:
+        """Dismiss the auth card without authenticating."""
+        self.show_auth_card = False
 
     def _add_error_message(self, error_msg: str) -> None:
         """Add an error message to the conversation."""

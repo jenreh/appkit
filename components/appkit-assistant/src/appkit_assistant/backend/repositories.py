@@ -80,7 +80,7 @@ class SystemPromptRepository(BaseRepository[SystemPrompt, AsyncSession]):
         await session.flush()
         await session.refresh(system_prompt)
 
-        logger.info(
+        logger.debug(
             "Created system prompt version %s for user %s",
             next_version,
             user_id,

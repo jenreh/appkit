@@ -76,7 +76,7 @@ class SystemPromptState(State):
             # Force textarea to re-render with loaded content
             self.textarea_key += 1
 
-            logger.info("Loaded %s system prompt versions", len(self.versions))
+            logger.debug("Loaded %s system prompt versions", len(self.versions))
         except Exception as exc:
             self.error_message = f"Fehler beim Laden: {exc!s}"
             logger.exception("Failed to load system prompt versions")
@@ -115,12 +115,12 @@ class SystemPromptState(State):
 
             # Invalidate cache to force reload of new prompt version
             await invalidate_prompt_cache()
-            logger.info("System prompt cache invalidated after save")
+            logger.debug("System prompt cache invalidated after save")
 
             await self.load_versions()
 
             yield rx.toast.success("Neue Version erfolgreich gespeichert.")
-            logger.info("Saved new system prompt version by user %s", user_id)
+            logger.debug("Saved new system prompt version by user %s", user_id)
         except Exception as exc:
             self.error_message = f"Fehler beim Speichern: {exc!s}"
             logger.exception("Failed to save system prompt")
@@ -154,7 +154,7 @@ class SystemPromptState(State):
 
                 # Invalidate cache since latest version might have changed
                 await invalidate_prompt_cache()
-                logger.info("System prompt cache invalidated after deletion")
+                logger.debug("System prompt cache invalidated after deletion")
 
                 await self.load_versions()
                 yield rx.toast.success("Version erfolgreich gelöscht.")

@@ -17,7 +17,8 @@ class TextInput(MantineInputComponentBase):
 
     # Specific props for TextInput
     with_error_styles: Var[bool] = None
-    """Determines whether the input should have red border and red text color when the error prop is set."""
+    """Determines whether the input should have red border and red text color
+    when the error prop is set."""
 
     input_wrapper_order: Var[
         list[Literal["label", "input", "description", "error"]]

@@ -204,7 +204,7 @@ class ImageGalleryState(rx.State):
 
             # Handle user change
             if self._current_user_id != current_user_id:
-                logger.info(
+                logger.debug(
                     "User changed from '%s' to '%s' - resetting state",
                     self._current_user_id or "(none)",
                     current_user_id or "(none)",
@@ -501,7 +501,7 @@ class ImageGalleryState(rx.State):
                     )
                     return
 
-                logger.info(
+                logger.debug(
                     "Editing with %d reference images",
                     len(reference_images),
                 )
@@ -722,7 +722,7 @@ class ImageGalleryState(rx.State):
                     )
                     saved = await image_repo.create(session, image_entity)
                     uploaded_ids.append(saved.id)
-                    logger.info("Uploaded %s for user %d", filename, user_id)
+                    logger.debug("Uploaded %s for user %d", filename, user_id)
                 except Exception as e:
                     skipped.append(f"{filename} (error: {e!s})")
                     logger.exception("Failed to process %s", filename)
@@ -861,7 +861,7 @@ class ImageGalleryState(rx.State):
         yield
 
         try:
-            logger.info("Deleting image from database: %s", image_id)
+            logger.debug("Deleting image from database: %s", image_id)
             async with get_asyncdb_session() as session:
                 await image_repo.delete_by_id_and_user(session, int(image_id), user_id)
 
@@ -871,7 +871,7 @@ class ImageGalleryState(rx.State):
                 self.history_images = [
                     img for img in self.history_images if img.id != int(image_id)
                 ]
-                logger.info("Image deleted successfully: %s", image_id)
+                logger.debug("Image deleted successfully: %s", image_id)
 
             yield rx.toast.success("Bild gelöscht.", close_button=True)
 
@@ -892,7 +892,7 @@ class ImageGalleryState(rx.State):
             return  # Already in grid
         if img := self._find_history_image(int_id):
             self.images = [img, *self.images]
-            logger.info("Added history image %s to grid", image_id)
+            logger.debug("Added history image %s to grid", image_id)
 
     @rx.var
     def history_images_by_date(self) -> list[tuple[str, list[GeneratedImageModel]]]:

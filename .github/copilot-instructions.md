@@ -92,10 +92,33 @@ plan:end -->
 - Deterministic state transitions; avoid hidden side effects.
 - Reuse components; document patterns in **Memory**.
 
+#### Background Tasks
+Background tasks (`@rx.event(background=True)`) run in isolation and **cannot be called directly** from other event handlers:
+
+```python
+# ❌ WRONG - causes RuntimeError
+async for event in self.background_task():
+    yield event
+
+# ✅ CORRECT - yield the class method reference
+yield MyState.background_task
+```
+
+**Event chaining pattern** (state update → background task):
+```python
+@rx.event
+async def my_handler(self) -> AsyncGenerator[Any, Any]:
+    # 1. Update state synchronously
+    self.some_value = "new"
+    # 2. Yield to flush state to frontend (optional)
+    yield
+    # 3. Yield background task as next scheduled event
+    yield MyState.background_task
+```
+
 ### Quality Gates
-- Lint/format/type: `uv run ruff check --fix`, `uv run ruff format`.
-- Tests: `uv run pytest` with coverage ≥ **80%**.
-- Docs: update `docs/` for migrations/decisions.
+- Lint/format/type: `task lint`, `task format`.
+- Tests: `task test` with coverage ≥ **80%**.
 
 
 ### Commit & PR
@@ -111,7 +134,7 @@ plan:end -->
 - **Python 3.13** only; deps via **uv**.
 - Use Reflex, Alembic, SQLAlchemy 2.0, FastAPI, Pydantic, FastMCP, LangChain.
 - **No f-strings in logger calls.**
-- Clean code; narrow modules; clear boundaries.
+- Clean code; narrow modules; clear boundaries. Use design patterns where appropriate.
 - Unit tests for every new path.
 
 ---
@@ -149,9 +172,9 @@ plan:end -->
 
 This is a **Reflex component library** wrapping [Mantine UI v8.3.3](https://mantine.dev) for Python web apps. Structure:
 
-- `mantine/` – Core component wrappers (Input, DateInput, NumberInput, PasswordInput, Textarea, NavigationProgress, etc.)
-- `mantine/base.py` – Base classes (`MantineComponentBase`, `MantineInputComponentBase`) with inheritance hierarchy
-- `reflex_mantine/` – Demo app with example pages showing component usage patterns
+- `appkit_mantine/` – Core component wrappers (Input, DateInput, NumberInput, PasswordInput, Textarea, NavigationProgress, etc.)
+- `appkit_mantine/base.py` – Base classes (`MantineComponentBase`, `MantineInputComponentBase`) with inheritance hierarchy
+- `app/` – Demo app with example pages showing component usage patterns
 - `docs/` – Comprehensive usage guides and API references
 - `assets/` – JavaScript shims for Mantine integration (MantineProvider, NavigationProgress)
 
@@ -267,10 +290,10 @@ class DateInput(MantineDateInputBase):
 
 ```bash
 # Start Reflex dev server (auto-reload enabled)
-reflex run
+task run
 
 # Or with debug logging
-reflex run --loglevel debug
+task run:debug
 ```
 
 Access demo pages:
@@ -482,3 +505,29 @@ JavaScript shims in `assets/external/mantine/`:
 - `nprogress/navigation_progress.js` - Progress bar controls
 
 Reference via `asset(path="<filename.js>", shared=True)` in component `library` prop.
+
+## Rules Recap
+🛠️ Tooling & Workflow
+- Task Runner: Use task commands (via Taskfile.dist.yml) instead of make.
+- Validator: Always run task format after editing files to ensure compliance. This handles both formatting (Black/Ruff) and linting (Ruff).
+
+🐍 Python Code Style (Ruff/Black)
+- Line Length: strictly 88 characters.
+- Break long function calls, comments, and strings to fit this limit.
+- Correction strategy: If replace_string_in_file fails due to line length,
+  refactor into multi-line statements before applying.
+- Imports: Remove unused imports immediately (F401).
+- Type Hints: Avoid redundant unions.
+- Bad: Literal["small", "large"] | str (Literal is redundant if str is present).
+- Good: str (if open-ended) or Literal["small", "large"] (if closed).
+- Arguments: Remove unused function arguments (ARG001) unless required for strict API signature compatibility (in which case, prefix with _).
+
+🏗️ AppKit & Reflex Architecture
+- Do not use rx.session() inside background processors, callbacks, or pure Python utilities.
+- Do use appkit_commons.database.session_manager.get_session_manager().session() context manager for robust DB access in those contexts.
+- Configuration fields often use Pydantic SecretStr. Always access them via .get_secret_value() to retrieve the raw string.
+- Use logging.getLogger(__name__).
+- No f-strings in logging calls (lazy evaluation). Correct: logger.info("Processing user %s", user_id). Incorrect: logger.info(f"Processing user {user_id}")
+- do not use "and", "or" in rx.cond(). Use "&" and "|" instead for proper expression tree generation.
+- NEVER user print or printf for logging or debugging. Always use the logging module.
+- always use log.debug for detailed internal state information, log.info for high-level process milestones, log.warning for recoverable issues, and log.error for serious problems.

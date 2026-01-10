@@ -71,7 +71,7 @@ class Drawer(MantineComponentBase):
     position: rx.Var[Literal["left", "right", "top", "bottom"]]
     """Drawer position (default: 'left')."""
 
-    size: rx.Var[str | int | Literal["xs", "sm", "md", "lg", "xl", "full"]]
+    size: rx.Var[str | int | Literal["xs", "sm", "md", "lg", "xl", "full"]]  # noqa: PYI051
     """Drawer size (width for left/right, height for top/bottom).
     Can be predefined size or custom value (e.g., '55%', 200)."""
 
@@ -82,10 +82,10 @@ class Drawer(MantineComponentBase):
     # Visual Styling Props
     # ========================================================================
 
-    radius: rx.Var[Literal["xs", "sm", "md", "lg", "xl"] | int | str]
+    radius: rx.Var[Literal["xs", "sm", "md", "lg", "xl"] | int | str]  # noqa: PYI051
     """Border radius size."""
 
-    padding: rx.Var[Literal["xs", "sm", "md", "lg", "xl"] | int | str]
+    padding: rx.Var[Literal["xs", "sm", "md", "lg", "xl"] | int | str]  # noqa: PYI051
     """Drawer content padding."""
 
     shadow: rx.Var[Literal["xs", "sm", "md", "lg", "xl"]]
@@ -99,7 +99,7 @@ class Drawer(MantineComponentBase):
     # ========================================================================
 
     overlay_props: rx.Var[dict[str, Any]]
-    """Props passed to Overlay component (e.g., {'backgroundOpacity': 0.5, 'blur': 4})."""
+    """Props passed to Overlay component (e.g., {'backgroundOpacity':0.5, 'blur':4})."""
 
     # ========================================================================
     # Scroll Behavior Props
@@ -116,7 +116,7 @@ class Drawer(MantineComponentBase):
     # ========================================================================
 
     transition_props: rx.Var[dict[str, Any]]
-    """Props for Transition component (e.g., {'transition': 'fade', 'duration': 200})."""
+    """Props for Transition component (e.g., {'transition': 'fade','duration': 200})."""
 
     # ========================================================================
     # Focus Management Props
@@ -311,10 +311,10 @@ class DrawerContent(MantineComponentBase):
 
     tag = "Drawer.Content"
 
-    padding: rx.Var[Literal["xs", "sm", "md", "lg", "xl"] | int | str]
+    padding: rx.Var[Literal["xs", "sm", "md", "lg", "xl"] | int | str]  # noqa: PYI051
     """Content padding."""
 
-    radius: rx.Var[Literal["xs", "sm", "md", "lg", "xl"] | int | str]
+    radius: rx.Var[Literal["xs", "sm", "md", "lg", "xl"] | int | str]  # noqa: PYI051
     """Border radius."""
 
     shadow: rx.Var[Literal["xs", "sm", "md", "lg", "xl"]]

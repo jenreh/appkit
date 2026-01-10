@@ -3,16 +3,22 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import reflex as rx
+
+from appkit_assistant.backend.mcp_auth_service import MCPAuthService
 from appkit_assistant.backend.models import (
     AIModel,
+    AssistantMCPUserToken,
     Chunk,
     ChunkType,
+    MCPAuthType,
     MCPServer,
     Message,
     MessageType,
 )
 from appkit_assistant.backend.processors.openai_base import BaseOpenAIProcessor
 from appkit_assistant.backend.system_prompt_cache import get_system_prompt
+from appkit_commons.database.session import get_session_manager
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +32,13 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         api_key: str | None = None,
         base_url: str | None = None,
         is_azure: bool = False,
+        oauth_redirect_uri: str = "",
     ) -> None:
         super().__init__(models, api_key, base_url, is_azure)
         self._current_reasoning_session: str | None = None
+        self._current_user_id: int | None = None
+        self._mcp_auth_service = MCPAuthService(redirect_uri=oauth_redirect_uri)
+        self._pending_auth_servers: list[MCPServer] = []
 
     async def process(
         self,
@@ -37,6 +47,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         files: list[str] | None = None,  # noqa: ARG002
         mcp_servers: list[MCPServer] | None = None,
         payload: dict[str, Any] | None = None,
+        user_id: int | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """Process messages using simplified content accumulator pattern."""
         if not self.client:
@@ -47,29 +58,45 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             raise ValueError(msg)
 
         model = self.models[model_id]
+        self._current_user_id = user_id
+        self._pending_auth_servers = []
 
         try:
             session = await self._create_responses_request(
-                messages, model, mcp_servers, payload
+                messages, model, mcp_servers, payload, user_id
             )
 
-            if hasattr(session, "__aiter__"):  # Streaming
-                async for event in session:
-                    chunk = self._handle_event(event)
-                    if chunk:
-                        yield chunk
-            else:  # Non-streaming
-                content = self._extract_responses_content(session)
-                if content:
-                    yield Chunk(
-                        type=ChunkType.TEXT,
-                        text=content,
-                        chunk_metadata={
-                            "source": "responses_api",
-                            "streaming": "false",
-                        },
-                    )
+            try:
+                if hasattr(session, "__aiter__"):  # Streaming
+                    async for event in session:
+                        chunk = self._handle_event(event)
+                        if chunk:
+                            yield chunk
+                else:  # Non-streaming
+                    content = self._extract_responses_content(session)
+                    if content:
+                        yield Chunk(
+                            type=ChunkType.TEXT,
+                            text=content,
+                            chunk_metadata={
+                                "source": "responses_api",
+                                "streaming": "false",
+                            },
+                        )
+            except Exception as e:
+                logger.error("Error during response processing: %s", e)
+                # Continue to yield auth chunks if any
+
+            # After processing (or on error), yield any pending auth requirements
+            logger.debug(
+                "Processing pending auth servers: %d", len(self._pending_auth_servers)
+            )
+            for server in self._pending_auth_servers:
+                logger.debug("Yielding auth chunk for server: %s", server.name)
+                yield await self._create_auth_required_chunk(server)
+
         except Exception as e:
+            logger.error("Critical error in OpenAI processor: %s", e)
             raise e
 
     def _handle_event(self, event: Any) -> Chunk | None:
@@ -95,7 +122,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             result = handler(event_type)
             if result:
                 content_preview = result.text[:50] if result.text else ""
-                logger.info(
+                logger.debug(
                     "Event %s → Chunk: type=%s, content=%s",
                     event_type,
                     result.type,
@@ -205,14 +232,36 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         return None
 
     def _handle_mcp_call_done(self, item: Any) -> Chunk | None:
-        """Handle MCP call completion."""
+        """Handle MCP call completion.
+
+        Detects 401/403 authentication errors and marks servers for auth flow.
+        """
         tool_id = getattr(item, "id", "unknown_id")
         tool_name = getattr(item, "name", "unknown_tool")
+        server_label = getattr(item, "server_label", "unknown_server")
         error = getattr(item, "error", None)
         output = getattr(item, "output", None)
 
         if error:
             error_text = self._extract_error_text(error)
+
+            # Check for authentication errors (401/403)
+            if self._is_auth_error(error):
+                # Find the server config and queue for auth flow
+                return self._create_chunk(
+                    ChunkType.TOOL_RESULT,
+                    f"Authentifizierung erforderlich für {server_label}",
+                    {
+                        "tool_id": tool_id,
+                        "tool_name": tool_name,
+                        "server_label": server_label,
+                        "status": "auth_required",
+                        "error": True,
+                        "auth_required": True,
+                        "reasoning_session": self._current_reasoning_session,
+                    },
+                )
+
             return self._create_chunk(
                 ChunkType.TOOL_RESULT,
                 f"Werkzeugfehler: {error_text}",
@@ -238,6 +287,21 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             },
         )
 
+    def _is_auth_error(self, error: Any) -> bool:
+        """Check if an error indicates authentication failure (401/403)."""
+        error_str = str(error).lower()
+        auth_indicators = [
+            "401",
+            "403",
+            "unauthorized",
+            "forbidden",
+            "authentication required",
+            "access denied",
+            "invalid token",
+            "token expired",
+        ]
+        return any(indicator in error_str for indicator in auth_indicators)
+
     def _extract_error_text(self, error: Any) -> str:
         """Extract readable error text from error object."""
         if isinstance(error, dict) and "content" in error:
@@ -246,7 +310,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 return content[0].get("text", str(error))
         return "Unknown error"
 
-    def _handle_mcp_events(self, event_type: str, event: Any) -> Chunk | None:
+    def _handle_mcp_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: PLR0911, PLR0912
         """Handle MCP-specific events."""
         if event_type == "response.mcp_call_arguments.delta":
             tool_id = getattr(event, "item_id", "unknown_id")
@@ -315,6 +379,70 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
 
         if event_type == "response.mcp_list_tools.failed":
             tool_id = getattr(event, "item_id", "unknown_id")
+            error = getattr(event, "error", None)
+
+            # Debugging: Log available attributes to help diagnosis
+            if logger.isEnabledFor(logging.DEBUG) and error:
+                logger.debug("Error object type: %s, content: %s", type(error), error)
+
+            # Extract error message safely
+            error_str = ""
+            if error:
+                if isinstance(error, dict):
+                    error_str = error.get("message", str(error))
+                elif hasattr(error, "message"):
+                    error_str = getattr(error, "message", str(error))
+                else:
+                    error_str = str(error)
+
+            # Check for authentication errors (401/403)
+            # OR if we have pending auth servers (strong signal we missed a token)
+            is_auth_error = self._is_auth_error(error_str)
+            pending_server = None
+
+            # 1. Try to find matching server by name in error message
+            for server in self._pending_auth_servers:
+                if server.name.lower() in error_str.lower():
+                    pending_server = server
+                    break
+
+            # 2. If no match but we have pending servers and it looks like an auth error
+            # OR if we have pending servers and likely one of them failed (len=1)
+            # We assume the failure belongs to the pending server if we can't be sure
+            if (
+                not pending_server
+                and self._pending_auth_servers
+                and (is_auth_error or len(self._pending_auth_servers) == 1)
+            ):
+                pending_server = self._pending_auth_servers[0]
+                logger.debug(
+                    "Assuming pending server %s for list_tools failure '%s'",
+                    pending_server.name,
+                    error_str,
+                )
+
+            if pending_server:
+                logger.debug(
+                    "Queuing Auth Card for server: %s (Error: %s)",
+                    pending_server.name,
+                    error_str,
+                )
+                # Queue for async processing in the main process loop
+                # The auth chunk will be yielded after event processing completes
+                if pending_server not in self._pending_auth_servers:
+                    self._pending_auth_servers.append(pending_server)
+                return self._create_chunk(
+                    ChunkType.TOOL_RESULT,
+                    f"Authentifizierung erforderlich für {pending_server.name}",
+                    {
+                        "tool_id": tool_id,
+                        "status": "auth_required",
+                        "server_name": pending_server.name,
+                        "auth_pending": True,
+                        "reasoning_session": self._current_reasoning_session,
+                    },
+                )
+
             logger.error("MCP tool listing failed for tool_id: %s", str(event))
             return self._create_chunk(
                 ChunkType.TOOL_RESULT,
@@ -396,11 +524,14 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         model: AIModel,
         mcp_servers: list[MCPServer] | None = None,
         payload: dict[str, Any] | None = None,
+        user_id: int | None = None,
     ) -> Any:
         """Create a simplified responses API request."""
-        # Configure MCP tools if provided
+        # Configure MCP tools if provided (now async for token lookup)
         tools, mcp_prompt = (
-            self._configure_mcp_tools(mcp_servers) if mcp_servers else ([], "")
+            await self._configure_mcp_tools(mcp_servers, user_id)
+            if mcp_servers
+            else ([], "")
         )
 
         # Convert messages to responses format with system message
@@ -421,10 +552,14 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         logger.debug("Responses API request params: %s", params)
         return await self.client.responses.create(**params)
 
-    def _configure_mcp_tools(
-        self, mcp_servers: list[MCPServer] | None
+    async def _configure_mcp_tools(
+        self,
+        mcp_servers: list[MCPServer] | None,
+        user_id: int | None = None,
     ) -> tuple[list[dict[str, Any]], str]:
         """Configure MCP servers as tools for the responses API.
+
+        Injects OAuth Bearer tokens for servers that require authentication.
 
         Returns:
             tuple: (tools list, concatenated prompts string)
@@ -434,6 +569,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
 
         tools = []
         prompts = []
+
         for server in mcp_servers:
             tool_config = {
                 "type": "mcp",
@@ -442,8 +578,28 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 "require_approval": "never",
             }
 
+            # Start with existing headers
+            headers = {}
             if server.headers and server.headers != "{}":
-                tool_config["headers"] = json.loads(server.headers)
+                headers = json.loads(server.headers)
+
+            # Inject OAuth token if server requires OAuth and user is authenticated
+            if server.auth_type == MCPAuthType.OAUTH_DISCOVERY and user_id is not None:
+                token = await self._get_valid_token_for_server(server, user_id)
+                if token:
+                    headers["Authorization"] = f"Bearer {token.access_token}"
+                    logger.debug("Injected OAuth token for server %s", server.name)
+                else:
+                    # No valid token - server will likely fail with 401
+                    # Track this server for potential auth flow
+                    self._pending_auth_servers.append(server)
+                    logger.debug(
+                        "No valid token for OAuth server %s, auth may be required",
+                        server.name,
+                    )
+
+            if headers:
+                tool_config["headers"] = headers
 
             tools.append(tool_config)
 
@@ -511,3 +667,81 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                     return first_output.content[0].get("text", "")
                 return str(first_output.content)
         return None
+
+    async def _get_valid_token_for_server(
+        self,
+        server: MCPServer,
+        user_id: int,
+    ) -> AssistantMCPUserToken | None:
+        """Get a valid OAuth token for the given server and user.
+
+        Refreshes the token if expired and refresh token is available.
+
+        Args:
+            server: The MCP server configuration.
+            user_id: The user's ID.
+
+        Returns:
+            A valid token or None if not available.
+        """
+        if server.id is None:
+            return None
+
+        with rx.session() as session:
+            token = self._mcp_auth_service.get_user_token(session, user_id, server.id)
+
+            if token is None:
+                return None
+
+            # Check if token is valid or can be refreshed
+            return await self._mcp_auth_service.ensure_valid_token(
+                session, server, token
+            )
+
+    async def _create_auth_required_chunk(self, server: MCPServer) -> Chunk:
+        """Create an AUTH_REQUIRED chunk for a server that needs authentication.
+
+        Args:
+            server: The MCP server requiring authentication.
+
+        Returns:
+            A chunk signaling auth is required with the auth URL.
+        """
+        # Build the authorization URL
+        try:
+            # We use a session to store the PKCE state
+            # NOTE: rx.session() is for Reflex user session, not DB session.
+            # We use get_session_manager().session() for DB access required by PKCE.
+            with get_session_manager().session() as session:
+                # Use the async method that supports DCR
+                auth_service = self._mcp_auth_service
+                (
+                    auth_url,
+                    state,
+                ) = await auth_service.build_authorization_url_with_registration(
+                    server,
+                    session=session,
+                    user_id=self._current_user_id,
+                )
+                logger.info(
+                    "Built auth URL for server %s, state=%s, url=%s",
+                    server.name,
+                    state,
+                    auth_url[:100] if auth_url else "None",
+                )
+        except (ValueError, Exception) as e:
+            logger.error("Cannot build auth URL for server %s: %s", server.name, str(e))
+            auth_url = ""
+            state = ""
+
+        return Chunk(
+            type=ChunkType.AUTH_REQUIRED,
+            text=f"{server.name} benötigt Ihre Autorisierung",
+            chunk_metadata={
+                "server_id": str(server.id) if server.id else "",
+                "server_name": server.name,
+                "auth_url": auth_url,
+                "state": state,
+                "processor": "openai_responses",
+            },
+        )

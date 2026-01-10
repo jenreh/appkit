@@ -34,6 +34,16 @@ class UserSessionRepository(BaseRepository[UserSessionEntity, AsyncSession]):
         result = await session.execute(stmt)
         return result.scalars().first()
 
+    async def find_by_session_id(
+        self, session: AsyncSession, session_id: str
+    ) -> UserSessionEntity | None:
+        """Get a user session by session_id."""
+        stmt = select(UserSessionEntity).where(
+            UserSessionEntity.session_id == session_id
+        )
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
     async def save(
         self,
         session: AsyncSession,

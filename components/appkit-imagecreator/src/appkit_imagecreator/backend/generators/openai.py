@@ -238,7 +238,7 @@ class OpenAIImageGenerator(ImageGenerator):
         enhanced_prompt = input_data.prompt
         image_files = self._prepare_image_files(reference_images)
 
-        logger.info(
+        logger.debug(
             "Editing %d reference image(s)",
             len(image_files),
         )
