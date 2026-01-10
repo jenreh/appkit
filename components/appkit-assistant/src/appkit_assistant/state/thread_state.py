@@ -952,25 +952,21 @@ class ThreadState(rx.State):
             # Remove the incomplete assistant message from the failed attempt
             if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
                 self.messages = self.messages[:-1]
-            # Add success message
-            self.messages.append(
-                Message(
-                    text=f"Erfolgreich mit {server_name} verbunden. "
-                    "Anfrage wird erneut gesendet...",
-                    type=MessageType.INFO,
-                )
+            # Show success toast instead of adding to messages
+            yield rx.toast.success(
+                f"Erfolgreich mit {server_name} verbunden. "
+                "Anfrage wird erneut gesendet...",
+                position="top-right",
             )
             # Resend the original message by setting prompt and yielding the event
             self.prompt = pending_message
             self._skip_user_message = True  # User message already in list
             yield ThreadState.submit_message
         else:
-            # No pending message - just show success
-            self.messages.append(
-                Message(
-                    text=f"Erfolgreich mit {server_name} verbunden.",
-                    type=MessageType.INFO,
-                )
+            # No pending message - just show success toast
+            yield rx.toast.success(
+                f"Erfolgreich mit {server_name} verbunden.",
+                position="top-right",
             )
 
     @rx.event

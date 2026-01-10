@@ -177,77 +177,104 @@ class Assistant:
                         return;
                     }
                     window._mcpOAuthListenerInstalled = true;
-                    var processing = false;
+                    var lastProcessedTimestamp = 0;
 
                     function getCurrentUserId() {
                         var el = document.getElementById('mcp-oauth-user-id');
                         return el ? el.value : '';
                     }
                     function processOAuthResult(data) {
-                        if (processing) {
-                            console.log('[OAuth] Already processing, skip');
+                        // Simple timestamp-based debouncing
+                        var now = Date.now();
+                        if (data.timestamp && data.timestamp === lastProcessedTimestamp) {
+                            console.log('[OAuth] Already processed this timestamp, skip');
                             return false;
                         }
-                        processing = true;
+                        lastProcessedTimestamp = data.timestamp || now;
 
                         var currentUserId = getCurrentUserId();
                         console.log('[OAuth] Processing, userId:', data.userId,
-                            'current:', currentUserId);
+                            'current:', currentUserId, 'timestamp:', data.timestamp);
+
                         // Security: only process if user_id matches (or not set)
                         if (data.userId && currentUserId &&
                             String(data.userId) !== String(currentUserId)) {
                             console.log('[OAuth] Ignoring - user mismatch');
-                            processing = false;
                             return false;
                         }
+
                         window._mcpOAuthData = data;
-                        var btn = document.getElementById(
-                            'mcp-oauth-success-trigger'
-                        );
+                        console.log('[OAuth] Stored data in window._mcpOAuthData');
+
+                        var btn = document.getElementById('mcp-oauth-success-trigger');
                         if (btn) {
                             console.log('[OAuth] Clicking trigger button');
                             btn.click();
+                            console.log('[OAuth] Button clicked successfully');
+                        } else {
+                            console.error('[OAuth] Trigger button not found!');
                         }
-                        // Reset after short delay to allow for page navigation
-                        setTimeout(function() { processing = false; }, 5000);
                         return true;
                     }
+
                     function checkLocalStorage() {
-                        if (processing) return false;
                         var stored = localStorage.getItem('mcp-oauth-result');
                         if (stored) {
-                            console.log('[OAuth] Found in localStorage');
+                            console.log('[OAuth] Found in localStorage:', stored);
                             try {
                                 var data = JSON.parse(stored);
                                 if (data.type === 'mcp-oauth-success') {
+                                    console.log('[OAuth] Valid OAuth data, removing from localStorage');
                                     localStorage.removeItem('mcp-oauth-result');
                                     return processOAuthResult(data);
                                 }
-                            } catch(e) { console.error('[OAuth] Parse error:', e); }
+                            } catch(e) {
+                                console.error('[OAuth] Parse error:', e);
+                            }
                         }
                         return false;
                     }
+
                     console.log('[OAuth] Installing listeners');
+
                     window.addEventListener('storage', function(event) {
+                        console.log('[OAuth] Storage event:', event.key);
                         if (event.key === 'mcp-oauth-result') {
-                            checkLocalStorage();
+                            setTimeout(checkLocalStorage, 100);
                         }
                     });
+
                     window.addEventListener('focus', function() {
-                        checkLocalStorage();
+                        console.log('[OAuth] Window focus event');
+                        setTimeout(checkLocalStorage, 100);
                     });
+
                     document.addEventListener('visibilitychange', function() {
-                        if (!document.hidden) checkLocalStorage();
+                        if (!document.hidden) {
+                            console.log('[OAuth] Document visible');
+                            setTimeout(checkLocalStorage, 100);
+                        }
                     });
-                    var intervalId = setInterval(function() {
-                        if (checkLocalStorage()) clearInterval(intervalId);
-                    }, 2000);
-                    checkLocalStorage();
+
                     window.addEventListener('message', function(event) {
+                        console.log('[OAuth] postMessage received:', event.data);
                         if (event.data && event.data.type === 'mcp-oauth-success') {
+                            console.log('[OAuth] Processing postMessage data');
                             processOAuthResult(event.data);
                         }
                     });
+
+                    // Aggressive polling - check every 500ms
+                    var intervalId = setInterval(function() {
+                        if (checkLocalStorage()) {
+                            console.log('[OAuth] Success via polling, clearing interval');
+                            clearInterval(intervalId);
+                        }
+                    }, 500);
+
+                    // Initial check
+                    console.log('[OAuth] Initial localStorage check');
+                    checkLocalStorage();
                 })();
                 """
             ),
