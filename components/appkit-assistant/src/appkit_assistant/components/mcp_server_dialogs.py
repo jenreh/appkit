@@ -631,7 +631,11 @@ def update_mcp_server_dialog(server: MCPServer) -> rx.Component:
             ),
             rx.flex(
                 rx.form.root(
-                    mcp_server_form_fields(server),
+                    mn.scroll_area(
+                        mcp_server_form_fields(server),
+                        height="60vh",
+                        width="100%",
+                    ),
                     dialog_buttons(
                         "MCP Server aktualisieren",
                         has_errors=ValidationState.has_errors,
