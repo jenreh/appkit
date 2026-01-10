@@ -13,6 +13,11 @@ from appkit_assistant.backend.processors.openai_base import GPT_5_1, GPT_5_2, GP
 from appkit_assistant.backend.processors.openai_responses_processor import (
     OpenAIResponsesProcessor,
 )
+from appkit_assistant.backend.processors.perplexity_processor import (
+    SONAR,
+    SONAR_DEEP_RESEARCH,
+    PerplexityProcessor,
+)
 from appkit_assistant.components import (
     Suggestion,
 )
@@ -30,7 +35,12 @@ from appkit_user.authentication.components.components import (
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
-from app.roles import ASSISTANT_ROLE
+from app.roles import (
+    ADVANCED_MODEL_ROLE,
+    ASSISTANT_ROLE,
+    BASIC_MODEL_ROLE,
+    PERPLEXITY_MODEL_ROLE,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,14 +65,20 @@ def initialize_model_manager() -> list[AIModel]:
     model_manager.register_processor("lorem_ipsum", LoremIpsumProcessor())
     config = service_registry().get(AssistantConfig)
 
-    # if config.perplexity_api_key is not None:
-    #     model_manager.register_processor(
-    #         "perplexity",
-    #         PerplexityProcessor(
-    #             api_key=config.perplexity_api_key.get_secret_value(),
-    #             models={SONAR.id: SONAR, SONAR_DEEP_RESEARCH.id: SONAR_DEEP_RESEARCH},
-    #         ),
-    #     )
+    SONAR.requires_role = PERPLEXITY_MODEL_ROLE.name
+    SONAR_DEEP_RESEARCH.requires_role = PERPLEXITY_MODEL_ROLE.name
+
+    if config.perplexity_api_key is not None:
+        model_manager.register_processor(
+            "perplexity",
+            PerplexityProcessor(
+                api_key=config.perplexity_api_key.get_secret_value(),
+                models={SONAR.id: SONAR, SONAR_DEEP_RESEARCH.id: SONAR_DEEP_RESEARCH},
+            ),
+        )
+
+    GPT_5_1.requires_role = BASIC_MODEL_ROLE.name
+    GPT_5_2.requires_role = ADVANCED_MODEL_ROLE.name
 
     models = {
         GPT_5_1.id: GPT_5_1,

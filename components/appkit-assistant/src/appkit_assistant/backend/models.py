@@ -100,6 +100,7 @@ class AIModel(BaseModel):
     supports_attachments: bool = False
     keywords: list[str] = []
     disabled: bool = False
+    requires_role: str | None = None
 
 
 class Suggestion(BaseModel):

@@ -168,19 +168,43 @@ class ThreadState(rx.State):
     # -------------------------------------------------------------------------
 
     @rx.event
-    def initialize(self) -> None:
+    async def initialize(self) -> None:
         """Initialize the state with models and a new empty thread.
 
         Only initializes once per user session. Resets when user changes.
         """
-        # If already initialized, skip
-        if self._initialized:
-            logger.debug("Thread state already initialized")
+        user_session: UserSession = await self.get_state(UserSession)
+        user = await user_session.authenticated_user
+        current_user_id = str(user.user_id) if user else ""
+
+        # If already initialized and user hasn't changed, skip
+        if self._initialized and self._current_user_id == current_user_id:
+            logger.debug(
+                "Thread state already initialized for user %s", current_user_id
+            )
             return
 
         model_manager = ModelManager()
-        self.ai_models = model_manager.get_all_models()
+        all_models = model_manager.get_all_models()
         self.selected_model = model_manager.get_default_model()
+
+        # Filter models based on user roles
+        user_roles = user.roles if user else []
+
+        self.ai_models = [
+            m
+            for m in all_models
+            if not m.requires_role or m.requires_role in user_roles
+        ]
+
+        # If selected model is not in available models, pick the first one
+        available_model_ids = [m.id for m in self.ai_models]
+        if self.selected_model not in available_model_ids:
+            if available_model_ids:
+                self.selected_model = available_model_ids[0]
+            else:
+                logger.warning("No models available for user")
+                self.selected_model = ""
 
         self._thread = ThreadModel(
             thread_id=str(uuid.uuid4()),
@@ -196,11 +220,12 @@ class ThreadState(rx.State):
         self.image_chunks = []
         self.prompt = ""
         self.show_thinking = False
+        self._current_user_id = current_user_id
         self._initialized = True
         logger.debug("Initialized thread state: %s", self._thread.thread_id)
 
     @rx.event
-    def new_thread(self) -> None:
+    async def new_thread(self) -> None:
         """Create a new empty thread (not persisted, not in list yet).
 
         Called when user clicks "New Chat" or when active thread is deleted.
@@ -208,7 +233,7 @@ class ThreadState(rx.State):
         """
         # Ensure state is initialized first
         if not self._initialized:
-            self.initialize()
+            await self.initialize()
 
         # Don't create new if current thread is already empty
         if self._thread.state == ThreadStatus.NEW and not self.messages:
@@ -277,8 +302,6 @@ class ThreadState(rx.State):
 
                 if not thread_entity:
                     logger.warning("Thread %s not found in database", thread_id)
-                    # We can't access self in here easily to clear loading state unless we break out
-                    # but we can check thread_entity after context
 
                 # Convert to ThreadModel if found
                 full_thread = None
@@ -292,14 +315,13 @@ class ThreadState(rx.State):
                         messages=[Message(**m) for m in thread_entity.messages],
                     )
 
-            if not full_thread:
-                if not thread_entity:  # it was not found
-                    async with self:
-                        threadlist_state: ThreadListState = await self.get_state(
-                            ThreadListState
-                        )
-                        threadlist_state.loading_thread_id = ""
-                    return
+            if not full_thread and not thread_entity:  # it was not found
+                async with self:
+                    threadlist_state: ThreadListState = await self.get_state(
+                        ThreadListState
+                    )
+                    threadlist_state.loading_thread_id = ""
+                return
 
             # Mark all messages as done (loaded from DB)
             if full_thread:
