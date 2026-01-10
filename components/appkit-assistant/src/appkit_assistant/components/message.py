@@ -230,6 +230,54 @@ class MessageComponent:
         )
 
     @staticmethod
+    def error_message(message: str) -> rx.Component:
+        return rx.hstack(
+            rx.avatar(
+                fallback="!",
+                size="3",
+                variant="soft",
+                radius="full",
+                margin_top="16px",
+                color_scheme="red",
+            ),
+            rx.callout(
+                message,
+                icon="triangle-alert",
+                color_scheme="red",
+                max_width="90%",
+                size="1",
+                padding="0.5em",
+                border_radius="9px",
+                margin_top="18px",
+            ),
+            style=message_styles,
+        )
+
+    @staticmethod
+    def system_message(message: str) -> rx.Component:
+        return rx.hstack(
+            rx.avatar(
+                fallback="⚙",
+                size="3",
+                variant="soft",
+                radius="full",
+                margin_top="16px",
+                color_scheme="gray",
+            ),
+            rx.callout(
+                message,
+                icon="info",
+                color_scheme="gray",
+                max_width="90%",
+                size="1",
+                padding="0.5em",
+                border_radius="9px",
+                margin_top="18px",
+            ),
+            style=message_styles,
+        )
+
+    @staticmethod
     def render_message(
         message: Message,
     ) -> rx.Component:
@@ -244,6 +292,14 @@ class MessageComponent:
                 (
                     MessageType.ASSISTANT,
                     MessageComponent.assistant_message(message),
+                ),
+                (
+                    MessageType.ERROR,
+                    MessageComponent.error_message(message.text),
+                ),
+                (
+                    MessageType.SYSTEM,
+                    MessageComponent.system_message(message.text),
                 ),
                 MessageComponent.info_message(message.text),
             )
