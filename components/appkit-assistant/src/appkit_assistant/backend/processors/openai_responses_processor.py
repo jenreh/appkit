@@ -105,9 +105,6 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             return None
 
         event_type = event.type
-        logger.debug("Event: %s", event)
-
-        # Try different handlers in order
         handlers = [
             self._handle_lifecycle_events,
             lambda et: self._handle_text_events(et, event),
@@ -121,16 +118,15 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         for handler in handlers:
             result = handler(event_type)
             if result:
-                content_preview = result.text[:50] if result.text else ""
-                logger.debug(
-                    "Event %s → Chunk: type=%s, content=%s",
-                    event_type,
-                    result.type,
-                    content_preview,
-                )
+                # content_preview = result.text[:50] if result.text else ""
+                # logger.debug(
+                #     "Event %s → Chunk: type=%s, content=%s",
+                #     event_type,
+                #     result.type,
+                #     content_preview,
+                # )
                 return result
 
-        # Log unhandled events for debugging
         logger.debug("Unhandled event type: %s", event_type)
         return None
 
@@ -549,7 +545,6 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             **(payload or {}),
         }
 
-        logger.debug("Responses API request params: %s", params)
         return await self.client.responses.create(**params)
 
     async def _configure_mcp_tools(

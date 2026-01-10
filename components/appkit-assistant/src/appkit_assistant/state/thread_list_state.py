@@ -100,7 +100,7 @@ class ThreadListState(rx.State):
 
                 # Reset ThreadState
                 thread_state: ThreadState = await self.get_state(ThreadState)
-                thread_state.new_thread()
+                await thread_state.new_thread()
 
             if self._initialized:
                 self.loading = False
@@ -239,7 +239,7 @@ class ThreadListState(rx.State):
                     self.active_thread_id = ""
                     # Reset ThreadState to empty thread
                     thread_state: ThreadState = await self.get_state(ThreadState)
-                    thread_state.new_thread()
+                    await thread_state.new_thread()
 
             yield rx.toast.info(
                 f"Chat '{thread_to_delete.title}' gelöscht.",

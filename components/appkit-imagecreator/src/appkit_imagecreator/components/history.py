@@ -66,8 +66,8 @@ def _history_image_card(image: GeneratedImageModel) -> rx.Component:
         rx.box(
             rx.image(
                 src=image.image_url,
-                width="100%",
-                height="100%",
+                width="120px",
+                height="120px",
                 object_fit="cover",
                 loading="lazy",
                 border_radius="6px",

@@ -881,7 +881,7 @@ class ImageGalleryState(rx.State):
         finally:
             async with self:
                 # Clear loading overlay
-                self.deleting_image_id = ""
+                self.deleting_image_id = 0
             yield
 
     @rx.event
