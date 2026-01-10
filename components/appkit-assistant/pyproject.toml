@@ -7,7 +7,7 @@ dependencies = [
     "reflex>=0.8.22",
 ]
 name = "appkit-assistant"
-version = "0.14.1"
+version = "0.15.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
