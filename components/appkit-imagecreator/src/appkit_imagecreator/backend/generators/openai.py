@@ -42,32 +42,39 @@ class OpenAIImageGenerator(ImageGenerator):
         )
 
     async def _enhance_prompt(self, prompt: str) -> str:
-        response = await self.client.chat.completions.create(
-            model="gpt-4.1-mini",
-            stream=False,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an image generation assistant specialized in "
-                        "optimizing user prompts. Ensure content "
-                        "compliance rules are followed. Do not ask followup "
-                        "questions, just generate the optimized prompt."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"Enhance this prompt for image generation or image editing: {prompt}",
-                },
-            ],
-        )
+        try:
+            response = await self.client.chat.completions.create(
+                model="gpt-4.1-mini",
+                stream=False,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are an image generation assistant specialized in "
+                            "optimizing user prompts. Ensure content "
+                            "compliance rules are followed. Do not ask followup "
+                            "questions, just generate the optimized prompt."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            "Enhance this prompt for image generation or "
+                            f"image editing: {prompt}"
+                        ),
+                    },
+                ],
+            )
 
-        result = response.choices[0].message.content.strip()
-        if not result:
-            result = prompt
+            result = response.choices[0].message.content.strip()
+            if not result:
+                result = prompt
 
-        logger.debug("Enhanced prompt for image generation: %s", result)
-        return result
+            logger.debug("Enhanced prompt for image generation: %s", result)
+            return result
+        except Exception as e:
+            logger.error("Failed to enhance prompt: %s", e)
+            return prompt
 
     async def _perform_generation(
         self, input_data: GenerationInput

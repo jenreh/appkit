@@ -35,21 +35,26 @@ class GoogleImageGenerator(ImageGenerator):
         self.client = genai.Client(api_key=self.api_key)
 
     def _enhance_prompt(self, prompt: str) -> str:
-        response = self.client.models.generate_content(
-            model="gemini-2.0-flash-001",
-            contents=(
-                "You are an image generation assistant specialized in "
-                "optimizing user prompts. Ensure content "
-                "compliance rules are followed. Do not ask followup "
-                "questions, just generate the plain, raw, optimized prompt "
-                "withoud any additional text, headlines or questions."
-                f"Enhance this prompt for image generation or image editing: {prompt}"
-            ),
-        )
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash-001",
+                contents=(
+                    "You are an image generation assistant specialized in "
+                    "optimizing user prompts. Ensure content "
+                    "compliance rules are followed. Do not ask followup "
+                    "questions, just generate the plain, raw, optimized prompt "
+                    "withoud any additional text, headlines or questions."
+                    "Enhance this prompt for image generation or image editing: "
+                    f"{prompt}"
+                ),
+            )
 
-        prompt = response.text.strip()
-        logger.debug("Enhanced prompt for image generation: %s", prompt)
-        return prompt
+            enhanced_prompt = response.text.strip()
+            logger.debug("Enhanced prompt for image generation: %s", enhanced_prompt)
+            return enhanced_prompt
+        except Exception as e:
+            logger.error("Failed to enhance prompt: %s", e)
+            return prompt
 
     async def _perform_generation(
         self, input_data: GenerationInput
