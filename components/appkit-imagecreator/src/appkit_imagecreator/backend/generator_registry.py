@@ -116,7 +116,7 @@ class ImageGeneratorRegistry:
 
     def get_generator_ids(self) -> list[str]:
         """Get the IDs of all registered generators."""
-        return list(self._generators.keys())
+        return list(self._generators)
 
     def get_default_generator(self) -> ImageGenerator:
         """Get the default generator."""
@@ -126,5 +126,8 @@ class ImageGeneratorRegistry:
         return next(iter(self._generators.values()))
 
 
-# Create a global instance of the registry
+# Global registry instance (singleton pattern)
+# Performance note: This singleton avoids repeated initialization of generators
+# and maintains a shared cache of configured image generation services across
+# the application. The registry is created once at module import time.
 generator_registry: Final = ImageGeneratorRegistry()
