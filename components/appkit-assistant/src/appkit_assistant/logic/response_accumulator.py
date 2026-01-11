@@ -37,6 +37,15 @@ class ResponseAccumulator:
         self.auth_required: bool = False
         self.error: str | None = None
 
+    @property
+    def auth_required_data(self) -> dict[str, str]:
+        """Return the auth data as a dictionary for compatibility."""
+        return {
+            "server_id": self.pending_auth_server_id,
+            "server_name": self.pending_auth_server_name,
+            "auth_url": self.pending_auth_url,
+        }
+
     def attach_messages_ref(self, messages: list[Message]) -> None:
         """Attach a reference to the mutable messages list from state."""
         self.messages = messages
