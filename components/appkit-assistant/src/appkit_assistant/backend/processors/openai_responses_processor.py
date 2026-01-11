@@ -86,15 +86,20 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             except Exception as e:
                 error_msg = str(e)
                 logger.error("Error during response processing: %s", error_msg)
-                # Yield error chunk to show user-friendly error message
-                yield Chunk(
-                    type=ChunkType.ERROR,
-                    text=f"Ein Fehler ist aufgetreten: {error_msg}",
-                    chunk_metadata={
-                        "source": "responses_api",
-                        "error_type": type(e).__name__,
-                    },
+                # Only yield error chunk if NOT an auth error
+                # and no auth servers are pending (they'll show auth card instead)
+                is_auth_related = (
+                    self._is_auth_error(error_msg) or self._pending_auth_servers
                 )
+                if not is_auth_related:
+                    yield Chunk(
+                        type=ChunkType.ERROR,
+                        text=f"Ein Fehler ist aufgetreten: {error_msg}",
+                        chunk_metadata={
+                            "source": "responses_api",
+                            "error_type": type(e).__name__,
+                        },
+                    )
 
             # After processing (or on error), yield any pending auth requirements
             logger.debug(

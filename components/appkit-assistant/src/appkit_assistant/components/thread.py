@@ -155,128 +155,15 @@ class Assistant:
         #     ThreadState.set_suggestions(suggestions)
 
         return rx.flex(
-            # Hidden element with user_id for OAuth validation
-            rx.el.input(
-                id="mcp-oauth-user-id",
-                type="hidden",
-                value=ThreadState.current_user_id,
-            ),
-            # Hidden button for OAuth callback - triggered by storage event
-            rx.el.button(
-                id="mcp-oauth-success-trigger",
-                style={"display": "none"},
-                on_click=lambda: ThreadState.handle_mcp_oauth_success_from_js(),
-            ),
-            # OAuth listener for localStorage changes (cross-window)
-            rx.script(
-                """
-                (function() {
-                    // Prevent double processing
-                    if (window._mcpOAuthListenerInstalled) {
-                        console.log('[OAuth] Listener already installed, skipping');
-                        return;
-                    }
-                    window._mcpOAuthListenerInstalled = true;
-                    var lastProcessedTimestamp = 0;
-
-                    function getCurrentUserId() {
-                        var el = document.getElementById('mcp-oauth-user-id');
-                        return el ? el.value : '';
-                    }
-                    function processOAuthResult(data) {
-                        // Simple timestamp-based debouncing
-                        var now = Date.now();
-                        if (data.timestamp && data.timestamp === lastProcessedTimestamp) {
-                            console.log('[OAuth] Already processed this timestamp, skip');
-                            return false;
-                        }
-                        lastProcessedTimestamp = data.timestamp || now;
-
-                        var currentUserId = getCurrentUserId();
-                        console.log('[OAuth] Processing, userId:', data.userId,
-                            'current:', currentUserId, 'timestamp:', data.timestamp);
-
-                        // Security: only process if user_id matches (or not set)
-                        if (data.userId && currentUserId &&
-                            String(data.userId) !== String(currentUserId)) {
-                            console.log('[OAuth] Ignoring - user mismatch');
-                            return false;
-                        }
-
-                        window._mcpOAuthData = data;
-                        console.log('[OAuth] Stored data in window._mcpOAuthData');
-
-                        var btn = document.getElementById('mcp-oauth-success-trigger');
-                        if (btn) {
-                            console.log('[OAuth] Clicking trigger button');
-                            btn.click();
-                            console.log('[OAuth] Button clicked successfully');
-                        } else {
-                            console.error('[OAuth] Trigger button not found!');
-                        }
-                        return true;
-                    }
-
-                    function checkLocalStorage() {
-                        var stored = localStorage.getItem('mcp-oauth-result');
-                        if (stored) {
-                            console.log('[OAuth] Found in localStorage:', stored);
-                            try {
-                                var data = JSON.parse(stored);
-                                if (data.type === 'mcp-oauth-success') {
-                                    console.log('[OAuth] Valid OAuth data, removing from localStorage');
-                                    localStorage.removeItem('mcp-oauth-result');
-                                    return processOAuthResult(data);
-                                }
-                            } catch(e) {
-                                console.error('[OAuth] Parse error:', e);
-                            }
-                        }
-                        return false;
-                    }
-
-                    console.log('[OAuth] Installing listeners');
-
-                    window.addEventListener('storage', function(event) {
-                        console.log('[OAuth] Storage event:', event.key);
-                        if (event.key === 'mcp-oauth-result') {
-                            setTimeout(checkLocalStorage, 100);
-                        }
-                    });
-
-                    window.addEventListener('focus', function() {
-                        console.log('[OAuth] Window focus event');
-                        setTimeout(checkLocalStorage, 100);
-                    });
-
-                    document.addEventListener('visibilitychange', function() {
-                        if (!document.hidden) {
-                            console.log('[OAuth] Document visible');
-                            setTimeout(checkLocalStorage, 100);
-                        }
-                    });
-
-                    window.addEventListener('message', function(event) {
-                        console.log('[OAuth] postMessage received:', event.data);
-                        if (event.data && event.data.type === 'mcp-oauth-success') {
-                            console.log('[OAuth] Processing postMessage data');
-                            processOAuthResult(event.data);
-                        }
-                    });
-
-                    // Aggressive polling - check every 500ms
-                    var intervalId = setInterval(function() {
-                        if (checkLocalStorage()) {
-                            console.log('[OAuth] Success via polling, clearing interval');
-                            clearInterval(intervalId);
-                        }
-                    }, 500);
-
-                    // Initial check
-                    console.log('[OAuth] Initial localStorage check');
-                    checkLocalStorage();
-                })();
-                """
+            # OAuth result handler - triggers when popup sets localStorage
+            # rx.LocalStorage(sync=True) auto-syncs, rx.cond re-renders on change
+            rx.cond(
+                ThreadState.oauth_result != "",
+                rx.box(
+                    on_mount=ThreadState.process_oauth_result,
+                    style={"display": "none"},
+                ),
+                rx.fragment(),
             ),
             rx.cond(
                 ThreadState.messages,

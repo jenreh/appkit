@@ -105,6 +105,8 @@ class ThreadState(rx.State):
     pending_auth_url: str = ""
     show_auth_card: bool = False
     pending_oauth_message: str = ""  # Message that triggered OAuth, resent on success
+    # Cross-tab synced localStorage - triggers re-render when popup sets value
+    oauth_result: str = rx.LocalStorage(name="mcp-oauth-result", sync=True)
 
     # Thread list integration
     with_thread_list: bool = False
@@ -970,32 +972,55 @@ class ThreadState(rx.State):
             )
 
     @rx.event
-    def handle_mcp_oauth_success_from_js(self) -> rx.event.EventSpec:
-        """Handle OAuth success triggered from JS - retrieves data from window."""
-        return rx.call_script(
-            "window._mcpOAuthData ? JSON.stringify(window._mcpOAuthData) : '{}'",
-            callback=ThreadState.process_oauth_success_data,
-        )
+    async def process_oauth_result(self) -> AsyncGenerator[Any, Any]:
+        """Process OAuth result from synced LocalStorage.
 
-    @rx.event
-    async def process_oauth_success_data(
-        self, data_str: str
-    ) -> AsyncGenerator[Any, Any]:
-        """Process OAuth success data retrieved from window."""
+        Called via on_mount when oauth_result becomes non-empty.
+        The rx.LocalStorage(sync=True) automatically syncs from popup.
+        """
+        if not self.oauth_result:
+            return
+
         try:
-            data = json.loads(data_str) if data_str else {}
+            data = json.loads(self.oauth_result)
+            if data.get("type") != "mcp-oauth-success":
+                return
+
             server_id = data.get("serverId", "")
             server_name = data.get("serverName", "Unknown")
+            user_id = data.get("userId", "")
+
+            # Security: verify user_id matches
+            if (
+                user_id
+                and self._current_user_id
+                and str(user_id) != str(self._current_user_id)
+            ):
+                logger.warning(
+                    "OAuth user mismatch: got %s, expected %s",
+                    user_id,
+                    self._current_user_id,
+                )
+                # Clear invalid data
+                self.oauth_result = ""
+                return
+
             logger.info(
-                "Processing OAuth success from JS: server_id=%s, server_name=%s",
+                "Processing OAuth success: server_id=%s, server_name=%s",
                 server_id,
                 server_name,
             )
-            # Yield events from handle_mcp_oauth_success
+
+            # Clear localStorage before processing to prevent re-triggers
+            self.oauth_result = ""
+
+            # Process the OAuth success
             async for event in self.handle_mcp_oauth_success(server_id, server_name):
                 yield event
+
         except json.JSONDecodeError:
-            logger.warning("Failed to parse OAuth data from JS: %s", data_str)
+            logger.warning("Failed to parse OAuth result: %s", self.oauth_result)
+            self.oauth_result = ""
 
     @rx.event
     def dismiss_auth_card(self) -> None:
