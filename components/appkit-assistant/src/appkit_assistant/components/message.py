@@ -4,11 +4,11 @@ import appkit_mantine as mn
 from appkit_assistant.backend.models import (
     Message,
     MessageType,
-)
-from appkit_assistant.state.thread_state import (
     Thinking,
     ThinkingStatus,
     ThinkingType,
+)
+from appkit_assistant.state.thread_state import (
     ThreadState,
 )
 from appkit_ui.components.collabsible import collabsible

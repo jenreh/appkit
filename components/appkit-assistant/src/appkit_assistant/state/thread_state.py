@@ -14,53 +14,32 @@ import json
 import logging
 import uuid
 from collections.abc import AsyncGenerator
-from enum import StrEnum
 from typing import Any
 
 import reflex as rx
-from pydantic import BaseModel
 
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.models import (
     AIModel,
-    AssistantThread,
     Chunk,
     ChunkType,
     MCPServer,
     Message,
     MessageType,
     Suggestion,
+    Thinking,
+    ThinkingType,
     ThreadModel,
     ThreadStatus,
 )
-from appkit_assistant.backend.repositories import mcp_server_repo, thread_repo
+from appkit_assistant.backend.repositories import mcp_server_repo
+from appkit_assistant.backend.services.thread_service import ThreadService
+from appkit_assistant.logic.response_accumulator import ResponseAccumulator
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
-
-
-class ThinkingType(StrEnum):
-    REASONING = "reasoning"
-    TOOL_CALL = "tool_call"
-
-
-class ThinkingStatus(StrEnum):
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    ERROR = "error"
-
-
-class Thinking(BaseModel):
-    type: ThinkingType
-    id: str  # reasoning_session_id or tool_id
-    text: str
-    status: ThinkingStatus = ThinkingStatus.IN_PROGRESS
-    tool_name: str | None = None
-    parameters: str | None = None
-    result: str | None = None
-    error: str | None = None
 
 
 class ThreadState(rx.State):
@@ -89,8 +68,11 @@ class ThreadState(rx.State):
     show_thinking: bool = False
     thinking_expanded: bool = False
     current_activity: str = ""
-    current_reasoning_session: str = ""  # Track current reasoning session
-    current_tool_session: str = ""  # Track current tool session when tool_id missing
+
+    # Internal logic helper (not reactive)
+    @property
+    def _thread_service(self) -> ThreadService:
+        return ThreadService()
 
     # MCP Server tool support state
     selected_mcp_servers: list[MCPServer] = []
@@ -222,14 +204,9 @@ class ThreadState(rx.State):
                 logger.warning("No models available for user")
                 self.selected_model = ""
 
-        self._thread = ThreadModel(
-            thread_id=str(uuid.uuid4()),
-            title="Neuer Chat",
-            prompt="",
-            messages=[],
-            state=ThreadStatus.NEW,
-            ai_model=self.selected_model,
-            active=True,
+        self._thread = self._thread_service.create_new_thread(
+            current_model=self.selected_model,
+            user_roles=user_roles,
         )
         self.messages = []
         self.thinking_items = []
@@ -256,14 +233,13 @@ class ThreadState(rx.State):
             logger.debug("Thread already empty, skipping new_thread")
             return
 
-        self._thread = ThreadModel(
-            thread_id=str(uuid.uuid4()),
-            title="Neuer Chat",
-            prompt="",
-            messages=[],
-            state=ThreadStatus.NEW,
-            ai_model=self.selected_model or ModelManager().get_default_model(),
-            active=True,
+        # Need user roles for create_new_thread
+        user_session: UserSession = await self.get_state(UserSession)
+        user = await user_session.authenticated_user
+        user_roles = user.roles if user else []
+
+        self._thread = self._thread_service.create_new_thread(
+            current_model=self.selected_model, user_roles=user_roles
         )
         self.messages = []
         self.thinking_items = []
@@ -311,27 +287,10 @@ class ThreadState(rx.State):
             return
 
         try:
-            async with get_asyncdb_session() as session:
-                thread_entity = await thread_repo.find_by_thread_id_and_user(
-                    session, thread_id, user_id
-                )
+            full_thread = await self._thread_service.load_thread(thread_id, user_id)
 
-                if not thread_entity:
-                    logger.warning("Thread %s not found in database", thread_id)
-
-                # Convert to ThreadModel if found
-                full_thread = None
-                if thread_entity:
-                    full_thread = ThreadModel(
-                        thread_id=thread_entity.thread_id,
-                        title=thread_entity.title,
-                        state=ThreadStatus(thread_entity.state),
-                        ai_model=thread_entity.ai_model,
-                        active=thread_entity.active,
-                        messages=[Message(**m) for m in thread_entity.messages],
-                    )
-
-            if not full_thread and not thread_entity:  # it was not found
+            if not full_thread:  # it was not found
+                logger.warning("Thread %s not found in database", thread_id)
                 async with self:
                     threadlist_state: ThreadListState = await self.get_state(
                         ThreadListState
@@ -340,9 +299,8 @@ class ThreadState(rx.State):
                 return
 
             # Mark all messages as done (loaded from DB)
-            if full_thread:
-                for msg in full_thread.messages:
-                    msg.done = True
+            for msg in full_thread.messages:
+                msg.done = True
 
             async with self:
                 # Update self with loaded thread
@@ -513,6 +471,10 @@ class ThreadState(rx.State):
             user_session: UserSession = await self.get_state(UserSession)
             user_id = user_session.user.user_id if user_session.user else None
 
+            # Initialize ResponseAccumulator logic
+            accumulator = ResponseAccumulator()
+            accumulator.attach_messages_ref(self.messages)
+
         first_response_received = False
         try:
             async for chunk in processor.process(
@@ -523,12 +485,13 @@ class ThreadState(rx.State):
             ):
                 first_response_received = await self._handle_stream_chunk(
                     chunk=chunk,
+                    accumulator=accumulator,
                     current_prompt=current_prompt,
                     is_new_thread=is_new_thread,
                     first_response_received=first_response_received,
                 )
 
-            await self._finalize_successful_response()
+            await self._finalize_successful_response(accumulator)
 
         except Exception as ex:
             await self._handle_process_error(
@@ -551,7 +514,9 @@ class ThreadState(rx.State):
                 return None
 
             self.processing = True
-            self._clear_chunks()
+            # Clearing chunks now only resets direct UI state if needed,
+            # but accumulator handles logic
+            self.image_chunks = []
             self.thinking_items = []
 
             self.prompt = ""
@@ -587,13 +552,29 @@ class ThreadState(rx.State):
         self,
         *,
         chunk: Chunk,
+        accumulator: ResponseAccumulator,
         current_prompt: str,
         is_new_thread: bool,
         first_response_received: bool,
     ) -> bool:
         """Handle one streamed chunk. Returns updated first_response_received."""
         async with self:
-            self._handle_chunk(chunk)
+            accumulator.process_chunk(chunk)
+
+            # Sync UI state from accumulator
+            # Create copy to trigger update
+            self.thinking_items = list(accumulator.thinking_items)
+            self.current_activity = accumulator.current_activity
+            if accumulator.show_thinking:
+                self.show_thinking = True
+            if accumulator.image_chunks:
+                # Append only new ones or sync list? image_chunks is list[Chunk]
+                # Accumulator has all of them.
+                self.image_chunks = list(accumulator.image_chunks)
+
+            # Handle Auth Required which might be set on accumulator state
+            if accumulator.auth_required:
+                self._handle_auth_required_from_accumulator(accumulator)
 
             should_create_thread = (
                 not first_response_received
@@ -610,17 +591,26 @@ class ThreadState(rx.State):
             await self._notify_thread_created()
             return True
 
-    async def _finalize_successful_response(self) -> None:
+    async def _finalize_successful_response(
+        self, accumulator: ResponseAccumulator
+    ) -> None:
         """Finalize state after a successful full response."""
         async with self:
             self.show_thinking = False
+
+            # Final sync
+            self.thinking_items = list(accumulator.thinking_items)
+
             # Convert Reflex proxy list to standard list to avoid Pydantic
             # serializer warnings
             self._thread.messages = list(self.messages)  # noqa: E501
             self._thread.ai_model = self.selected_model
 
             if self.with_thread_list:
-                await self._save_thread_to_db()
+                user_session: UserSession = await self.get_state(UserSession)
+                user_id = user_session.user.user_id if user_session.user else None
+                if user_id:
+                    await self._thread_service.save_thread(self._thread, user_id)
 
     async def _handle_process_error(
         self,
@@ -647,7 +637,10 @@ class ThreadState(rx.State):
             # warnings
             self._thread.messages = list(self.messages)  # noqa: E501
             if self.with_thread_list:
-                await self._save_thread_to_db()
+                user_session: UserSession = await self.get_state(UserSession)
+                user_id = user_session.user.user_id if user_session.user else None
+                if user_id:
+                    await self._thread_service.save_thread(self._thread, user_id)
 
     async def _finalize_processing(self) -> None:
         """Mark processing done and close out the last message."""
@@ -655,6 +648,33 @@ class ThreadState(rx.State):
             if self.messages:
                 self.messages[-1].done = True
             self.processing = False
+            self.current_activity = ""
+
+    def _handle_auth_required_from_accumulator(
+        self, accumulator: ResponseAccumulator
+    ) -> None:
+        """Handle auth required state from accumulator."""
+        self.pending_auth_server_id = accumulator.auth_required_data.get(
+            "server_id", ""
+        )
+        self.pending_auth_server_name = accumulator.auth_required_data.get(
+            "server_name", ""
+        )
+        self.pending_auth_url = accumulator.auth_required_data.get("auth_url", "")
+        self.show_auth_card = True
+
+        # Reset flag in accumulator so we don't trigger this again for same event
+        accumulator.auth_required = False
+
+        # Store the last user message to resend after successful OAuth
+        for msg in reversed(self.messages):
+            if msg.type == MessageType.HUMAN:
+                self.pending_oauth_message = msg.text
+                break
+        logger.debug(
+            "Auth required for server %s, showing auth card",
+            self.pending_auth_server_name,
+        )
 
     # -------------------------------------------------------------------------
     # Thread persistence (internal)
@@ -671,254 +691,12 @@ class ThreadState(rx.State):
         threadlist_state: ThreadListState = await self.get_state(ThreadListState)
         await threadlist_state.add_thread(self._thread)
 
-    async def _save_thread_to_db(self) -> None:
-        """Persist current thread to database.
-
-        Called incrementally after each successful response.
-        """
-        user_session: UserSession = await self.get_state(UserSession)
-        user_id = user_session.user.user_id if user_session.user else None
-
-        if user_id:
-            try:
-                # Prepare entity data
-                messages_dict = [m.dict() for m in self._thread.messages]
-
-                async with get_asyncdb_session() as session:
-                    # Check if exists
-                    existing = await thread_repo.find_by_thread_id_and_user(
-                        session, self._thread.thread_id, user_id
-                    )
-
-                    if existing:
-                        existing.title = self._thread.title
-                        existing.state = (
-                            self._thread.state.value
-                            if hasattr(self._thread.state, "value")
-                            else self._thread.state
-                        )
-                        existing.ai_model = self._thread.ai_model
-                        existing.active = self._thread.active
-                        existing.messages = messages_dict
-                        await thread_repo.save(session, existing)
-                    else:
-                        new_thread = AssistantThread(
-                            thread_id=self._thread.thread_id,
-                            user_id=user_id,
-                            title=self._thread.title,
-                            state=self._thread.state.value
-                            if hasattr(self._thread.state, "value")
-                            else self._thread.state,
-                            ai_model=self._thread.ai_model,
-                            active=self._thread.active,
-                            messages=messages_dict,
-                        )
-                        await thread_repo.save(session, new_thread)
-
-                logger.debug("Saved thread to DB: %s", self._thread.thread_id)
-            except Exception as e:
-                logger.error("Error saving thread %s: %s", self._thread.thread_id, e)
+    # _save_thread_to_db removed, using self._thread_service.save_thread
 
     # -------------------------------------------------------------------------
     # Chunk handling (internal)
+    # Logic moved to ResponseAccumulator
     # -------------------------------------------------------------------------
-
-    def _clear_chunks(self) -> None:
-        """Clear all chunk categorization lists except thinking_items for display."""
-        self.image_chunks = []
-        self.current_reasoning_session = ""  # Reset reasoning session for new message
-        self.current_tool_session = ""  # Reset tool session for new message
-
-    def _get_or_create_tool_session(self, chunk: Chunk) -> str:
-        """Get tool session ID from metadata or derive one.
-
-        If the model doesn't include tool_id in chunk metadata, we track the latest
-        tool session so TOOL_RESULT can be associated with the preceding TOOL_CALL.
-        """
-        tool_id = chunk.chunk_metadata.get("tool_id")
-        if tool_id:
-            self.current_tool_session = tool_id
-            return tool_id
-
-        if chunk.type == ChunkType.TOOL_CALL:
-            tool_count = sum(
-                1 for i in self.thinking_items if i.type == ThinkingType.TOOL_CALL
-            )
-            self.current_tool_session = f"tool_{tool_count}"
-            return self.current_tool_session
-
-        if self.current_tool_session:
-            return self.current_tool_session
-
-        tool_count = sum(
-            1 for i in self.thinking_items if i.type == ThinkingType.TOOL_CALL
-        )
-        self.current_tool_session = f"tool_{tool_count}"
-        return self.current_tool_session
-
-    def _handle_chunk(self, chunk: Chunk) -> None:
-        """Handle incoming chunk based on its type."""
-        if chunk.type == ChunkType.TEXT:
-            self.messages[-1].text += chunk.text
-        elif chunk.type in (ChunkType.THINKING, ChunkType.THINKING_RESULT):
-            self._handle_reasoning_chunk(chunk)
-        elif chunk.type in (
-            ChunkType.TOOL_CALL,
-            ChunkType.TOOL_RESULT,
-            ChunkType.ACTION,
-        ):
-            self._handle_tool_chunk(chunk)
-        elif chunk.type in (ChunkType.IMAGE, ChunkType.IMAGE_PARTIAL):
-            self.image_chunks.append(chunk)
-        elif chunk.type == ChunkType.COMPLETION:
-            self.show_thinking = False
-            logger.debug("Response generation completed")
-        elif chunk.type == ChunkType.AUTH_REQUIRED:
-            self._handle_auth_required_chunk(chunk)
-        elif chunk.type == ChunkType.ERROR:
-            self.messages.append(Message(text=chunk.text, type=MessageType.ERROR))
-            logger.error("Chunk error: %s", chunk.text)
-        else:
-            logger.warning("Unhandled chunk type: %s - %s", chunk.type, chunk.text)
-
-    def _get_or_create_thinking_item(
-        self, item_id: str, thinking_type: ThinkingType, **kwargs
-    ) -> Thinking:
-        """Get existing thinking item or create new one."""
-        for item in self.thinking_items:
-            if item.type == thinking_type and item.id == item_id:
-                return item
-
-        new_item = Thinking(type=thinking_type, id=item_id, **kwargs)
-        self.thinking_items = [*self.thinking_items, new_item]
-        return new_item
-
-    def _handle_reasoning_chunk(self, chunk: Chunk) -> None:
-        """Handle reasoning chunks by consolidating them into thinking items."""
-        if chunk.type == ChunkType.THINKING:
-            self.show_thinking = True
-
-        reasoning_session = self._get_or_create_reasoning_session(chunk)
-
-        # Determine status and text
-        status = ThinkingStatus.IN_PROGRESS
-        text = ""
-        if chunk.type == ChunkType.THINKING:
-            text = chunk.text
-        elif chunk.type == ChunkType.THINKING_RESULT:
-            status = ThinkingStatus.COMPLETED
-
-        item = self._get_or_create_thinking_item(
-            reasoning_session, ThinkingType.REASONING, text=text, status=status
-        )
-
-        # Update existing item
-        if chunk.type == ChunkType.THINKING:
-            if item.text and item.text != text:  # Append if not new
-                item.text += f"\n{chunk.text}"
-        elif chunk.type == ChunkType.THINKING_RESULT:
-            item.status = ThinkingStatus.COMPLETED
-            if chunk.text:
-                item.text += f" {chunk.text}"
-
-        self.thinking_items = self.thinking_items.copy()
-
-    def _get_or_create_reasoning_session(self, chunk: Chunk) -> str:
-        """Get reasoning session ID from metadata or create new one."""
-        reasoning_session = chunk.chunk_metadata.get("reasoning_session")
-        if reasoning_session:
-            return reasoning_session
-
-        # If no session ID in metadata, create separate sessions based on context
-        last_item = self.thinking_items[-1] if self.thinking_items else None
-
-        # Create new session if needed
-        should_create_new_session = (
-            not self.current_reasoning_session
-            or (last_item and last_item.type == ThinkingType.TOOL_CALL)
-            or (
-                last_item
-                and last_item.type == ThinkingType.REASONING
-                and last_item.status == ThinkingStatus.COMPLETED
-            )
-        )
-
-        if should_create_new_session:
-            self.current_reasoning_session = f"reasoning_{uuid.uuid4().hex[:8]}"
-
-        return self.current_reasoning_session
-
-    def _handle_tool_chunk(self, chunk: Chunk) -> None:
-        """Handle tool chunks by consolidating them into thinking items."""
-        tool_id = self._get_or_create_tool_session(chunk)
-
-        # Determine initial properties
-        tool_name = chunk.chunk_metadata.get("tool_name", "Unknown")
-        status = ThinkingStatus.IN_PROGRESS
-        text = ""
-        parameters = None
-        result = None
-        error = None
-
-        if chunk.type == ChunkType.TOOL_CALL:
-            parameters = chunk.chunk_metadata.get("parameters", chunk.text)
-            text = chunk.chunk_metadata.get("description", "")
-        elif chunk.type == ChunkType.TOOL_RESULT:
-            is_error = (
-                "error" in chunk.text.lower()
-                or "failed" in chunk.text.lower()
-                or chunk.chunk_metadata.get("error")
-            )
-            status = ThinkingStatus.ERROR if is_error else ThinkingStatus.COMPLETED
-            result = chunk.text
-            if is_error:
-                error = chunk.text
-        else:
-            text = chunk.text
-
-        item = self._get_or_create_thinking_item(
-            tool_id,
-            ThinkingType.TOOL_CALL,
-            text=text,
-            status=status,
-            tool_name=tool_name,
-            parameters=parameters,
-            result=result,
-            error=error,
-        )
-
-        # Update existing item
-        if chunk.type == ChunkType.TOOL_CALL:
-            item.parameters = parameters
-            item.text = text
-            if not item.tool_name or item.tool_name == "Unknown":
-                item.tool_name = tool_name
-            item.status = ThinkingStatus.IN_PROGRESS
-        elif chunk.type == ChunkType.TOOL_RESULT:
-            item.status = status
-            item.result = result
-            item.error = error
-        elif chunk.type == ChunkType.ACTION:
-            item.text += f"\n---\nAktion: {chunk.text}"
-
-        self.thinking_items = self.thinking_items.copy()
-
-    def _handle_auth_required_chunk(self, chunk: Chunk) -> None:
-        """Handle AUTH_REQUIRED chunks by showing the auth card."""
-        self.pending_auth_server_id = chunk.chunk_metadata.get("server_id", "")
-        self.pending_auth_server_name = chunk.chunk_metadata.get("server_name", "")
-        self.pending_auth_url = chunk.chunk_metadata.get("auth_url", "")
-        self.show_auth_card = True
-        # Store the last user message to resend after successful OAuth
-        for msg in reversed(self.messages):
-            if msg.type == MessageType.HUMAN:
-                self.pending_oauth_message = msg.text
-                break
-        logger.debug(
-            "Auth required for server %s, showing auth card, pending message: %s",
-            self.pending_auth_server_name,
-            self.pending_oauth_message[:50] if self.pending_oauth_message else "None",
-        )
 
     @rx.event
     def start_mcp_oauth(self) -> rx.event.EventSpec:

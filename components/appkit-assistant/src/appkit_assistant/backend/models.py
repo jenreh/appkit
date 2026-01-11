@@ -88,6 +88,28 @@ class Message(BaseModel):
     done: bool = False
 
 
+class ThinkingType(StrEnum):
+    REASONING = "reasoning"
+    TOOL_CALL = "tool_call"
+
+
+class ThinkingStatus(StrEnum):
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ERROR = "error"
+
+
+class Thinking(BaseModel):
+    type: ThinkingType
+    id: str  # reasoning_session_id or tool_id
+    text: str
+    status: ThinkingStatus = ThinkingStatus.IN_PROGRESS
+    tool_name: str | None = None
+    parameters: str | None = None
+    result: str | None = None
+    error: str | None = None
+
+
 class AIModel(BaseModel):
     id: str
     text: str
