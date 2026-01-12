@@ -12,30 +12,12 @@ from sqlmodel import Session, select
 
 from appkit_assistant.backend.mcp_auth_service import MCPAuthService
 from appkit_assistant.backend.models import MCPServer
-from appkit_commons.configuration.configuration import ReflexConfig
+from appkit_assistant.backend.processor import mcp_oauth_redirect_uri
 from appkit_commons.database.session import get_session_manager
-from appkit_commons.registry import service_registry
 from appkit_user.authentication.backend.entities import OAuthStateEntity
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
-
-# OAuth callback path - must match registered redirect URIs
-MCP_OAUTH_CALLBACK_PATH = "/assistant/mcp/callback"
-
-
-def build_mcp_oauth_redirect_uri() -> str:
-    """Build the MCP OAuth redirect URI from configuration."""
-    reflex_config: ReflexConfig | None = service_registry().get(ReflexConfig)
-    if reflex_config:
-        base_url = reflex_config.deploy_url
-        port = reflex_config.frontend_port
-        # Only add port if not standard (80 for http, 443 for https)
-        if port and port not in (80, 443):
-            return f"{base_url}:{port}{MCP_OAUTH_CALLBACK_PATH}"
-        return f"{base_url}{MCP_OAUTH_CALLBACK_PATH}"
-    # Fallback for development
-    return f"http://localhost:8080{MCP_OAUTH_CALLBACK_PATH}"
 
 
 class MCPOAuthState(rx.State):
@@ -237,60 +219,4 @@ class MCPOAuthState(rx.State):
         Uses the same configuration-based URL as the authorization request
         to ensure redirect_uri matches exactly.
         """
-        return build_mcp_oauth_redirect_uri()
-
-
-def mcp_oauth_callback_content() -> rx.Component:
-    """Content for the MCP OAuth callback page."""
-    return rx.center(
-        rx.card(
-            rx.vstack(
-                rx.cond(
-                    MCPOAuthState.status == "processing",
-                    rx.fragment(
-                        rx.spinner(size="3"),
-                        rx.text(MCPOAuthState.message, size="3"),
-                    ),
-                    rx.cond(
-                        MCPOAuthState.status == "success",
-                        rx.fragment(
-                            rx.icon("circle-check", size=48, color="green"),
-                            rx.text(MCPOAuthState.message, size="3", weight="medium"),
-                            rx.text(
-                                "Dieses Fenster wird automatisch geschlossen.",
-                                size="2",
-                                color="gray",
-                            ),
-                        ),
-                        rx.fragment(
-                            rx.icon("circle-alert", size=48, color="red"),
-                            rx.text(MCPOAuthState.message, size="3", weight="medium"),
-                            rx.button(
-                                "Fenster schließen",
-                                on_click=rx.call_script("window.close()"),
-                                variant="soft",
-                            ),
-                        ),
-                    ),
-                ),
-                align="center",
-                spacing="4",
-                padding="6",
-            ),
-            size="3",
-        ),
-        height="100vh",
-    )
-
-
-@rx.page(
-    route="/assistant/mcp/callback",
-    title="MCP Verbindung",
-    on_load=MCPOAuthState.handle_mcp_oauth_callback,
-)
-def mcp_oauth_callback_page() -> rx.Component:
-    """MCP OAuth callback page."""
-    return rx.theme(
-        mcp_oauth_callback_content(),
-        has_background=True,
-    )
+        return mcp_oauth_redirect_uri()

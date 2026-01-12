@@ -1,7 +1,7 @@
 import json
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Final
 
 import reflex as rx
 
@@ -16,11 +16,13 @@ from appkit_assistant.backend.models import (
     Message,
     MessageType,
 )
+from appkit_assistant.backend.processor import mcp_oauth_redirect_uri
 from appkit_assistant.backend.processors.openai_base import BaseOpenAIProcessor
 from appkit_assistant.backend.system_prompt_cache import get_system_prompt
 from appkit_commons.database.session import get_session_manager
 
 logger = logging.getLogger(__name__)
+default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
 
 
 class OpenAIResponsesProcessor(BaseOpenAIProcessor):
@@ -32,13 +34,15 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         api_key: str | None = None,
         base_url: str | None = None,
         is_azure: bool = False,
-        oauth_redirect_uri: str = "",
+        oauth_redirect_uri: str = default_oauth_redirect_uri,
     ) -> None:
         super().__init__(models, api_key, base_url, is_azure)
         self._current_reasoning_session: str | None = None
         self._current_user_id: int | None = None
         self._mcp_auth_service = MCPAuthService(redirect_uri=oauth_redirect_uri)
         self._pending_auth_servers: list[MCPServer] = []
+
+        logger.debug("Using redirect URI for MCP OAuth: %s", oauth_redirect_uri)
 
     async def process(
         self,

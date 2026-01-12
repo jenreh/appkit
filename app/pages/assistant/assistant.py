@@ -35,7 +35,6 @@ from appkit_user.authentication.components.components import (
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
-from app.pages.assistant.mcp_oauth_callback import build_mcp_oauth_redirect_uri
 from app.roles import (
     ADVANCED_MODEL_ROLE,
     ASSISTANT_ROLE,
@@ -94,7 +93,6 @@ def initialize_model_manager() -> list[AIModel]:
             base_url=config.openai_base_url,
             models=models,
             is_azure=True,
-            oauth_redirect_uri=build_mcp_oauth_redirect_uri(),
         ),
     )
 

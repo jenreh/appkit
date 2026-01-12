@@ -6,6 +6,7 @@ import reflex as rx
 from fastapi import FastAPI
 from starlette.types import ASGIApp
 
+from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
 from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_user.authentication.pages import (  # noqa: F401
@@ -21,7 +22,6 @@ from appkit_user.user_management.pages import (  # noqa: F401
 from app.components.navbar import app_navbar
 from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
 from app.pages.assistant.assistant import assistant_page  # noqa: F401
-from app.pages.assistant.mcp_oauth_callback import mcp_oauth_callback_page  # noqa: F401
 
 # from app.pages.assitant.assistant import assistant_page  # noqa: F401
 from app.pages.examples.action_icon_examples import action_icon_examples  # noqa: F401
