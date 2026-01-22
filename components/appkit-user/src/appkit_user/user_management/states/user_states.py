@@ -11,10 +11,39 @@ class UserState(rx.State):
     selected_user: User | None
     is_loading: bool = False
     available_roles: list[dict[str, str]] = []
+    grouped_roles: dict[str, list[dict[str, str]]] = {}
+    sorted_group_names: list[str] = []
 
     def set_available_roles(self, roles_list: list[Role]) -> None:
-        """Set the available roles."""
-        self.available_roles = roles_list
+        """Set roles grouped by group in original order."""
+        # Handle both Role objects and dicts
+        roles_dicts = []
+        for role in roles_list:
+            if isinstance(role, dict):
+                roles_dicts.append(role)
+            else:
+                roles_dicts.append(
+                    {
+                        "name": role.name,
+                        "label": role.label,
+                        "description": role.description,
+                        "group": role.group or "default",
+                    }
+                )
+
+        # Group roles by group (preserving order)
+        grouped = {}
+        group_order = []
+        for role in roles_dicts:
+            group_name = role.get("group", "default")
+            if group_name not in grouped:
+                grouped[group_name] = []
+                group_order.append(group_name)
+            grouped[group_name].append(role)
+
+        self.available_roles = roles_dicts
+        self.grouped_roles = grouped
+        self.sorted_group_names = group_order
 
     def _get_selected_roles(self, form_data: dict) -> list[str]:
         roles = []

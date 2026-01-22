@@ -3,7 +3,6 @@ from typing import Final
 import reflex as rx
 
 from appkit_commons.registry import service_registry
-from appkit_user.authentication.backend.models import Role
 from appkit_user.authentication.components.components import requires_role
 
 from app.components.navbar_component import (
@@ -14,17 +13,7 @@ from app.components.navbar_component import (
     sub_heading_styles,
 )
 from app.configuration import AppConfig
-
-IMAGE_GENERATOR_ROLE = Role(
-    name="image_generator",
-    label="Bildgenerator",
-    description="Berechtigung um Bilder zu generieren",
-)
-ASSISTANT_ROLE = Role(
-    name="assistant",
-    label="Assistent",
-    description="Berechtigung um den Assistenten zu nutzen",
-)
+from app.roles import ASSISTANT_ROLE
 
 _config = service_registry().get(AppConfig)
 VERSION: Final[str] = (
