@@ -1,6 +1,6 @@
 ---
 agent: Plan
-model: Gemini 3 Pro (Preview) (copilot)
+model: Claude Haiku 4.5 (copilot)
 tools: ['context7/*', 'code-reasoning/*', 'duckduckgo/*', 'memory/*']
 description: 'Interactive prompt refinement workflow: interrogates scope, deliverables, constraints; never writes code.'
 ---
