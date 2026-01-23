@@ -4,6 +4,8 @@ dependencies = [
     "appkit-commons",
     "appkit-mantine",
     "appkit-ui",
+    "google-genai>=1.52.0",
+    "mcp>=1.0.0",
     "openai>=2.3.0",
     "reflex>=0.8.22",
 ]

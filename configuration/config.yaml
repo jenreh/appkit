@@ -42,6 +42,7 @@ app:
     openai_api_key: secret:mn-openai-api-key
     claude_api_key: secret:mn-claude-api-key
     claude_base_url: secret:mn-claude-api-endpoint
+    google_api_key: secret:mn-google-api-key
 
   imagegenerator:
     blackforestlabs_api_key: secret:mn-blackforestlabs-api-key

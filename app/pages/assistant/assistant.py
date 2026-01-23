@@ -12,6 +12,13 @@ from appkit_assistant.backend.processors.claude_base import (
 from appkit_assistant.backend.processors.claude_responses_processor import (
     ClaudeResponsesProcessor,
 )
+from appkit_assistant.backend.processors.gemini_base import (
+    GEMINI_3_FLASH,
+    GEMINI_3_PRO,
+)
+from appkit_assistant.backend.processors.gemini_responses_processor import (
+    GeminiResponsesProcessor,
+)
 from appkit_assistant.backend.processors.lorem_ipsum_processor import (
     LoremIpsumProcessor,
 )
@@ -116,6 +123,23 @@ def initialize_model_manager() -> list[AIModel]:
                 api_key=config.claude_api_key.get_secret_value(),
                 base_url=config.claude_base_url,
                 models=claude_models,
+            ),
+        )
+
+    # Register Gemini processor if API key is configured
+    GEMINI_3_PRO.requires_role = ADVANCED_MODEL_ROLE.name
+    GEMINI_3_FLASH.requires_role = BASIC_MODEL_ROLE.name
+
+    if config.google_api_key is not None:
+        gemini_models = {
+            GEMINI_3_PRO.id: GEMINI_3_PRO,
+            GEMINI_3_FLASH.id: GEMINI_3_FLASH,
+        }
+        model_manager.register_processor(
+            "gemini",
+            GeminiResponsesProcessor(
+                api_key=config.google_api_key.get_secret_value(),
+                models=gemini_models,
             ),
         )
 
