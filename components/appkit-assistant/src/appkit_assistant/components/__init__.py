@@ -11,6 +11,7 @@ from appkit_assistant.backend.models import (
     MessageType,
     ThreadModel,
     ThreadStatus,
+    UploadedFile,
 )
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_assistant.state.thread_state import ThreadState
@@ -31,6 +32,7 @@ __all__ = [
     "ThreadModel",
     "ThreadState",
     "ThreadStatus",
+    "UploadedFile",
     "composer",
     "mcp_servers_table",
 ]

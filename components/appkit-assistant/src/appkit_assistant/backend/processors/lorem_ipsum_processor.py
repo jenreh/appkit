@@ -38,6 +38,8 @@ LOREM_MODELS = {
         icon="codesandbox",
         model="lorem-short",
         stream=True,
+        supports_attachments=True,
+        supports_tools=True,
     )
 }
 

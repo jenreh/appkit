@@ -87,26 +87,59 @@ class AuthCardComponent:
 
 class MessageComponent:
     @staticmethod
-    def human_message(message: str) -> rx.Component:
+    def _file_badge(filename: str) -> rx.Component:
+        """Render a single file attachment badge."""
+        return rx.badge(
+            rx.icon("paperclip", size=12),
+            filename,
+            variant="soft",
+            color="gray",
+            size="1",
+            radius="small",
+        )
+
+    @staticmethod
+    def _attachments_row(attachments: list[str]) -> rx.Component:
+        """Render a row of file attachment badges."""
+        return rx.cond(
+            attachments.length() > 0,
+            rx.hstack(
+                rx.foreach(attachments, MessageComponent._file_badge),
+                spacing="2",
+                margin_top="8px",
+                justify="end",
+                width="90%",
+                flex_wrap="wrap",
+            ),
+            rx.fragment(),
+        )
+
+    @staticmethod
+    def human_message(message: Message) -> rx.Component:
         return rx.hstack(
             rx.spacer(),
-            rx.box(
-                rx.text(
-                    message,
-                    padding="0.5em",
-                    border_radius="10px",
-                    white_space="pre-line",
+            rx.vstack(
+                rx.box(
+                    rx.text(
+                        message.text,
+                        padding="0.5em",
+                        border_radius="10px",
+                        white_space="pre-line",
+                    ),
+                    padding="4px",
+                    max_width="100%",
+                    background_color=rx.color_mode_cond(
+                        light=rx.color("accent", 3),
+                        dark=rx.color("accent", 3),
+                    ),
+                    border_radius="9px",
                 ),
-                padding="4px",
-                max_width="80%",
-                margin_top="24px",
-                # margin_right="14px",
-                background_color=rx.color_mode_cond(
-                    light=rx.color("accent", 3),
-                    dark=rx.color("accent", 3),
-                ),
-                border_radius="9px",
+                MessageComponent._attachments_row(message.attachments),
+                align="end",
+                spacing="1",
             ),
+            max_width="80%",
+            margin_top="24px",
             style=message_styles,
         )
 
@@ -287,7 +320,7 @@ class MessageComponent:
                 message.type,
                 (
                     MessageType.HUMAN,
-                    MessageComponent.human_message(message.text),
+                    MessageComponent.human_message(message),
                 ),
                 (
                     MessageType.ASSISTANT,

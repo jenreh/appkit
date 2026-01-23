@@ -206,6 +206,12 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             tool_name = getattr(item, "name", "unknown_tool")
             tool_id = getattr(item, "id", "unknown_id")
             server_label = getattr(item, "server_label", "unknown_server")
+            logger.debug(
+                "MCP call started: %s.%s (id=%s)",
+                server_label,
+                tool_name,
+                tool_id,
+            )
             return self._create_chunk(
                 ChunkType.TOOL_CALL,
                 f"Benutze Werkzeug: {server_label}.{tool_name}",
@@ -369,27 +375,28 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
 
         if event_type == "response.mcp_call.in_progress":
             tool_id = getattr(event, "item_id", "unknown_id")
-            return self._create_chunk(
-                ChunkType.TOOL_CALL,
-                "Tool call in progress...",
-                {"tool_id": tool_id, "status": "in_progress"},
-            )
+            # This event doesn't have tool details, just acknowledge it
+            logger.debug("MCP call in progress: %s", tool_id)
+            return None
+
+        if event_type == "response.mcp_call.completed":
+            # MCP call completed successfully - handled via response.output_item.done
+            # but we can log for debugging
+            tool_id = getattr(event, "item_id", "unknown_id")
+            logger.debug("MCP call completed: %s", tool_id)
+            return None
 
         if event_type == "response.mcp_list_tools.in_progress":
+            # This is a setup event, not a tool call - just log and return None
             tool_id = getattr(event, "item_id", "unknown_id")
-            return self._create_chunk(
-                ChunkType.TOOL_CALL,
-                "Lade verfügbare Werkzeuge...",
-                {"tool_id": tool_id, "status": "listing_tools"},
-            )
+            logger.debug("MCP list_tools in progress: %s", tool_id)
+            return None
 
         if event_type == "response.mcp_list_tools.completed":
+            # This is a setup event, not a tool call - just log and return None
             tool_id = getattr(event, "item_id", "unknown_id")
-            return self._create_chunk(
-                ChunkType.TOOL_RESULT,
-                "Verfügbare Werkzeuge geladen.",
-                {"tool_id": tool_id, "status": "tools_listed"},
-            )
+            logger.debug("MCP list_tools completed: %s", tool_id)
+            return None
 
         if event_type == "response.mcp_list_tools.failed":
             tool_id = getattr(event, "item_id", "unknown_id")

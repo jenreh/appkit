@@ -40,6 +40,8 @@ app:
     perplexity_api_key: secret:mn-perplexity-api-key
     openai_base_url: secret:mn-openai-api-endpoint
     openai_api_key: secret:mn-openai-api-key
+    claude_api_key: secret:mn-claude-api-key
+    claude_base_url: secret:mn-claude-api-endpoint
 
   imagegenerator:
     blackforestlabs_api_key: secret:mn-blackforestlabs-api-key

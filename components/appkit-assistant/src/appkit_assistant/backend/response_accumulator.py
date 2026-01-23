@@ -128,8 +128,17 @@ class ResponseAccumulator:
         )
 
         if chunk.type == ChunkType.THINKING:
-            if item.text and item.text != text:
+            # Check if this is a streaming delta (has "delta" in metadata)
+            is_delta = chunk.chunk_metadata.get("delta") is not None
+            if is_delta:
+                # Streaming delta - append directly without separator
+                item.text = (item.text or "") + chunk.text
+            elif item.text and item.text != text:
+                # Non-delta chunk with different text - append with newline
                 item.text += f"\n{chunk.text}"
+            else:
+                # Initial text
+                item.text = text
         elif chunk.type == ChunkType.THINKING_RESULT:
             item.status = ThinkingStatus.COMPLETED
             if chunk.text:
@@ -161,8 +170,30 @@ class ResponseAccumulator:
         tool_id = self._get_or_create_tool_session(chunk)
 
         tool_name = chunk.chunk_metadata.get("tool_name", "Unknown")
-        if chunk.type == ChunkType.TOOL_CALL:
-            self.current_activity = f"Nutze Werkzeug: {tool_name}..."
+        server_label = chunk.chunk_metadata.get("server_label", "")
+        # Use server_label.tool_name format if both available
+        if server_label and tool_name and tool_name != "Unknown":
+            display_name = f"{server_label}.{tool_name}"
+        else:
+            display_name = tool_name
+
+        logger.debug(
+            "Tool chunk received: type=%s, tool_id=%s, tool_name=%s, "
+            "server_label=%s, display_name=%s",
+            chunk.type,
+            tool_id,
+            tool_name,
+            server_label,
+            display_name,
+        )
+
+        # Only update activity display if we have a real tool name
+        if (
+            chunk.type == ChunkType.TOOL_CALL
+            and display_name
+            and display_name != "Unknown"
+        ):
+            self.current_activity = f"Nutze Werkzeug: {display_name}..."
 
         status = ThinkingStatus.IN_PROGRESS
         text = ""
@@ -174,11 +205,11 @@ class ResponseAccumulator:
             parameters = chunk.chunk_metadata.get("parameters", chunk.text)
             text = chunk.chunk_metadata.get("description", "")
         elif chunk.type == ChunkType.TOOL_RESULT:
-            is_error = (
-                "error" in chunk.text.lower()
-                or "failed" in chunk.text.lower()
-                or chunk.chunk_metadata.get("error")
-            )
+            # Check error flag from metadata - don't rely on text content
+            # as valid results may contain words like "error" in data
+            # Note: metadata values may be strings, so check for "True" string
+            error_value = chunk.chunk_metadata.get("error")
+            is_error = error_value is True or error_value == "True"
             status = ThinkingStatus.ERROR if is_error else ThinkingStatus.COMPLETED
             result = chunk.text
             if is_error:
@@ -186,12 +217,15 @@ class ResponseAccumulator:
         else:
             text = chunk.text
 
+        # Only pass tool_name if we have a real value
+        effective_tool_name = display_name if display_name != "Unknown" else None
+
         item = self._get_or_create_thinking_item(
             tool_id,
             ThinkingType.TOOL_CALL,
             text=text,
             status=status,
-            tool_name=tool_name,
+            tool_name=effective_tool_name,
             parameters=parameters,
             result=result,
             error=error,
@@ -200,8 +234,13 @@ class ResponseAccumulator:
         if chunk.type == ChunkType.TOOL_CALL:
             item.parameters = parameters
             item.text = text
-            if not item.tool_name or item.tool_name == "Unknown":
-                item.tool_name = tool_name
+            # Only update tool_name if we have a better value and item needs it
+            if (
+                display_name
+                and display_name != "Unknown"
+                and (not item.tool_name or item.tool_name == "Unknown")
+            ):
+                item.tool_name = display_name
             item.status = ThinkingStatus.IN_PROGRESS
         elif chunk.type == ChunkType.TOOL_RESULT:
             item.status = status

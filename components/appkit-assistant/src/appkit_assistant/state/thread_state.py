@@ -18,6 +18,7 @@ from typing import Any
 
 import reflex as rx
 
+from appkit_assistant.backend import file_manager
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.models import (
     AIModel,
@@ -31,10 +32,11 @@ from appkit_assistant.backend.models import (
     ThinkingType,
     ThreadModel,
     ThreadStatus,
+    UploadedFile,
 )
 from appkit_assistant.backend.repositories import mcp_server_repo
+from appkit_assistant.backend.response_accumulator import ResponseAccumulator
 from appkit_assistant.backend.services.thread_service import ThreadService
-from appkit_assistant.logic.response_accumulator import ResponseAccumulator
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
@@ -69,6 +71,9 @@ class ThreadState(rx.State):
     thinking_expanded: bool = False
     current_activity: str = ""
 
+    # File upload state
+    uploaded_files: list[UploadedFile] = []
+
     # Internal logic helper (not reactive)
     @property
     def _thread_service(self) -> ThreadService:
@@ -97,6 +102,7 @@ class ThreadState(rx.State):
     _initialized: bool = False
     _current_user_id: str = ""
     _skip_user_message: bool = False  # Skip adding user message (for OAuth resend)
+    _pending_file_cleanup: list[str] = []  # Files to delete after processing
 
     # -------------------------------------------------------------------------
     # Computed properties
@@ -134,6 +140,14 @@ class ThreadState(rx.State):
             return False
         model = ModelManager().get_model(self.selected_model)
         return model.supports_tools if model else False
+
+    @rx.var
+    def selected_model_supports_attachments(self) -> bool:
+        """Check if the currently selected model supports attachments."""
+        if not self.selected_model:
+            return False
+        model = ModelManager().get_model(self.selected_model)
+        return model.supports_attachments if model else False
 
     @rx.var
     def get_unique_reasoning_sessions(self) -> list[str]:
@@ -432,6 +446,65 @@ class ThreadState(rx.State):
         self.thinking_items = []
         self.image_chunks = []
         self.show_thinking = False
+        self._clear_uploaded_files()
+
+    # -------------------------------------------------------------------------
+    # File upload handling
+    # -------------------------------------------------------------------------
+
+    @rx.event
+    async def handle_upload(self, files: list[rx.UploadFile]) -> None:
+        """Handle uploaded files from the browser.
+
+        Moves files to user-specific directory and adds them to state.
+        """
+        user_session: UserSession = await self.get_state(UserSession)
+        user_id = user_session.user.user_id if user_session.user else "anonymous"
+
+        for upload_file in files:
+            try:
+                # Save uploaded file to disk first
+                upload_data = await upload_file.read()
+                temp_path = rx.get_upload_dir() / upload_file.filename
+                temp_path.parent.mkdir(parents=True, exist_ok=True)
+                temp_path.write_bytes(upload_data)
+
+                # Move to user directory
+                final_path = file_manager.move_to_user_directory(
+                    str(temp_path), str(user_id)
+                )
+                file_size = file_manager.get_file_size(final_path)
+
+                uploaded = UploadedFile(
+                    filename=upload_file.filename,
+                    file_path=final_path,
+                    size=file_size,
+                )
+                self.uploaded_files = [*self.uploaded_files, uploaded]
+                logger.info("Uploaded file: %s", upload_file.filename)
+            except Exception as e:
+                logger.error("Failed to upload file %s: %s", upload_file.filename, e)
+
+    @rx.event
+    def remove_file_from_prompt(self, file_path: str) -> None:
+        """Remove an uploaded file from the prompt."""
+        # Delete the file from disk
+        file_manager.cleanup_uploaded_files([file_path])
+        # Remove from state
+        self.uploaded_files = [
+            f for f in self.uploaded_files if f.file_path != file_path
+        ]
+        logger.debug("Removed uploaded file: %s", file_path)
+
+    def _clear_uploaded_files(self) -> None:
+        """Clear all uploaded files from state and disk."""
+        if not self.uploaded_files:
+            return
+        count = len(self.uploaded_files)
+        file_paths = [f.file_path for f in self.uploaded_files]
+        file_manager.cleanup_uploaded_files(file_paths)
+        self.uploaded_files = []
+        logger.debug("Cleared %d uploaded files", count)
 
     # -------------------------------------------------------------------------
     # Message processing
@@ -458,7 +531,7 @@ class ThreadState(rx.State):
         start = await self._begin_message_processing()
         if not start:
             return
-        current_prompt, selected_model, mcp_servers, is_new_thread = start
+        current_prompt, selected_model, mcp_servers, file_paths, is_new_thread = start
 
         processor = ModelManager().get_processor_for_model(selected_model)
         if not processor:
@@ -475,11 +548,16 @@ class ThreadState(rx.State):
             accumulator = ResponseAccumulator()
             accumulator.attach_messages_ref(self.messages)
 
+            # Clear uploaded files from UI and mark for cleanup after processing
+            self.uploaded_files = []
+            self._pending_file_cleanup = file_paths
+
         first_response_received = False
         try:
             async for chunk in processor.process(
                 self.messages,
                 selected_model,
+                files=file_paths or None,
                 mcp_servers=mcp_servers,
                 user_id=user_id,
             ):
@@ -506,7 +584,7 @@ class ThreadState(rx.State):
 
     async def _begin_message_processing(
         self,
-    ) -> tuple[str, str, list[MCPServer], bool] | None:
+    ) -> tuple[str, str, list[MCPServer], list[str], bool] | None:
         """Prepare state for sending a message. Returns None if no-op."""
         async with self:
             current_prompt = self.prompt.strip()
@@ -523,12 +601,21 @@ class ThreadState(rx.State):
 
             is_new_thread = self._thread.state == ThreadStatus.NEW
 
+            # Capture file paths before clearing
+            file_paths = [f.file_path for f in self.uploaded_files]
+            # Capture filenames for message display
+            attachment_names = [f.filename for f in self.uploaded_files]
+
             # Add user message unless skipped (e.g., OAuth resend)
             if self._skip_user_message:
                 self._skip_user_message = False
             else:
                 self.messages.append(
-                    Message(text=current_prompt, type=MessageType.HUMAN)
+                    Message(
+                        text=current_prompt,
+                        type=MessageType.HUMAN,
+                        attachments=attachment_names,
+                    )
                 )
             # Always add assistant placeholder
             self.messages.append(Message(text="", type=MessageType.ASSISTANT))
@@ -540,7 +627,13 @@ class ThreadState(rx.State):
                 return None
 
             mcp_servers = self.selected_mcp_servers
-            return current_prompt, selected_model, mcp_servers, is_new_thread
+            return (
+                current_prompt,
+                selected_model,
+                mcp_servers,
+                file_paths,
+                is_new_thread,
+            )
 
     async def _stop_processing_with_error(self, error_msg: str) -> None:
         """Stop processing and show an error message."""
@@ -649,6 +742,11 @@ class ThreadState(rx.State):
                 self.messages[-1].done = True
             self.processing = False
             self.current_activity = ""
+
+            # Clean up uploaded files from disk
+            if self._pending_file_cleanup:
+                file_manager.cleanup_uploaded_files(self._pending_file_cleanup)
+                self._pending_file_cleanup = []
 
     def _handle_auth_required_from_accumulator(
         self, accumulator: ResponseAccumulator

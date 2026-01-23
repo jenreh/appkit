@@ -86,6 +86,7 @@ class Message(BaseModel):
     editable: bool = False
     type: MessageType
     done: bool = False
+    attachments: list[str] = []  # List of filenames for display
 
 
 class ThinkingType(StrEnum):
@@ -129,6 +130,14 @@ class AIModel(BaseModel):
 class Suggestion(BaseModel):
     prompt: str
     icon: str = ""
+
+
+class UploadedFile(BaseModel):
+    """Model for tracking uploaded files in the composer."""
+
+    filename: str
+    file_path: str
+    size: int = 0
 
 
 class ThreadModel(BaseModel):

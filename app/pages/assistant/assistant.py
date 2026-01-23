@@ -6,6 +6,12 @@ import reflex as rx
 
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.models import AIModel
+from appkit_assistant.backend.processors.claude_base import (
+    CLAUDE_HAIKU_4_5,
+)
+from appkit_assistant.backend.processors.claude_responses_processor import (
+    ClaudeResponsesProcessor,
+)
 from appkit_assistant.backend.processors.lorem_ipsum_processor import (
     LoremIpsumProcessor,
 )
@@ -96,6 +102,23 @@ def initialize_model_manager() -> list[AIModel]:
         ),
     )
 
+    # Register Claude processor if API key is configured
+    CLAUDE_HAIKU_4_5.requires_role = ADVANCED_MODEL_ROLE.name
+
+    if config.claude_api_key is not None:
+        claude_models = {
+            CLAUDE_HAIKU_4_5.id: CLAUDE_HAIKU_4_5,
+            # CLAUDE_SONNET_4_5.id: CLAUDE_SONNET_4_5,
+        }
+        model_manager.register_processor(
+            "claude",
+            ClaudeResponsesProcessor(
+                api_key=config.claude_api_key.get_secret_value(),
+                base_url=config.claude_base_url,
+                models=claude_models,
+            ),
+        )
+
     model_manager.set_default_model(GPT_5_MINI.id)
     return model_manager.get_all_models()
 
@@ -145,7 +168,7 @@ def assistant_page() -> rx.Component:
                                 welcome_message=(
                                     "👋 Hallo, wie kann ich Dir heute helfen?"
                                 ),
-                                with_attachments=False,
+                                with_attachments=True,
                                 with_scroll_to_bottom=False,
                                 with_thread_list=True,
                                 with_tools=True,

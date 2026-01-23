@@ -39,11 +39,19 @@ PERPLEXITY_MODEL_ROLE = Role(
     description="Berechtigung für Perplexity KI-Modelle",
     group=ASSISTANT_GROUP,
 )
+CLAUDE_MODEL_ROLE = Role(
+    id=10002,
+    name="claude_models",
+    label="Claude Modelle",
+    description="Berechtigung für Claude KI-Modelle von Anthropic",
+    group=ASSISTANT_GROUP,
+)
 
 ALL_ROLES: list[Role] = [
     ASSISTANT_ROLE,
     BASIC_MODEL_ROLE,
     ADVANCED_MODEL_ROLE,
     PERPLEXITY_MODEL_ROLE,
+    CLAUDE_MODEL_ROLE,
     IMAGE_GENERATOR_ROLE,
 ]

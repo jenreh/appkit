@@ -3,6 +3,7 @@ from collections.abc import Callable
 import reflex as rx
 
 import appkit_mantine as mn
+from appkit_assistant.backend.models import UploadedFile
 from appkit_assistant.components.tools_modal import tools_popover
 from appkit_assistant.state.thread_state import ThreadState
 
@@ -63,21 +64,105 @@ def submit() -> rx.Component:
     )
 
 
-def add_attachment(show: bool = False) -> rx.Component | None:
-    if not show:
-        return None
-
-    return rx.tooltip(
-        rx.button(
-            rx.icon("paperclip", size=18),
-            rx.text("2 files", size="1", color="gray.2"),
-            id="composer-attachment",
-            variant="ghost",
-            padding="8px",
-            access_key="s",
+def _uploaded_file_thumbnail(file: UploadedFile) -> rx.Component:
+    """Render a thumbnail for an uploaded file with a remove button."""
+    return rx.box(
+        rx.hstack(
+            rx.icon("file", size=16, color=rx.color("gray", 9)),
+            rx.text(
+                file.filename,
+                size="1",
+                max_width="100px",
+                overflow="hidden",
+                text_overflow="ellipsis",
+                white_space="nowrap",
+            ),
+            spacing="1",
+            align="center",
+            padding="4px 8px",
+            background=rx.color("gray", 3),
+            border_radius="6px",
         ),
-        content="Manage Attachments…",
+        rx.icon_button(
+            rx.icon("x", size=10),
+            width="16px",
+            height="16px",
+            variant="solid",
+            color_scheme="gray",
+            position="absolute",
+            top="-6px",
+            right="-6px",
+            border_radius="12px",
+            padding="0px",
+            cursor="pointer",
+            on_click=lambda: ThreadState.remove_file_from_prompt(file.file_path),
+        ),
+        position="relative",
     )
+
+
+def selected_files_row() -> rx.Component:
+    """Render the row of selected file thumbnails (only visible when files exist)."""
+    return rx.cond(
+        ThreadState.uploaded_files.length() > 0,
+        rx.hstack(
+            rx.foreach(
+                ThreadState.uploaded_files,
+                _uploaded_file_thumbnail,
+            ),
+            spacing="2",
+            flex_wrap="wrap",
+            margin_top="6px",
+            margin_left="12px",
+        ),
+        rx.fragment(),
+    )
+
+
+def file_upload(show: bool = False) -> rx.Component:
+    """File upload button with drag-and-drop support."""
+    return rx.cond(
+        show & ThreadState.selected_model_supports_attachments,
+        rx.tooltip(
+            rx.upload.root(
+                rx.box(
+                    rx.icon("paperclip", size=18, color=rx.color("gray", 9)),
+                    cursor="pointer",
+                    padding="8px",
+                    border_radius="8px",
+                    _hover={"background": rx.color("gray", 3)},
+                ),
+                id="composer_file_upload",
+                accept={
+                    #                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+                    #                    ".xlsx"
+                    #                ],
+                    #                "text/csv": [".csv"],
+                    #                "application/vnd.openxmlformats-officedocument."
+                    #                "wordprocessingml.document": [".docx"],
+                    #                "application/vnd.openxmlformats-officedocument."
+                    #                "presentationml.presentation": [".pptx"],
+                    #                "text/markdown": [".md"],
+                    "application/pdf": [".pdf"],
+                    "image/png": [".png"],
+                    "image/jpeg": [".jpg", ".jpeg"],
+                },
+                multiple=True,
+                max_files=5,
+                max_size=5 * 1024 * 1024,
+                on_drop=ThreadState.handle_upload(
+                    rx.upload_files(upload_id="composer_file_upload")
+                ),
+            ),
+            content="Dateien hochladen (max. 5, 5MB pro Datei)",
+        ),
+        rx.fragment(),
+    )
+
+
+def add_attachment(show: bool = False) -> rx.Component:
+    """Legacy attachment function - now wraps file_upload."""
+    return file_upload(show=show)
 
 
 def choose_model(show: bool = False) -> rx.Component | None:
@@ -146,7 +231,9 @@ class ComposerComponent(rx.ComponentNamespace):
     add_attachment = staticmethod(add_attachment)
     choose_model = staticmethod(choose_model)
     clear = staticmethod(clear)
+    file_upload = staticmethod(file_upload)
     input = staticmethod(composer_input)
+    selected_files_row = staticmethod(selected_files_row)
     submit = staticmethod(submit)
     tools = staticmethod(tools)
 

@@ -113,16 +113,17 @@ class Assistant:
         **props,
     ) -> rx.Component:
         return composer(
+            composer.selected_files_row(),
             composer.input(),
             rx.hstack(
                 rx.hstack(
                     composer.choose_model(show=with_model_chooser),
                 ),
                 rx.hstack(
+                    composer.file_upload(show=with_attachments),
                     composer.tools(
                         show=with_tools and ThreadState.selected_model_supports_tools
                     ),
-                    composer.add_attachment(show=with_attachments),
                     composer.clear(show=with_clear),
                     composer.submit(),
                     width="100%",
