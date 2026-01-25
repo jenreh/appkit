@@ -85,6 +85,7 @@ class MessageType(StrEnum):
 class Message(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     text: str
+    original_text: str | None = None  # To store original text if edited
     editable: bool = False
     type: MessageType
     done: bool = False

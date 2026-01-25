@@ -12,6 +12,7 @@ from appkit_assistant.state.thread_state import (
     ThreadState,
 )
 from appkit_ui.components.collabsible import collabsible
+from appkit_ui.components.dialogs import delete_dialog
 
 message_styles = {
     "spacing": "4",
@@ -111,6 +112,18 @@ class MessageActionsBar:
                 ),
                 content="Herunterladen",
             ),
+            rx.tooltip(
+                delete_dialog(
+                    title="Nachricht löschen",
+                    content="diese Nachricht",
+                    on_click=ThreadState.delete_message(message.id),
+                    icon_button=True,
+                    variant="ghost",
+                    size="1",
+                    color_scheme="gray",
+                ),
+                content="Löschen",
+            ),
             rx.cond(
                 (message.type == MessageType.ASSISTANT)
                 | (message.type == MessageType.ERROR),
@@ -168,31 +181,101 @@ class MessageComponent:
 
     @staticmethod
     def human_message(message: Message) -> rx.Component:
-        return rx.hstack(
-            rx.spacer(),
+        return rx.cond(
+            ThreadState.editing_message_id == message.id,
+            # Edit Mode
             rx.vstack(
-                rx.box(
-                    rx.text(
-                        message.text,
-                        padding="0.5em",
-                        border_radius="10px",
-                        white_space="pre-line",
-                    ),
-                    padding="4px",
-                    max_width="100%",
-                    background_color=rx.color_mode_cond(
-                        light=rx.color("accent", 3),
-                        dark=rx.color("accent", 3),
-                    ),
-                    border_radius="9px",
+                rx.text_area(
+                    value=ThreadState.edited_message_content,
+                    on_change=ThreadState.set_edited_message_content,
+                    height="112px",
+                    width="824px",
+                    auto_focus=True,
+                    bg=rx.color("gray", 3),
+                    variant="soft",
                 ),
-                MessageComponent._attachments_row(message.attachments),
+                rx.hstack(
+                    rx.button(
+                        "Abbrechen",
+                        on_click=ThreadState.cancel_edit,
+                        variant="soft",
+                        color_scheme="gray",
+                    ),
+                    rx.button("Senden", on_click=ThreadState.submit_edited_message),
+                    justify="end",
+                    width="100%",
+                    spacing="2",
+                ),
+                style=message_styles,
                 align="end",
-                spacing="1",
             ),
-            max_width="80%",
-            margin_top="24px",
-            style=message_styles,
+            rx.vstack(
+                rx.hstack(
+                    rx.spacer(),
+                    rx.vstack(
+                        rx.box(
+                            rx.text(
+                                message.text,
+                                padding="0.5em",
+                                border_radius="10px",
+                                white_space="pre-line",
+                            ),
+                            padding="4px",
+                            max_width="800px",
+                            background_color=rx.color_mode_cond(
+                                light=rx.color("accent", 3),
+                                dark=rx.color("accent", 3),
+                            ),
+                            border_radius="9px",
+                        ),
+                        MessageComponent._attachments_row(message.attachments),
+                        align="end",
+                        spacing="1",
+                    ),
+                ),
+                rx.hstack(
+                    rx.spacer(),
+                    rx.tooltip(
+                        rx.icon_button(
+                            rx.icon("pencil", size=14),
+                            on_click=ThreadState.set_editing_mode(
+                                message.id, message.text
+                            ),
+                            variant="ghost",
+                            size="1",
+                            color_scheme="gray",
+                        ),
+                        content="Bearbeiten",
+                    ),
+                    rx.tooltip(
+                        delete_dialog(
+                            title="Nachricht löschen",
+                            content="diese Nachricht",
+                            on_click=ThreadState.delete_message(message.id),
+                            icon_button=True,
+                            variant="ghost",
+                            size="1",
+                            color_scheme="gray",
+                        ),
+                        content="Löschen",
+                    ),
+                    rx.tooltip(
+                        rx.icon_button(
+                            rx.icon("copy", size=14),
+                            on_click=ThreadState.copy_message(message.text),
+                            variant="ghost",
+                            size="1",
+                            color_scheme="gray",
+                        ),
+                        content="Kopieren",
+                    ),
+                    spacing="3",
+                    justify="end",
+                    margin_right="9px",
+                ),
+                align="end",
+                style=message_styles,
+            ),
         )
 
     @staticmethod
@@ -242,12 +325,6 @@ class MessageComponent:
                         color=rx.color("gray", 8),
                         margin_right="9px",
                     ),
-                    rx.hstack(
-                        rx.el.span(""),
-                        rx.el.span(""),
-                        rx.el.span(""),
-                        rx.el.span(""),
-                    ),
                     class_name="loading",
                     height="40px",
                     color=rx.color("gray", 8),
@@ -258,23 +335,18 @@ class MessageComponent:
                     padding_right="18px",
                 ),
                 # Actual message content
-                mn.markdown_preview(
-                    source=message.text,
-                    enable_mermaid=message.done,
-                    enable_katex=message.done,
-                    security_level="standard",
+                rx.box(
+                    mn.markdown_preview(
+                        source=message.text,
+                        enable_mermaid=message.done,
+                        enable_katex=message.done,
+                        security_level="standard",
+                        class_name="markdown",
+                    ),
                     padding="0.5em",
-                    border_radius="9px",
+                    margin_top="18px",
                     max_width="90%",
-                    class_name="markdown",
                 ),
-                # rx.markdown(
-                #     message.text,
-                #     padding="0.5em",
-                #     border_radius="9px",
-                #     max_width="90%",
-                #     class_name="markdown",
-                # ),
             ),
             # Actions bar
             rx.cond(

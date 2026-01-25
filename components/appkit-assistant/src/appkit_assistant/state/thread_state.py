@@ -75,6 +75,10 @@ class ThreadState(rx.State):
     # File upload state
     uploaded_files: list[UploadedFile] = []
 
+    # Editing state
+    editing_message_id: str | None = None
+    edited_message_content: str = ""
+
     # Internal logic helper (not reactive)
     @property
     def _thread_service(self) -> ThreadService:
@@ -511,6 +515,67 @@ class ThreadState(rx.State):
     # Message processing
     # -------------------------------------------------------------------------
 
+    @rx.event
+    def set_editing_mode(self, message_id: str, content: str) -> None:
+        """Enable editing mode for a message."""
+        self.editing_message_id = message_id
+        self.edited_message_content = content
+
+    @rx.event
+    def set_edited_message_content(self, content: str) -> None:
+        """Set the content of the message currently being edited."""
+        self.edited_message_content = content
+
+    @rx.event
+    def cancel_edit(self) -> None:
+        """Cancel editing mode."""
+        self.editing_message_id = None
+        self.edited_message_content = ""
+
+    @rx.event(background=True)
+    async def submit_edited_message(self) -> AsyncGenerator[Any, Any]:
+        """Submit edited message."""
+        async with self:
+            content = self.edited_message_content.strip()
+            if len(content) < 1:
+                yield rx.toast.error(
+                    "Nachricht darf nicht leer sein", position="top-right"
+                )
+                return
+
+            # Find message index
+            msg_index = -1
+            for i, m in enumerate(self.messages):
+                if m.id == self.editing_message_id:
+                    msg_index = i
+                    break
+
+            if msg_index == -1:
+                self.cancel_edit()
+                return
+
+            target_message = self.messages[msg_index]
+
+            # Update message
+            target_message.original_text = (
+                target_message.original_text or target_message.text
+            )
+            target_message.text = content
+
+            # Remove all messages AFTER this one
+            self.messages = self.messages[: msg_index + 1]
+
+            # Set prompt to bypass empty check in _begin_message_processing
+            self.prompt = content
+            self._skip_user_message = True
+
+            # Clear edit state
+            self.editing_message_id = None
+            self.edited_message_content = ""
+
+        # Trigger processing
+        await self._process_message()
+
     @rx.event(background=True)
     async def submit_message(self) -> AsyncGenerator[Any, Any]:
         """Submit a message and process the response."""
@@ -524,6 +589,18 @@ class ThreadState(rx.State):
                 textarea.style.height = textarea.scrollHeight + 'px';
             }
         """)
+
+    @rx.event(background=True)
+    async def delete_message(self, message_id: str) -> None:
+        """Delete a message from the conversation."""
+        async with self:
+            self.messages = [m for m in self.messages if m.id != message_id]
+            self._thread.messages = self.messages
+
+            if self._thread.state != ThreadStatus.NEW:
+                await self._thread_service.save_thread(
+                    self._thread, self.current_user_id
+                )
 
     @rx.event
     def copy_message(self, text: str) -> list[Any]:
