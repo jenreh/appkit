@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -27,6 +28,8 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
         files: list[str] | None = None,  # noqa: ARG002
         mcp_servers: list[MCPServer] | None = None,
         payload: dict[str, Any] | None = None,
+        cancellation_token: asyncio.Event | None = None,
+        **kwargs: Any,  # noqa: ARG002
     ) -> AsyncGenerator[Chunk, None]:
         """Process messages using the Chat Completions API.
 
@@ -36,6 +39,8 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
             files: File attachments (not used in chat completions)
             mcp_servers: MCP servers (will log warning if provided)
             payload: Additional payload parameters
+            cancellation_token: Optional event to signal cancellation
+            **kwargs: Additional arguments
         """
         if not self.client:
             raise ValueError("OpenAI Client not initialized.")
@@ -63,6 +68,9 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
 
             if isinstance(session, AsyncStream):
                 async for event in session:
+                    if cancellation_token and cancellation_token.is_set():
+                        logger.info("Processing cancelled by user")
+                        break
                     if event.choices and event.choices[0].delta:
                         content = event.choices[0].delta.content
                         if content:

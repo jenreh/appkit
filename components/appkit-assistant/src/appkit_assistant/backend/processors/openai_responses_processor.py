@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -52,6 +53,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         mcp_servers: list[MCPServer] | None = None,
         payload: dict[str, Any] | None = None,
         user_id: int | None = None,
+        cancellation_token: asyncio.Event | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """Process messages using simplified content accumulator pattern."""
         if not self.client:
@@ -73,6 +75,9 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             try:
                 if hasattr(session, "__aiter__"):  # Streaming
                     async for event in session:
+                        if cancellation_token and cancellation_token.is_set():
+                            logger.info("Processing cancelled by user")
+                            break
                         chunk = self._handle_event(event)
                         if chunk:
                             yield chunk

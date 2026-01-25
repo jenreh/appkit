@@ -53,13 +53,25 @@ def composer_input(placeholder: str = "Frage etwas...") -> rx.Component:
 
 
 def submit() -> rx.Component:
-    return rx.fragment(
+    return rx.cond(
+        ThreadState.processing,
+        rx.tooltip(
+            rx.button(
+                rx.icon("square", size=14, fill="currentColor"),
+                on_click=ThreadState.request_cancellation,
+                color_scheme="red",
+                variant="solid",
+                type="button",
+                cursor="pointer",
+                loading=ThreadState.cancellation_requested,
+            ),
+            content="Stoppen",
+        ),
         rx.button(
             rx.icon("arrow-right", size=18),
             id="composer-submit",
             name="composer_submit",
             type="submit",
-            loading=ThreadState.processing,
         ),
     )
 

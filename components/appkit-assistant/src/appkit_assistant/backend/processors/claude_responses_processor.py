@@ -5,6 +5,7 @@ Supports MCP tools, file uploads (images and documents), extended thinking,
 and automatic citation extraction.
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -69,6 +70,7 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         mcp_servers: list[MCPServer] | None = None,
         payload: dict[str, Any] | None = None,
         user_id: int | None = None,
+        cancellation_token: asyncio.Event | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """Process messages using Claude Messages API with streaming."""
         if not self.client:
@@ -103,6 +105,9 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
                 # Process streaming events
                 async with stream as response:
                     async for event in response:
+                        if cancellation_token and cancellation_token.is_set():
+                            logger.info("Processing cancelled by user")
+                            break
                         chunk = self._handle_event(event)
                         if chunk:
                             yield chunk

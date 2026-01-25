@@ -2,6 +2,7 @@
 Gemini responses processor for generating AI responses using Google's GenAI API.
 """
 
+import asyncio
 import copy
 import json
 import logging
@@ -72,6 +73,7 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         mcp_servers: list[MCPServer] | None = None,
         payload: dict[str, Any] | None = None,
         user_id: int | None = None,
+        cancellation_token: asyncio.Event | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """Process messages using Google GenAI API with native MCP support."""
         if not self.client:
@@ -120,7 +122,7 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         try:
             # Generate content with MCP tools
             async for chunk in self._stream_with_mcp(
-                model.model, contents, config, mcp_sessions
+                model.model, contents, config, mcp_sessions, cancellation_token
             ):
                 yield chunk
 
@@ -193,11 +195,14 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         contents: list[types.Content],
         config: types.GenerateContentConfig,
         mcp_sessions: list[Any],
+        cancellation_token: asyncio.Event | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """Stream responses with MCP tool support."""
         if not mcp_sessions:
             # No MCP sessions, direct streaming
-            async for chunk in self._stream_generation(model_name, contents, config):
+            async for chunk in self._stream_generation(
+                model_name, contents, config, cancellation_token
+            ):
                 yield chunk
             return
 
@@ -225,7 +230,7 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
 
             # Stream with automatic function calling loop
             async for chunk in self._stream_with_tool_loop(
-                model_name, contents, config, tool_contexts
+                model_name, contents, config, tool_contexts, cancellation_token
             ):
                 yield chunk
 
@@ -235,12 +240,17 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         contents: list[types.Content],
         config: types.GenerateContentConfig,
         tool_contexts: list[MCPToolContext],
+        cancellation_token: asyncio.Event | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """Stream generation with tool call handling loop."""
         max_tool_rounds = 10
         current_contents = list(contents)
 
         for _round_num in range(max_tool_rounds):
+            if cancellation_token and cancellation_token.is_set():
+                logger.info("Processing cancelled by user")
+                break
+
             response = await self.client.aio.models.generate_content(
                 model=model_name, contents=current_contents, config=config
             )
@@ -560,6 +570,7 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         model_name: str,
         contents: list[types.Content],
         config: types.GenerateContentConfig,
+        cancellation_token: asyncio.Event | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """Stream generation from Gemini model."""
         # generate_content_stream returns an awaitable that yields an async generator
@@ -567,6 +578,9 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
             model=model_name, contents=contents, config=config
         )
         async for chunk in stream:
+            if cancellation_token and cancellation_token.is_set():
+                logger.info("Processing cancelled by user")
+                break
             processed = self._handle_chunk(chunk)
             if processed:
                 yield processed

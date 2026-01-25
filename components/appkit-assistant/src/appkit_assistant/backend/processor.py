@@ -3,6 +3,7 @@ Base processor interface for AI processing services.
 """
 
 import abc
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 
@@ -40,6 +41,7 @@ class Processor(abc.ABC):
         model_id: str,
         files: list[str] | None = None,
         mcp_servers: list[MCPServer] | None = None,
+        cancellation_token: asyncio.Event | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """
         Process the thread using an AI model.
@@ -49,6 +51,7 @@ class Processor(abc.ABC):
             model_id: The ID of the model to use.
             files: Optional list of file paths that were uploaded.
             mcp_servers: Optional list of MCP servers to use as tools.
+            cancellation_token: Optional event to signal cancellation.
 
         Returns:
             An async generator that yields Chunk objects containing different content

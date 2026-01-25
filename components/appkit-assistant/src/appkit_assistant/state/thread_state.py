@@ -10,6 +10,7 @@ This module contains ThreadState which manages the current active thread:
 See thread_list_state.py for ThreadListState which manages the thread list sidebar.
 """
 
+import asyncio
 import json
 import logging
 import uuid
@@ -61,6 +62,7 @@ class ThreadState(rx.State):
     ai_models: list[AIModel] = []
     selected_model: str = ""
     processing: bool = False
+    cancellation_requested: bool = False
     messages: list[Message] = []
     prompt: str = ""
     suggestions: list[Suggestion] = []
@@ -108,6 +110,8 @@ class ThreadState(rx.State):
     _current_user_id: str = ""
     _skip_user_message: bool = False  # Skip adding user message (for OAuth resend)
     _pending_file_cleanup: list[str] = []  # Files to delete after processing
+    # Internal cancellation event
+    _cancel_event: asyncio.Event | None = None
 
     # -------------------------------------------------------------------------
     # Computed properties
@@ -660,6 +664,14 @@ class ThreadState(rx.State):
         # Trigger processing directly
         await self._process_message()
 
+    @rx.event
+    def request_cancellation(self) -> None:
+        """Signal that the current processing should be cancelled."""
+        self.cancellation_requested = True
+        if self._cancel_event:
+            self._cancel_event.set()
+            logger.info("Cancellation requested by user")
+
     async def _process_message(self) -> None:
         """Process the current message and stream the response."""
         logger.debug("Processing message: %s", self.prompt)
@@ -688,6 +700,9 @@ class ThreadState(rx.State):
             self.uploaded_files = []
             self._pending_file_cleanup = file_paths
 
+            # Initialize cancellation event
+            self._cancel_event = asyncio.Event()
+
         first_response_received = False
         try:
             async for chunk in processor.process(
@@ -696,6 +711,7 @@ class ThreadState(rx.State):
                 files=file_paths or None,
                 mcp_servers=mcp_servers,
                 user_id=user_id,
+                cancellation_token=self._cancel_event,
             ):
                 first_response_received = await self._handle_stream_chunk(
                     chunk=chunk,
@@ -877,7 +893,9 @@ class ThreadState(rx.State):
             if self.messages:
                 self.messages[-1].done = True
             self.processing = False
+            self.cancellation_requested = False
             self.current_activity = ""
+            self._cancel_event = None
 
             # Clean up uploaded files from disk
             if self._pending_file_cleanup:
