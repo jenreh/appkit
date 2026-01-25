@@ -643,6 +643,9 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         content = candidate.content
 
         # List comprehension for text parts
+        if not content.parts:
+            return None
+
         text_parts = [part.text for part in content.parts if part.text]
 
         if text_parts:

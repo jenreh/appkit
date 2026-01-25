@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
@@ -82,6 +83,7 @@ class MessageType(StrEnum):
 
 
 class Message(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     text: str
     editable: bool = False
     type: MessageType

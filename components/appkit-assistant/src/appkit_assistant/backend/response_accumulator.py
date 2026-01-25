@@ -52,6 +52,14 @@ class ResponseAccumulator:
 
     def process_chunk(self, chunk: Chunk) -> None:
         """Process a single chunk and update internal state."""
+        # Update message ID if provided in metadata
+        if (
+            self.messages
+            and self.messages[-1].type == MessageType.ASSISTANT
+            and "message_id" in chunk.chunk_metadata
+        ):
+            self.messages[-1].id = chunk.chunk_metadata["message_id"]
+
         if chunk.type == ChunkType.TEXT:
             if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
                 self.messages[-1].text += chunk.text

@@ -14,6 +14,7 @@ import json
 import logging
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
@@ -523,6 +524,64 @@ class ThreadState(rx.State):
                 textarea.style.height = textarea.scrollHeight + 'px';
             }
         """)
+
+    @rx.event
+    def copy_message(self, text: str) -> list[Any]:
+        """Copy message text to clipboard."""
+        return [
+            rx.set_clipboard(text),
+            rx.toast.success("Nachricht kopiert"),
+        ]
+
+    @rx.event
+    def download_message(self, text: str, message_id: str) -> Any:
+        """Download message as markdown file."""
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        filename = (
+            f"message_{message_id}_{timestamp}.md"
+            if message_id
+            else f"message_{timestamp}.md"
+        )
+
+        # Use JavaScript to trigger download
+        return rx.call_script(f"""
+            const blob = new Blob([{json.dumps(text)}], {{type: 'text/markdown'}});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '{filename}';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        """)
+
+    @rx.event(background=True)
+    async def retry_message(self, message_id: str) -> None:
+        """Retry generating a message."""
+        async with self:
+            # Find message index
+            index = -1
+            for i, msg in enumerate(self.messages):
+                if msg.id == message_id:
+                    index = i
+                    break
+
+            if index == -1:
+                return
+
+            # Keep context up to this message
+            # effectively removing this message and everything after
+            self.messages = self.messages[:index]
+
+            # Set prompt to bypass check (content checks)
+            self.prompt = "Regenerate"
+
+            # Flag to skip adding a new user message
+            self._skip_user_message = True
+
+        # Trigger processing directly
+        await self._process_message()
 
     async def _process_message(self) -> None:
         """Process the current message and stream the response."""

@@ -85,6 +85,58 @@ class AuthCardComponent:
         )
 
 
+class MessageActionsBar:
+    """Component for message action buttons (copy, download, retry)."""
+
+    @staticmethod
+    def render(message: Message) -> rx.Component:
+        return rx.hstack(
+            rx.tooltip(
+                rx.icon_button(
+                    rx.icon("copy", size=14),
+                    on_click=ThreadState.copy_message(message.text),
+                    variant="ghost",
+                    size="1",
+                    color_scheme="gray",
+                ),
+                content="Kopieren",
+            ),
+            rx.tooltip(
+                rx.icon_button(
+                    rx.icon("download", size=14),
+                    on_click=ThreadState.download_message(message.text, message.id),
+                    variant="ghost",
+                    size="1",
+                    color_scheme="gray",
+                ),
+                content="Herunterladen",
+            ),
+            rx.cond(
+                (message.type == MessageType.ASSISTANT)
+                | (message.type == MessageType.ERROR),
+                rx.tooltip(
+                    rx.icon_button(
+                        rx.cond(
+                            ThreadState.processing,
+                            rx.spinner(size="1"),
+                            rx.icon("refresh-cw", size=14),
+                        ),
+                        on_click=ThreadState.retry_message(message.id),
+                        variant="ghost",
+                        size="1",
+                        color_scheme="gray",
+                        disabled=ThreadState.processing,
+                    ),
+                    content="Erneut generieren (folgende Nachrichten werden entfernt)",
+                ),
+                rx.fragment(),
+            ),
+            spacing="3",
+            margin_top="-9px",
+            margin_left="9px",
+        )
+
+
 class MessageComponent:
     @staticmethod
     def _file_badge(filename: str) -> rx.Component:
@@ -224,6 +276,12 @@ class MessageComponent:
                 #     class_name="markdown",
                 # ),
             ),
+            # Actions bar
+            rx.cond(
+                message.done,
+                MessageActionsBar.render(message),
+                rx.fragment(),
+            ),
             spacing="3",
             width="100%",
         )
@@ -263,7 +321,7 @@ class MessageComponent:
         )
 
     @staticmethod
-    def error_message(message: str) -> rx.Component:
+    def error_message(message: Message) -> rx.Component:
         return rx.hstack(
             rx.avatar(
                 fallback="!",
@@ -273,15 +331,20 @@ class MessageComponent:
                 margin_top="16px",
                 color_scheme="red",
             ),
-            rx.callout(
-                message,
-                icon="triangle-alert",
-                color_scheme="red",
-                max_width="90%",
-                size="1",
-                padding="0.5em",
-                border_radius="9px",
-                margin_top="18px",
+            rx.vstack(
+                rx.callout(
+                    message.text,
+                    icon="triangle-alert",
+                    color_scheme="red",
+                    max_width="100%",
+                    size="1",
+                    padding="0.5em",
+                    border_radius="9px",
+                    margin_top="18px",
+                ),
+                MessageActionsBar.render(message),
+                width="90%",
+                spacing="2",
             ),
             style=message_styles,
         )
@@ -328,7 +391,7 @@ class MessageComponent:
                 ),
                 (
                     MessageType.ERROR,
-                    MessageComponent.error_message(message.text),
+                    MessageComponent.error_message(message),
                 ),
                 (
                     MessageType.SYSTEM,

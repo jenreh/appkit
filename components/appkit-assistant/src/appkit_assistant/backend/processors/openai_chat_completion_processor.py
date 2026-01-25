@@ -66,23 +66,40 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
                     if event.choices and event.choices[0].delta:
                         content = event.choices[0].delta.content
                         if content:
-                            yield self._create_chunk(content, model.model, stream=True)
+                            yield self._create_chunk(
+                                content,
+                                model.model,
+                                stream=True,
+                                message_id=event.id,
+                            )
             else:
                 content = session.choices[0].message.content
                 if content:
-                    yield self._create_chunk(content, model.model)
+                    yield self._create_chunk(
+                        content, model.model, message_id=session.id
+                    )
         except Exception as e:
             raise e
 
-    def _create_chunk(self, content: str, model: str, stream: bool = False) -> Chunk:
+    def _create_chunk(
+        self,
+        content: str,
+        model: str,
+        stream: bool = False,
+        message_id: str | None = None,
+    ) -> Chunk:
+        metadata = {
+            "source": "chat_completions",
+            "streaming": str(stream),
+            "model": model,
+        }
+        if message_id:
+            metadata["message_id"] = message_id
+
         return Chunk(
             type=ChunkType.TEXT,
             text=content,
-            chunk_metadata={
-                "source": "chat_completions",
-                "streaming": str(stream),
-                "model": model,
-            },
+            chunk_metadata=metadata,
         )
 
     def _convert_messages_to_openai_format(
