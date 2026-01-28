@@ -7,7 +7,7 @@ reflex:
   workers: 1
 
 app:
-  version: 0.17.2
+  version: 0.17.3
   name: appkit App
   logging: logging.prod.yaml
   environment: prod
