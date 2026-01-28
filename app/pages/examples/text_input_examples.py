@@ -8,6 +8,8 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_user.authentication.templates import navbar_layout
 
+from app.components.navbar import app_navbar
+
 
 class TextInputExamplesState(rx.State):
     """State for TextInput examples."""
@@ -107,7 +109,12 @@ def namespace_example() -> rx.Component:
     )
 
 
-@navbar_layout(route="/text-input", title="TextInput Examples")
+@navbar_layout(
+    route="/text-input",
+    title="TextInput Examples",
+    navbar=app_navbar(),
+    with_header=False,
+)
 def text_input_examples_page() -> rx.Component:
     return rx.container(
         rx.vstack(

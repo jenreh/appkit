@@ -95,6 +95,7 @@ class UserSession(rx.State):
     @rx.event
     async def terminate_session(self) -> None:
         """Terminate the current session and clear storage."""
+        logger.debug("Terminating session for user_id=%s", self.user_id)
         async with get_asyncdb_session() as session:
             await session_repo.delete_by_user_and_session_id(
                 session, self.user_id, self.auth_token
@@ -112,7 +113,7 @@ class UserSession(rx.State):
 class LoginState(UserSession):
     """Simple authentication state."""
 
-    redirect_to: str = "/"
+    redirect_to: str = rx.LocalStorage(name="login_redirect_to")
     homepage: str = "/"
     login_route: str = LOGIN_ROUTE
     logout_route: str = LOGOUT_ROUTE
@@ -140,7 +141,15 @@ class LoginState(UserSession):
         """
         self.is_loading = True
         self.error_message = ""
+
+        # Save redirect_to before terminating session (which resets state)
+        redirect_target = self.redirect_to
+
         await self.terminate_session()
+
+        # Restore redirect_to if it was set
+        if redirect_target and redirect_target != "/":
+            self.redirect_to = redirect_target
 
         username = form_data["username"]
         password = form_data["password"]
@@ -200,7 +209,14 @@ class LoginState(UserSession):
             self.is_loading = True
             self.error_message = ""
 
+            # Save redirect_to before terminating session (which resets state)
+            redirect_target = self.redirect_to
+
             await self.terminate_session()
+
+            # Restore redirect_to if it was set
+            if redirect_target and redirect_target != "/":
+                self.redirect_to = redirect_target
 
             # Normalize provider to string value (handles Enum inputs)
             provider_str = (
@@ -320,6 +336,8 @@ class LoginState(UserSession):
     @rx.event
     async def logout(self) -> EventSpec:
         """Logout user and terminate session."""
+        await self.terminate_session()
+
         return rx.redirect(LOGOUT_ROUTE)
 
     @rx.event
@@ -332,15 +350,23 @@ class LoginState(UserSession):
         current_page_path = self.router.url.path
         is_auth = await self.is_authenticated
 
+        logger.debug(
+            "Redirection check: is_authenticated=%s, current_page_path=%s",
+            is_auth,
+            current_page_path,
+        )
+
         # 1. If not authenticated and not on the login page, redirect to login.
         #    Store the intended destination to redirect back after successful login.
         if not is_auth and current_page_path != self.login_route:
+            logger.debug("User not authenticated, redirecting to login.")
             self.redirect_to = self.router.url.path
             return rx.redirect(self.login_route)
 
         # 2. If a `redirect_to` path is set (e.g., after login), navigate there.
         #    Clear `redirect_to` after using it.
         if self.redirect_to:
+            logger.debug("Redirecting to stored path: %s", self.redirect_to)
             redirect_url = self.redirect_to
             self.redirect_to = ""  # Clear the stored redirect path
             return rx.redirect(redirect_url or self.homepage)
@@ -349,16 +375,37 @@ class LoginState(UserSession):
         if is_auth:
             # If authenticated and on the login page, redirect to the homepage.
             if current_page_path == self.login_route:
+                logger.debug("User authenticated, redirecting to homepage.")
                 return rx.redirect(self.homepage)
             # If authenticated and on an OAuth callback page (and not handled by
             # redirect to the homepage.
             if current_page_path.startswith("/oauth/") and current_page_path.endswith(
                 "/callback"
             ):
+                logger.debug(
+                    "User authenticated on OAuth callback page, "
+                    "redirecting to homepage."
+                )
                 return rx.redirect(self.homepage)
 
         # 4. Default action:
         #    - Authenticated user on a regular page: stay on the current page.
         #    - Unauthenticated user on the login page: stay on the login page.
         #    rx.redirect to the current page effectively refreshes or ensures the URL.
+        logger.debug("No redirection needed, staying on current page.")
         return rx.redirect(current_page_path)
+
+    @rx.event
+    async def check_auth(self) -> AsyncGenerator | None:
+        """Page guard: redirect to login if not authenticated."""
+        logger.debug("Checking authentication for user_id=%s", self.user_id)
+        if not await self.is_authenticated:
+            logger.debug("User not authenticated, redirecting to login.")
+            return await self.redir()
+
+        # Synchronize with UserSession state for components binding to it
+        user_session = await self.get_state(UserSession)
+        user_session.user_id = self.user_id
+        user_session.user = self.user
+
+        return None

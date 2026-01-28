@@ -4,6 +4,7 @@ from reflex.components.sonner.toast import Toaster
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.backend.models import Role, User, UserCreate
 from appkit_user.authentication.backend.user_repository import user_repo
+from appkit_user.authentication.decorators import is_authenticated
 
 
 class UserState(rx.State):
@@ -52,6 +53,7 @@ class UserState(rx.State):
                 roles.append(key.split("role_")[1])
         return roles
 
+    @is_authenticated
     async def load_users(self, limit: int = 200, offset: int = 0) -> None:
         self.is_loading = True
         async with get_asyncdb_session() as session:
@@ -61,6 +63,7 @@ class UserState(rx.State):
             self.users = [User(**user.to_dict()) for user in user_entities]
         self.is_loading = False
 
+    @is_authenticated
     async def create_user(self, form_data: dict) -> Toaster:
         roles = self._get_selected_roles(form_data)
         new_user = UserCreate(
@@ -81,6 +84,7 @@ class UserState(rx.State):
             f"Benutzer {form_data['email']} angelegt.", position="top-right"
         )
 
+    @is_authenticated
     async def update_user(self, form_data: dict) -> Toaster:
         if not self.selected_user:
             return rx.toast.error(
@@ -118,6 +122,7 @@ class UserState(rx.State):
             position="top-right",
         )
 
+    @is_authenticated
     async def delete_user(self, user_id: int) -> Toaster:
         async with get_asyncdb_session() as session:
             user_entity = await user_repo.find_by_id(session, user_id)
