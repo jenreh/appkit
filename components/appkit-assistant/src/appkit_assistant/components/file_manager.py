@@ -16,6 +16,7 @@ from appkit_ui.components.dialogs import delete_dialog
 def vector_store_item(store_info: VectorStoreInfo) -> rx.Component:
     """Render a single vector store item in the list."""
     is_selected = FileManagerState.selected_vector_store_id == store_info.store_id
+    is_deleting = FileManagerState.deleting_vector_store_id == store_info.store_id
 
     return rx.box(
         rx.hstack(
@@ -25,25 +26,44 @@ def vector_store_item(store_info: VectorStoreInfo) -> rx.Component:
                     store_info.name,
                     size="2",
                     weight=rx.cond(is_selected, "bold", "regular"),
+                    title=store_info.name,
                     style={
                         "overflow": "hidden",
                         "text_overflow": "ellipsis",
                         "white_space": "nowrap",
+                        "max_width": "100%",
                     },
                 ),
                 rx.text(
                     store_info.store_id,
+                    title=store_info.store_id,
                     size="1",
                     color="gray",
                     style={
                         "overflow": "hidden",
                         "text_overflow": "ellipsis",
                         "white_space": "nowrap",
+                        "max_width": "100%",
                     },
                 ),
                 spacing="0",
                 align="start",
                 width="100%",
+                min_width="0",
+                flex="1",
+            ),
+            rx.tooltip(
+                rx.button(
+                    rx.icon("trash", size=13, stroke_width=1.5),
+                    variant="ghost",
+                    size="1",
+                    color_scheme="gray",
+                    loading=is_deleting,
+                    on_click=FileManagerState.delete_vector_store(
+                        store_info.store_id
+                    ).stop_propagation,
+                ),
+                content="Vector Store löschen",
             ),
             spacing="2",
             align="center",
@@ -168,7 +188,15 @@ def openai_file_table_row(file_info: OpenAIFileInfo) -> TableRow:
             },
         ),
         rx.table.cell(
+            rx.text(file_info.purpose, size="2"),
+            white_space="nowrap",
+        ),
+        rx.table.cell(
             rx.text(file_info.created_at, size="2"),
+            white_space="nowrap",
+        ),
+        rx.table.cell(
+            rx.text(file_info.expires_at, size="2"),
             white_space="nowrap",
         ),
         rx.table.cell(
@@ -213,12 +241,6 @@ def file_manager() -> rx.Component:
                 # Left column: Vector stores list
                 rx.box(
                     rx.vstack(
-                        rx.text(
-                            "Vector Stores",
-                            size="3",
-                            weight="bold",
-                            margin_bottom="8px",
-                        ),
                         rx.cond(
                             FileManagerState.vector_stores.length() > 0,
                             mn.scroll_area(
@@ -250,25 +272,6 @@ def file_manager() -> rx.Component:
                 # Right column: Files table
                 rx.box(
                     rx.vstack(
-                        rx.hstack(
-                            rx.text(
-                                "Dateien",
-                                size="3",
-                                weight="bold",
-                            ),
-                            rx.cond(
-                                FileManagerState.selected_vector_store_id != "",
-                                rx.badge(
-                                    FileManagerState.files.length(),
-                                    color_scheme="blue",
-                                    size="1",
-                                ),
-                                rx.fragment(),
-                            ),
-                            spacing="2",
-                            align="center",
-                            margin_bottom="8px",
-                        ),
                         rx.cond(
                             FileManagerState.selected_vector_store_id == "",
                             empty_state("Wähle einen Vector Store aus."),
@@ -329,21 +332,6 @@ def file_manager() -> rx.Component:
         rx.tabs.content(
             rx.box(
                 rx.vstack(
-                    rx.hstack(
-                        rx.text(
-                            "OpenAI Dateien",
-                            size="3",
-                            weight="bold",
-                        ),
-                        rx.badge(
-                            FileManagerState.openai_files.length(),
-                            color_scheme="blue",
-                            size="1",
-                        ),
-                        spacing="2",
-                        align="center",
-                        margin_bottom="8px",
-                    ),
                     rx.cond(
                         FileManagerState.openai_files.length() > 0,
                         mn.scroll_area(
@@ -354,7 +342,19 @@ def file_manager() -> rx.Component:
                                             "Dateiname", width="auto"
                                         ),
                                         rx.table.column_header_cell(
-                                            "Erstellt am", width="140px"
+                                            "Zweck",
+                                            width="120px",
+                                            white_space="nowrap",
+                                        ),
+                                        rx.table.column_header_cell(
+                                            "Erstellt am",
+                                            width="140px",
+                                            white_space="nowrap",
+                                        ),
+                                        rx.table.column_header_cell(
+                                            "Läuft ab",
+                                            width="140px",
+                                            white_space="nowrap",
                                         ),
                                         rx.table.column_header_cell(
                                             "Größe", width="100px"

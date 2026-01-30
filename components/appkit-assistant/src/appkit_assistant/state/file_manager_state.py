@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from typing import Any, Final
 
 import reflex as rx
@@ -25,9 +26,11 @@ ERROR_DELETE_GENERAL: Final[str] = "Fehler beim Löschen der Datei."
 ERROR_LOAD_OPENAI_FILES: Final[str] = "Fehler beim Laden der OpenAI-Dateien."
 ERROR_DELETE_OPENAI_FILE: Final[str] = "Fehler beim Löschen der OpenAI-Datei."
 ERROR_OPENAI_NOT_CONFIGURED: Final[str] = "OpenAI API Key ist nicht konfiguriert."
+ERROR_DELETE_VECTOR_STORE: Final[str] = "Fehler beim Löschen des Vector Stores."
 INFO_VECTOR_STORE_EXPIRED: Final[str] = (
     "Vector Store ist abgelaufen und wurde bereinigt."
 )
+INFO_VECTOR_STORE_DELETED: Final[str] = "Vector Store wurde gelöscht."
 
 # File size constants
 KB: Final[int] = 1024
@@ -53,6 +56,25 @@ def format_file_size_for_display(size_bytes: int) -> tuple[float, str]:
     return (float(size_bytes), " B")
 
 
+def _format_unix_timestamp(timestamp: int | None) -> str:
+    """Format a Unix timestamp to a human-readable date string.
+
+    Args:
+        timestamp: Unix timestamp in seconds, or None.
+
+    Returns:
+        Formatted date string or "-" if timestamp is None/invalid.
+    """
+    if timestamp is None:
+        return "-"
+    try:
+        # Convert UTC timestamp to local time for display
+        dt = datetime.fromtimestamp(timestamp, tz=UTC).astimezone()
+        return dt.strftime("%d.%m.%Y %H:%M")
+    except (ValueError, OSError, TypeError):
+        return "-"
+
+
 class FileInfo(BaseModel):
     """Model for file information displayed in the table."""
 
@@ -72,6 +94,8 @@ class OpenAIFileInfo(BaseModel):
     openai_id: str
     filename: str
     created_at: str
+    expires_at: str
+    purpose: str
     file_size: int
     formatted_size: float
     size_suffix: str
@@ -95,6 +119,7 @@ class FileManagerState(rx.State):
     loading: bool = False
     deleting_file_id: int | None = None
     deleting_openai_file_id: str | None = None
+    deleting_vector_store_id: str | None = None
 
     def _get_file_by_id(self, file_id: int) -> FileInfo | None:
         """Get a file by ID from the current files list."""
@@ -124,12 +149,22 @@ class FileManagerState(rx.State):
 
             logger.debug("Loaded %d vector stores", len(self.vector_stores))
 
-            # Auto-select first store if available and none selected
-            if self.vector_stores and not self.selected_vector_store_id:
-                first_store = self.vector_stores[0]
-                self.selected_vector_store_id = first_store.store_id
-                self.selected_vector_store_name = first_store.name
-                yield FileManagerState.load_files
+            # If no vector stores exist, clear selection and files
+            if not self.vector_stores:
+                self.selected_vector_store_id = ""
+                self.selected_vector_store_name = ""
+                self.files = []
+                return
+
+            # Check if currently selected store still exists
+            store_ids = {s.store_id for s in self.vector_stores}
+            if self.selected_vector_store_id and (
+                self.selected_vector_store_id not in store_ids
+            ):
+                # Selected store no longer exists, clear it
+                self.selected_vector_store_id = ""
+                self.selected_vector_store_name = ""
+                self.files = []
 
         except Exception as e:
             logger.error("Failed to load vector stores: %s", e)
@@ -139,6 +174,97 @@ class FileManagerState(rx.State):
             )
         finally:
             self.loading = False
+
+    async def delete_vector_store(self, store_id: str) -> AsyncGenerator[Any, Any]:
+        """Delete a vector store and all its associated files.
+
+        Deletes the vector store from OpenAI, all associated files from OpenAI,
+        and removes all database records.
+
+        Args:
+            store_id: The ID of the vector store to delete.
+        """
+        self.deleting_vector_store_id = store_id
+        try:
+            openai_service = get_openai_client_service()
+            if not openai_service.is_available:
+                yield rx.toast.error(
+                    ERROR_OPENAI_NOT_CONFIGURED,
+                    position="top-right",
+                )
+                return
+
+            client = openai_service.create_client()
+            if not client:
+                yield rx.toast.error(
+                    ERROR_OPENAI_NOT_CONFIGURED,
+                    position="top-right",
+                )
+                return
+
+            # Get files from DB to know which OpenAI files to delete
+            async with get_asyncdb_session() as session:
+                files = await file_upload_repo.find_by_vector_store(session, store_id)
+                openai_file_ids = [f.openai_file_id for f in files]
+
+                # Delete vector store from OpenAI
+                try:
+                    await client.vector_stores.delete(vector_store_id=store_id)
+                    logger.info("Deleted vector store from OpenAI: %s", store_id)
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if "not found" not in error_msg and "404" not in error_msg:
+                        logger.error(
+                            "Failed to delete vector store %s from OpenAI: %s",
+                            store_id,
+                            e,
+                        )
+
+                # Delete files from OpenAI
+                for file_id in openai_file_ids:
+                    try:
+                        await client.files.delete(file_id=file_id)
+                        logger.debug("Deleted file from OpenAI: %s", file_id)
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to delete file %s from OpenAI: %s",
+                            file_id,
+                            e,
+                        )
+
+                # Delete records from database
+                await file_upload_repo.delete_by_vector_store(session, store_id)
+                await session.commit()
+                logger.info(
+                    "Deleted %d files for vector store %s",
+                    len(files),
+                    store_id,
+                )
+
+            # Reset selection if this was the selected store
+            if self.selected_vector_store_id == store_id:
+                self.selected_vector_store_id = ""
+                self.selected_vector_store_name = ""
+                self.files = []
+
+            # Remove from local list
+            self.vector_stores = [
+                s for s in self.vector_stores if s.store_id != store_id
+            ]
+
+            yield rx.toast.success(
+                INFO_VECTOR_STORE_DELETED,
+                position="top-right",
+            )
+
+        except Exception as e:
+            logger.error("Failed to delete vector store %s: %s", store_id, e)
+            yield rx.toast.error(
+                ERROR_DELETE_VECTOR_STORE,
+                position="top-right",
+            )
+        finally:
+            self.deleting_vector_store_id = None
 
     async def select_vector_store(
         self, store_id: str, store_name: str = ""
@@ -326,17 +452,16 @@ class FileManagerState(rx.State):
                 formatted_size, size_suffix = format_file_size_for_display(file.bytes)
 
                 # Convert Unix timestamp to formatted date
-                created_at = (
-                    file.created_at.strftime("%d.%m.%Y %H:%M")
-                    if hasattr(file.created_at, "strftime")
-                    else "Unbekannt"
-                )
+                created_at = _format_unix_timestamp(file.created_at)
+                expires_at = _format_unix_timestamp(getattr(file, "expires_at", None))
 
                 openai_files_list.append(
                     OpenAIFileInfo(
                         openai_id=file.id,
                         filename=file.filename,
                         created_at=created_at,
+                        expires_at=expires_at,
+                        purpose=file.purpose or "-",
                         file_size=file.bytes,
                         formatted_size=formatted_size,
                         size_suffix=size_suffix,
