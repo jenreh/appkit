@@ -63,7 +63,9 @@ class ThreadList:
                         margin_left="0px",
                         margin_right="0px",
                         color_scheme="gray",
-                        on_click=ThreadListState.delete_thread(thread.thread_id),
+                        on_click=ThreadListState.delete_thread(
+                            thread.thread_id
+                        ).stop_propagation,
                     ),
                     content="Chat löschen",
                     flex_shrink=0,
