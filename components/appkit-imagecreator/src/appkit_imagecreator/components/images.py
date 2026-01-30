@@ -1,5 +1,6 @@
 import reflex as rx
 
+import appkit_mantine as mn
 from appkit_imagecreator.backend.models import GeneratedImageModel
 from appkit_imagecreator.state import ImageGalleryState
 
@@ -406,29 +407,33 @@ def image_zoom_modal() -> rx.Component:
                         rx.cond(
                             ImageGalleryState.zoom_image.is_not_none(),
                             rx.vstack(
-                                rx.text(
-                                    ImageGalleryState.zoom_image.prompt,
-                                    size="3",
-                                    line_height="1.6",
-                                    weight="medium",
-                                ),
-                                rx.cond(
-                                    ImageGalleryState.zoom_image.enhanced_prompt,
-                                    rx.box(
-                                        rx.text(
-                                            "Optimierter Prompt:",
-                                            size="2",
-                                            color=rx.color("gray", 9),
-                                            weight="medium",
-                                        ),
-                                        rx.text(
-                                            ImageGalleryState.zoom_image.enhanced_prompt,
-                                            size="2",
-                                            color=rx.color("gray", 11),
-                                            line_height="1.5",
-                                        ),
-                                        margin_top="8px",
+                                mn.scroll_area(
+                                    rx.text(
+                                        ImageGalleryState.zoom_image.prompt,
+                                        size="3",
+                                        line_height="1.6",
+                                        weight="medium",
                                     ),
+                                    rx.cond(
+                                        ImageGalleryState.zoom_image.enhanced_prompt,
+                                        rx.box(
+                                            rx.text(
+                                                "Optimierter Prompt:",
+                                                size="2",
+                                                color=rx.color("gray", 9),
+                                                weight="medium",
+                                            ),
+                                            rx.text(
+                                                ImageGalleryState.zoom_image.enhanced_prompt,
+                                                size="2",
+                                                color=rx.color("gray", 11),
+                                                line_height="1.5",
+                                            ),
+                                            margin_top="8px",
+                                        ),
+                                    ),
+                                    min_height="80px",
+                                    max_height="528px",
                                 ),
                                 rx.separator(size="4"),
                                 rx.hstack(
