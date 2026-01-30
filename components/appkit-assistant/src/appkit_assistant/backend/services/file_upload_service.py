@@ -99,7 +99,7 @@ class FileUploadService:
         self,
         thread_id: int,
         thread_uuid: str,
-    ) -> str:
+    ) -> tuple[str, str]:
         """Get existing vector store for thread or create a new one.
 
         Args:
@@ -107,7 +107,7 @@ class FileUploadService:
             thread_uuid: UUID string of the thread (for naming).
 
         Returns:
-            The vector store ID.
+            Tuple of (vector_store_id, vector_store_name).
 
         Raises:
             FileUploadError: If vector store creation fails.
@@ -127,11 +127,19 @@ class FileUploadService:
                     "Using existing vector store: %s",
                     thread.vector_store_id,
                 )
-                return thread.vector_store_id
+                # Fetch the name from OpenAI
+                try:
+                    vs = await self.client.vector_stores.retrieve(
+                        thread.vector_store_id
+                    )
+                    return thread.vector_store_id, vs.name or ""
+                except Exception:
+                    return thread.vector_store_id, f"Thread-{thread_uuid}"
 
             # Create new vector store with expiration
             vector_store = await self._create_vector_store_with_retry(thread_uuid)
             vector_store_id = vector_store.id
+            vector_store_name = vector_store.name or f"Thread-{thread_uuid}"
 
             # Update thread with vector store ID
             thread.vector_store_id = vector_store_id
@@ -144,11 +152,12 @@ class FileUploadService:
                 vector_store_id,
             )
 
-            return vector_store_id
+            return vector_store_id, vector_store_name
 
     async def add_files_to_vector_store(
         self,
         vector_store_id: str,
+        vector_store_name: str,
         file_ids: list[str],
         thread_id: int,
         user_id: int,
@@ -159,6 +168,7 @@ class FileUploadService:
 
         Args:
             vector_store_id: The vector store to add files to.
+            vector_store_name: The name of the vector store.
             file_ids: List of OpenAI file IDs to add.
             thread_id: Database ID of the thread.
             user_id: ID of the user who uploaded the files.
@@ -200,6 +210,7 @@ class FileUploadService:
                     filename=filename,
                     openai_file_id=file_id,
                     vector_store_id=vector_store_id,
+                    vector_store_name=vector_store_name,
                     thread_id=thread_id,
                     user_id=user_id,
                     file_size=size,
@@ -419,13 +430,14 @@ class FileUploadService:
                 file_sizes.append(path.stat().st_size)
 
             # Get or create vector store
-            vector_store_id = await self.get_or_create_vector_store(
+            vector_store_id, vector_store_name = await self.get_or_create_vector_store(
                 thread_db_id, thread_uuid
             )
 
             # Add files to vector store
             await self.add_files_to_vector_store(
                 vector_store_id=vector_store_id,
+                vector_store_name=vector_store_name,
                 file_ids=uploaded_file_ids,
                 thread_id=thread_db_id,
                 user_id=user_id,
@@ -450,3 +462,175 @@ class FileUploadService:
                 )
                 await self.cleanup_files(uploaded_file_ids)
             raise
+
+    async def cleanup_openai_files(
+        self,
+        openai_file_ids: list[str],
+        vector_store_id: str | None,
+    ) -> None:
+        """Clean up OpenAI files by their IDs.
+
+        Deletes files from OpenAI. If all files are successfully deleted,
+        attempts to delete the vector store.
+        Failures are logged but do not raise exceptions.
+
+        Note: This method does NOT delete database records - use this when
+        DB records have already been cascade-deleted with the thread.
+
+        Args:
+            openai_file_ids: List of OpenAI file IDs to delete.
+            vector_store_id: The vector store ID (if any) to delete after files.
+        """
+        logger.info(
+            "Starting OpenAI cleanup for %d files, vector_store=%s",
+            len(openai_file_ids),
+            vector_store_id,
+        )
+
+        if not openai_file_ids:
+            logger.debug("No files to clean up")
+            # If vector store exists but no files, try to delete it
+            if vector_store_id:
+                await self._try_delete_vector_store(vector_store_id)
+            return
+
+        deleted_count = 0
+        all_successful = True
+
+        for file_id in openai_file_ids:
+            success = await self._try_delete_openai_file(file_id)
+            if success:
+                deleted_count += 1
+            else:
+                all_successful = False
+
+        logger.info(
+            "OpenAI cleanup completed: %d/%d files deleted",
+            deleted_count,
+            len(openai_file_ids),
+        )
+
+        # Delete vector store only if all files were cleaned successfully
+        if vector_store_id and all_successful:
+            await self._try_delete_vector_store(vector_store_id)
+        elif vector_store_id:
+            logger.info(
+                "Skipping vector store deletion for %s due to cleanup failures; "
+                "it will auto-expire",
+                vector_store_id,
+            )
+
+    async def cleanup_thread_files(
+        self,
+        thread_db_id: int,
+        vector_store_id: str | None,
+    ) -> None:
+        """Clean up all files associated with a deleted thread.
+
+        Deletes files from OpenAI and database records. If all files are
+        successfully deleted, attempts to delete the vector store.
+        Failures are logged but do not raise exceptions.
+
+        Args:
+            thread_db_id: Database ID of the deleted thread.
+            vector_store_id: The vector store ID (if any) associated with the thread.
+        """
+        from appkit_assistant.backend.repositories import (  # noqa: PLC0415
+            file_upload_repo,
+        )
+
+        logger.info("Starting cleanup for deleted thread %d", thread_db_id)
+
+        # Get all files for this thread
+        async with get_asyncdb_session() as session:
+            files = await file_upload_repo.find_by_thread(session, thread_db_id)
+
+        if not files:
+            logger.debug("No files to clean up for thread %d", thread_db_id)
+            # If vector store exists but no files, try to delete it
+            if vector_store_id:
+                await self._try_delete_vector_store(vector_store_id)
+            return
+
+        deleted_count = 0
+        all_successful = True
+
+        for file_upload in files:
+            # Step 1: Delete from OpenAI
+            openai_deleted = await self._try_delete_openai_file(
+                file_upload.openai_file_id
+            )
+            if not openai_deleted:
+                all_successful = False
+
+            # Step 2: Delete database record (continue even if OpenAI failed)
+            db_deleted = await self._try_delete_db_record(file_upload.id)
+            if db_deleted:
+                deleted_count += 1
+            else:
+                all_successful = False
+
+        logger.info(
+            "Cleanup completed for thread %d: %d/%d files deleted",
+            thread_db_id,
+            deleted_count,
+            len(files),
+        )
+
+        # Step 3: Delete vector store only if all files were cleaned successfully
+        if vector_store_id and all_successful:
+            await self._try_delete_vector_store(vector_store_id)
+        elif vector_store_id:
+            logger.info(
+                "Skipping vector store deletion for %s due to cleanup failures; "
+                "it will auto-expire",
+                vector_store_id,
+            )
+
+    async def _try_delete_openai_file(self, openai_file_id: str) -> bool:
+        """Try to delete a file from OpenAI. Returns True if successful."""
+        try:
+            await self.client.files.delete(file_id=openai_file_id)
+            logger.debug("Deleted OpenAI file: %s", openai_file_id)
+            return True
+        except Exception as e:
+            logger.warning(
+                "Failed to delete OpenAI file %s: %s",
+                openai_file_id,
+                e,
+            )
+            return False
+
+    async def _try_delete_db_record(self, file_id: int) -> bool:
+        """Try to delete a file record from database. Returns True if successful."""
+        from appkit_assistant.backend.repositories import (  # noqa: PLC0415
+            file_upload_repo,
+        )
+
+        try:
+            async with get_asyncdb_session() as session:
+                await file_upload_repo.delete_file(session, file_id)
+                await session.commit()
+            logger.debug("Deleted DB record for file: %d", file_id)
+            return True
+        except Exception as e:
+            logger.error(
+                "Failed to delete DB record for file %d: %s",
+                file_id,
+                e,
+            )
+            return False
+
+    async def _try_delete_vector_store(self, vector_store_id: str) -> bool:
+        """Try to delete a vector store from OpenAI. Returns True if successful."""
+        try:
+            await self.client.vector_stores.delete(vector_store_id=vector_store_id)
+            logger.info("Deleted vector store: %s", vector_store_id)
+            return True
+        except Exception as e:
+            logger.warning(
+                "Failed to delete vector store %s (will auto-expire): %s",
+                vector_store_id,
+                e,
+            )
+            return False

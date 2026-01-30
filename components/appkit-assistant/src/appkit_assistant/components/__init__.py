@@ -1,5 +1,6 @@
 from appkit_assistant.backend.models import Suggestion
 from appkit_assistant.components.composer import composer
+from appkit_assistant.components.file_manager import file_manager
 from appkit_assistant.components.thread import Assistant
 from appkit_assistant.components.message import MessageComponent
 from appkit_assistant.backend.models import (
@@ -34,5 +35,6 @@ __all__ = [
     "ThreadStatus",
     "UploadedFile",
     "composer",
+    "file_manager",
     "mcp_servers_table",
 ]

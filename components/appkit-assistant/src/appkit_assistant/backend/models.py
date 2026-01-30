@@ -286,6 +286,7 @@ class AssistantFileUpload(rx.Model, table=True):
     filename: str = Field(max_length=255, nullable=False)
     openai_file_id: str = Field(max_length=255, nullable=False, index=True)
     vector_store_id: str = Field(max_length=255, nullable=False, index=True)
+    vector_store_name: str = Field(max_length=255, default="", nullable=False)
     thread_id: int = Field(
         index=True, nullable=False, foreign_key="assistant_thread.id"
     )

@@ -102,10 +102,12 @@ def initialize_model_manager() -> list[AIModel]:
     model_manager.register_processor(
         "openai",
         OpenAIResponsesProcessor(
-            api_key=config.openai_api_key.get_secret_value(),
+            api_key=config.openai_api_key.get_secret_value()
+            if config.openai_api_key
+            else None,
             base_url=config.openai_base_url,
             models=models,
-            is_azure=True,
+            is_azure=config.openai_is_azure,
         ),
     )
 

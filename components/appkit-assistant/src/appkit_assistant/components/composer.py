@@ -146,15 +146,15 @@ def file_upload(show: bool = False) -> rx.Component:
                 ),
                 id="composer_file_upload",
                 accept={
-                    #                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
-                    #                    ".xlsx"
-                    #                ],
-                    #                "text/csv": [".csv"],
-                    #                "application/vnd.openxmlformats-officedocument."
-                    #                "wordprocessingml.document": [".docx"],
-                    #                "application/vnd.openxmlformats-officedocument."
-                    #                "presentationml.presentation": [".pptx"],
-                    #                "text/markdown": [".md"],
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [  # noqa: E501
+                        ".xlsx"
+                    ],
+                    "text/csv": [".csv"],
+                    "application/vnd.openxmlformats-officedocument."
+                    "wordprocessingml.document": [".docx"],
+                    "application/vnd.openxmlformats-officedocument."
+                    "presentationml.presentation": [".pptx"],
+                    "text/markdown": [".md"],
                     "application/pdf": [".pdf"],
                     "image/png": [".png"],
                     "image/jpeg": [".jpg", ".jpeg"],

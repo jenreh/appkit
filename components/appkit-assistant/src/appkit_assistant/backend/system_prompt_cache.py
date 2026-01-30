@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Final
+from typing import Final, Self
 
 from appkit_assistant.backend.repositories import system_prompt_repo
 from appkit_commons.database.session import get_asyncdb_session
@@ -25,7 +25,7 @@ class SystemPromptCache:
     _instance: "SystemPromptCache | None" = None
     _lock: asyncio.Lock = asyncio.Lock()
 
-    def __new__(cls) -> "SystemPromptCache":
+    def __new__(cls) -> Self:
         """Ensure singleton pattern."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
