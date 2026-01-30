@@ -27,26 +27,6 @@ DEFAULT: Final = AIModel(
     stream=True,
 )
 
-GPT_4o: Final = AIModel(
-    id="gpt-4o",
-    text="GPT 4o",
-    icon="openai",
-    model="gpt-4o",
-    stream=True,
-    supports_attachments=False,
-    supports_tools=True,
-)
-
-GPT_4_1: Final = AIModel(
-    id="gpt-4.1",
-    text="GPT-4.1",
-    icon="openai",
-    model="gpt-4.1",
-    stream=True,
-    supports_attachments=False,
-    supports_tools=True,
-)
-
 O3: Final = AIModel(
     id="o3",
     text="o3 Reasoning",
@@ -75,7 +55,7 @@ GPT_5: Final = AIModel(
     icon="openai",
     model="gpt-5",
     stream=True,
-    supports_attachments=False,
+    supports_attachments=True,
     supports_tools=True,
     temperature=1,
 )
@@ -86,7 +66,7 @@ GPT_5_1: Final = AIModel(
     icon="openai",
     model="gpt-5.1",
     stream=True,
-    supports_attachments=False,
+    supports_attachments=True,
     supports_tools=True,
     temperature=1,
 )
@@ -97,7 +77,7 @@ GPT_5_2: Final = AIModel(
     icon="openai",
     model="gpt-5.2",
     stream=True,
-    supports_attachments=False,
+    supports_attachments=True,
     supports_tools=True,
     temperature=1,
 )
@@ -108,7 +88,7 @@ GPT_5_MINI: Final = AIModel(
     icon="openai",
     model="gpt-5-mini",
     stream=True,
-    supports_attachments=False,
+    supports_attachments=True,
     supports_tools=True,
     temperature=1,
 )
@@ -119,7 +99,7 @@ GPT_5_1_MINI: Final = AIModel(
     icon="openai",
     model="gpt-5.1-mini",
     stream=True,
-    supports_attachments=False,
+    supports_attachments=True,
     supports_tools=True,
     temperature=1,
 )
@@ -130,7 +110,7 @@ GPT_5_NANO: Final = AIModel(
     icon="openai",
     model="gpt-5-nano",
     stream=True,
-    supports_attachments=False,
+    supports_attachments=True,
     supports_tools=True,
     temperature=1,
 )

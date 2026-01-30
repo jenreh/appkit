@@ -6,6 +6,7 @@ import reflex as rx
 from fastapi import FastAPI
 from starlette.types import ASGIApp
 
+from appkit_assistant.api import file_cleanup_router, start_scheduler, stop_scheduler
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
 from appkit_imagecreator.backend.image_api import router as image_api_router
@@ -146,6 +147,20 @@ base_style = {
 # Create FastAPI app for custom API routes
 api_app = FastAPI(title="AppKit API")
 api_app.include_router(image_api_router)
+api_app.include_router(file_cleanup_router)
+
+
+# Start file cleanup scheduler on app startup
+@api_app.on_event("startup")
+async def startup_event() -> None:
+    """Start background services on app startup."""
+    start_scheduler()
+
+
+@api_app.on_event("shutdown")
+async def shutdown_event() -> None:
+    """Stop background services on app shutdown."""
+    stop_scheduler()
 
 
 # Middleware transformer for HTTPS redirect

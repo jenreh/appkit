@@ -1,103 +1,105 @@
 {
-    "[toml]": {
-        "editor.defaultFormatter": "tamasfe.even-better-toml"
-    },
-    "[python]": {
-        "editor.defaultFormatter": "charliermarsh.ruff"
-    },
-    "editor.rulers": [
-        88,
-        120
-    ],
-    "editor.codeActionsOnSave": {
-        "source.convertImportFormat": "always",
-        "source.fixAll": "always",
-        "source.fixAll.pylance": "always",
-        "source.fixAll.ruff": "always",
-        "source.organizeImports.ruff": "always",
-    },
-    "editor.formatOnSave": true,
-    "editor.formatOnPaste": true,
-    "editor.formatOnType": false,
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "evenBetterToml.formatter.alignComments": false,
-    "evenBetterToml.formatter.alignEntries": false,
-    "evenBetterToml.formatter.allowedBlankLines": 2,
-    "evenBetterToml.formatter.arrayAutoCollapse": false,
-    "evenBetterToml.formatter.arrayAutoExpand": true,
-    "evenBetterToml.formatter.arrayTrailingComma": true,
-    "evenBetterToml.formatter.columnWidth": 120,
-    "evenBetterToml.formatter.indentString": "    ",
-    "files.insertFinalNewline": true,
-    "files.trimTrailingWhitespace": true,
-    "files.eol": "\n",
-    "debugpy.debugJustMyCode": false,
-    "debugpy.showPythonInlineValues": true,
-    "python.analysis.autoFormatStrings": true,
-    "python.analysis.autoImportCompletions": true,
-    "python.analysis.autoSearchPaths": true,
-    "python.analysis.diagnosticSeverityOverrides": {
-        "reportInvalidStringEscapeSequence": false,
-        "reportIncompatibleVariableOverride": false
-    },
-    "python.analysis.include": [
-        "components/*/src/**",
-    ],
-    "python.analysis.indexing": true,
-    "python.analysis.inlayHints.pytestParameters": false,
-    "python.analysis.typeCheckingMode": "off",
-    "python.analysis.inlayHints.callArgumentNames": "off",
-    "python.analysis.inlayHints.functionReturnTypes": false,
-    "python.analysis.inlayHints.variableTypes": false,
-    "python.autoComplete.extraPaths": [
-        "components/*/src",
-    ],
-    "python.createEnvironment.contentButton": "show",
-    "python.envFile": "${workspaceFolder}/.env",
-    "python.experiments.enabled": false,
-    "python.missingPackage.severity": "Error",
-    "python.terminal.activateEnvInCurrentTerminal": false,
-    "python.testing.pytestEnabled": true,
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestArgs": [
-        "tests"
-    ],
-    "terminal.integrated.defaultProfile.linux": "zsh",
-    "terminal.integrated.defaultProfile.osx": "zsh",
-    "workbench.iconTheme": "vscode-icons",
-    "files.exclude": {
-        "**/.cache": true,
-        "**/__pycache__": true
-    },
-    "files.watcherExclude": {
-        "**/.cache/**": true,
-        "**/__pycache__/**": true
-    },
-    "github.copilot.chat.codesearch.enabled": true,
-    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
-    "github.copilot.chat.copilotDebugCommand.enabled": true,
-    "github.copilot.chat.reviewSelection.enabled": true,
-    "github.copilot.chat.terminalChatLocation": "quickChat",
-    "github.copilot.chat.azureModels": {
-        "gpt-5": {
-            "name": "GPT-5 (Azure)",
-            "url": "https://asy-nm-x-dia-openai.openai.azure.com",
-            "maxInputTokens": 256000,
-            "maxOutputTokens": 16000,
-            "toolCalling": true,
-            "vision": true
-        },
-    },
-    "github.copilot.chat.newWorkspace.useContext7": true,
-    "[terraform]": {
-        "editor.defaultFormatter": "hashicorp.terraform"
-    },
-    "[yaml]": {
-        "editor.defaultFormatter": "redhat.vscode-yaml"
-    },
-    "mypy-type-checker.preferDaemon": true,
-    "mypy-type-checker.reportingScope": "workspace",
-    "python-envs.defaultPackageManager": "ms-python.python:uv",
-    "chat.agent.maxRequests": 100,
-
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "editor.rulers": [
+    88,
+    120
+  ],
+  "editor.codeActionsOnSave": {
+    "source.convertImportFormat": "always",
+    "source.fixAll": "always",
+    "source.fixAll.pylance": "always",
+    "source.fixAll.ruff": "always",
+    "source.organizeImports.ruff": "always"
+  },
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": false,
+  "editor.defaultFormatter": "charliermarsh.ruff",
+  "evenBetterToml.formatter.alignComments": false,
+  "evenBetterToml.formatter.alignEntries": false,
+  "evenBetterToml.formatter.allowedBlankLines": 2,
+  "evenBetterToml.formatter.arrayAutoCollapse": false,
+  "evenBetterToml.formatter.arrayAutoExpand": true,
+  "evenBetterToml.formatter.arrayTrailingComma": true,
+  "evenBetterToml.formatter.columnWidth": 120,
+  "evenBetterToml.formatter.indentString": "    ",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.eol": "\n",
+  "debugpy.debugJustMyCode": false,
+  "debugpy.showPythonInlineValues": true,
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportInvalidStringEscapeSequence": false,
+    "reportIncompatibleVariableOverride": false
+  },
+  "python.analysis.include": [
+    "components/*/src/**"
+  ],
+  "python.analysis.indexing": true,
+  "python.analysis.inlayHints.pytestParameters": false,
+  "python.analysis.typeCheckingMode": "off",
+  "python.analysis.inlayHints.callArgumentNames": "off",
+  "python.analysis.inlayHints.functionReturnTypes": false,
+  "python.analysis.inlayHints.variableTypes": false,
+  "python.autoComplete.extraPaths": [
+    "components/*/src"
+  ],
+  "python.createEnvironment.contentButton": "show",
+  "python.envFile": "${workspaceFolder}/.env",
+  "python.experiments.enabled": false,
+  "python.missingPackage.severity": "Error",
+  "python.terminal.activateEnvInCurrentTerminal": false,
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": [
+    "tests"
+  ],
+  "terminal.integrated.defaultProfile.linux": "zsh",
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "workbench.iconTheme": "vscode-icons",
+  "files.exclude": {
+    "**/.cache": true,
+    "**/__pycache__": true
+  },
+  "files.watcherExclude": {
+    "**/.cache/**": true,
+    "**/__pycache__/**": true
+  },
+  "github.copilot.chat.codesearch.enabled": true,
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  "github.copilot.chat.copilotDebugCommand.enabled": true,
+  "github.copilot.chat.reviewSelection.enabled": true,
+  "github.copilot.chat.terminalChatLocation": "quickChat",
+  "github.copilot.chat.azureModels": {
+    "gpt-5": {
+      "name": "GPT-5 (Azure)",
+      "url": "https://asy-nm-x-dia-openai.openai.azure.com",
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 16000,
+      "toolCalling": true,
+      "vision": true
+    }
+  },
+  "github.copilot.chat.newWorkspace.useContext7": true,
+  "[terraform]": {
+    "editor.defaultFormatter": "hashicorp.terraform"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "mypy-type-checker.preferDaemon": true,
+  "mypy-type-checker.reportingScope": "workspace",
+  "python-envs.defaultPackageManager": "ms-python.python:uv",
+  "chat.agent.maxRequests": 100,
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  }
 }

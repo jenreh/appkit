@@ -5,11 +5,13 @@ from collections.abc import AsyncGenerator
 from typing import Any, Final
 
 import reflex as rx
+from sqlalchemy import select
 
 from appkit_assistant.backend.mcp_auth_service import MCPAuthService
 from appkit_assistant.backend.models import (
     AIModel,
     AssistantMCPUserToken,
+    AssistantThread,
     Chunk,
     ChunkType,
     MCPAuthType,
@@ -19,8 +21,13 @@ from appkit_assistant.backend.models import (
 )
 from appkit_assistant.backend.processor import mcp_oauth_redirect_uri
 from appkit_assistant.backend.processors.openai_base import BaseOpenAIProcessor
+from appkit_assistant.backend.services.file_upload_service import (
+    FileUploadError,
+    FileUploadService,
+)
 from appkit_assistant.backend.system_prompt_cache import get_system_prompt
-from appkit_commons.database.session import get_session_manager
+from appkit_assistant.configuration import FileUploadConfig
+from appkit_commons.database.session import get_asyncdb_session, get_session_manager
 
 logger = logging.getLogger(__name__)
 default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
@@ -36,12 +43,22 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         base_url: str | None = None,
         is_azure: bool = False,
         oauth_redirect_uri: str = default_oauth_redirect_uri,
+        file_upload_config: FileUploadConfig | None = None,
     ) -> None:
         super().__init__(models, api_key, base_url, is_azure)
         self._current_reasoning_session: str | None = None
         self._current_user_id: int | None = None
         self._mcp_auth_service = MCPAuthService(redirect_uri=oauth_redirect_uri)
         self._pending_auth_servers: list[MCPServer] = []
+        self._file_upload_config = file_upload_config or FileUploadConfig()
+        self._file_upload_service: FileUploadService | None = None
+
+        # Initialize file upload service if client is available
+        if self.client:
+            self._file_upload_service = FileUploadService(
+                client=self.client,
+                config=self._file_upload_config,
+            )
 
         logger.debug("Using redirect URI for MCP OAuth: %s", oauth_redirect_uri)
 
@@ -49,7 +66,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         self,
         messages: list[Message],
         model_id: str,
-        files: list[str] | None = None,  # noqa: ARG002
+        files: list[str] | None = None,
         mcp_servers: list[MCPServer] | None = None,
         payload: dict[str, Any] | None = None,
         user_id: int | None = None,
@@ -67,9 +84,16 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         self._current_user_id = user_id
         self._pending_auth_servers = []
 
+        # Process file uploads if provided
+        vector_store_id = await self._process_file_uploads(
+            files=files,
+            payload=payload,
+            user_id=user_id,
+        )
+
         try:
             session = await self._create_responses_request(
-                messages, model, mcp_servers, payload, user_id
+                messages, model, mcp_servers, payload, user_id, vector_store_id
             )
 
             try:
@@ -121,6 +145,88 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         except Exception as e:
             logger.error("Critical error in OpenAI processor: %s", e)
             raise e
+
+    async def _process_file_uploads(  # noqa: PLR0911
+        self,
+        files: list[str] | None,
+        payload: dict[str, Any] | None,
+        user_id: int | None,
+    ) -> str | None:
+        """Process file uploads and return vector store ID if available.
+
+        Args:
+            files: List of local file paths to upload.
+            payload: Request payload containing thread_uuid.
+            user_id: ID of the user making the request.
+
+        Returns:
+            Vector store ID if files were uploaded or thread has existing store.
+        """
+        thread_uuid = payload.get("thread_uuid") if payload else None
+
+        if not thread_uuid:
+            if files:
+                logger.warning(
+                    "Files provided but no thread_uuid in payload, skipping upload"
+                )
+            return None
+
+        if not user_id:
+            if files:
+                logger.warning("Files provided but no user_id, skipping upload")
+            return None
+
+        # Look up thread to get database ID and existing vector store
+        async with get_asyncdb_session() as session:
+            result = await session.execute(
+                select(AssistantThread).where(AssistantThread.thread_id == thread_uuid)
+            )
+            thread = result.scalar_one_or_none()
+
+            if not thread:
+                if files:
+                    logger.warning(
+                        "Thread %s not found in database, cannot upload files",
+                        thread_uuid,
+                    )
+                return None
+
+            thread_db_id = thread.id
+            existing_vector_store_id = thread.vector_store_id
+
+        # If no files but thread has existing vector store, use it
+        if not files:
+            if existing_vector_store_id:
+                logger.debug(
+                    "Using existing vector store %s for thread %s",
+                    existing_vector_store_id,
+                    thread_uuid,
+                )
+            return existing_vector_store_id
+
+        # Process file uploads
+        if not self._file_upload_service:
+            logger.warning("File upload service not available")
+            return existing_vector_store_id
+
+        try:
+            vector_store_id = await self._file_upload_service.process_files_for_thread(
+                file_paths=files,
+                thread_db_id=thread_db_id,
+                thread_uuid=thread_uuid,
+                user_id=user_id,
+            )
+            logger.info(
+                "Processed %d files for thread %s, vector_store: %s",
+                len(files),
+                thread_uuid,
+                vector_store_id,
+            )
+            return vector_store_id
+        except FileUploadError as e:
+            logger.error("File upload failed: %s", e)
+            # Return existing vector store if available
+            return existing_vector_store_id
 
     def _handle_event(self, event: Any) -> Chunk | None:
         """Simplified event handler returning actual event content in chunks."""
@@ -179,10 +285,18 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             )
 
         if event_type == "response.output_text.annotation.added":
+            # Annotation can be a dict (file_citation) or other object
+            annotation = event.annotation
+            if isinstance(annotation, dict):
+                annotation_text = annotation.get("filename", str(annotation))
+                annotation_str = str(annotation)
+            else:
+                annotation_text = str(annotation)
+                annotation_str = annotation_text
             return self._create_chunk(
                 ChunkType.ANNOTATION,
-                event.annotation,
-                {"annotation": event.annotation},
+                annotation_text,
+                {"annotation": annotation_str},
             )
 
         return None
@@ -551,6 +665,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         mcp_servers: list[MCPServer] | None = None,
         payload: dict[str, Any] | None = None,
         user_id: int | None = None,
+        vector_store_id: str | None = None,
     ) -> Any:
         """Create a simplified responses API request."""
         # Configure MCP tools if provided (now async for token lookup)
@@ -560,10 +675,31 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             else ([], "")
         )
 
+        # Add file_search tool if vector store is available
+        if vector_store_id:
+            file_search_tool = {
+                "type": "file_search",
+                "vector_store_ids": [vector_store_id],
+                "max_num_results": 20,
+            }
+            tools.append(file_search_tool)
+            logger.debug(
+                "Added file_search tool with vector_store: %s",
+                vector_store_id,
+            )
+
         # Convert messages to responses format with system message
         input_messages = await self._convert_messages_to_responses_format(
             messages, mcp_prompt=mcp_prompt
         )
+
+        # Filter out internal payload keys that shouldn't go to OpenAI
+        filtered_payload = {}
+        if payload:
+            internal_keys = {"thread_uuid"}
+            filtered_payload = {
+                k: v for k, v in payload.items() if k not in internal_keys
+            }
 
         params = {
             "model": model.model,
@@ -572,7 +708,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             "temperature": model.temperature,
             "tools": tools,
             "reasoning": {"effort": "medium"},
-            **(payload or {}),
+            **filtered_payload,
         }
 
         return await self.client.responses.create(**params)

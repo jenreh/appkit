@@ -1,6 +1,7 @@
 [project]
 dependencies = [
     "anthropic>=0.77.0",
+    "apscheduler>=3.11.2",
     "appkit-commons",
     "appkit-mantine",
     "appkit-ui",

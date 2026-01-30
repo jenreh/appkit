@@ -104,6 +104,23 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    from sqlalchemy import create_engine, pool
+
+    url = get_database_url()
+    connectable = create_engine(
+        url,
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():
