@@ -21,10 +21,11 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
-    "greenlet>=3.2.4",
+    "greenlet>=3.3.1",
     "appkit-commons",
     "appkit-ui",
     "requests_oauthlib>=2.0.0",
+    "urllib3>=2.6.3",
 ]
 
 [project.urls]

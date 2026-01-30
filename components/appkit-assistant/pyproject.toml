@@ -1,13 +1,14 @@
 [project]
 dependencies = [
-    "anthropic>=0.40.0",
+    "anthropic>=0.77.0",
     "appkit-commons",
     "appkit-mantine",
     "appkit-ui",
-    "google-genai>=1.52.0",
-    "mcp>=1.0.0",
-    "openai>=2.3.0",
-    "reflex>=0.8.22",
+    "google-genai>=1.60.0",
+    "mcp>=1.26.0",
+    "openai>=2.16.0",
+    "reflex>=0.8.26",
+    "python-multipart>=0.0.22",
 ]
 name = "appkit-assistant"
 version = "0.17.3"
