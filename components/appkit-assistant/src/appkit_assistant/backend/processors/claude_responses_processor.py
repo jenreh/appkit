@@ -179,22 +179,23 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             "content_block_stop": self._handle_content_block_stop,
         }
 
-    def _handle_message_start(self, event: Any) -> Chunk | None:  # noqa: ARG002
+    def _handle_message_start(self, _: Any) -> Chunk | None:
         """Handle message_start event."""
         return self.chunk_factory.lifecycle("created", {"stage": "created"})
 
     def _handle_message_delta(self, event: Any) -> Chunk | None:
         """Handle message_delta event (contains stop_reason)."""
         delta = getattr(event, "delta", None)
-        if delta:
-            stop_reason = getattr(delta, "stop_reason", None)
-            if stop_reason:
-                return self.chunk_factory.lifecycle(
-                    f"stop_reason: {stop_reason}", {"stop_reason": stop_reason}
-                )
-        return None
+        if not delta:
+            return None
+        stop_reason = getattr(delta, "stop_reason", None)
+        if not stop_reason:
+            return None
+        return self.chunk_factory.lifecycle(
+            f"stop_reason: {stop_reason}", {"stop_reason": stop_reason}
+        )
 
-    def _handle_message_stop(self, event: Any) -> Chunk | None:  # noqa: ARG002
+    def _handle_message_stop(self, _: Any) -> Chunk | None:
         """Handle message_stop event."""
         return self.chunk_factory.completion(status="response_complete")
 
@@ -221,12 +222,12 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
         return None
 
-    def _handle_text_block_start(self, content_block: Any) -> Chunk | None:  # noqa: ARG002
+    def _handle_text_block_start(self, _: Any) -> Chunk | None:
         """Handle start of text content block."""
-        if self._needs_text_separator:
-            self._needs_text_separator = False
-            return self.chunk_factory.text("\n\n", {"separator": "true"})
-        return None
+        if not self._needs_text_separator:
+            return None
+        self._needs_text_separator = False
+        return self.chunk_factory.text("\n\n", {"separator": "true"})
 
     def _handle_thinking_block_start(self, content_block: Any) -> Chunk:
         """Handle start of thinking content block."""
@@ -316,17 +317,15 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         """Extract text from MCP tool result content."""
         if not content:
             return ""
-        if isinstance(content, list):
-            parts = []
-            for item in content:
-                if isinstance(item, dict):
-                    parts.append(item.get("text", str(item)))
-                elif hasattr(item, "text"):
-                    parts.append(getattr(item, "text", str(item)))
-                else:
-                    parts.append(str(item))
-            return "".join(parts)
-        return str(content)
+        if not isinstance(content, list):
+            return str(content)
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                parts.append(item.get("text", str(item)))
+            else:
+                parts.append(getattr(item, "text", str(item)))
+        return "".join(parts)
 
     def _handle_content_block_delta(self, event: Any) -> Chunk | None:
         """Handle content_block_delta event."""
@@ -378,11 +377,9 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         logger.debug("Unhandled delta type in stream: %s", delta_type)
         return None
 
-    def _handle_content_block_stop(self, event: Any) -> Chunk | None:  # noqa: ARG002
+    def _handle_content_block_stop(self, _: Any) -> Chunk | None:
         """Handle content_block_stop event."""
-        # Check if this was a thinking block ending
         if self.current_reasoning_session:
-            # Reset reasoning session after thinking completes
             reasoning_id = self.current_reasoning_session
             self.current_reasoning_session = None
             return self.chunk_factory.create(
@@ -391,15 +388,14 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 {"reasoning_id": reasoning_id, "status": "completed"},
             )
 
-        # Check if this was a tool block ending
         if self._current_tool_context:
-            tool_context = self._current_tool_context
+            ctx = self._current_tool_context
             self._current_tool_context = None
             return self.chunk_factory.tool_call(
                 "Werkzeugargumente vollständig",
-                tool_name=tool_context.get("tool_name"),
-                tool_id=tool_context.get("tool_id"),
-                server_label=tool_context.get("server_label"),
+                tool_name=ctx.get("tool_name"),
+                tool_id=ctx.get("tool_id"),
+                server_label=ctx.get("server_label"),
                 status="arguments_complete",
             )
 
@@ -520,7 +516,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         )
 
         # Build system prompt
-        system_prompt = await self._build_system_prompt(mcp_prompt)
+        system_prompt = await self._system_prompt_builder.build(mcp_prompt)
 
         # Determine which beta features to enable
         betas = []
@@ -669,21 +665,12 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             # Claude currently does not support custom headers for MCP servers.
             if query_suffix:
                 warning_msg = (
-                    f"Der MCP-Server '{server.name}' wurde deaktiviert, da er HTTP-Header benötigt, "
-                    "die von der Claude API nicht unterstützt werden."
+                    f"Der MCP-Server '{server.name}' wurde deaktiviert, "
+                    "da er HTTP-Header benötigt, die von der Claude API "
+                    "nicht unterstützt werden."
                 )
                 self._mcp_warnings.append(warning_msg)
-
-                # prompts.append(
-                #     f"SYSTEM INFO: {warning_msg} (nur Authorization Header wird unterstützt)."
-                # )
                 continue
-
-            # Build URL with query params if needed
-            server_url = server.url
-            if query_suffix:
-                separator = "&" if "?" in server_url else "?"
-                server_url = f"{server_url}{separator}{query_suffix}"
 
             # Build MCP server configuration
             server_config: dict[str, Any] = {
@@ -708,8 +695,8 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                         server.name,
                     )
 
-            # Set the final URL (may include query params from headers)
-            server_config["url"] = server_url
+            # Set the final URL
+            server_config["url"] = server.url
             server_configs.append(server_config)
 
             # Add MCP toolset for this server
@@ -732,41 +719,22 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         messages: list[Message],
         file_content_blocks: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
-        """Convert messages to Claude API format.
-
-        Args:
-            messages: List of conversation messages
-            file_content_blocks: Optional file content blocks to attach
-
-        Returns:
-            List of Claude-formatted messages
-        """
+        """Convert messages to Claude API format."""
         claude_messages = []
+        last_idx = len(messages) - 1
 
         for i, msg in enumerate(messages):
             if msg.type == MessageType.SYSTEM:
-                continue  # System messages handled separately
+                continue
 
             role = "user" if msg.type == MessageType.HUMAN else "assistant"
-
-            # Build content
             content: list[dict[str, Any]] = []
 
-            # For the last user message, attach files if present
-            is_last_user = (
-                role == "user" and i == len(messages) - 1 and file_content_blocks
-            )
-
-            if is_last_user and file_content_blocks:
+            # Attach files to last user message
+            if role == "user" and i == last_idx and file_content_blocks:
                 content.extend(file_content_blocks)
 
-            # Add text content
-            content.append(
-                {
-                    "type": "text",
-                    "text": msg.text,
-                }
-            )
+            content.append({"type": "text", "text": msg.text})
 
             claude_messages.append(
                 {
@@ -776,14 +744,3 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             )
 
         return claude_messages
-
-    async def _build_system_prompt(self, mcp_prompt: str = "") -> str:
-        """Build the system prompt with optional MCP tool descriptions.
-
-        Args:
-            mcp_prompt: Optional MCP tool prompts
-
-        Returns:
-            Complete system prompt string
-        """
-        return await self._system_prompt_builder.build(mcp_prompt)

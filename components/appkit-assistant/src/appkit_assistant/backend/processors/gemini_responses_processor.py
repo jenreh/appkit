@@ -395,13 +395,9 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
                 # Continue to next round
                 continue
 
-            # No function calls - yield text response
-            text_parts = [part.text for part in content.parts if part.text]
-            if text_parts:
-                text_content = "".join(text_parts)
-                yield self._chunk_factory.text(text_content, delta=text_content)
-
-            # Done - no more function calls
+            # No function calls - yield text response and finish
+            if text := self._extract_text_from_parts(content.parts):
+                yield self._chunk_factory.text(text, delta=text)
             return
 
         logger.warning("Max tool rounds (%d) exceeded", max_tool_rounds)
@@ -427,43 +423,28 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
         args: dict[str, Any],
         tool_contexts: list[MCPToolContext],
     ) -> str:
-        """Execute an MCP tool and return the result.
+        """Execute an MCP tool and return the result."""
+        server_name, tool_name = self._parse_unique_tool_name(unique_tool_name)
 
-        Args:
-            unique_tool_name: Tool name in format 'server_name__tool_name'
-            args: Arguments to pass to the tool
-            tool_contexts: List of MCP tool contexts
-        """
-        # Parse unique name to get server and original tool name
-        server_name, original_tool_name = self._parse_unique_tool_name(unique_tool_name)
-
-        # Find the correct context by server name
         for ctx in tool_contexts:
-            if ctx.server_name == server_name and original_tool_name in ctx.tools:
+            if ctx.server_name == server_name and tool_name in ctx.tools:
                 try:
                     logger.debug(
                         "Executing tool %s on server %s with args: %s",
-                        original_tool_name,
+                        tool_name,
                         server_name,
                         args,
                     )
-                    result = await ctx.session.call_tool(original_tool_name, args)
-                    # Extract text from result
+                    result = await ctx.session.call_tool(tool_name, args)
                     if hasattr(result, "content") and result.content:
-                        texts = [
-                            item.text
-                            for item in result.content
-                            if hasattr(item, "text")
-                        ]
+                        texts = [i.text for i in result.content if hasattr(i, "text")]
                         return "\n".join(texts) if texts else str(result)
                     return str(result)
                 except Exception as e:
-                    logger.exception(
-                        "Error executing tool %s: %s", original_tool_name, str(e)
-                    )
+                    logger.exception("Error executing tool %s: %s", tool_name, e)
                     return f"Error executing tool: {e!s}"
 
-        return f"Tool {original_tool_name} not found on server {server_name}"
+        return f"Tool {tool_name} not found on server {server_name}"
 
     def _mcp_tool_to_gemini_function(
         self,
@@ -498,45 +479,37 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
             return None
 
     def _fix_schema_for_gemini(self, schema: dict[str, Any]) -> dict[str, Any]:
-        """Fix JSON schema for Gemini API compatibility."""
-        if not schema:
+        """Fix JSON schema for Gemini API compatibility (recursive)."""
+        if not isinstance(schema, dict):
             return schema
 
-        # Deep copy to avoid modifying original
-        schema = copy.deepcopy(schema)
+        result = copy.deepcopy(schema)
 
-        def fix_property(prop: dict[str, Any]) -> dict[str, Any]:
-            """Recursively fix a property schema."""
-            if not isinstance(prop, dict):
-                return prop
+        # Remove forbidden fields
+        for key in GEMINI_FORBIDDEN_SCHEMA_FIELDS:
+            result.pop(key, None)
 
-            # Remove forbidden fields
-            for forbidden in GEMINI_FORBIDDEN_SCHEMA_FIELDS:
-                prop.pop(forbidden, None)
+        # Fix array without items
+        if result.get("type") == "array" and "items" not in result:
+            result["items"] = {"type": "string"}
 
-            # Fix array without items
-            if prop.get("type") == "array" and "items" not in prop:
-                prop["items"] = {"type": "string"}
-                logger.debug("Added missing 'items' to array property")
+        # Recurse into nested schemas
+        if isinstance(result.get("items"), dict):
+            result["items"] = self._fix_schema_for_gemini(result["items"])
 
-            # Recurse into items, properties, and anyOf/any_of
-            if isinstance(prop.get("items"), dict):
-                prop["items"] = fix_property(prop["items"])
+        if isinstance(result.get("properties"), dict):
+            result["properties"] = {
+                k: self._fix_schema_for_gemini(v)
+                for k, v in result["properties"].items()
+            }
 
-            if isinstance(prop.get("properties"), dict):
-                for key, val in prop["properties"].items():
-                    prop["properties"][key] = fix_property(val)
+        for key in ("anyOf", "any_of"):
+            if isinstance(result.get(key), list):
+                result[key] = [
+                    self._fix_schema_for_gemini(item) for item in result[key]
+                ]
 
-            for any_of_key in ("anyOf", "any_of"):
-                if isinstance(prop.get(any_of_key), list):
-                    prop[any_of_key] = [
-                        fix_property(item) if isinstance(item, dict) else item
-                        for item in prop[any_of_key]
-                    ]
-
-            return prop
-
-        return fix_property(schema)
+        return result
 
     @asynccontextmanager
     async def _mcp_context_manager(
@@ -656,33 +629,34 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
 
     def _build_mcp_prompt(self, mcp_servers: list[MCPServer]) -> str:
         """Build MCP tool selection prompt from server prompts."""
-        prompts = [f"- {server.prompt}" for server in mcp_servers if server.prompt]
-        return "\n".join(prompts) if prompts else ""
+        return "\n".join(f"- {s.prompt}" for s in mcp_servers if s.prompt)
 
     async def _convert_messages_to_gemini_format(
         self, messages: list[Message], mcp_prompt: str = ""
     ) -> tuple[list[types.Content], str | None]:
         """Convert app messages to Gemini Content objects."""
+        system_instruction = await self._system_prompt_builder.build(mcp_prompt)
         contents: list[types.Content] = []
 
-        # Build system instruction using SystemPromptBuilder
-        system_instruction = await self._system_prompt_builder.build(mcp_prompt)
-
-        # Extract system messages from conversation
         for msg in messages:
-            if msg.type == MessageType.SYSTEM:
-                # Append to system instruction
-                if system_instruction:
-                    system_instruction += f"\n{msg.text}"
-                else:
-                    system_instruction = msg.text
-            elif msg.type in (MessageType.HUMAN, MessageType.ASSISTANT):
-                role = "user" if msg.type == MessageType.HUMAN else "model"
-                contents.append(
-                    types.Content(role=role, parts=[types.Part(text=msg.text)])
-                )
+            match msg.type:
+                case MessageType.SYSTEM:
+                    system_instruction = (
+                        f"{system_instruction}\n{msg.text}"
+                        if system_instruction
+                        else msg.text
+                    )
+                case MessageType.HUMAN | MessageType.ASSISTANT:
+                    role = "user" if msg.type == MessageType.HUMAN else "model"
+                    contents.append(
+                        types.Content(role=role, parts=[types.Part(text=msg.text)])
+                    )
 
         return contents, system_instruction
+
+    def _extract_text_from_parts(self, parts: list[Any]) -> str:
+        """Extract and join text from content parts."""
+        return "".join(p.text for p in parts if p.text)
 
     def _handle_chunk(self, chunk: Any) -> Chunk | None:
         """Handle a single chunk from Gemini stream."""
@@ -693,12 +667,6 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
         ):
             return None
 
-        text_parts = [
-            part.text for part in chunk.candidates[0].content.parts if part.text
-        ]
-
-        if text_parts:
-            text_content = "".join(text_parts)
-            return self._chunk_factory.text(text_content, delta=text_content)
-
+        if text := self._extract_text_from_parts(chunk.candidates[0].content.parts):
+            return self._chunk_factory.text(text, delta=text)
         return None
