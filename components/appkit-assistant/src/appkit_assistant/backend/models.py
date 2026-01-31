@@ -44,6 +44,7 @@ class ChunkType(StrEnum):
     ACTION = "action"  # when the user needs to take action
     TOOL_RESULT = "tool_result"  # result from a tool
     TOOL_CALL = "tool_call"  # calling a tool
+    PROCESSING = "processing"  # file processing status
     COMPLETION = "completion"  # when response generation is complete
     AUTH_REQUIRED = "auth_required"  # user needs to authenticate (MCP)
     ERROR = "error"  # when an error occurs
@@ -55,7 +56,7 @@ class Chunk(BaseModel):
 
     type: ChunkType
     text: str
-    chunk_metadata: dict[str, str] = {}
+    chunk_metadata: dict[str, str | None] = {}
 
 
 class ThreadStatus(StrEnum):
@@ -90,11 +91,13 @@ class Message(BaseModel):
     type: MessageType
     done: bool = False
     attachments: list[str] = []  # List of filenames for display
+    annotations: list[str] = []  # List of file citations/annotations
 
 
 class ThinkingType(StrEnum):
     REASONING = "reasoning"
     TOOL_CALL = "tool_call"
+    PROCESSING = "processing"
 
 
 class ThinkingStatus(StrEnum):

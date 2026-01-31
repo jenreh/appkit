@@ -62,7 +62,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
 
         logger.debug("Using redirect URI for MCP OAuth: %s", oauth_redirect_uri)
 
-    async def process(
+    async def process(  # noqa: PLR0912
         self,
         messages: list[Message],
         model_id: str,
@@ -84,12 +84,17 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         self._current_user_id = user_id
         self._pending_auth_servers = []
 
-        # Process file uploads if provided
-        vector_store_id = await self._process_file_uploads(
+        # Process file uploads and yield progress in real-time
+        vector_store_id: str | None = None
+        async for chunk in self._process_file_uploads_streaming(
             files=files,
             payload=payload,
             user_id=user_id,
-        )
+        ):
+            # Extract vector_store_id from final chunk metadata
+            if chunk.chunk_metadata and "vector_store_id" in chunk.chunk_metadata:
+                vector_store_id = chunk.chunk_metadata["vector_store_id"]
+            yield chunk
 
         try:
             session = await self._create_responses_request(
@@ -146,21 +151,22 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             logger.error("Critical error in OpenAI processor: %s", e)
             raise e
 
-    async def _process_file_uploads(  # noqa: PLR0911
+    async def _process_file_uploads_streaming(  # noqa: PLR0911
         self,
         files: list[str] | None,
         payload: dict[str, Any] | None,
         user_id: int | None,
-    ) -> str | None:
-        """Process file uploads and return vector store ID if available.
+    ) -> AsyncGenerator[Chunk, None]:
+        """Process file uploads and yield progress chunks in real-time.
 
         Args:
             files: List of local file paths to upload.
             payload: Request payload containing thread_uuid.
             user_id: ID of the user making the request.
 
-        Returns:
-            Vector store ID if files were uploaded or thread has existing store.
+        Yields:
+            Chunk objects with real-time progress updates.
+            Final chunk contains 'vector_store_id' in metadata.
         """
         thread_uuid = payload.get("thread_uuid") if payload else None
 
@@ -169,12 +175,23 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 logger.warning(
                     "Files provided but no thread_uuid in payload, skipping upload"
                 )
-            return None
+            # Yield final chunk with no vector_store_id
+            yield Chunk(
+                type=ChunkType.PROCESSING,
+                text="",
+                chunk_metadata={"status": "skipped", "vector_store_id": None},
+            )
+            return
 
         if not user_id:
             if files:
                 logger.warning("Files provided but no user_id, skipping upload")
-            return None
+            yield Chunk(
+                type=ChunkType.PROCESSING,
+                text="",
+                chunk_metadata={"status": "skipped", "vector_store_id": None},
+            )
+            return
 
         # Look up thread to get database ID and existing vector store
         async with get_asyncdb_session() as session:
@@ -189,44 +206,92 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                         "Thread %s not found in database, cannot upload files",
                         thread_uuid,
                     )
-                return None
+                yield Chunk(
+                    type=ChunkType.PROCESSING,
+                    text="",
+                    chunk_metadata={"status": "skipped", "vector_store_id": None},
+                )
+                return
 
             thread_db_id = thread.id
             existing_vector_store_id = thread.vector_store_id
 
-        # If no files but thread has existing vector store, use it
+        # If no files but thread has existing vector store, validate and use it
         if not files:
             if existing_vector_store_id:
                 logger.debug(
-                    "Using existing vector store %s for thread %s",
+                    "Validating existing vector store %s for thread %s",
                     existing_vector_store_id,
                     thread_uuid,
                 )
-            return existing_vector_store_id
+                # Validate vector store exists, recreate if needed
+                if self._file_upload_service:
+                    svc = self._file_upload_service
+                    validated_id = await svc.validate_or_recreate_vector_store(
+                        thread_id=thread_db_id,
+                        thread_uuid=thread_uuid,
+                        vector_store_id=existing_vector_store_id,
+                    )
+                    yield Chunk(
+                        type=ChunkType.PROCESSING,
+                        text="",
+                        chunk_metadata={
+                            "status": "completed",
+                            "vector_store_id": validated_id,
+                        },
+                    )
+                    return
+            yield Chunk(
+                type=ChunkType.PROCESSING,
+                text="",
+                chunk_metadata={
+                    "status": "completed",
+                    "vector_store_id": existing_vector_store_id,
+                },
+            )
+            return
 
-        # Process file uploads
+        # Process file uploads with streaming progress
         if not self._file_upload_service:
             logger.warning("File upload service not available")
-            return existing_vector_store_id
+            yield Chunk(
+                type=ChunkType.PROCESSING,
+                text="",
+                chunk_metadata={
+                    "status": "completed",
+                    "vector_store_id": existing_vector_store_id,
+                },
+            )
+            return
 
         try:
-            vector_store_id = await self._file_upload_service.process_files_for_thread(
+            async for (
+                chunk
+            ) in self._file_upload_service.process_files_for_thread_streaming(
                 file_paths=files,
                 thread_db_id=thread_db_id,
                 thread_uuid=thread_uuid,
                 user_id=user_id,
-            )
+            ):
+                yield chunk
+
             logger.info(
-                "Processed %d files for thread %s, vector_store: %s",
+                "Processed %d files for thread %s",
                 len(files),
                 thread_uuid,
-                vector_store_id,
             )
-            return vector_store_id
         except FileUploadError as e:
             logger.error("File upload failed: %s", e)
-            # Return existing vector store if available
-            return existing_vector_store_id
+            # Yield error and existing vector store if available
+            yield Chunk(
+                type=ChunkType.PROCESSING,
+                text=f"Fehler beim Upload: {e}",
+                chunk_metadata={
+                    "status": "failed",
+                    "vector_store_id": existing_vector_store_id,
+                    "error": str(e),
+                },
+            )
 
     def _handle_event(self, event: Any) -> Chunk | None:
         """Simplified event handler returning actual event content in chunks."""

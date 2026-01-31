@@ -348,6 +348,41 @@ class MessageComponent:
                     max_width="90%",
                 ),
             ),
+            # Annotations/Sources
+            rx.cond(
+                message.annotations.length() > 0,
+                rx.vstack(
+                    rx.hstack(
+                        rx.icon("file-text", size=13, color=rx.color("gray", 9)),
+                        rx.text(
+                            "Quellen:",
+                            size="1",
+                            color=rx.color("gray", 9),
+                        ),
+                        spacing="1",
+                    ),
+                    rx.hstack(
+                        rx.foreach(
+                            message.annotations,
+                            lambda ann: rx.badge(
+                                ann,
+                                size="1",
+                                variant="soft",
+                                color_scheme="gray",
+                            ),
+                        ),
+                        spacing="1",
+                        align="start",
+                        flex_wrap="wrap",
+                    ),
+                    padding="6px",
+                    margin_top="6px",
+                    margin_bottom="6px",
+                    width="90%",
+                    align="start",
+                ),
+                rx.fragment(),
+            ),
             # Actions bar
             rx.cond(
                 message.done,
@@ -482,7 +517,11 @@ class ToolCallComponent:
         return rx.cond(
             tool_item.type == ThinkingType.REASONING,
             ToolCallComponent._render_reasoning(tool_item),
-            ToolCallComponent._render_tool_call(tool_item),
+            rx.cond(
+                tool_item.type == ThinkingType.PROCESSING,
+                ToolCallComponent._render_processing(tool_item),
+                ToolCallComponent._render_tool_call(tool_item),
+            ),
         )
 
     @staticmethod
@@ -492,6 +531,34 @@ class ToolCallComponent:
             border_left=f"3px solid {rx.color('gray', 4)}",
             padding="3px 6px",
             margin_bottom="9px",
+        )
+
+    @staticmethod
+    def _render_processing(item: Thinking) -> rx.Component:
+        """Render file processing progress."""
+        return rx.hstack(
+            rx.cond(
+                item.status == ThinkingStatus.COMPLETED,
+                rx.icon("circle-check", size=14, color=rx.color("green", 9)),
+                rx.cond(
+                    item.status == ThinkingStatus.ERROR,
+                    rx.icon("circle-x", size=14, color=rx.color("red", 9)),
+                    rx.icon("file-up", size=14, color=rx.color("blue", 9)),
+                ),
+            ),
+            rx.text(
+                item.text,
+                size="1",
+                color=rx.cond(
+                    item.status == ThinkingStatus.ERROR,
+                    rx.color("red", 9),
+                    rx.color("gray", 10),
+                ),
+            ),
+            spacing="2",
+            padding="3px 6px",
+            margin_bottom="3px",
+            width="100%",
         )
 
     @staticmethod

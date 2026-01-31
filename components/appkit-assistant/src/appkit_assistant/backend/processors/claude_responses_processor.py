@@ -634,9 +634,13 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         if model.temperature is not None:
             params["temperature"] = model.temperature
 
-        # Merge any additional payload
+        # Merge any additional payload (excluding internal keys)
         if payload:
-            params.update(payload)
+            internal_keys = {"thread_uuid"}
+            filtered_payload = {
+                k: v for k, v in payload.items() if k not in internal_keys
+            }
+            params.update(filtered_payload)
 
         # Create streaming request
         if betas:
