@@ -196,7 +196,8 @@ class ThreadListState(rx.State):
         """Delete a thread from database and list.
 
         If the deleted thread was the active thread, resets ThreadState
-        to show an empty thread.
+        to show an empty thread. Also triggers background cleanup of
+        associated OpenAI files and vector store.
 
         Args:
             thread_id: The ID of the thread to delete.
@@ -224,15 +225,36 @@ class ThreadListState(rx.State):
             logger.warning("Thread %s not found for deletion", thread_id)
             return
 
+        # Capture thread info for cleanup before deletion
+        thread_db_id: int | None = None
+        vector_store_id: str | None = None
+        openai_file_ids: list[str] = []
+
         try:
-            # Delete from database
+            # Get thread details and file IDs from database BEFORE deletion
             async with get_asyncdb_session() as session:
+                db_thread = await thread_repo.find_by_thread_id_and_user(
+                    session, thread_id, user_id
+                )
+                if db_thread:
+                    thread_db_id = db_thread.id
+                    vector_store_id = db_thread.vector_store_id
+
+                    # Fetch file IDs before deletion (cascade will delete records)
+                    from appkit_assistant.backend.repositories import (  # noqa: PLC0415
+                        file_upload_repo,
+                    )
+
+                    files = await file_upload_repo.find_by_thread(session, thread_db_id)
+                    openai_file_ids = [f.openai_file_id for f in files]
+
+                # Delete thread from database (cascades to file records)
                 await thread_repo.delete_by_thread_id_and_user(
                     session, thread_id, user_id
                 )
 
             async with self:
-                # Remove from list
+                # Remove from list immediately
                 self.threads = [t for t in self.threads if t.thread_id != thread_id]
 
                 if was_active:
@@ -247,6 +269,15 @@ class ThreadListState(rx.State):
                 close_button=True,
             )
 
+            # Trigger background cleanup of OpenAI files (fire-and-forget)
+            if openai_file_ids:
+                yield ThreadListState.cleanup_thread_openai_files(
+                    openai_file_ids, vector_store_id
+                )
+            elif vector_store_id:
+                # No files but has vector store - clean it up
+                yield ThreadListState.cleanup_thread_openai_files([], vector_store_id)
+
         except Exception as e:
             logger.error("Error deleting thread %s: %s", thread_id, e)
             yield rx.toast.error(
@@ -254,6 +285,46 @@ class ThreadListState(rx.State):
                 position="top-right",
                 close_button=True,
             )
+
+    @rx.event(background=True)
+    async def cleanup_thread_openai_files(
+        self, openai_file_ids: list[str], vector_store_id: str | None
+    ) -> AsyncGenerator[Any, Any]:
+        """Background task to clean up OpenAI files for a deleted thread.
+
+        This runs in the background so the user can continue working.
+        Failures are logged but not shown to the user.
+
+        Args:
+            openai_file_ids: List of OpenAI file IDs to delete.
+            vector_store_id: The vector store ID to delete (if all files succeed).
+        """
+        from appkit_assistant.backend.services.file_upload_service import (  # noqa: PLC0415
+            FileUploadService,
+        )
+        from appkit_assistant.backend.services.openai_client_service import (  # noqa: PLC0415
+            get_openai_client_service,
+        )
+
+        openai_service = get_openai_client_service()
+        if not openai_service.is_available:
+            logger.warning(
+                "OpenAI not configured, skipping file cleanup for %d files",
+                len(openai_file_ids),
+            )
+            return
+
+        client = openai_service.create_client()
+        if not client:
+            logger.warning(
+                "Could not create OpenAI client, skipping file cleanup for %d files",
+                len(openai_file_ids),
+            )
+            return
+
+        file_service = FileUploadService(client)
+        await file_service.cleanup_openai_files(openai_file_ids, vector_store_id)
+        yield  # Required for async generator
 
     # -------------------------------------------------------------------------
     # Logout handling

@@ -22,7 +22,6 @@ classifiers = [
 ]
 dependencies = [
     "appkit-mantine",
-    "reflex==0.8.26",
 ]
 
 [project.urls]

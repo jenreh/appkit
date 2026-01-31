@@ -44,6 +44,7 @@ class ChunkType(StrEnum):
     ACTION = "action"  # when the user needs to take action
     TOOL_RESULT = "tool_result"  # result from a tool
     TOOL_CALL = "tool_call"  # calling a tool
+    PROCESSING = "processing"  # file processing status
     COMPLETION = "completion"  # when response generation is complete
     AUTH_REQUIRED = "auth_required"  # user needs to authenticate (MCP)
     ERROR = "error"  # when an error occurs
@@ -55,7 +56,7 @@ class Chunk(BaseModel):
 
     type: ChunkType
     text: str
-    chunk_metadata: dict[str, str] = {}
+    chunk_metadata: dict[str, str | None] = {}
 
 
 class ThreadStatus(StrEnum):
@@ -90,11 +91,13 @@ class Message(BaseModel):
     type: MessageType
     done: bool = False
     attachments: list[str] = []  # List of filenames for display
+    annotations: list[str] = []  # List of file citations/annotations
 
 
 class ThinkingType(StrEnum):
     REASONING = "reasoning"
     TOOL_CALL = "tool_call"
+    PROCESSING = "processing"
 
 
 class ThinkingStatus(StrEnum):
@@ -228,6 +231,7 @@ class AssistantThread(rx.Model, table=True):
     ai_model: str = Field(default="", nullable=False)
     active: bool = Field(default=False, nullable=False)
     messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
+    vector_store_id: str | None = Field(default=None, nullable=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True)),
@@ -262,6 +266,35 @@ class AssistantMCPUserToken(rx.Model, table=True):
     expires_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    )
+
+
+class AssistantFileUpload(rx.Model, table=True):
+    """Model for tracking files uploaded to OpenAI for vector search.
+
+    Each file is associated with a thread and vector store.
+    """
+
+    __tablename__ = "assistant_file_uploads"
+
+    id: int | None = Field(default=None, primary_key=True)
+    filename: str = Field(max_length=255, nullable=False)
+    openai_file_id: str = Field(max_length=255, nullable=False, index=True)
+    vector_store_id: str = Field(max_length=255, nullable=False, index=True)
+    vector_store_name: str = Field(max_length=255, default="", nullable=False)
+    thread_id: int = Field(
+        index=True, nullable=False, foreign_key="assistant_thread.id"
+    )
+    user_id: int = Field(index=True, nullable=False)
+    file_size: int = Field(default=0, nullable=False)
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

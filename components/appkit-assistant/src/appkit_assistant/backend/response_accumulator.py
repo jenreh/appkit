@@ -1,3 +1,4 @@
+import json
 import logging
 import uuid
 from typing import Any
@@ -63,6 +64,8 @@ class ResponseAccumulator:
         if chunk.type == ChunkType.TEXT:
             if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
                 self.messages[-1].text += chunk.text
+                # Extract citations from metadata and add as annotations
+                self._extract_citations_to_annotations(chunk)
 
         elif chunk.type in (ChunkType.THINKING, ChunkType.THINKING_RESULT):
             self._handle_reasoning_chunk(chunk)
@@ -82,6 +85,12 @@ class ResponseAccumulator:
 
         elif chunk.type == ChunkType.AUTH_REQUIRED:
             self._handle_auth_required_chunk(chunk)
+
+        elif chunk.type == ChunkType.PROCESSING:
+            self._handle_processing_chunk(chunk)
+
+        elif chunk.type == ChunkType.ANNOTATION:
+            self._handle_annotation_chunk(chunk)
 
         elif chunk.type == ChunkType.ERROR:
             # We append it to the message text if it's not a hard error,
@@ -273,3 +282,87 @@ class ResponseAccumulator:
         self.pending_auth_server_name = chunk.chunk_metadata.get("server_name", "")
         self.pending_auth_url = chunk.chunk_metadata.get("auth_url", "")
         self.auth_required = True
+
+    def _handle_processing_chunk(self, chunk: Chunk) -> None:
+        """Handle file processing progress chunks."""
+        status = chunk.chunk_metadata.get("status", "")
+
+        # Skip empty/skipped chunks (used for signaling completion without UI)
+        if not chunk.text or status == "skipped":
+            return
+
+        # Show thinking panel when processing
+        self.show_thinking = True
+        self.current_activity = chunk.text
+
+        # Determine item status based on metadata
+        if status == "completed":
+            item_status = ThinkingStatus.COMPLETED
+        elif status in ("failed", "timeout"):
+            item_status = ThinkingStatus.ERROR
+        else:
+            item_status = ThinkingStatus.IN_PROGRESS
+
+        # Use a single processing item that gets updated
+        item = self._get_or_create_thinking_item(
+            "file_processing",
+            ThinkingType.PROCESSING,
+            text=chunk.text,
+            status=item_status,
+            tool_name="Dateiverarbeitung",
+        )
+
+        item.text = chunk.text
+        item.status = item_status
+
+        # Store error if present
+        if status in ("failed", "timeout"):
+            item.error = chunk.chunk_metadata.get("error", chunk.text)
+
+    def _handle_annotation_chunk(self, chunk: Chunk) -> None:
+        """Handle file annotation/citation chunks."""
+        if not self.messages:
+            return
+
+        last_message = self.messages[-1]
+        if last_message.type != MessageType.ASSISTANT:
+            return
+
+        # Extract annotation text (filename or source reference)
+        annotation_text = chunk.text
+        if annotation_text and annotation_text not in last_message.annotations:
+            last_message.annotations.append(annotation_text)
+
+    def _extract_citations_to_annotations(self, chunk: Chunk) -> None:
+        """Extract citations from TEXT chunk metadata and add as annotations."""
+        citations_json = chunk.chunk_metadata.get("citations")
+        if not citations_json:
+            return
+
+        if not self.messages:
+            return
+
+        last_message = self.messages[-1]
+        if last_message.type != MessageType.ASSISTANT:
+            return
+
+        try:
+            citations = json.loads(citations_json)
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse citations JSON: %s", citations_json)
+            return
+
+        max_citation_length = 50
+        for citation in citations:
+            # Prefer document_title, fall back to cited_text excerpt
+            annotation_text = citation.get("document_title")
+            if not annotation_text:
+                cited_text = citation.get("cited_text", "")
+                # Use first N chars of cited_text as fallback
+                if len(cited_text) > max_citation_length:
+                    annotation_text = cited_text[:max_citation_length] + "..."
+                else:
+                    annotation_text = cited_text
+
+            if annotation_text and annotation_text not in last_message.annotations:
+                last_message.annotations.append(annotation_text)

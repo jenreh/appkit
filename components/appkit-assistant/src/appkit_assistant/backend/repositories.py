@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from appkit_assistant.backend.models import (
+    AssistantFileUpload,
     AssistantThread,
     MCPServer,
     SystemPrompt,
@@ -156,7 +157,86 @@ class ThreadRepository(BaseRepository[AssistantThread, AsyncSession]):
         return list(result.scalars().all())
 
 
+class FileUploadRepository(BaseRepository[AssistantFileUpload, AsyncSession]):
+    """Repository class for file upload database operations."""
+
+    @property
+    def model_class(self) -> type[AssistantFileUpload]:
+        return AssistantFileUpload
+
+    async def find_unique_vector_stores(
+        self, session: AsyncSession
+    ) -> list[tuple[str, str]]:
+        """Get unique vector store IDs with names from all file uploads.
+
+        Returns:
+            List of tuples (vector_store_id, vector_store_name).
+        """
+        stmt = (
+            select(
+                AssistantFileUpload.vector_store_id,
+                AssistantFileUpload.vector_store_name,
+            )
+            .distinct()
+            .order_by(AssistantFileUpload.vector_store_id)
+        )
+        result = await session.execute(stmt)
+        return [(row[0], row[1] or "") for row in result.all()]
+
+    async def find_by_vector_store(
+        self, session: AsyncSession, vector_store_id: str
+    ) -> list[AssistantFileUpload]:
+        """Get all files for a specific vector store."""
+        stmt = (
+            select(AssistantFileUpload)
+            .where(AssistantFileUpload.vector_store_id == vector_store_id)
+            .order_by(AssistantFileUpload.created_at.desc())
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_by_thread(
+        self, session: AsyncSession, thread_id: int
+    ) -> list[AssistantFileUpload]:
+        """Get all files for a specific thread."""
+        stmt = (
+            select(AssistantFileUpload)
+            .where(AssistantFileUpload.thread_id == thread_id)
+            .order_by(AssistantFileUpload.created_at.desc())
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def delete_file(
+        self, session: AsyncSession, file_id: int
+    ) -> AssistantFileUpload | None:
+        """Delete a file upload by ID and return the deleted record."""
+        stmt = select(AssistantFileUpload).where(AssistantFileUpload.id == file_id)
+        result = await session.execute(stmt)
+        file_upload = result.scalars().first()
+        if file_upload:
+            await session.delete(file_upload)
+            await session.flush()
+            return file_upload
+        return None
+
+    async def delete_by_vector_store(
+        self, session: AsyncSession, vector_store_id: str
+    ) -> list[AssistantFileUpload]:
+        """Delete all files for a vector store and return the deleted records."""
+        stmt = select(AssistantFileUpload).where(
+            AssistantFileUpload.vector_store_id == vector_store_id
+        )
+        result = await session.execute(stmt)
+        files = list(result.scalars().all())
+        for file_upload in files:
+            await session.delete(file_upload)
+        await session.flush()
+        return files
+
+
 # Export instances
 mcp_server_repo = MCPServerRepository()
 system_prompt_repo = SystemPromptRepository()
 thread_repo = ThreadRepository()
+file_upload_repo = FileUploadRepository()

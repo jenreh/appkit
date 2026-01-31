@@ -599,10 +599,18 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         if payload and "thinking_level" in payload:
             thinking_level = payload.pop("thinking_level")
 
+        # Filter out fields not accepted by GenerateContentConfig
+        filtered_payload = {}
+        if payload:
+            ignored_fields = {"thread_uuid", "user_id"}
+            filtered_payload = {
+                k: v for k, v in payload.items() if k not in ignored_fields
+            }
+
         return types.GenerateContentConfig(
             temperature=model.temperature,
             thinking_config=types.ThinkingConfig(thinking_level=thinking_level),
-            **(payload or {}),
+            **filtered_payload,
             response_modalities=["TEXT"],
         )
 

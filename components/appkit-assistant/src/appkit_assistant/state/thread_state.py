@@ -490,7 +490,11 @@ class ThreadState(rx.State):
                     size=file_size,
                 )
                 self.uploaded_files = [*self.uploaded_files, uploaded]
-                logger.info("Uploaded file: %s", upload_file.filename)
+                logger.info(
+                    "Uploaded file: %s (total files: %d)",
+                    upload_file.filename,
+                    len(self.uploaded_files),
+                )
             except Exception as e:
                 logger.error("Failed to upload file %s: %s", upload_file.filename, e)
 
@@ -692,6 +696,22 @@ class ThreadState(rx.State):
             user_session: UserSession = await self.get_state(UserSession)
             user_id = user_session.user.user_id if user_session.user else None
 
+            logger.debug(
+                "Pre-save check: is_new_thread=%s, file_paths=%d, user_id=%s",
+                is_new_thread,
+                len(file_paths) if file_paths else 0,
+                user_id,
+            )
+
+            # Save thread to DB if new and has files to enable file uploads
+            if is_new_thread and file_paths and user_id:
+                self._thread.state = ThreadStatus.ACTIVE
+                await self._thread_service.save_thread(self._thread, user_id)
+                logger.debug(
+                    "Saved new thread %s to DB before file upload",
+                    self._thread.thread_id,
+                )
+
             # Initialize ResponseAccumulator logic
             accumulator = ResponseAccumulator()
             accumulator.attach_messages_ref(self.messages)
@@ -705,11 +725,15 @@ class ThreadState(rx.State):
 
         first_response_received = False
         try:
+            # Build payload with thread_uuid for file upload support
+            payload = {"thread_uuid": self._thread.thread_id}
+
             async for chunk in processor.process(
                 self.messages,
                 selected_model,
                 files=file_paths or None,
                 mcp_servers=mcp_servers,
+                payload=payload,
                 user_id=user_id,
                 cancellation_token=self._cancel_event,
             ):
@@ -757,6 +781,13 @@ class ThreadState(rx.State):
             file_paths = [f.file_path for f in self.uploaded_files]
             # Capture filenames for message display
             attachment_names = [f.filename for f in self.uploaded_files]
+
+            logger.debug(
+                "Begin processing: is_new_thread=%s, uploaded_files=%d, file_paths=%s",
+                is_new_thread,
+                len(self.uploaded_files),
+                file_paths,
+            )
 
             # Add user message unless skipped (e.g., OAuth resend)
             if self._skip_user_message:

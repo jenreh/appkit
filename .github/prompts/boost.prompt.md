@@ -1,7 +1,7 @@
 ---
 agent: Plan
 model: Claude Haiku 4.5 (copilot)
-tools: ['context7/*', 'code-reasoning/*', 'duckduckgo/*', 'memory/*']
+tools: ['web', 'upstash/context7/*', 'memory/*', 'code-reasoning/*', 'duckduckgo/search']
 description: 'Interactive prompt refinement workflow: interrogates scope, deliverables, constraints; never writes code.'
 ---
 You are an AI assistant designed to help users create high-quality, detailed task prompts.
