@@ -53,7 +53,6 @@ def navbar_admin_items() -> rx.Component:
             width="100%",
             spacing="2",
             padding="0.35em",
-            margin_top="1em",
         ),
         admin_sidebar_item(
             label="Benutzer",
@@ -75,7 +74,6 @@ def navbar_admin_items() -> rx.Component:
 
 def navbar_items() -> rx.Component:
     return rx.vstack(
-        # rx.text("Demos", size="2", weight="bold", style=sub_heading_styles),
         rx.text("Inputs", size="2", weight="bold", style=sub_heading_styles),
         rx.list.unordered(
             rx.list.item(rx.link("Inputs", href="/inputs")),
@@ -111,7 +109,6 @@ def navbar_items() -> rx.Component:
         rx.spacer(min_height="1em"),
         spacing="1",
         width="95%",
-        # margin_top="-1em",
     )
 
 

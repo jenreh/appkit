@@ -276,22 +276,27 @@ def navbar(
         navbar_footer = navbar_default_footer(version=version)
 
     return rx.flex(
+        rx.box(
+            class_name=rx.cond(
+                LoadingState.is_loading, "rainbow-gradient-bar", "default-bar"
+            ),
+        ),
         rx.vstack(
             navbar_header,
-            rx.box(
-                class_name=rx.cond(
-                    LoadingState.is_loading, "rainbow-gradient-bar", "default-bar"
+            rx.vstack(
+                sidebar_item(
+                    label="Assistent",
+                    icon="bot-message-square",
+                    url="/assistant",
                 ),
-            ),
-            sidebar_item(
-                label="Assistent",
-                icon="bot-message-square",
-                url="/assistant",
-            ),
-            sidebar_item(
-                label="Bildgenerator",
-                icon="image",
-                url="/image-gallery",
+                sidebar_item(
+                    label="Bildgenerator",
+                    icon="image",
+                    url="/image-gallery",
+                ),
+                align="start",
+                width="100%",
+                spacing="1",
             ),
             mn.scroll_area.stateful(
                 navbar_items,
@@ -306,8 +311,13 @@ def navbar(
                 min_height="0",
                 height="100%",
             ),
-            requires_admin(
-                navbar_admin_items,
+            rx.vstack(
+                requires_admin(
+                    navbar_admin_items,
+                ),
+                align="start",
+                width="100%",
+                spacing="0",
             ),
             navbar_footer,
             justify="end",
