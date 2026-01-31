@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -196,16 +195,7 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
 
         logger.debug("Processing %d citations from Perplexity", len(citations))
 
-        # Yield a TEXT chunk with citations in metadata for the accumulator
-        # The response_accumulator's _extract_citations_to_annotations handles this
-        citations_data = [{"url": url, "document_title": url} for url in citations]
-        yield self._chunk_factory.text(
-            "",  # Empty text, just carries citations metadata
-            citations=json.dumps(citations_data),
-            source="perplexity",
-        )
-
-        # Also yield individual ANNOTATION chunks for immediate display
+        # Yield individual ANNOTATION chunks for citations display
         for url in citations:
             yield self._chunk_factory.annotation(
                 text=url,
