@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from appkit_assistant.backend.models import MCPServer
+from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.state.thread_state import ThreadState
 
 

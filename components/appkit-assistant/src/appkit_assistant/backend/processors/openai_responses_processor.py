@@ -1,39 +1,39 @@
 import asyncio
-import json
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any, Final
 
-import reflex as rx
+from openai import AsyncOpenAI
 from sqlalchemy import select
 
-from appkit_assistant.backend.mcp_auth_service import MCPAuthService
-from appkit_assistant.backend.models import (
-    AIModel,
-    AssistantMCPUserToken,
+from appkit_assistant.backend.database.models import (
     AssistantThread,
+    MCPServer,
+)
+from appkit_assistant.backend.processors.mcp_mixin import MCPCapabilities
+from appkit_assistant.backend.processors.processor_base import mcp_oauth_redirect_uri
+from appkit_assistant.backend.processors.streaming_base import StreamingProcessorBase
+from appkit_assistant.backend.schemas import (
+    AIModel,
     Chunk,
     ChunkType,
     MCPAuthType,
-    MCPServer,
     Message,
     MessageType,
 )
-from appkit_assistant.backend.processor import mcp_oauth_redirect_uri
-from appkit_assistant.backend.processors.openai_base import BaseOpenAIProcessor
 from appkit_assistant.backend.services.file_upload_service import (
     FileUploadError,
     FileUploadService,
 )
-from appkit_assistant.backend.system_prompt_cache import get_system_prompt
+from appkit_assistant.backend.services.system_prompt_builder import SystemPromptBuilder
 from appkit_assistant.configuration import FileUploadConfig
-from appkit_commons.database.session import get_asyncdb_session, get_session_manager
+from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
 default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
 
 
-class OpenAIResponsesProcessor(BaseOpenAIProcessor):
+class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
     """Simplified processor using content accumulator pattern."""
 
     def __init__(
@@ -45,11 +45,29 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         oauth_redirect_uri: str = default_oauth_redirect_uri,
         file_upload_config: FileUploadConfig | None = None,
     ) -> None:
-        super().__init__(models, api_key, base_url, is_azure)
-        self._current_reasoning_session: str | None = None
-        self._current_user_id: int | None = None
-        self._mcp_auth_service = MCPAuthService(redirect_uri=oauth_redirect_uri)
-        self._pending_auth_servers: list[MCPServer] = []
+        StreamingProcessorBase.__init__(self, models, "openai_responses")
+        MCPCapabilities.__init__(self, oauth_redirect_uri, "openai_responses")
+
+        self.api_key = api_key
+        self.base_url = base_url
+        self.is_azure = is_azure
+        self.client: AsyncOpenAI | None = None
+
+        if self.api_key and self.base_url and is_azure:
+            self.client = AsyncOpenAI(
+                api_key=self.api_key,
+                base_url=f"{self.base_url}/openai/v1",
+                default_query={"api-version": "preview"},
+            )
+        elif self.api_key and self.base_url:
+            self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+        elif self.api_key:
+            self.client = AsyncOpenAI(api_key=self.api_key)
+        else:
+            logger.warning("No API key found. Processor will not work.")
+
+        # Services
+        self._system_prompt_builder = SystemPromptBuilder()
         self._file_upload_config = file_upload_config or FileUploadConfig()
         self._file_upload_service: FileUploadService | None = None
 
@@ -60,7 +78,9 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 config=self._file_upload_config,
             )
 
-        logger.debug("Using redirect URI for MCP OAuth: %s", oauth_redirect_uri)
+    def get_supported_models(self) -> dict[str, AIModel]:
+        """Return supported models if API key is available."""
+        return self.models if self.api_key else {}
 
     async def process(  # noqa: PLR0912
         self,
@@ -81,8 +101,8 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             raise ValueError(msg)
 
         model = self.models[model_id]
-        self._current_user_id = user_id
-        self._pending_auth_servers = []
+        self.current_user_id = user_id
+        self.clear_pending_auth_servers()
 
         # Process file uploads and yield progress in real-time
         vector_store_id: str | None = None
@@ -113,13 +133,8 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 else:  # Non-streaming
                     content = self._extract_responses_content(session)
                     if content:
-                        yield Chunk(
-                            type=ChunkType.TEXT,
-                            text=content,
-                            chunk_metadata={
-                                "source": "responses_api",
-                                "streaming": "false",
-                            },
+                        yield self.chunk_factory.text(
+                            content, {"source": "responses_api", "streaming": "false"}
                         )
             except Exception as e:
                 error_msg = str(e)
@@ -127,29 +142,28 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 # Only yield error chunk if NOT an auth error
                 # and no auth servers are pending (they'll show auth card instead)
                 is_auth_related = (
-                    self._is_auth_error(error_msg) or self._pending_auth_servers
+                    self.auth_detector.is_auth_error(error_msg)
+                    or self.pending_auth_servers
                 )
                 if not is_auth_related:
-                    yield Chunk(
-                        type=ChunkType.ERROR,
-                        text=f"Ein Fehler ist aufgetreten: {error_msg}",
-                        chunk_metadata={
-                            "source": "responses_api",
-                            "error_type": type(e).__name__,
-                        },
+                    yield self.chunk_factory.error(
+                        f"Ein Fehler ist aufgetreten: {error_msg}",
+                        error_type=type(e).__name__,
                     )
 
             # After processing (or on error), yield any pending auth requirements
-            logger.debug(
-                "Processing pending auth servers: %d", len(self._pending_auth_servers)
-            )
-            for server in self._pending_auth_servers:
-                logger.debug("Yielding auth chunk for server: %s", server.name)
-                yield await self._create_auth_required_chunk(server)
+            async for auth_chunk in self.yield_pending_auth_chunks():
+                yield auth_chunk
 
         except Exception as e:
             logger.error("Critical error in OpenAI processor: %s", e)
             raise e
+
+    def _get_event_handlers(self) -> dict[str, Any]:
+        """Get the event handler mapping for OpenAI events."""
+        # OpenAI uses a different event dispatch pattern with multiple handlers
+        # This returns an empty dict as we use _handle_event directly
+        return {}
 
     async def _process_file_uploads_streaming(  # noqa: PLR0911
         self,
@@ -227,10 +241,9 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 # Validate vector store exists, recreate if needed
                 if self._file_upload_service:
                     svc = self._file_upload_service
-                    validated_id = await svc.validate_or_recreate_vector_store(
+                    validated_id, _ = await svc.get_vector_store(
                         thread_id=thread_db_id,
                         thread_uuid=thread_uuid,
-                        vector_store_id=existing_vector_store_id,
                     )
                     yield Chunk(
                         type=ChunkType.PROCESSING,
@@ -265,9 +278,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             return
 
         try:
-            async for (
-                chunk
-            ) in self._file_upload_service.process_files_for_thread_streaming(
+            async for chunk in self._file_upload_service.process_files(
                 file_paths=files,
                 thread_db_id=thread_db_id,
                 thread_uuid=thread_uuid,
@@ -326,28 +337,18 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
 
     def _handle_lifecycle_events(self, event_type: str) -> Chunk | None:
         """Handle lifecycle events."""
-        lifecycle_events = {
-            "response.created": ("created", {"stage": "created"}),
-            "response.in_progress": ("in_progress", {"stage": "in_progress"}),
-            "response.done": ("done", {"stage": "done"}),
-        }
-
-        if event_type in lifecycle_events:
-            content, metadata = lifecycle_events[event_type]
-            chunk_type = (
-                ChunkType.LIFECYCLE
-                if event_type != "response.done"
-                else ChunkType.COMPLETION
-            )
-            return self._create_chunk(chunk_type, content, metadata)
+        if event_type == "response.created":
+            return self.chunk_factory.lifecycle("created", {"stage": "created"})
+        if event_type == "response.in_progress":
+            return self.chunk_factory.lifecycle("in_progress", {"stage": "in_progress"})
+        if event_type == "response.done":
+            return self.chunk_factory.completion("done", stage="done")
         return None
 
     def _handle_text_events(self, event_type: str, event: Any) -> Chunk | None:
         """Handle text-related events."""
         if event_type == "response.output_text.delta":
-            return self._create_chunk(
-                ChunkType.TEXT, event.delta, {"delta": event.delta}
-            )
+            return self.chunk_factory.text(event.delta, {"delta": event.delta})
 
         if event_type == "response.output_text.annotation.added":
             # Annotation can be a dict (file_citation) or other object
@@ -358,10 +359,8 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             else:
                 annotation_text = str(annotation)
                 annotation_str = annotation_text
-            return self._create_chunk(
-                ChunkType.ANNOTATION,
-                annotation_text,
-                {"annotation": annotation_str},
+            return self.chunk_factory.annotation(
+                annotation_text, {"annotation": annotation_str}
             )
 
         return None
@@ -396,26 +395,21 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 tool_name,
                 tool_id,
             )
-            return self._create_chunk(
-                ChunkType.TOOL_CALL,
+            return self.chunk_factory.tool_call(
                 f"Benutze Werkzeug: {server_label}.{tool_name}",
-                {
-                    "tool_name": tool_name,
-                    "tool_id": tool_id,
-                    "server_label": server_label,
-                    "status": "starting",
-                    "reasoning_session": self._current_reasoning_session,
-                },
+                tool_name=tool_name,
+                tool_id=tool_id,
+                server_label=server_label,
+                status="starting",
+                reasoning_session=self.current_reasoning_session,
             )
 
         if item.type == "reasoning":
             reasoning_id = getattr(item, "id", "unknown_id")
             # Track the current reasoning session
-            self._current_reasoning_session = reasoning_id
-            return self._create_chunk(
-                ChunkType.THINKING,
-                "Denke nach...",
-                {"reasoning_id": reasoning_id, "status": "starting"},
+            self.current_reasoning_session = reasoning_id
+            return self.chunk_factory.thinking(
+                "Denke nach...", reasoning_id=reasoning_id, status="starting"
             )
         return None
 
@@ -428,7 +422,7 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             reasoning_id = getattr(item, "id", "unknown_id")
             summary = getattr(item, "summary", [])
             summary_text = str(summary) if summary else "beendet."
-            return self._create_chunk(
+            return self.chunk_factory.create(
                 ChunkType.THINKING_RESULT,
                 summary_text,
                 {"reasoning_id": reasoning_id, "status": "completed"},
@@ -450,61 +444,37 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             error_text = self._extract_error_text(error)
 
             # Check for authentication errors (401/403)
-            if self._is_auth_error(error):
+            if self.auth_detector.is_auth_error(error):
                 # Find the server config and queue for auth flow
-                return self._create_chunk(
-                    ChunkType.TOOL_RESULT,
+                return self.chunk_factory.tool_result(
                     f"Authentifizierung erforderlich für {server_label}",
-                    {
-                        "tool_id": tool_id,
-                        "tool_name": tool_name,
-                        "server_label": server_label,
-                        "status": "auth_required",
-                        "error": True,
-                        "auth_required": True,
-                        "reasoning_session": self._current_reasoning_session,
-                    },
+                    tool_id=tool_id,
+                    tool_name=tool_name,
+                    server_label=server_label,
+                    status="auth_required",
+                    error=True,
+                    auth_required=True,
+                    reasoning_session=self.current_reasoning_session,
                 )
 
-            return self._create_chunk(
-                ChunkType.TOOL_RESULT,
+            return self.chunk_factory.tool_result(
                 f"Werkzeugfehler: {error_text}",
-                {
-                    "tool_id": tool_id,
-                    "tool_name": tool_name,
-                    "status": "error",
-                    "error": True,
-                    "error_details": str(error),
-                    "reasoning_session": self._current_reasoning_session,
-                },
+                tool_id=tool_id,
+                tool_name=tool_name,
+                status="error",
+                error=True,
+                error_details=str(error),
+                reasoning_session=self.current_reasoning_session,
             )
 
         output_text = str(output) if output else "Werkzeug erfolgreich aufgerufen"
-        return self._create_chunk(
-            ChunkType.TOOL_RESULT,
+        return self.chunk_factory.tool_result(
             output_text,
-            {
-                "tool_id": tool_id,
-                "tool_name": tool_name,
-                "status": "completed",
-                "reasoning_session": self._current_reasoning_session,
-            },
+            tool_id=tool_id,
+            tool_name=tool_name,
+            status="completed",
+            reasoning_session=self.current_reasoning_session,
         )
-
-    def _is_auth_error(self, error: Any) -> bool:
-        """Check if an error indicates authentication failure (401/403)."""
-        error_str = str(error).lower()
-        auth_indicators = [
-            "401",
-            "403",
-            "unauthorized",
-            "forbidden",
-            "authentication required",
-            "access denied",
-            "invalid token",
-            "token expired",
-        ]
-        return any(indicator in error_str for indicator in auth_indicators)
 
     def _extract_error_text(self, error: Any) -> str:
         """Extract readable error text from error object."""
@@ -519,42 +489,33 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         if event_type == "response.mcp_call_arguments.delta":
             tool_id = getattr(event, "item_id", "unknown_id")
             arguments_delta = getattr(event, "delta", "")
-            return self._create_chunk(
-                ChunkType.TOOL_CALL,
+            return self.chunk_factory.tool_call(
                 arguments_delta,
-                {
-                    "tool_id": tool_id,
-                    "status": "arguments_streaming",
-                    "delta": arguments_delta,
-                    "reasoning_session": self._current_reasoning_session,
-                },
+                tool_id=tool_id,
+                status="arguments_streaming",
+                delta=arguments_delta,
+                reasoning_session=self.current_reasoning_session,
             )
 
         if event_type == "response.mcp_call_arguments.done":
             tool_id = getattr(event, "item_id", "unknown_id")
             arguments = getattr(event, "arguments", "")
-            return self._create_chunk(
-                ChunkType.TOOL_CALL,
+            return self.chunk_factory.tool_call(
                 f"Parameter: {arguments}",
-                {
-                    "tool_id": tool_id,
-                    "status": "arguments_complete",
-                    "arguments": arguments,
-                    "reasoning_session": self._current_reasoning_session,
-                },
+                tool_id=tool_id,
+                status="arguments_complete",
+                arguments=arguments,
+                reasoning_session=self.current_reasoning_session,
             )
 
         if event_type == "response.mcp_call.failed":
             tool_id = getattr(event, "item_id", "unknown_id")
-            return self._create_chunk(
-                ChunkType.TOOL_RESULT,
+            return self.chunk_factory.tool_result(
                 f"Werkzeugnutzung abgebrochen: {tool_id}",
-                {
-                    "tool_id": tool_id,
-                    "status": "failed",
-                    "error": True,
-                    "reasoning_session": self._current_reasoning_session,
-                },
+                tool_id=tool_id,
+                status="failed",
+                error=True,
+                reasoning_session=self.current_reasoning_session,
             )
 
         if event_type == "response.mcp_call.in_progress":
@@ -602,11 +563,11 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
 
             # Check for authentication errors (401/403)
             # OR if we have pending auth servers (strong signal we missed a token)
-            is_auth_error = self._is_auth_error(error_str)
+            is_auth_error = self.auth_detector.is_auth_error(error_str)
             pending_server = None
 
             # 1. Try to find matching server by name in error message
-            for server in self._pending_auth_servers:
+            for server in self.pending_auth_servers:
                 if server.name.lower() in error_str.lower():
                     pending_server = server
                     break
@@ -616,10 +577,10 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             # We assume the failure belongs to the pending server if we can't be sure
             if (
                 not pending_server
-                and self._pending_auth_servers
-                and (is_auth_error or len(self._pending_auth_servers) == 1)
+                and self.pending_auth_servers
+                and (is_auth_error or len(self.pending_auth_servers) == 1)
             ):
-                pending_server = self._pending_auth_servers[0]
+                pending_server = self.pending_auth_servers[0]
                 logger.debug(
                     "Assuming pending server %s for list_tools failure '%s'",
                     pending_server.name,
@@ -634,30 +595,23 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 )
                 # Queue for async processing in the main process loop
                 # The auth chunk will be yielded after event processing completes
-                if pending_server not in self._pending_auth_servers:
-                    self._pending_auth_servers.append(pending_server)
-                return self._create_chunk(
-                    ChunkType.TOOL_RESULT,
+                self.add_pending_auth_server(pending_server)
+                return self.chunk_factory.tool_result(
                     f"Authentifizierung erforderlich für {pending_server.name}",
-                    {
-                        "tool_id": tool_id,
-                        "status": "auth_required",
-                        "server_name": pending_server.name,
-                        "auth_pending": True,
-                        "reasoning_session": self._current_reasoning_session,
-                    },
+                    tool_id=tool_id,
+                    status="auth_required",
+                    server_name=pending_server.name,
+                    auth_pending=True,
+                    reasoning_session=self.current_reasoning_session,
                 )
 
             logger.error("MCP tool listing failed for tool_id: %s", str(event))
-            return self._create_chunk(
-                ChunkType.TOOL_RESULT,
+            return self.chunk_factory.tool_result(
                 f"Werkzeugliste konnte nicht geladen werden: {tool_id}",
-                {
-                    "tool_id": tool_id,
-                    "status": "listing_failed",
-                    "error": True,
-                    "reasoning_session": self._current_reasoning_session,
-                },
+                tool_id=tool_id,
+                status="listing_failed",
+                error=True,
+                reasoning_session=self.current_reasoning_session,
             )
 
         return None
@@ -682,10 +636,8 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
     def _handle_completion_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle completion-related events."""
         if event_type == "response.completed":
-            return self._create_chunk(
-                ChunkType.COMPLETION,
-                "Response generation completed",
-                {"status": "response_complete"},
+            return self.chunk_factory.completion(
+                "Response generation completed", status="response_complete"
             )
         return None
 
@@ -697,31 +649,8 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                 "data": getattr(event, "data", ""),
             }
             image_str = str(image_data)
-            return self._create_chunk(ChunkType.IMAGE, image_str, image_data)
+            return self.chunk_factory.create(ChunkType.IMAGE, image_str, image_data)
         return None
-
-    def _create_chunk(
-        self,
-        chunk_type: ChunkType,
-        content: str,
-        extra_metadata: dict[str, str] | None = None,
-    ) -> Chunk:
-        """Create a Chunk with actual content from the event"""
-        metadata = {
-            "processor": "openai_responses_simplified",
-        }
-
-        if extra_metadata:
-            # Ensure all metadata values are strings
-            for key, value in extra_metadata.items():
-                if value is not None:
-                    metadata[key] = str(value)
-
-        return Chunk(
-            type=chunk_type,
-            text=content,
-            chunk_metadata=metadata,
-        )
 
     async def _create_responses_request(
         self,
@@ -805,20 +734,18 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
             }
 
             # Start with existing headers
-            headers = {}
-            if server.headers and server.headers != "{}":
-                headers = json.loads(server.headers)
+            headers = self.parse_mcp_headers(server)
 
             # Inject OAuth token if server requires OAuth and user is authenticated
             if server.auth_type == MCPAuthType.OAUTH_DISCOVERY and user_id is not None:
-                token = await self._get_valid_token_for_server(server, user_id)
+                token = await self.get_valid_token(server, user_id)
                 if token:
                     headers["Authorization"] = f"Bearer {token.access_token}"
                     logger.debug("Injected OAuth token for server %s", server.name)
                 else:
                     # No valid token - server will likely fail with 401
                     # Track this server for potential auth flow
-                    self._pending_auth_servers.append(server)
+                    self.add_pending_auth_server(server)
                     logger.debug(
                         "No valid token for OAuth server %s, auth may be required",
                         server.name,
@@ -847,18 +774,8 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
         """
         input_messages = []
 
-        # Always add system message as first message
-        if mcp_prompt:
-            mcp_prompt = (
-                "### Tool-Auswahlrichtlinien (Einbettung externer Beschreibungen)\n"
-                f"{mcp_prompt}"
-            )
-        else:
-            mcp_prompt = ""
-
         if use_system_prompt:
-            system_prompt_template = await get_system_prompt()
-            system_text = system_prompt_template.format(mcp_prompts=mcp_prompt)
+            system_text = await self._system_prompt_builder.build(mcp_prompt)
             input_messages.append(
                 {
                     "role": "system",
@@ -893,81 +810,3 @@ class OpenAIResponsesProcessor(BaseOpenAIProcessor):
                     return first_output.content[0].get("text", "")
                 return str(first_output.content)
         return None
-
-    async def _get_valid_token_for_server(
-        self,
-        server: MCPServer,
-        user_id: int,
-    ) -> AssistantMCPUserToken | None:
-        """Get a valid OAuth token for the given server and user.
-
-        Refreshes the token if expired and refresh token is available.
-
-        Args:
-            server: The MCP server configuration.
-            user_id: The user's ID.
-
-        Returns:
-            A valid token or None if not available.
-        """
-        if server.id is None:
-            return None
-
-        with rx.session() as session:
-            token = self._mcp_auth_service.get_user_token(session, user_id, server.id)
-
-            if token is None:
-                return None
-
-            # Check if token is valid or can be refreshed
-            return await self._mcp_auth_service.ensure_valid_token(
-                session, server, token
-            )
-
-    async def _create_auth_required_chunk(self, server: MCPServer) -> Chunk:
-        """Create an AUTH_REQUIRED chunk for a server that needs authentication.
-
-        Args:
-            server: The MCP server requiring authentication.
-
-        Returns:
-            A chunk signaling auth is required with the auth URL.
-        """
-        # Build the authorization URL
-        try:
-            # We use a session to store the PKCE state
-            # NOTE: rx.session() is for Reflex user session, not DB session.
-            # We use get_session_manager().session() for DB access required by PKCE.
-            with get_session_manager().session() as session:
-                # Use the async method that supports DCR
-                auth_service = self._mcp_auth_service
-                (
-                    auth_url,
-                    state,
-                ) = await auth_service.build_authorization_url_with_registration(
-                    server,
-                    session=session,
-                    user_id=self._current_user_id,
-                )
-                logger.info(
-                    "Built auth URL for server %s, state=%s, url=%s",
-                    server.name,
-                    state,
-                    auth_url[:100] if auth_url else "None",
-                )
-        except (ValueError, Exception) as e:
-            logger.error("Cannot build auth URL for server %s: %s", server.name, str(e))
-            auth_url = ""
-            state = ""
-
-        return Chunk(
-            type=ChunkType.AUTH_REQUIRED,
-            text=f"{server.name} benötigt Ihre Autorisierung",
-            chunk_metadata={
-                "server_id": str(server.id) if server.id else "",
-                "server_name": server.name,
-                "auth_url": auth_url,
-                "state": state,
-                "processor": "openai_responses",
-            },
-        )

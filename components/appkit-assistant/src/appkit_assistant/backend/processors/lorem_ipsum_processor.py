@@ -8,14 +8,16 @@ import random
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.database.models import (
+    MCPServer,
+)
+from appkit_assistant.backend.processors.processor_base import ProcessorBase
+from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     ChunkType,
-    MCPServer,
     Message,
 )
-from appkit_assistant.backend.processor import Processor
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ LOREM_MODELS = {
 }
 
 
-class LoremIpsumProcessor(Processor):
+class LoremIpsumProcessor(ProcessorBase):
     """Processor that generates Lorem Ipsum text responses."""
 
     def __init__(self, models: dict[str, AIModel] = LOREM_MODELS) -> None:

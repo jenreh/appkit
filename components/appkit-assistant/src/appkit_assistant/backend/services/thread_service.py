@@ -1,14 +1,16 @@
 import logging
 import uuid
 
-from appkit_assistant.backend.model_manager import ModelManager
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.database.models import (
     AssistantThread,
+)
+from appkit_assistant.backend.database.repositories import thread_repo
+from appkit_assistant.backend.model_manager import ModelManager
+from appkit_assistant.backend.schemas import (
     Message,
     ThreadModel,
     ThreadStatus,
 )
-from appkit_assistant.backend.repositories import thread_repo
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)

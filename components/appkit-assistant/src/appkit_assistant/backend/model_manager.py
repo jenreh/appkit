@@ -4,8 +4,8 @@ import logging
 import threading
 from typing import Self
 
-from appkit_assistant.backend.models import AIModel
-from appkit_assistant.backend.processor import Processor
+from appkit_assistant.backend.processors.processor_base import ProcessorBase
+from appkit_assistant.backend.schemas import AIModel
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +29,13 @@ class ModelManager:
     def __init__(self):
         """Initialize the service manager if not already initialized."""
         if not hasattr(self, "_initialized"):
-            self._processors: dict[str, Processor] = {}
+            self._processors: dict[str, ProcessorBase] = {}
             self._models: dict[str, AIModel] = {}
             self._model_to_processor: dict[str, str] = {}
             self._initialized = True
             logger.debug("ModelManager initialized")
 
-    def register_processor(self, processor_name: str, processor: Processor) -> None:
+    def register_processor(self, processor_name: str, processor: ProcessorBase) -> None:
         """
         Register a processor with the service manager.
 
@@ -59,7 +59,7 @@ class ModelManager:
 
         logger.debug("Registered processor: %s", processor_name)
 
-    def get_processor_for_model(self, model_id: str) -> Processor | None:
+    def get_processor_for_model(self, model_id: str) -> ProcessorBase | None:
         """
         Get the processor that supports the specified model.
 

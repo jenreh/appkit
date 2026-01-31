@@ -20,10 +20,12 @@ from urllib.parse import urlencode, urlparse
 import httpx
 from sqlmodel import Session, select
 
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.database.models import (
     AssistantMCPUserToken,
-    MCPAuthType,
     MCPServer,
+)
+from appkit_assistant.backend.schemas import (
+    MCPAuthType,
 )
 from appkit_user.authentication.backend.entities import OAuthStateEntity
 

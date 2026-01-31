@@ -5,7 +5,7 @@ from typing import Any, Final
 import reflex as rx
 from reflex.state import State
 
-from appkit_assistant.backend.repositories import system_prompt_repo
+from appkit_assistant.backend.database.repositories import system_prompt_repo
 from appkit_assistant.backend.system_prompt_cache import invalidate_prompt_cache
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession

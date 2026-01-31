@@ -3,7 +3,7 @@ from collections.abc import Callable
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.models import UploadedFile
+from appkit_assistant.backend.schemas import UploadedFile
 from appkit_assistant.components.tools_modal import tools_popover
 from appkit_assistant.state.thread_state import ThreadState
 

@@ -8,8 +8,8 @@ from typing import Any
 
 import reflex as rx
 
-from appkit_assistant.backend.models import MCPAuthType, MCPServer
-from appkit_assistant.backend.repositories import (
+from appkit_assistant.backend.database.models import MCPAuthType, MCPServer
+from appkit_assistant.backend.database.repositories import (
     mcp_server_repo,
 )
 from appkit_commons.database.session import get_asyncdb_session

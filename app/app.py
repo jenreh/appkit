@@ -1,12 +1,17 @@
 """Welcome to Reflex! This file outlines the steps to create a basic app."""
 
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 import reflex as rx
 from fastapi import FastAPI
 from starlette.types import ASGIApp
 
-from appkit_assistant.api import file_cleanup_router, start_scheduler, stop_scheduler
+from appkit_assistant.backend.services.file_cleanup_service import (
+    start_scheduler,
+    stop_scheduler,
+)
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
 from appkit_imagecreator.backend.image_api import router as image_api_router
@@ -144,23 +149,20 @@ base_style = {
     },
 }
 
-# Create FastAPI app for custom API routes
-api_app = FastAPI(title="AppKit API")
-api_app.include_router(image_api_router)
-api_app.include_router(file_cleanup_router)
 
-
-# Start file cleanup scheduler on app startup
-@api_app.on_event("startup")
-async def startup_event() -> None:
-    """Start background services on app startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Handle application lifespan events (startup and shutdown)."""
+    # Startup
     start_scheduler()
-
-
-@api_app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Stop background services on app shutdown."""
+    yield
+    # Shutdown
     stop_scheduler()
+
+
+# Create FastAPI app for custom API routes
+api_app = FastAPI(title="AppKit API", lifespan=lifespan)
+api_app.include_router(image_api_router)
 
 
 # Middleware transformer for HTTPS redirect

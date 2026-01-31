@@ -3,7 +3,7 @@
 import reflex as rx
 from reflex.components.radix.themes.components.table import TableRow
 
-from appkit_assistant.backend.models import MCPServer
+from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.components.mcp_server_dialogs import (
     add_mcp_server_button,
     delete_mcp_server_dialog,

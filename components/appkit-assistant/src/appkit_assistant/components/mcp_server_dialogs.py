@@ -9,8 +9,8 @@ from reflex.vars import var_operation, var_operation_return
 from reflex.vars.base import RETURN, CustomVarOperationReturn
 
 import appkit_mantine as mn
-from appkit_assistant.backend.mcp_auth_service import MCPAuthService
-from appkit_assistant.backend.models import MCPAuthType, MCPServer
+from appkit_assistant.backend.database.models import MCPAuthType, MCPServer
+from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
 from appkit_assistant.state.mcp_server_state import MCPServerState
 from appkit_ui.components.dialogs import (
     delete_dialog,

@@ -13,23 +13,25 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Final
 
-import reflex as rx
+from anthropic import AsyncAnthropic
 
-from appkit_assistant.backend.mcp_auth_service import MCPAuthService
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.database.models import (
+    MCPServer,
+)
+from appkit_assistant.backend.processors.mcp_mixin import MCPCapabilities
+from appkit_assistant.backend.processors.processor_base import mcp_oauth_redirect_uri
+from appkit_assistant.backend.processors.streaming_base import StreamingProcessorBase
+from appkit_assistant.backend.schemas import (
     AIModel,
-    AssistantMCPUserToken,
     Chunk,
     ChunkType,
     MCPAuthType,
-    MCPServer,
     Message,
     MessageType,
 )
-from appkit_assistant.backend.processor import mcp_oauth_redirect_uri
-from appkit_assistant.backend.processors.claude_base import BaseClaudeProcessor
-from appkit_assistant.backend.system_prompt_cache import get_system_prompt
-from appkit_commons.database.session import get_session_manager
+from appkit_assistant.backend.services.citation_handler import ClaudeCitationHandler
+from appkit_assistant.backend.services.file_validation import FileValidationService
+from appkit_assistant.backend.services.system_prompt_builder import SystemPromptBuilder
 
 logger = logging.getLogger(__name__)
 default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
@@ -38,8 +40,11 @@ default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
 MCP_BETA_HEADER: Final[str] = "mcp-client-2025-11-20"
 FILES_BETA_HEADER: Final[str] = "files-api-2025-04-14"
 
+# Extended thinking budget (fixed at 10k tokens)
+THINKING_BUDGET_TOKENS: Final[int] = 10000
 
-class ClaudeResponsesProcessor(BaseClaudeProcessor):
+
+class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
     """Claude processor using the Messages API with MCP tools and file uploads."""
 
     def __init__(
@@ -49,18 +54,37 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         base_url: str | None = None,
         oauth_redirect_uri: str = default_oauth_redirect_uri,
     ) -> None:
-        super().__init__(models, api_key, base_url)
-        self._current_reasoning_session: str | None = None
-        self._current_user_id: int | None = None
-        self._mcp_auth_service = MCPAuthService(redirect_uri=oauth_redirect_uri)
-        self._pending_auth_servers: list[MCPServer] = []
+        StreamingProcessorBase.__init__(self, models, "claude_responses")
+        MCPCapabilities.__init__(self, oauth_redirect_uri, "claude_responses")
+
+        self.api_key = api_key
+        self.base_url = base_url
+        self.client: AsyncAnthropic | None = None
+
+        if self.api_key:
+            if self.base_url:
+                self.client = AsyncAnthropic(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                )
+            else:
+                self.client = AsyncAnthropic(api_key=self.api_key)
+        else:
+            logger.warning("No Claude API key found. Processor will not work.")
+
+        # Services
+        self._file_validator = FileValidationService()
+        self._citation_handler = ClaudeCitationHandler()
+        self._system_prompt_builder = SystemPromptBuilder()
+
+        # State
         self._uploaded_file_ids: list[str] = []
-        # Track current tool context for streaming
         self._current_tool_context: dict[str, Any] | None = None
-        # Track if we need a newline before next text block
         self._needs_text_separator: bool = False
 
-        logger.debug("Using redirect URI for MCP OAuth: %s", oauth_redirect_uri)
+    def get_supported_models(self) -> dict[str, AIModel]:
+        """Return supported models if API key is available."""
+        return self.models if self.api_key else {}
 
     async def process(
         self,
@@ -81,8 +105,8 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
             raise ValueError(msg)
 
         model = self.models[model_id]
-        self._current_user_id = user_id
-        self._pending_auth_servers = []
+        self.current_user_id = user_id
+        self.clear_pending_auth_servers()
         self._uploaded_file_ids = []
 
         try:
@@ -116,37 +140,26 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
                 logger.error("Error during Claude response processing: %s", error_msg)
                 # Only yield error chunk if NOT an auth error
                 is_auth_related = (
-                    self._is_auth_error(error_msg) or self._pending_auth_servers
+                    self.auth_detector.is_auth_error(error_msg)
+                    or self.pending_auth_servers
                 )
                 if not is_auth_related:
-                    yield Chunk(
-                        type=ChunkType.ERROR,
-                        text=f"Ein Fehler ist aufgetreten: {error_msg}",
-                        chunk_metadata={
-                            "source": "claude_api",
-                            "error_type": type(e).__name__,
-                        },
+                    yield self.chunk_factory.error(
+                        f"Ein Fehler ist aufgetreten: {error_msg}",
+                        error_type=type(e).__name__,
                     )
 
             # Yield any pending auth requirements
-            logger.debug(
-                "Processing pending auth servers: %d", len(self._pending_auth_servers)
-            )
-            for server in self._pending_auth_servers:
-                logger.debug("Yielding auth chunk for server: %s", server.name)
-                yield await self._create_auth_required_chunk(server)
+            async for auth_chunk in self.yield_pending_auth_chunks():
+                yield auth_chunk
 
         except Exception as e:
             logger.error("Critical error in Claude processor: %s", e)
             raise
 
-    def _handle_event(self, event: Any) -> Chunk | None:
-        """Handle streaming events from Claude API."""
-        event_type = getattr(event, "type", None)
-        if not event_type:
-            return None
-
-        handlers = {
+    def _get_event_handlers(self) -> dict[str, Any]:
+        """Get the event handler mapping for Claude API events."""
+        return {
             "message_start": self._handle_message_start,
             "message_delta": self._handle_message_delta,
             "message_stop": self._handle_message_stop,
@@ -155,20 +168,9 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
             "content_block_stop": self._handle_content_block_stop,
         }
 
-        handler = handlers.get(event_type)
-        if handler:
-            return handler(event)
-
-        logger.debug("Unhandled Claude event type: %s", event_type)
-        return None
-
     def _handle_message_start(self, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle message_start event."""
-        return self._create_chunk(
-            ChunkType.LIFECYCLE,
-            "created",
-            {"stage": "created"},
-        )
+        return self.chunk_factory.lifecycle("created", {"stage": "created"})
 
     def _handle_message_delta(self, event: Any) -> Chunk | None:
         """Handle message_delta event (contains stop_reason)."""
@@ -176,19 +178,15 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         if delta:
             stop_reason = getattr(delta, "stop_reason", None)
             if stop_reason:
-                return self._create_chunk(
-                    ChunkType.LIFECYCLE,
-                    f"stop_reason: {stop_reason}",
-                    {"stop_reason": stop_reason},
+                return self.chunk_factory.lifecycle(
+                    f"stop_reason: {stop_reason}", {"stop_reason": stop_reason}
                 )
         return None
 
     def _handle_message_stop(self, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle message_stop event."""
-        return self._create_chunk(
-            ChunkType.COMPLETION,
-            "Response generation completed",
-            {"status": "response_complete"},
+        return self.chunk_factory.completion(
+            "Response generation completed", status="response_complete"
         )
 
     def _handle_content_block_start(self, event: Any) -> Chunk | None:
@@ -218,18 +216,16 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         """Handle start of text content block."""
         if self._needs_text_separator:
             self._needs_text_separator = False
-            return self._create_chunk(ChunkType.TEXT, "\n\n", {"separator": "true"})
+            return self.chunk_factory.text("\n\n", {"separator": "true"})
         return None
 
     def _handle_thinking_block_start(self, content_block: Any) -> Chunk:
         """Handle start of thinking content block."""
         thinking_id = getattr(content_block, "id", "thinking")
-        self._current_reasoning_session = thinking_id
+        self.current_reasoning_session = thinking_id
         self._needs_text_separator = True
-        return self._create_chunk(
-            ChunkType.THINKING,
-            "Denke nach...",
-            {"reasoning_id": thinking_id, "status": "starting"},
+        return self.chunk_factory.thinking(
+            "Denke nach...", reasoning_id=thinking_id, status="starting"
         )
 
     def _handle_tool_use_block_start(self, content_block: Any) -> Chunk:
@@ -241,15 +237,12 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
             "tool_id": tool_id,
             "server_label": None,
         }
-        return self._create_chunk(
-            ChunkType.TOOL_CALL,
+        return self.chunk_factory.tool_call(
             f"Benutze Werkzeug: {tool_name}",
-            {
-                "tool_name": tool_name,
-                "tool_id": tool_id,
-                "status": "starting",
-                "reasoning_session": self._current_reasoning_session,
-            },
+            tool_name=tool_name,
+            tool_id=tool_id,
+            status="starting",
+            reasoning_session=self.current_reasoning_session,
         )
 
     def _handle_mcp_tool_use_block_start(self, content_block: Any) -> Chunk:
@@ -262,16 +255,13 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
             "tool_id": tool_id,
             "server_label": server_name,
         }
-        return self._create_chunk(
-            ChunkType.TOOL_CALL,
+        return self.chunk_factory.tool_call(
             f"Benutze Werkzeug: {server_name}.{tool_name}",
-            {
-                "tool_name": tool_name,
-                "tool_id": tool_id,
-                "server_label": server_name,
-                "status": "starting",
-                "reasoning_session": self._current_reasoning_session,
-            },
+            tool_name=tool_name,
+            tool_id=tool_id,
+            server_label=server_name,
+            status="starting",
+            reasoning_session=self.current_reasoning_session,
         )
 
     def _handle_mcp_tool_result_block_start(self, content_block: Any) -> Chunk:
@@ -290,15 +280,12 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
 
         result_text = self._extract_mcp_result_text(content)
         status = "error" if is_error else "completed"
-        return self._create_chunk(
-            ChunkType.TOOL_RESULT,
+        return self.chunk_factory.tool_result(
             result_text or ("Werkzeugfehler" if is_error else "Erfolgreich"),
-            {
-                "tool_id": tool_use_id,
-                "status": status,
-                "error": is_error,
-                "reasoning_session": self._current_reasoning_session,
-            },
+            tool_id=tool_use_id,
+            status=status,
+            error=is_error,
+            reasoning_session=self.current_reasoning_session,
         )
 
     def _extract_mcp_result_text(self, content: Any) -> str:
@@ -327,32 +314,31 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
 
         if delta_type == "text_delta":
             text = getattr(delta, "text", "")
-            # Extract citations from text if present
-            citations = self._extract_citations_from_delta(delta)
-            metadata = {"delta": text}
+            # Extract citations using the citation handler
+            citations = self._citation_handler.extract(delta)
+            metadata: dict[str, Any] = {"delta": text}
             if citations:
-                metadata["citations"] = json.dumps(citations)
-            return self._create_chunk(ChunkType.TEXT, text, metadata)
+                metadata["citations"] = json.dumps(
+                    [self._citation_handler.to_dict(c) for c in citations]
+                )
+            return self.chunk_factory.text(text, metadata)
 
         if delta_type == "thinking_delta":
             thinking_text = getattr(delta, "thinking", "")
-            return self._create_chunk(
-                ChunkType.THINKING,
+            return self.chunk_factory.thinking(
                 thinking_text,
-                {
-                    "reasoning_id": self._current_reasoning_session,
-                    "status": "in_progress",
-                    "delta": thinking_text,
-                },
+                reasoning_id=self.current_reasoning_session,
+                status="in_progress",
+                delta=thinking_text,
             )
 
         if delta_type == "input_json_delta":
             partial_json = getattr(delta, "partial_json", "")
             # Include tool context in streaming chunks
-            metadata: dict[str, Any] = {
+            metadata = {
                 "status": "arguments_streaming",
                 "delta": partial_json,
-                "reasoning_session": self._current_reasoning_session,
+                "reasoning_session": self.current_reasoning_session,
             }
             if self._current_tool_context:
                 metadata["tool_name"] = self._current_tool_context.get("tool_name")
@@ -361,22 +347,18 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
                     metadata["server_label"] = self._current_tool_context[
                         "server_label"
                     ]
-            return self._create_chunk(
-                ChunkType.TOOL_CALL,
-                partial_json,
-                metadata,
-            )
+            return self.chunk_factory.tool_call(partial_json, **metadata)
 
         return None
 
     def _handle_content_block_stop(self, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle content_block_stop event."""
         # Check if this was a thinking block ending
-        if self._current_reasoning_session:
+        if self.current_reasoning_session:
             # Reset reasoning session after thinking completes
-            reasoning_id = self._current_reasoning_session
-            self._current_reasoning_session = None
-            return self._create_chunk(
+            reasoning_id = self.current_reasoning_session
+            self.current_reasoning_session = None
+            return self.chunk_factory.create(
                 ChunkType.THINKING_RESULT,
                 "beendet.",
                 {"reasoning_id": reasoning_id, "status": "completed"},
@@ -386,99 +368,15 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         if self._current_tool_context:
             tool_context = self._current_tool_context
             self._current_tool_context = None
-            metadata: dict[str, Any] = {
-                "tool_name": tool_context.get("tool_name"),
-                "tool_id": tool_context.get("tool_id"),
-                "status": "arguments_complete",
-            }
-            if tool_context.get("server_label"):
-                metadata["server_label"] = tool_context["server_label"]
-            return self._create_chunk(
-                ChunkType.TOOL_CALL,
+            return self.chunk_factory.tool_call(
                 "Werkzeugargumente vollständig",
-                metadata,
+                tool_name=tool_context.get("tool_name"),
+                tool_id=tool_context.get("tool_id"),
+                server_label=tool_context.get("server_label"),
+                status="arguments_complete",
             )
 
         return None
-
-    def _extract_citations_from_delta(self, delta: Any) -> list[dict[str, Any]]:
-        """Extract citation information from a text delta."""
-        citations = []
-
-        # Claude provides citations in the text block's citations field
-        text_block_citations = getattr(delta, "citations", None)
-        if text_block_citations:
-            for citation in text_block_citations:
-                citation_data = {
-                    "cited_text": getattr(citation, "cited_text", ""),
-                    "document_index": getattr(citation, "document_index", 0),
-                    "document_title": getattr(citation, "document_title", None),
-                }
-
-                # Handle different citation location types
-                citation_type = getattr(citation, "type", None)
-                if citation_type == "char_location":
-                    citation_data["start_char_index"] = getattr(
-                        citation, "start_char_index", 0
-                    )
-                    citation_data["end_char_index"] = getattr(
-                        citation, "end_char_index", 0
-                    )
-                elif citation_type == "page_location":
-                    citation_data["start_page_number"] = getattr(
-                        citation, "start_page_number", 0
-                    )
-                    citation_data["end_page_number"] = getattr(
-                        citation, "end_page_number", 0
-                    )
-                elif citation_type == "content_block_location":
-                    citation_data["start_block_index"] = getattr(
-                        citation, "start_block_index", 0
-                    )
-                    citation_data["end_block_index"] = getattr(
-                        citation, "end_block_index", 0
-                    )
-
-                citations.append(citation_data)
-
-        return citations
-
-    def _is_auth_error(self, error: Any) -> bool:
-        """Check if an error indicates authentication failure (401/403)."""
-        error_str = str(error).lower()
-        auth_indicators = [
-            "401",
-            "403",
-            "unauthorized",
-            "forbidden",
-            "authentication required",
-            "access denied",
-            "invalid token",
-            "token expired",
-        ]
-        return any(indicator in error_str for indicator in auth_indicators)
-
-    def _create_chunk(
-        self,
-        chunk_type: ChunkType,
-        content: str,
-        extra_metadata: dict[str, Any] | None = None,
-    ) -> Chunk:
-        """Create a Chunk with content from the event."""
-        metadata: dict[str, str] = {
-            "processor": "claude_responses",
-        }
-
-        if extra_metadata:
-            for key, value in extra_metadata.items():
-                if value is not None:
-                    metadata[key] = str(value)
-
-        return Chunk(
-            type=chunk_type,
-            text=content,
-            chunk_metadata=metadata,
-        )
 
     async def _process_files(self, files: list[str]) -> list[dict[str, Any]]:
         """Process and upload files for use in messages.
@@ -492,7 +390,7 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         content_blocks = []
 
         for file_path in files:
-            is_valid, error_msg = self._validate_file(file_path)
+            is_valid, error_msg = self._file_validator.validate_file(file_path)
             if not is_valid:
                 logger.warning("Skipping invalid file %s: %s", file_path, error_msg)
                 continue
@@ -530,9 +428,9 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         # Read file content
         file_data = path.read_bytes()
 
-        media_type = self._get_media_type(file_path)
+        media_type = self._file_validator.get_media_type(file_path)
 
-        if self._is_image_file(file_path):
+        if self._file_validator.is_image_file(file_path):
             # For images, use base64 encoding directly in the message
             base64_data = base64.standard_b64encode(file_data).decode("utf-8")
             return {
@@ -627,7 +525,7 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         # Add extended thinking (always enabled with fixed budget)
         params["thinking"] = {
             "type": "enabled",
-            "budget_tokens": self.THINKING_BUDGET_TOKENS,
+            "budget_tokens": THINKING_BUDGET_TOKENS,
         }
 
         # Add temperature
@@ -757,13 +655,13 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
 
             # Inject OAuth token if required (overrides static header token)
             if server.auth_type == MCPAuthType.OAUTH_DISCOVERY and user_id is not None:
-                token = await self._get_valid_token_for_server(server, user_id)
+                token = await self.get_valid_token(server, user_id)
                 if token:
                     server_config["authorization_token"] = token.access_token
                     logger.debug("Injected OAuth token for server %s", server.name)
                 else:
                     # Track for potential auth flow
-                    self._pending_auth_servers.append(server)
+                    self.add_pending_auth_server(server)
                     logger.debug(
                         "No valid token for OAuth server %s, auth may be required",
                         server.name,
@@ -847,86 +745,4 @@ class ClaudeResponsesProcessor(BaseClaudeProcessor):
         Returns:
             Complete system prompt string
         """
-        # Get base system prompt
-        system_prompt_template = await get_system_prompt()
-
-        # Format with MCP prompts
-        if mcp_prompt:
-            mcp_section = (
-                "### Tool-Auswahlrichtlinien (Einbettung externer Beschreibungen)\n"
-                f"{mcp_prompt}"
-            )
-        else:
-            mcp_section = ""
-
-        return system_prompt_template.format(mcp_prompts=mcp_section)
-
-    async def _get_valid_token_for_server(
-        self,
-        server: MCPServer,
-        user_id: int,
-    ) -> AssistantMCPUserToken | None:
-        """Get a valid OAuth token for the given server and user.
-
-        Args:
-            server: The MCP server configuration
-            user_id: The user's ID
-
-        Returns:
-            A valid token or None if not available
-        """
-        if server.id is None:
-            return None
-
-        with rx.session() as session:
-            token = self._mcp_auth_service.get_user_token(session, user_id, server.id)
-
-            if token is None:
-                return None
-
-            return await self._mcp_auth_service.ensure_valid_token(
-                session, server, token
-            )
-
-    async def _create_auth_required_chunk(self, server: MCPServer) -> Chunk:
-        """Create an AUTH_REQUIRED chunk for a server that needs authentication.
-
-        Args:
-            server: The MCP server requiring authentication
-
-        Returns:
-            A chunk signaling auth is required with the auth URL
-        """
-        try:
-            with get_session_manager().session() as session:
-                auth_service = self._mcp_auth_service
-                (
-                    auth_url,
-                    state,
-                ) = await auth_service.build_authorization_url_with_registration(
-                    server,
-                    session=session,
-                    user_id=self._current_user_id,
-                )
-                logger.info(
-                    "Built auth URL for server %s, state=%s, url=%s",
-                    server.name,
-                    state,
-                    auth_url[:100] if auth_url else "None",
-                )
-        except (ValueError, Exception) as e:
-            logger.error("Cannot build auth URL for server %s: %s", server.name, str(e))
-            auth_url = ""
-            state = ""
-
-        return Chunk(
-            type=ChunkType.AUTH_REQUIRED,
-            text=f"{server.name} benötigt Ihre Autorisierung",
-            chunk_metadata={
-                "server_id": str(server.id) if server.id else "",
-                "server_name": server.name,
-                "auth_url": auth_url,
-                "state": state,
-                "processor": "claude_responses",
-            },
-        )
+        return await self._system_prompt_builder.build(mcp_prompt)

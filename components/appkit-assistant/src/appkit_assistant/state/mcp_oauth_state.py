@@ -10,9 +10,9 @@ from collections.abc import AsyncGenerator
 import reflex as rx
 from sqlmodel import Session, select
 
-from appkit_assistant.backend.mcp_auth_service import MCPAuthService
-from appkit_assistant.backend.models import MCPServer
-from appkit_assistant.backend.processor import mcp_oauth_redirect_uri
+from appkit_assistant.backend.database.models import MCPServer
+from appkit_assistant.backend.processors.processor_base import mcp_oauth_redirect_uri
+from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
 from appkit_commons.database.session import get_session_manager
 from appkit_user.authentication.backend.entities import OAuthStateEntity
 from appkit_user.authentication.states import UserSession

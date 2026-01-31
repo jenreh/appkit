@@ -20,24 +20,26 @@ from typing import Any
 
 import reflex as rx
 
-from appkit_assistant.backend import file_manager
+from appkit_assistant.backend.database.models import (
+    MCPServer,
+    ThreadStatus,
+)
+from appkit_assistant.backend.database.repositories import mcp_server_repo
 from appkit_assistant.backend.model_manager import ModelManager
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     ChunkType,
-    MCPServer,
     Message,
     MessageType,
     Suggestion,
     Thinking,
     ThinkingType,
     ThreadModel,
-    ThreadStatus,
     UploadedFile,
 )
-from appkit_assistant.backend.repositories import mcp_server_repo
-from appkit_assistant.backend.response_accumulator import ResponseAccumulator
+from appkit_assistant.backend.services import file_manager
+from appkit_assistant.backend.services.response_accumulator import ResponseAccumulator
 from appkit_assistant.backend.services.thread_service import ThreadService
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_commons.database.session import get_asyncdb_session

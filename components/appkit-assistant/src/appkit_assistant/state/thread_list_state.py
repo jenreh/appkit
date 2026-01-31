@@ -15,8 +15,9 @@ from typing import TYPE_CHECKING, Any
 
 import reflex as rx
 
-from appkit_assistant.backend.models import ThreadModel, ThreadStatus
-from appkit_assistant.backend.repositories import thread_repo
+from appkit_assistant.backend.database.models import ThreadStatus
+from appkit_assistant.backend.database.repositories import thread_repo
+from appkit_assistant.backend.schemas import ThreadModel
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
@@ -241,7 +242,7 @@ class ThreadListState(rx.State):
                     vector_store_id = db_thread.vector_store_id
 
                     # Fetch file IDs before deletion (cascade will delete records)
-                    from appkit_assistant.backend.repositories import (  # noqa: PLC0415
+                    from appkit_assistant.backend.database.repositories import (  # noqa: PLC0415
                         file_upload_repo,
                     )
 
@@ -295,9 +296,12 @@ class ThreadListState(rx.State):
         This runs in the background so the user can continue working.
         Failures are logged but not shown to the user.
 
+        Note: This is called AFTER DB records are cascade-deleted, so it only
+        handles OpenAI resource cleanup.
+
         Args:
             openai_file_ids: List of OpenAI file IDs to delete.
-            vector_store_id: The vector store ID to delete (if all files succeed).
+            vector_store_id: The vector store ID to delete.
         """
         from appkit_assistant.backend.services.file_upload_service import (  # noqa: PLC0415
             FileUploadService,
@@ -323,7 +327,15 @@ class ThreadListState(rx.State):
             return
 
         file_service = FileUploadService(client)
-        await file_service.cleanup_openai_files(openai_file_ids, vector_store_id)
+
+        # Delete vector store (which deletes files FROM store first)
+        if vector_store_id:
+            await file_service.delete_vector_store(vector_store_id)
+
+        # Delete files from OpenAI (independent cleanup)
+        if openai_file_ids:
+            await file_service.delete_files(openai_file_ids)
+
         yield  # Required for async generator
 
     # -------------------------------------------------------------------------

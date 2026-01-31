@@ -8,7 +8,7 @@ from typing import Any, Final
 import reflex as rx
 from pydantic import BaseModel
 
-from appkit_assistant.backend.repositories import file_upload_repo
+from appkit_assistant.backend.database.repositories import file_upload_repo
 from appkit_assistant.backend.services.openai_client_service import (
     get_openai_client_service,
 )

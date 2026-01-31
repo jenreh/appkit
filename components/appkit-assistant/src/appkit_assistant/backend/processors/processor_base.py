@@ -7,7 +7,12 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 
-from appkit_assistant.backend.models import AIModel, Chunk, MCPServer, Message
+from appkit_assistant.backend.database.models import MCPServer
+from appkit_assistant.backend.schemas import (
+    AIModel,
+    Chunk,
+    Message,
+)
 from appkit_commons.configuration.configuration import ReflexConfig
 from appkit_commons.registry import service_registry
 
@@ -31,7 +36,7 @@ def mcp_oauth_redirect_uri() -> str:
     return f"http://localhost:8080{MCP_OAUTH_CALLBACK_PATH}"
 
 
-class Processor(abc.ABC):
+class ProcessorBase(abc.ABC):
     """Base processor interface for AI processing services."""
 
     @abc.abstractmethod

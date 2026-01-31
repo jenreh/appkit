@@ -5,30 +5,22 @@ import logging
 import reflex as rx
 
 from appkit_assistant.backend.model_manager import ModelManager
-from appkit_assistant.backend.models import AIModel
-from appkit_assistant.backend.processors.claude_base import (
+from appkit_assistant.backend.models import (
     CLAUDE_HAIKU_4_5,
-)
-from appkit_assistant.backend.processors.claude_responses_processor import (
-    ClaudeResponsesProcessor,
-)
-from appkit_assistant.backend.processors.gemini_base import (
     GEMINI_3_FLASH,
     GEMINI_3_PRO,
-)
-from appkit_assistant.backend.processors.gemini_responses_processor import (
-    GeminiResponsesProcessor,
-)
-from appkit_assistant.backend.processors.lorem_ipsum_processor import (
-    LoremIpsumProcessor,
-)
-from appkit_assistant.backend.processors.openai_base import GPT_5_1, GPT_5_2, GPT_5_MINI
-from appkit_assistant.backend.processors.openai_responses_processor import (
-    OpenAIResponsesProcessor,
-)
-from appkit_assistant.backend.processors.perplexity_processor import (
+    GPT_5_1,
+    GPT_5_1_MINI,
+    GPT_5_2,
     SONAR,
     SONAR_DEEP_RESEARCH,
+    AIModel,
+)
+from appkit_assistant.backend.processors import (
+    ClaudeResponsesProcessor,
+    GeminiResponsesProcessor,
+    LoremIpsumProcessor,
+    OpenAIResponsesProcessor,
     PerplexityProcessor,
 )
 from appkit_assistant.components import (
@@ -95,7 +87,7 @@ def initialize_model_manager() -> list[AIModel]:
 
     models = {
         GPT_5_1.id: GPT_5_1,
-        GPT_5_MINI.id: GPT_5_MINI,
+        GPT_5_1_MINI.id: GPT_5_1_MINI,
         GPT_5_2.id: GPT_5_2,
     }
 
@@ -145,7 +137,7 @@ def initialize_model_manager() -> list[AIModel]:
             ),
         )
 
-    model_manager.set_default_model(GPT_5_MINI.id)
+    model_manager.set_default_model(GPT_5_1_MINI.id)
     return model_manager.get_all_models()
 
 

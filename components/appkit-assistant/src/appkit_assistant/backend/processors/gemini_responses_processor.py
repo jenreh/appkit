@@ -12,25 +12,28 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, Final
 
-import reflex as rx
+from google import genai
 from google.genai import types
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
-from appkit_assistant.backend.mcp_auth_service import MCPAuthService
-from appkit_assistant.backend.models import (
-    AIModel,
-    AssistantMCPUserToken,
-    Chunk,
-    ChunkType,
-    MCPAuthType,
+from appkit_assistant.backend.database.models import (
     MCPServer,
+)
+from appkit_assistant.backend.processors.mcp_mixin import MCPCapabilities
+from appkit_assistant.backend.processors.processor_base import (
+    ProcessorBase,
+    mcp_oauth_redirect_uri,
+)
+from appkit_assistant.backend.schemas import (
+    AIModel,
+    Chunk,
+    MCPAuthType,
     Message,
     MessageType,
 )
-from appkit_assistant.backend.processor import mcp_oauth_redirect_uri
-from appkit_assistant.backend.processors.gemini_base import BaseGeminiProcessor
-from appkit_assistant.backend.system_prompt_cache import get_system_prompt
+from appkit_assistant.backend.services.chunk_factory import ChunkFactory
+from appkit_assistant.backend.services.system_prompt_builder import SystemPromptBuilder
 
 logger = logging.getLogger(__name__)
 default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
@@ -48,7 +51,7 @@ class MCPToolContext:
     tools: dict[str, Any] = field(default_factory=dict)
 
 
-class GeminiResponsesProcessor(BaseGeminiProcessor):
+class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
     """Gemini processor using the GenAI API with native MCP support."""
 
     def __init__(
@@ -57,13 +60,27 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         api_key: str | None = None,
         oauth_redirect_uri: str = default_oauth_redirect_uri,
     ) -> None:
-        super().__init__(models, api_key)
-        self._current_reasoning_session: str | None = None
-        self._current_user_id: int | None = None
-        self._mcp_auth_service = MCPAuthService(redirect_uri=oauth_redirect_uri)
-        self._pending_auth_servers: list[MCPServer] = []
+        MCPCapabilities.__init__(self, oauth_redirect_uri, "gemini_responses")
+        self.models = models
+        self.client: genai.Client | None = None
+        self._chunk_factory = ChunkFactory(processor_name="gemini_responses")
+        self._system_prompt_builder = SystemPromptBuilder()
+
+        if api_key:
+            try:
+                self.client = genai.Client(
+                    api_key=api_key, http_options={"api_version": "v1beta"}
+                )
+            except Exception as e:
+                logger.error("Failed to initialize Gemini client: %s", e)
+        else:
+            logger.warning("Gemini API key not found. Processor disabled.")
 
         logger.debug("Using redirect URI for MCP OAuth: %s", oauth_redirect_uri)
+
+    def get_supported_models(self) -> dict[str, AIModel]:
+        """Get supported models."""
+        return self.models
 
     async def process(
         self,
@@ -84,9 +101,8 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
             raise ValueError(msg)
 
         model = self.models[model_id]
-        self._current_user_id = user_id
-        self._pending_auth_servers = []
-        self._current_reasoning_session = None
+        self.current_user_id = user_id
+        self.clear_pending_auth_servers()
 
         # Prepare configuration
         config = self._create_generation_config(model, payload)
@@ -97,7 +113,8 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         if mcp_servers:
             sessions_result = await self._create_mcp_sessions(mcp_servers, user_id)
             mcp_sessions = sessions_result["sessions"]
-            self._pending_auth_servers = sessions_result["auth_required"]
+            for server in sessions_result["auth_required"]:
+                self.add_pending_auth_server(server)
             mcp_prompt = self._build_mcp_prompt(mcp_servers)
 
             if mcp_sessions:
@@ -127,12 +144,12 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                 yield chunk
 
             # Handle any pending auth
-            for server in self._pending_auth_servers:
-                yield await self._create_auth_required_chunk(server)
+            async for auth_chunk in self.yield_pending_auth_chunks():
+                yield auth_chunk
 
         except Exception as e:
             logger.exception("Error in Gemini processor: %s", str(e))
-            yield self._create_chunk(ChunkType.ERROR, f"Error: {e!s}")
+            yield self._chunk_factory.error(f"Error: {e!s}")
 
     async def _create_mcp_sessions(
         self, servers: list[MCPServer], user_id: int | None
@@ -147,15 +164,15 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
 
         for server in servers:
             try:
-                # Parse headers
-                headers = self._parse_mcp_headers(server)
+                # Parse headers using MCPCapabilities
+                headers = self.parse_mcp_headers(server)
 
                 # Handle OAuth - inject token
                 if (
                     server.auth_type == MCPAuthType.OAUTH_DISCOVERY
                     and user_id is not None
                 ):
-                    token = await self._get_valid_token_for_server(server, user_id)
+                    token = await self.get_valid_token(server, user_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token.access_token}"
                     else:
@@ -286,16 +303,12 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                     tool_call_id = f"mcp_{uuid.uuid4().hex[:32]}"
 
                     # Yield TOOL_CALL chunk to show in UI
-                    yield self._create_chunk(
-                        ChunkType.TOOL_CALL,
-                        f"Werkzeug: {server_name}.{fc.name}",
-                        {
-                            "tool_name": fc.name,
-                            "tool_id": tool_call_id,
-                            "server_label": server_name,
-                            "arguments": json.dumps(fc.args),
-                            "status": "starting",
-                        },
+                    yield self._chunk_factory.tool_call(
+                        tool_name=fc.name,
+                        tool_id=tool_call_id,
+                        server_label=server_name,
+                        arguments=json.dumps(fc.args),
+                        status="starting",
                     )
 
                     result = await self._execute_mcp_tool(
@@ -308,16 +321,12 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                         if len(result) > TOOL_RESULT_PREVIEW_LENGTH
                         else result
                     )
-                    yield self._create_chunk(
-                        ChunkType.TOOL_RESULT,
-                        preview,
-                        {
-                            "tool_name": fc.name,
-                            "tool_id": tool_call_id,
-                            "server_label": server_name,
-                            "status": "completed",
-                            "result_length": str(len(result)),
-                        },
+                    yield self._chunk_factory.tool_result(
+                        tool_name=fc.name,
+                        tool_id=tool_call_id,
+                        content=preview,
+                        server_label=server_name,
+                        status="completed",
                     )
 
                     function_responses.append(
@@ -345,11 +354,8 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
             # No function calls - yield text response
             text_parts = [part.text for part in content.parts if part.text]
             if text_parts:
-                yield self._create_chunk(
-                    ChunkType.TEXT,
-                    "".join(text_parts),
-                    {"delta": "".join(text_parts)},
-                )
+                text_content = "".join(text_parts)
+                yield self._chunk_factory.text(text_content, delta=text_content)
 
             # Done - no more function calls
             return
@@ -517,7 +523,7 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                         wrapper.name,
                     )
                     read, write, _ = await stack.enter_async_context(
-                        streamablehttp_client(
+                        streamable_http_client(
                             url=wrapper.url,
                             headers=wrapper.headers,
                             timeout=60.0,
@@ -624,22 +630,11 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
     ) -> tuple[list[types.Content], str | None]:
         """Convert app messages to Gemini Content objects."""
         contents: list[types.Content] = []
-        system_instruction: str | None = None
 
-        # Build MCP prompt section if tools are available
-        mcp_section = ""
-        if mcp_prompt:
-            mcp_section = (
-                "\n\n### Tool-Auswahlrichtlinien (Einbettung externer Beschreibungen)\n"
-                f"{mcp_prompt}"
-            )
+        # Build system instruction using SystemPromptBuilder
+        system_instruction = await self._system_prompt_builder.build(mcp_prompt)
 
-        # Get system prompt content first
-        system_prompt_template = await get_system_prompt()
-        if system_prompt_template:
-            # Format with MCP prompts placeholder
-            system_instruction = system_prompt_template.format(mcp_prompts=mcp_section)
-
+        # Extract system messages from conversation
         for msg in messages:
             if msg.type == MessageType.SYSTEM:
                 # Append to system instruction
@@ -671,72 +666,10 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         text_parts = [part.text for part in content.parts if part.text]
 
         if text_parts:
-            return self._create_chunk(
-                ChunkType.TEXT, "".join(text_parts), {"delta": "".join(text_parts)}
-            )
+            text_content = "".join(text_parts)
+            return self._chunk_factory.text(text_content, delta=text_content)
 
         return None
-
-    def _create_chunk(
-        self,
-        chunk_type: ChunkType,
-        content: str,
-        extra_metadata: dict[str, str] | None = None,
-    ) -> Chunk:
-        """Create a Chunk."""
-        metadata = {
-            "processor": "gemini_responses",
-        }
-        if extra_metadata:
-            metadata.update(extra_metadata)
-
-        return Chunk(
-            type=chunk_type,
-            text=content,
-            chunk_metadata=metadata,
-        )
-
-    async def _create_auth_required_chunk(self, server: MCPServer) -> Chunk:
-        """Create an AUTH_REQUIRED chunk."""
-        # reusing logic from other processors, simplified here
-        return Chunk(
-            type=ChunkType.AUTH_REQUIRED,
-            text=f"{server.name} authentication required",
-            chunk_metadata={"server_name": server.name},
-        )
-
-    def _parse_mcp_headers(self, server: MCPServer) -> dict[str, str]:
-        """Parse headers from server config.
-
-        Returns:
-            Dictionary of HTTP headers to send to the MCP server.
-        """
-        if not server.headers or server.headers == "{}":
-            return {}
-
-        try:
-            headers_dict = json.loads(server.headers)
-            return dict(headers_dict)
-        except json.JSONDecodeError:
-            logger.warning("Invalid headers JSON for server %s", server.name)
-            return {}
-
-    async def _get_valid_token_for_server(
-        self, server: MCPServer, user_id: int
-    ) -> AssistantMCPUserToken | None:
-        """Get a valid OAuth token for the server/user."""
-        if server.id is None:
-            return None
-
-        with rx.session() as session:
-            token = self._mcp_auth_service.get_user_token(session, user_id, server.id)
-
-            if token is None:
-                return None
-
-            return await self._mcp_auth_service.ensure_valid_token(
-                session, server, token
-            )
 
 
 class MCPSessionWrapper:

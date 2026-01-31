@@ -1,7 +1,7 @@
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.schemas import (
     Message,
     MessageType,
     Thinking,

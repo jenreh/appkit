@@ -1,5 +1,4 @@
 import asyncio
-import enum
 import json
 import logging
 import os
@@ -8,78 +7,20 @@ from typing import Any
 
 from openai import AsyncStream
 
-from appkit_assistant.backend.models import (
-    AIModel,
-    Chunk,
-    ChunkType,
+from appkit_assistant.backend.database.models import (
     MCPServer,
-    Message,
 )
+from appkit_assistant.backend.models.perplexity import PerplexityAIModel
 from appkit_assistant.backend.processors.openai_chat_completion_processor import (
     OpenAIChatCompletionsProcessor,
 )
+from appkit_assistant.backend.schemas import (
+    Chunk,
+    Message,
+)
+from appkit_assistant.backend.services.chunk_factory import ChunkFactory
 
 logger = logging.getLogger(__name__)
-
-
-class ContextSize(enum.StrEnum):
-    """Enum for context size options."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-class PerplexityAIModel(AIModel):
-    """AI model for Perplexity API."""
-
-    search_context_size: ContextSize = ContextSize.MEDIUM
-    search_domain_filter: list[str] = []
-
-
-SONAR = PerplexityAIModel(
-    id="sonar",
-    text="Perplexity Sonar",
-    icon="perplexity",
-    model="sonar",
-    stream=True,
-)
-
-SONAR_PRO = PerplexityAIModel(
-    id="sonar-pro",
-    text="Perplexity Sonar Pro",
-    icon="perplexity",
-    model="sonar-pro",
-    stream=True,
-    keywords=["sonar", "perplexity"],
-)
-
-SONAR_DEEP_RESEARCH = PerplexityAIModel(
-    id="sonar-deep-research",
-    text="Perplexity Deep Research",
-    icon="perplexity",
-    model="sonar-deep-research",
-    search_context_size=ContextSize.HIGH,
-    stream=True,
-    keywords=["reasoning", "deep", "research", "perplexity"],
-)
-
-SONAR_REASONING = PerplexityAIModel(
-    id="sonar-reasoning",
-    text="Perplexity Reasoning",
-    icon="perplexity",
-    model="sonar-reasoning",
-    search_context_size=ContextSize.HIGH,
-    stream=True,
-    keywords=["reasoning", "perplexity"],
-)
-
-ALL_MODELS = {
-    SONAR.id: SONAR,
-    SONAR_PRO.id: SONAR_PRO,
-    SONAR_DEEP_RESEARCH.id: SONAR_DEEP_RESEARCH,
-    SONAR_REASONING.id: SONAR_REASONING,
-}
 
 
 class PerplexityProcessor(OpenAIChatCompletionsProcessor):
@@ -92,6 +33,7 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
     ) -> None:
         self.base_url = "https://api.perplexity.ai"
         super().__init__(api_key=api_key, base_url=self.base_url, models=models)
+        self._chunk_factory = ChunkFactory(processor_name="perplexity")
 
     async def process(
         self,
@@ -257,22 +199,15 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
         # Yield a TEXT chunk with citations in metadata for the accumulator
         # The response_accumulator's _extract_citations_to_annotations handles this
         citations_data = [{"url": url, "document_title": url} for url in citations]
-        yield Chunk(
-            type=ChunkType.TEXT,
-            text="",  # Empty text, just carries citations metadata
-            chunk_metadata={
-                "citations": json.dumps(citations_data),
-                "source": "perplexity",
-            },
+        yield self._chunk_factory.text(
+            "",  # Empty text, just carries citations metadata
+            citations=json.dumps(citations_data),
+            source="perplexity",
         )
 
         # Also yield individual ANNOTATION chunks for immediate display
         for url in citations:
-            yield Chunk(
-                type=ChunkType.ANNOTATION,
+            yield self._chunk_factory.annotation(
                 text=url,
-                chunk_metadata={
-                    "url": url,
-                    "source": "perplexity",
-                },
+                annotation_data={"url": url, "source": "perplexity"},
             )

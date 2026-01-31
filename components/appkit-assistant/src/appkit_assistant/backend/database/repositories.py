@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.database.models import (
     AssistantFileUpload,
     AssistantThread,
     MCPServer,

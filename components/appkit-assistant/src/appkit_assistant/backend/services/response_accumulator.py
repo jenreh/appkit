@@ -3,7 +3,7 @@ import logging
 import uuid
 from typing import Any
 
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.schemas import (
     Chunk,
     ChunkType,
     Message,
