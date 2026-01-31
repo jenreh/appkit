@@ -101,6 +101,7 @@ class AIModel(BaseModel):
     temperature: float = 0.05
     supports_tools: bool = False
     supports_attachments: bool = False
+    supports_search: bool = False
     keywords: list[str] = []
     disabled: bool = False
     requires_role: str | None = None

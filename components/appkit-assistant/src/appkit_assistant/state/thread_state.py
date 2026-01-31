@@ -99,6 +99,9 @@ class ThreadState(rx.State):
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
 
+    # Web Search state
+    web_search_enabled: bool = False
+
     # MCP OAuth state
     pending_auth_server_id: str = ""
     pending_auth_server_name: str = ""
@@ -163,6 +166,14 @@ class ThreadState(rx.State):
             return False
         model = ModelManager().get_model(self.selected_model)
         return model.supports_attachments if model else False
+
+    @rx.var
+    def selected_model_supports_search(self) -> bool:
+        """Check if the currently selected model supports web search."""
+        if not self.selected_model:
+            return False
+        model = ModelManager().get_model(self.selected_model)
+        return model.supports_search if model else False
 
     @rx.var
     def get_unique_reasoning_sessions(self) -> list[str]:
@@ -408,6 +419,11 @@ class ThreadState(rx.State):
     def toggle_thinking_expanded(self) -> None:
         """Toggle the expanded state of the thinking section."""
         self.thinking_expanded = not self.thinking_expanded
+
+    @rx.event
+    def toggle_web_search(self) -> None:
+        """Toggle web search."""
+        self.web_search_enabled = not self.web_search_enabled
 
     # -------------------------------------------------------------------------
     # MCP Server tool support
@@ -755,6 +771,10 @@ class ThreadState(rx.State):
         try:
             # Build payload with thread_uuid for file upload support
             payload = {"thread_uuid": self._thread.thread_id}
+
+            # Pass web search state to processor via payload
+            if self.web_search_enabled:
+                payload["web_search_enabled"] = True
 
             async for chunk in processor.process(
                 self.messages,

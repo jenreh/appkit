@@ -150,6 +150,45 @@ class MessageActionsBar:
         )
 
 
+def _render_annotation(ann: str) -> rx.Component:
+    return rx.cond(
+        ann.contains("http"),
+        rx.badge(
+            rx.link(
+                rx.text(
+                    ann,
+                    style={
+                        "max_width": "100%",
+                        "overflow": "hidden",
+                        "white_space": "nowrap",
+                        "text_overflow": "ellipsis",
+                    },
+                ),
+                href=ann,
+                is_external=True,
+                size="1",
+                width="100%",
+            ),
+            size="1",
+            variant="soft",
+            color_scheme="gray",
+            max_width="87%",
+        ),
+        rx.badge(
+            ann,
+            size="1",
+            variant="soft",
+            color_scheme="gray",
+            style={
+                "max_width": "87%",
+                "overflow": "hidden",
+                "white_space": "nowrap",
+                "text_overflow": "ellipsis",
+            },
+        ),
+    )
+
+
 class MessageComponent:
     @staticmethod
     def _file_badge(filename: str) -> rx.Component:
@@ -364,14 +403,9 @@ class MessageComponent:
                     rx.hstack(
                         rx.foreach(
                             message.annotations,
-                            lambda ann: rx.badge(
-                                ann,
-                                size="1",
-                                variant="soft",
-                                color_scheme="gray",
-                            ),
+                            _render_annotation,
                         ),
-                        spacing="1",
+                        spacing="2",
                         align="start",
                         flex_wrap="wrap",
                     ),

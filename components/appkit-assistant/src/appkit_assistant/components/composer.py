@@ -208,11 +208,36 @@ def choose_model(show: bool = False) -> rx.Component | None:
     )
 
 
+def web_search_toggle() -> rx.Component:
+    """Render web search toggle button."""
+    return rx.cond(
+        ThreadState.selected_model_supports_search,
+        rx.tooltip(
+            rx.button(
+                rx.icon("globe", size=17),
+                cursor="pointer",
+                variant=rx.cond(ThreadState.web_search_enabled, "solid", "ghost"),
+                color_scheme=rx.cond(ThreadState.web_search_enabled, "blue", "accent"),
+                padding="8px",
+                margin_right=rx.cond(
+                    ThreadState.selected_model_supports_attachments, "6px", "14px"
+                ),
+                margin_left="-6px",
+                on_click=ThreadState.toggle_web_search,
+                type="button",
+            ),
+            content="Websuche aktivieren",
+        ),
+        rx.fragment(),
+    )
+
+
 def tools(show: bool = False) -> rx.Component:
     """Render tools button with conditional visibility."""
     return rx.cond(
         show,
         rx.hstack(
+            web_search_toggle(),
             tools_popover(),
             spacing="1",
             align="center",
@@ -253,6 +278,7 @@ class ComposerComponent(rx.ComponentNamespace):
     choose_model = staticmethod(choose_model)
     clear = staticmethod(clear)
     file_upload = staticmethod(file_upload)
+    web_search_toggle = staticmethod(web_search_toggle)
     input = staticmethod(composer_input)
     selected_files_row = staticmethod(selected_files_row)
     submit = staticmethod(submit)

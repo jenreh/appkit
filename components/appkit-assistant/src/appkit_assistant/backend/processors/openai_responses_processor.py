@@ -360,7 +360,12 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             # Annotation can be a dict (file_citation) or other object
             annotation = event.annotation
             if isinstance(annotation, dict):
-                annotation_text = annotation.get("filename", str(annotation))
+                # Handle URL citations
+                if annotation.get("type") == "url_citation":
+                    annotation_text = annotation.get("url", str(annotation))
+                else:
+                    annotation_text = annotation.get("filename", str(annotation))
+
                 annotation_str = str(annotation)
             else:
                 annotation_text = str(annotation)
@@ -694,6 +699,12 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 "Added file_search tool with vector_store: %s",
                 vector_store_id,
             )
+
+        # Add web_search tool if enabled and supported
+        if model.supports_search and payload and payload.get("web_search_enabled"):
+            tools.append({"type": "web_search"})
+            payload.pop("web_search_enabled", None)
+            logger.debug("Added web_search tool")
 
         # Convert messages to responses format with system message
         input_messages = await self._convert_messages_to_responses_format(

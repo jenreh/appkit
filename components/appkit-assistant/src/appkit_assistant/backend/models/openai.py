@@ -21,6 +21,7 @@ GPT_5_MINI: Final = AIModel(
     stream=True,
     supports_attachments=True,
     supports_tools=True,
+    supports_search=True,
     temperature=1,
 )
 
@@ -32,6 +33,7 @@ GPT_5_1: Final = AIModel(
     stream=True,
     supports_attachments=True,
     supports_tools=True,
+    supports_search=True,
     temperature=1,
 )
 
@@ -43,5 +45,6 @@ GPT_5_2: Final = AIModel(
     stream=True,
     supports_attachments=True,
     supports_tools=True,
+    supports_search=True,
     temperature=1,
 )
