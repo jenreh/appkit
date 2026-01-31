@@ -13,22 +13,22 @@ O3: Final = AIModel(
     supports_tools=True,
 )
 
-GPT_5_1: Final = AIModel(
-    id="gpt-5.1",
-    text="GPT 5.1",
+GPT_5_MINI: Final = AIModel(
+    id="gpt-5-mini",
+    text="GPT 5 Mini",
     icon="openai",
-    model="gpt-5.1",
+    model="gpt-5-mini",
     stream=True,
     supports_attachments=True,
     supports_tools=True,
     temperature=1,
 )
 
-GPT_5_1_MINI: Final = AIModel(
-    id="gpt-5.1-mini",
-    text="GPT 5.1 Mini",
+GPT_5_1: Final = AIModel(
+    id="gpt-5.1",
+    text="GPT 5.1",
     icon="openai",
-    model="gpt-5.1-mini",
+    model="gpt-5.1",
     stream=True,
     supports_attachments=True,
     supports_tools=True,

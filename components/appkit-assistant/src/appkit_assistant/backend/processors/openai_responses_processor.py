@@ -74,6 +74,9 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         # Tool name tracking: tool_id -> tool_name for MCP streaming events
         self._tool_name_map: dict[str, str] = {}
 
+        # Store available MCP servers for lookup during error handling
+        self._available_mcp_servers: list[MCPServer] = []
+
         # Initialize file upload service if client is available
         if self.client:
             self._file_upload_service = FileUploadService(
@@ -483,7 +486,9 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 return content[0].get("text", str(error))
         return "Unknown error"
 
-    def _handle_mcp_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: PLR0911, PLR0912
+    def _handle_mcp_events(  # noqa: PLR0911, PLR0912, PLR0915
+        self, event_type: str, event: Any
+    ) -> Chunk | None:
         """Handle MCP-specific events."""
         if event_type == "response.mcp_call_arguments.delta":
             tool_id = getattr(event, "item_id", "unknown_id")
@@ -564,42 +569,51 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                     error_str = str(error)
 
             # Check for authentication errors (401/403)
-            # OR if we have pending auth servers (strong signal we missed a token)
             is_auth_error = self.auth_detector.is_auth_error(error_str)
-            pending_server = None
+            auth_server = None
 
-            # 1. Try to find matching server by name in error message
+            # 1. Find matching server by name in error message from pending servers
             for server in self.pending_auth_servers:
                 if server.name.lower() in error_str.lower():
-                    pending_server = server
+                    auth_server = server
                     break
 
-            # 2. If no match but we have pending servers and it looks like an auth error
-            # OR if we have pending servers and likely one of them failed (len=1)
-            # We assume the failure belongs to the pending server if we can't be sure
+            # 2. If not found in pending, search available servers by name
+            if not auth_server and is_auth_error:
+                for server in self._available_mcp_servers:
+                    if server.name.lower() in error_str.lower():
+                        auth_server = server
+                        logger.debug(
+                            "Found server %s in available servers for auth error",
+                            server.name,
+                        )
+                        break
+
+            # 3. Fallback: if we have pending servers and it looks like an auth error,
+            # assume the failure belongs to the first pending server
             if (
-                not pending_server
+                not auth_server
                 and self.pending_auth_servers
                 and (is_auth_error or len(self.pending_auth_servers) == 1)
             ):
-                pending_server = self.pending_auth_servers[0]
+                auth_server = self.pending_auth_servers[0]
                 logger.debug(
                     "Assuming pending server %s for list_tools failure '%s'",
-                    pending_server.name,
+                    auth_server.name,
                     error_str,
                 )
 
-            if pending_server:
+            if auth_server:
                 logger.debug(
                     "Queuing Auth Card for server: %s (Error: %s)",
-                    pending_server.name,
+                    auth_server.name,
                     error_str,
                 )
                 # Queue for async processing in the main process loop
                 # The auth chunk will be yielded after event processing completes
-                self.add_pending_auth_server(pending_server)
+                self.add_pending_auth_server(auth_server)
                 return self.chunk_factory.tool_result(
-                    f"Authentifizierung erforderlich für {pending_server.name}",
+                    f"Authentifizierung erforderlich für {auth_server.name}",
                     tool_id=tool_id,
                     status="auth_required",
                     is_error=True,
@@ -719,7 +733,11 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             tuple: (tools list, concatenated prompts string)
         """
         if not mcp_servers:
+            self._available_mcp_servers = []
             return [], ""
+
+        # Store for lookup during error handling (e.g., 401 errors)
+        self._available_mcp_servers = mcp_servers
 
         tools = []
         prompts = []

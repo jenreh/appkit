@@ -10,8 +10,8 @@ from appkit_assistant.backend.models import (
     GEMINI_3_FLASH,
     GEMINI_3_PRO,
     GPT_5_1,
-    GPT_5_1_MINI,
     GPT_5_2,
+    GPT_5_MINI,
     SONAR,
     SONAR_DEEP_RESEARCH,
     AIModel,
@@ -87,7 +87,7 @@ def initialize_model_manager() -> list[AIModel]:
 
     models = {
         GPT_5_1.id: GPT_5_1,
-        GPT_5_1_MINI.id: GPT_5_1_MINI,
+        GPT_5_MINI.id: GPT_5_MINI,
         GPT_5_2.id: GPT_5_2,
     }
 
@@ -137,7 +137,7 @@ def initialize_model_manager() -> list[AIModel]:
             ),
         )
 
-    model_manager.set_default_model(GPT_5_1_MINI.id)
+    model_manager.set_default_model(GPT_5_MINI.id)
     return model_manager.get_all_models()
 
 

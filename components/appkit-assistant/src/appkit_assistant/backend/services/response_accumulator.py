@@ -263,6 +263,13 @@ class ResponseAccumulator:
             item.status = status
             item.result = result
             item.error = error
+            # Also update tool_name from result if item is missing it
+            if (
+                display_name
+                and display_name != "Unknown"
+                and (not item.tool_name or item.tool_name == "Unknown")
+            ):
+                item.tool_name = display_name
         elif chunk.type == ChunkType.ACTION:
             item.text += f"\n---\nAktion: {chunk.text}"
 

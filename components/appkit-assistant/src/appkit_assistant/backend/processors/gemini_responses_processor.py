@@ -224,11 +224,14 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
         async with self._mcp_context_manager(mcp_sessions) as tool_contexts:
             if tool_contexts:
                 # Convert MCP tools to Gemini FunctionDeclarations
+                # Use unique naming: server_name__tool_name to avoid duplicates
                 function_declarations = []
                 for ctx in tool_contexts:
                     for tool_name, tool_def in ctx.tools.items():
+                        # Create unique name: server_name__tool_name
+                        unique_name = f"{ctx.server_name}__{tool_name}"
                         func_decl = self._mcp_tool_to_gemini_function(
-                            tool_name, tool_def
+                            unique_name, tool_def, original_name=tool_name
                         )
                         if func_decl:
                             function_declarations.append(func_decl)
@@ -289,20 +292,18 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
                 # Execute tool calls and collect results
                 function_responses = []
                 for fc in function_calls:
-                    # Find server name for this tool
-                    server_name = "unknown"
-                    for ctx in tool_contexts:
-                        if fc.name in ctx.tools:
-                            server_name = ctx.server_name
-                            break
+                    # Parse unique tool name: server_name__tool_name
+                    server_name, original_tool_name = self._parse_unique_tool_name(
+                        fc.name
+                    )
 
                     # Generate a unique tool call ID
                     tool_call_id = f"mcp_{uuid.uuid4().hex[:32]}"
 
-                    # Yield TOOL_CALL chunk to show in UI
+                    # Yield TOOL_CALL chunk to show in UI (use original name)
                     yield self._chunk_factory.tool_call(
-                        f"Benutze Werkzeug: {server_name}.{fc.name}",
-                        tool_name=fc.name,
+                        f"Benutze Werkzeug: {server_name}.{original_tool_name}",
+                        tool_name=original_tool_name,
                         tool_id=tool_call_id,
                         server_label=server_name,
                         status="starting",
@@ -357,24 +358,48 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
 
         logger.warning("Max tool rounds (%d) exceeded", max_tool_rounds)
 
+    def _parse_unique_tool_name(self, unique_name: str) -> tuple[str, str]:
+        """Parse unique tool name back to server name and original tool name.
+
+        Args:
+            unique_name: Tool name in format 'server_name__tool_name'
+
+        Returns:
+            Tuple of (server_name, original_tool_name)
+        """
+        if "__" in unique_name:
+            parts = unique_name.split("__", 1)
+            return parts[0], parts[1]
+        # Fallback for tools without prefix
+        return "unknown", unique_name
+
     async def _execute_mcp_tool(
         self,
-        tool_name: str,
+        unique_tool_name: str,
         args: dict[str, Any],
         tool_contexts: list[MCPToolContext],
     ) -> str:
-        """Execute an MCP tool and return the result."""
-        # Find which context has this tool
+        """Execute an MCP tool and return the result.
+
+        Args:
+            unique_tool_name: Tool name in format 'server_name__tool_name'
+            args: Arguments to pass to the tool
+            tool_contexts: List of MCP tool contexts
+        """
+        # Parse unique name to get server and original tool name
+        server_name, original_tool_name = self._parse_unique_tool_name(unique_tool_name)
+
+        # Find the correct context by server name
         for ctx in tool_contexts:
-            if tool_name in ctx.tools:
+            if ctx.server_name == server_name and original_tool_name in ctx.tools:
                 try:
                     logger.debug(
                         "Executing tool %s on server %s with args: %s",
-                        tool_name,
-                        ctx.server_name,
+                        original_tool_name,
+                        server_name,
                         args,
                     )
-                    result = await ctx.session.call_tool(tool_name, args)
+                    result = await ctx.session.call_tool(original_tool_name, args)
                     # Extract text from result
                     if hasattr(result, "content") and result.content:
                         texts = [
@@ -385,17 +410,31 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
                         return "\n".join(texts) if texts else str(result)
                     return str(result)
                 except Exception as e:
-                    logger.exception("Error executing tool %s: %s", tool_name, str(e))
+                    logger.exception(
+                        "Error executing tool %s: %s", original_tool_name, str(e)
+                    )
                     return f"Error executing tool: {e!s}"
 
-        return f"Tool {tool_name} not found in any MCP server"
+        return f"Tool {original_tool_name} not found on server {server_name}"
 
     def _mcp_tool_to_gemini_function(
-        self, name: str, tool_def: dict[str, Any]
+        self,
+        name: str,
+        tool_def: dict[str, Any],
+        original_name: str | None = None,
     ) -> types.FunctionDeclaration | None:
-        """Convert MCP tool definition to Gemini FunctionDeclaration."""
+        """Convert MCP tool definition to Gemini FunctionDeclaration.
+
+        Args:
+            name: Unique function name (may include server prefix)
+            tool_def: MCP tool definition with description and inputSchema
+            original_name: Original tool name for description enhancement
+        """
         try:
             description = tool_def.get("description", "")
+            # Enhance description with original name if using prefixed naming
+            if original_name and original_name != name:
+                description = f"[{original_name}] {description}"
             input_schema = tool_def.get("inputSchema", {})
 
             # Fix the schema for Gemini compatibility

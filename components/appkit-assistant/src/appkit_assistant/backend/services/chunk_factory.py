@@ -153,6 +153,8 @@ class ChunkFactory:
         status: str = "completed",
         is_error: bool = False,
         reasoning_session: str | None = None,
+        tool_name: str | None = None,
+        server_label: str | None = None,
     ) -> Chunk:
         """Create a TOOL_RESULT chunk.
 
@@ -162,6 +164,8 @@ class ChunkFactory:
             status: Status of the result
             is_error: Whether the result is an error
             reasoning_session: Optional reasoning session ID
+            tool_name: Optional tool name for display
+            server_label: Optional server label for MCP tools
 
         Returns:
             A TOOL_RESULT Chunk
@@ -173,6 +177,10 @@ class ChunkFactory:
         }
         if reasoning_session:
             metadata["reasoning_session"] = reasoning_session
+        if tool_name:
+            metadata["tool_name"] = tool_name
+        if server_label:
+            metadata["server_label"] = server_label
         return self.create(ChunkType.TOOL_RESULT, content, metadata)
 
     def lifecycle(self, stage: str, extra: dict[str, Any] | None = None) -> Chunk:
