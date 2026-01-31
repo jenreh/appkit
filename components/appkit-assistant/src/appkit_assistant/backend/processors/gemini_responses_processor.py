@@ -4,7 +4,6 @@ Gemini responses processor for generating AI responses using Google's GenAI API.
 
 import asyncio
 import copy
-import json
 import logging
 import uuid
 from collections.abc import AsyncGenerator
@@ -12,6 +11,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, Final
 
+import httpx
 from google import genai
 from google.genai import types
 from mcp import ClientSession
@@ -116,10 +116,7 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
             for server in sessions_result["auth_required"]:
                 self.add_pending_auth_server(server)
             mcp_prompt = self._build_mcp_prompt(mcp_servers)
-
-            if mcp_sessions:
-                # Pass sessions directly to tools - SDK handles everything!
-                config.tools = mcp_sessions
+            # Note: tools are configured in _stream_with_mcp after connecting to MCP
 
         # Prepare messages with MCP prompts for tool selection
         contents, system_instruction = await self._convert_messages_to_gemini_format(
@@ -304,10 +301,10 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
 
                     # Yield TOOL_CALL chunk to show in UI
                     yield self._chunk_factory.tool_call(
+                        f"Benutze Werkzeug: {server_name}.{fc.name}",
                         tool_name=fc.name,
                         tool_id=tool_call_id,
                         server_label=server_name,
-                        arguments=json.dumps(fc.args),
                         status="starting",
                     )
 
@@ -322,10 +319,8 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
                         else result
                     )
                     yield self._chunk_factory.tool_result(
-                        tool_name=fc.name,
+                        preview,
                         tool_id=tool_call_id,
-                        content=preview,
-                        server_label=server_name,
                         status="completed",
                     )
 
@@ -522,11 +517,18 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
                         "Connecting to MCP server %s via streamablehttp_client",
                         wrapper.name,
                     )
+                    # Create httpx client with headers and timeout
+                    http_client = httpx.AsyncClient(
+                        headers=wrapper.headers,
+                        timeout=60.0,
+                    )
+                    # Register client for cleanup
+                    await stack.enter_async_context(http_client)
+
                     read, write, _ = await stack.enter_async_context(
                         streamable_http_client(
                             url=wrapper.url,
-                            headers=wrapper.headers,
-                            timeout=60.0,
+                            http_client=http_client,
                         )
                     )
 
