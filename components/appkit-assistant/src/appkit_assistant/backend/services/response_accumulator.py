@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -14,6 +15,49 @@ from appkit_assistant.backend.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Minimum number of consecutive links required to format as a list
+MIN_LINKS_FOR_LIST_FORMAT = 2
+
+
+def _format_consecutive_links_as_list(text: str) -> str:
+    """Format multiple consecutive markdown links as a bullet list.
+
+    Detects patterns where markdown links are concatenated directly without
+    spacing (e.g., `[text1](url1)[text2](url2)`) and converts them to a
+    properly formatted bullet list with human-readable link texts.
+
+    Args:
+        text: The markdown text to process.
+
+    Returns:
+        The text with consecutive links formatted as a bullet list.
+    """
+    # Pattern to match consecutive markdown links: [text](url)[text](url)
+    # This regex matches two or more consecutive links
+    consecutive_links_pattern = re.compile(
+        r"(\[[^\]]+\]\([^)]+\))(\[[^\]]+\]\([^)]+\))+", re.MULTILINE
+    )
+
+    def format_links_match(match: re.Match[str]) -> str:
+        """Convert matched consecutive links to a bullet list."""
+        full_match = match.group(0)
+
+        # Extract all individual links from the match
+        link_pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+        links = link_pattern.findall(full_match)
+
+        if len(links) < MIN_LINKS_FOR_LIST_FORMAT:
+            return full_match
+
+        # Format as a bullet list with proper spacing
+        formatted_links = "\n\n**Quellen:**\n"
+        for link_text, url in links:
+            formatted_links += f"- [{link_text}]({url})\n"
+
+        return formatted_links
+
+    return consecutive_links_pattern.sub(format_links_match, text)
 
 
 class ResponseAccumulator:
@@ -82,6 +126,8 @@ class ResponseAccumulator:
 
         elif chunk.type == ChunkType.COMPLETION:
             self.show_thinking = False
+            # Post-process message text to format consecutive links as list
+            self._format_message_links()
 
         elif chunk.type == ChunkType.AUTH_REQUIRED:
             self._handle_auth_required_chunk(chunk)
@@ -373,3 +419,19 @@ class ResponseAccumulator:
 
             if annotation_text and annotation_text not in last_message.annotations:
                 last_message.annotations.append(annotation_text)
+
+    def _format_message_links(self) -> None:
+        """Format consecutive markdown links in the last message as a bullet list.
+
+        This post-processes the accumulated message text to improve readability
+        when the LLM returns multiple links concatenated without proper spacing.
+        """
+        if not self.messages:
+            return
+
+        last_message = self.messages[-1]
+        if last_message.type != MessageType.ASSISTANT:
+            return
+
+        if last_message.text:
+            last_message.text = _format_consecutive_links_as_list(last_message.text)

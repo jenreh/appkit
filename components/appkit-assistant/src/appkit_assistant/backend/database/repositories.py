@@ -31,6 +31,18 @@ class MCPServerRepository(BaseRepository[MCPServer, AsyncSession]):
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
+    async def find_all_active_ordered_by_name(
+        self, session: AsyncSession
+    ) -> list[MCPServer]:
+        """Retrieve all active MCP servers ordered by name."""
+        stmt = (
+            select(MCPServer)
+            .where(MCPServer.active == True)  # noqa: E712
+            .order_by(MCPServer.name)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
 
 class SystemPromptRepository(BaseRepository[SystemPrompt, AsyncSession]):
     """Repository class for system prompt database operations.

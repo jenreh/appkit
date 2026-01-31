@@ -431,9 +431,9 @@ class ThreadState(rx.State):
 
     @rx.event
     async def load_mcp_servers(self) -> None:
-        """Load available MCP servers from the database."""
+        """Load available active MCP servers from the database."""
         async with get_asyncdb_session() as session:
-            servers = await mcp_server_repo.find_all_ordered_by_name(session)
+            servers = await mcp_server_repo.find_all_active_ordered_by_name(session)
             # Create detached copies
             self.available_mcp_servers = [MCPServer(**s.model_dump()) for s in servers]
 

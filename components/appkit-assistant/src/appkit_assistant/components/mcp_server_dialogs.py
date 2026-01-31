@@ -280,7 +280,7 @@ def json(obj: rx.Var, indent: int = 4) -> CustomVarOperationReturn[RETURN]:
 def _auth_type_selector() -> rx.Component:
     """Radio for selecting authentication type."""
     return rx.box(
-        rx.text("Authentifizierung", size="2", weight="medium", mb="2"),
+        rx.heading("Authentifizierung", size="3", margin_bottom="9px"),
         rx.radio_group.root(
             rx.flex(
                 rx.flex(
@@ -302,7 +302,7 @@ def _auth_type_selector() -> rx.Component:
             name="auth_type",
         ),
         width="100%",
-        mb="3",
+        margin_bottom="12px",
     )
 
 
@@ -338,18 +338,6 @@ def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
     return rx.cond(
         ValidationState.is_oauth_mode,
         rx.flex(
-            rx.box(
-                rx.callout(
-                    "OAuth 2.0 ermöglicht eine sichere Anmeldung über den "
-                    "Identitätsanbieter des MCP-Servers. Die OAuth-Endpunkte "
-                    "können automatisch ermittelt oder manuell konfiguriert werden.",
-                    icon="info",
-                    size="1",
-                    color="blue",
-                ),
-                width="100%",
-                mb="3",
-            ),
             # Primary Fields (Client ID / Secret)
             form_field(
                 name="oauth_client_id",
@@ -364,7 +352,7 @@ def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
                 on_change=ValidationState.set_oauth_client_id,
                 on_blur=ValidationState.validate_oauth_client_id,
                 validation_error=ValidationState.oauth_client_id_error,
-                autocomplete="off",
+                autocomplete="one-time-code",
             ),
             form_field(
                 name="oauth_client_secret",
@@ -379,9 +367,9 @@ def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
                 on_change=ValidationState.set_oauth_client_secret,
                 on_blur=ValidationState.validate_oauth_client_secret,
                 validation_error=ValidationState.oauth_client_secret_error,
-                autocomplete="off",
+                autocomplete="new-password",
             ),
-            rx.text("OAuth Endpunkte & Scopes", size="2", weight="medium", mb="1"),
+            rx.heading("OAuth Endpunkte & Scopes", size="3", margin_top="12px"),
             # Additional Discovery Fields (Editable)
             form_field(
                 name="oauth_issuer",
@@ -579,7 +567,11 @@ def add_mcp_server_button() -> rx.Component:
             ),
             rx.flex(
                 rx.form.root(
-                    mcp_server_form_fields(),
+                    mn.scroll_area(
+                        mcp_server_form_fields(),
+                        height="60vh",
+                        width="100%",
+                    ),
                     dialog_buttons(
                         "MCP Server anlegen",
                         has_errors=ValidationState.has_errors,

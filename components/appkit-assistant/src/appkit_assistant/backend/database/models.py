@@ -66,6 +66,7 @@ class MCPServer(rx.Model, table=True):
     oauth_discovered_at: datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
+    active: bool = Field(default=True, nullable=False)
 
 
 class SystemPrompt(rx.Model, table=True):

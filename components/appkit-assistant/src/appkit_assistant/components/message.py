@@ -155,36 +155,51 @@ def _render_annotation(ann: str) -> rx.Component:
         ann.contains("http"),
         rx.badge(
             rx.link(
-                rx.text(
-                    ann,
-                    style={
-                        "max_width": "100%",
-                        "overflow": "hidden",
-                        "white_space": "nowrap",
-                        "text_overflow": "ellipsis",
-                    },
+                rx.hstack(
+                    rx.icon("globe", size=12, flex_shrink=0),
+                    rx.text(
+                        ann,
+                        style={
+                            "overflow": "hidden",
+                            "white_space": "nowrap",
+                            "text_overflow": "ellipsis",
+                        },
+                    ),
+                    align="center",
+                    spacing="1",
+                    width="100%",
                 ),
                 href=ann,
                 is_external=True,
                 size="1",
                 width="100%",
+                text_decoration="none",
+                style={"overflow": "hidden"},
             ),
             size="1",
             variant="soft",
             color_scheme="gray",
-            max_width="87%",
+            max_width="100%",
         ),
         rx.badge(
-            ann,
+            rx.hstack(
+                rx.icon("file-text", size=12, flex_shrink=0),
+                rx.text(
+                    ann,
+                    style={
+                        "overflow": "hidden",
+                        "white_space": "nowrap",
+                        "text_overflow": "ellipsis",
+                    },
+                ),
+                align="center",
+                spacing="1",
+                width="100%",
+            ),
             size="1",
             variant="soft",
             color_scheme="gray",
-            style={
-                "max_width": "87%",
-                "overflow": "hidden",
-                "white_space": "nowrap",
-                "text_overflow": "ellipsis",
-            },
+            max_width="100%",
         ),
     )
 
@@ -408,6 +423,7 @@ class MessageComponent:
                         spacing="2",
                         align="start",
                         flex_wrap="wrap",
+                        max_width="95%",
                     ),
                     padding="6px",
                     margin_top="6px",
