@@ -1,3 +1,4 @@
+import asyncio
 import enum
 import logging
 import os
@@ -90,6 +91,8 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
         files: list[str] | None = None,
         mcp_servers: list[MCPServer] | None = None,  # noqa: ARG002
         payload: dict[str, Any] | None = None,
+        cancellation_token: asyncio.Event | None = None,
+        **kwargs: Any,
     ) -> AsyncGenerator[Chunk, None]:
         if model_id not in self.models:
             logger.error("Model %s not supported by Perplexity processor", model_id)
@@ -117,5 +120,7 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
             files=files,
             mcp_servers=None,
             payload=perplexity_payload,
+            cancellation_token=cancellation_token,
+            **kwargs,
         ):
             yield response

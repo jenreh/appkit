@@ -3,7 +3,8 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from appkit_assistant.backend.repositories import SystemPromptRepository
+from appkit_assistant.backend.repositories import system_prompt_repo
+from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class SystemPromptCache:
         self._ttl_seconds: int = CACHE_TTL_SECONDS
         self._initialized = True
 
-        logger.info(
+        logger.debug(
             "SystemPromptCache initialized with TTL=%d seconds",
             self._ttl_seconds,
         )
@@ -79,20 +80,29 @@ class SystemPromptCache:
                 return self._cached_prompt
 
             # Cache miss or expired - fetch from database
-            logger.info("Cache miss - fetching latest prompt from database")
+            logger.debug("Cache miss - fetching latest prompt from database")
 
-            latest_prompt = await SystemPromptRepository.get_latest()
+            async with get_asyncdb_session() as session:
+                latest_prompt = await system_prompt_repo.find_latest(session)
+
+                if latest_prompt is None:
+                    # Raise inside to exit or handle outside
+                    pass
+                else:
+                    # Capture values while attached
+                    prompt_text = latest_prompt.prompt
+                    prompt_version = latest_prompt.version
 
             if latest_prompt is None:
                 msg = "No system prompt found in database"
                 logger.error(msg)
                 raise ValueError(msg)
 
-            self._cached_prompt = latest_prompt.prompt
-            self._cached_version = latest_prompt.version
+            self._cached_prompt = prompt_text
+            self._cached_version = prompt_version
             self._cache_timestamp = datetime.now(UTC)
 
-            logger.info(
+            logger.debug(
                 "Cached prompt version %d (%d characters)",
                 self._cached_version,
                 len(self._cached_prompt),
@@ -108,7 +118,7 @@ class SystemPromptCache:
         """
         async with self._lock:
             if self._cached_prompt is not None:
-                logger.info(
+                logger.debug(
                     "Cache invalidated (was version %d)",
                     self._cached_version,
                 )
@@ -125,7 +135,7 @@ class SystemPromptCache:
             seconds: New TTL in seconds.
         """
         self._ttl_seconds = seconds
-        logger.info("Cache TTL updated to %d seconds", seconds)
+        logger.debug("Cache TTL updated to %d seconds", seconds)
 
     @property
     def is_cached(self) -> bool:

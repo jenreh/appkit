@@ -23,6 +23,8 @@ REHYPE_SANITIZE_VERSION: str = "^6.0.0"
 REHYPE_REWRITE_VERSION: str = "^4.0.0"
 MERMAID_VERSION: str = "^11.0.0"
 KATEX_VERSION: str = "^0.16.0"
+_MARKDOWN_WRAPPER_ASSET = asset(path="markdown_preview_wrapper.js", shared=True)
+_MARKDOWN_WRAPPER_IMPORT = f"$/public/{_MARKDOWN_WRAPPER_ASSET}"
 
 
 class MarkdownPreview(NoSSRComponent):
@@ -62,9 +64,7 @@ class MarkdownPreview(NoSSRComponent):
     """
 
     tag = "MarkdownPreviewWrapper"
-    library = (
-        None  # "$/public/" + asset(path="markdown_preview_wrapper.js", shared=True)
-    )
+    library = _MARKDOWN_WRAPPER_IMPORT
     is_default = True
 
     _base_dependencies: ClassVar[list[str]] = [
@@ -139,33 +139,6 @@ class MarkdownPreview(NoSSRComponent):
             )
 
         return dependencies
-
-    def _get_dynamic_imports(self) -> str:
-        """Get the dynamic import for the custom wrapper component.
-
-        Returns:
-            The dynamic import code for the markdown preview wrapper.
-        """
-        # Get the asset path for the wrapper
-        wrapper_path = asset(path="markdown_preview_wrapper.js", shared=True)
-        # Format as module import path
-        import_path = f"$/public/{wrapper_path}"
-
-        # Return the dynamic import with ClientSide wrapper and lazy loading
-        return f"""const {self.tag} = ClientSide(lazy(() =>
-    import('{import_path}').then((mod) => ({{ default: mod.MarkdownPreviewWrapper }}))
-))"""
-
-    def add_imports(self) -> dict[str, list[str]]:
-        """Add necessary imports for lazy loading.
-
-        Returns:
-            The imports needed for ClientSide and lazy.
-        """
-        return {
-            "react": ["lazy"],
-            f"$/{rx.constants.Dirs.UTILS}/context": ["ClientSide"],
-        }
 
     @staticmethod
     def _get_app_wrap_components() -> dict[tuple[int, str], rx.Component]:

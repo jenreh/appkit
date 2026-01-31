@@ -3,13 +3,15 @@ from typing import Final
 
 from appkit_commons.configuration.configuration import ReflexConfig
 from appkit_commons.registry import service_registry
-from appkit_imagecreator.backend.generators import (
-    GoogleImageGenerator,
+from appkit_imagecreator.backend.generators.black_forest_labs import (
+    BlackForestLabsImageGenerator,
+)
+from appkit_imagecreator.backend.generators.nano_banana import (
+    NanoBananaImageGenerator,
 )
 from appkit_imagecreator.backend.generators.openai import OpenAIImageGenerator
 from appkit_imagecreator.backend.models import ImageGenerator
 from appkit_imagecreator.configuration import ImageGeneratorConfig
-from rxconfig import config
 
 logger = logging.getLogger(__name__)
 
@@ -31,44 +33,68 @@ class ImageGeneratorRegistry:
 
     def _initialize_default_generators(self) -> None:
         """Initialize the registry with default generators."""
-
-        if self.reflex_config.single_port:
-            backend_server = f"{self.reflex_config.deploy_url}"
-        else:
-            backend_server = f"{self.reflex_config.deploy_url}:{config.backend_port}"
-
         self.register(
             OpenAIImageGenerator(
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
-                backend_server=backend_server,
+                model="gpt-image-1-mini",
+                label="OpenAI GPT-Image-1 mini (Azure)",
+                id="azure-gpt-image-1-mini",
             )
         )
         self.register(
             OpenAIImageGenerator(
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
-                backend_server=backend_server,
-                model="FLUX-1.1-pro",
-                label="Blackforest Labs FLUX 1.1-pro",
-                id="FLUX-1.1-pro",
+                model="gpt-image-1.5",
+                label="OpenAI GPT-Image-1.5 (Azure)",
+                id="azure-gpt-image-1.5",
             )
         )
         self.register(
-            GoogleImageGenerator(
+            NanoBananaImageGenerator(
                 api_key=self.config.google_api_key.get_secret_value(),
-                backend_server=backend_server,
+                model="gemini-2.5-flash-image",
+                label="Google Nano Banana",
+                id="nano-banana",
             )
         )
         self.register(
-            GoogleImageGenerator(
+            NanoBananaImageGenerator(
                 api_key=self.config.google_api_key.get_secret_value(),
-                backend_server=backend_server,
-                model="imagen-3.0-generate-002",
-                label="Google Imagen 3",
-                id="imagen-3",
+                model="gemini-3-pro-image-preview",
+                label="Google Nano Banana Pro",
+                id="nano-banana-pro",
             )
         )
+        self.register(
+            OpenAIImageGenerator(
+                api_key=self.config.openai_api_key.get_secret_value(),
+                base_url=self.config.openai_base_url,
+                model="FLUX.1-Kontext-pro",
+                label="Blackforest Labs FLUX.1-Kontext-pro (Azure)",
+                id="FLUX.1-Kontext-pro",
+            )
+        )
+        self.register(
+            BlackForestLabsImageGenerator(
+                api_key=self.config.blackforestlabs_api_key.get_secret_value(),
+                base_url=self.config.blackforestlabs_base_url,
+                model="flux-2-pro",
+                label="Blackforest Labs FLUX.2-pro (Azure)",
+                id="azure-flux-2-pro",
+                supports_size=True,
+            )
+        )
+        # self.register(
+        #     BlackForestLabsImageGenerator(
+        #         api_key=self.config.blackforestlabs_api_key.get_secret_value(),
+        #         model="flux-2-pro",
+        #         label="Blackforest Labs FLUX.2-pro (org)",
+        #         id="bfl-flux-2-pro",
+        #         supports_size=True,
+        #     )
+        # )
 
     def register(self, generator: ImageGenerator) -> None:
         """Register a new generator in the registry."""
@@ -78,11 +104,7 @@ class ImageGeneratorRegistry:
         self,
         generator_id: str,
     ) -> ImageGenerator:
-        """Get a generator by ID.
-
-        If api_key or backend_server are provided, they will override the
-        default values.
-        """
+        """Get a generator by ID."""
         if generator_id not in self._generators:
             raise ValueError(f"Unknown generator ID: {generator_id}")
 

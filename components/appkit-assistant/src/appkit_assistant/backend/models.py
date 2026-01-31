@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
@@ -44,6 +45,7 @@ class ChunkType(StrEnum):
     TOOL_RESULT = "tool_result"  # result from a tool
     TOOL_CALL = "tool_call"  # calling a tool
     COMPLETION = "completion"  # when response generation is complete
+    AUTH_REQUIRED = "auth_required"  # user needs to authenticate (MCP)
     ERROR = "error"  # when an error occurs
     LIFECYCLE = "lifecycle"
 
@@ -81,10 +83,35 @@ class MessageType(StrEnum):
 
 
 class Message(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     text: str
+    original_text: str | None = None  # To store original text if edited
     editable: bool = False
     type: MessageType
     done: bool = False
+    attachments: list[str] = []  # List of filenames for display
+
+
+class ThinkingType(StrEnum):
+    REASONING = "reasoning"
+    TOOL_CALL = "tool_call"
+
+
+class ThinkingStatus(StrEnum):
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ERROR = "error"
+
+
+class Thinking(BaseModel):
+    type: ThinkingType
+    id: str  # reasoning_session_id or tool_id
+    text: str
+    status: ThinkingStatus = ThinkingStatus.IN_PROGRESS
+    tool_name: str | None = None
+    parameters: str | None = None
+    result: str | None = None
+    error: str | None = None
 
 
 class AIModel(BaseModel):
@@ -100,11 +127,20 @@ class AIModel(BaseModel):
     supports_attachments: bool = False
     keywords: list[str] = []
     disabled: bool = False
+    requires_role: str | None = None
 
 
 class Suggestion(BaseModel):
     prompt: str
     icon: str = ""
+
+
+class UploadedFile(BaseModel):
+    """Model for tracking uploaded files in the composer."""
+
+    filename: str
+    file_path: str
+    size: int = 0
 
 
 class ThreadModel(BaseModel):
@@ -142,6 +178,12 @@ class MCPServer(rx.Model, table=True):
 
     # Optional discovery URL override
     discovery_url: str | None = Field(default=None, nullable=True)
+
+    # OAuth client credentials (encrypted)
+    oauth_client_id: str | None = Field(default=None, nullable=True)
+    oauth_client_secret: str | None = Field(
+        default=None, nullable=True, sa_type=EncryptedString
+    )
 
     # Cached OAuth/Discovery metadata (read-only for user mostly)
     oauth_issuer: str | None = Field(default=None, nullable=True)
@@ -186,6 +228,41 @@ class AssistantThread(rx.Model, table=True):
     ai_model: str = Field(default="", nullable=False)
     active: bool = Field(default=False, nullable=False)
     messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    )
+
+
+class AssistantMCPUserToken(rx.Model, table=True):
+    """Model for storing user-specific OAuth tokens for MCP servers.
+
+    Each user can have one token per MCP server. Tokens are encrypted at rest.
+    """
+
+    __tablename__ = "assistant_mcp_user_token"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, nullable=False)
+    mcp_server_id: int = Field(
+        index=True, nullable=False, foreign_key="assistant_mcp_servers.id"
+    )
+
+    # Tokens are encrypted at rest
+    access_token: str = Field(nullable=False, sa_type=EncryptedString)
+    refresh_token: str | None = Field(
+        default=None, nullable=True, sa_type=EncryptedString
+    )
+
+    # Token expiry timestamp
+    expires_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True)),

@@ -26,6 +26,7 @@ class Select(MantineInputComponentBase):
     auto_select_on_blur: Var[bool] = False
     check_icon_position: Var[Literal["left", "right"]] = "left"
     clearable: Var[bool] = False
+    combobox_props: Var[dict[str, Any]] = None
     data: Var[list[Any]]
     default_dropdown_opened: Var[bool] = False
     default_search_value: Var[str]

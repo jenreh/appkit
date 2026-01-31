@@ -6,6 +6,7 @@ import asyncio
 import logging
 import random
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from appkit_assistant.backend.models import (
     AIModel,
@@ -38,6 +39,8 @@ LOREM_MODELS = {
         icon="codesandbox",
         model="lorem-short",
         stream=True,
+        supports_attachments=True,
+        supports_tools=True,
     )
 }
 
@@ -56,6 +59,8 @@ class LoremIpsumProcessor(Processor):
         model_id: str,
         files: list[str] | None = None,  # noqa: ARG002
         mcp_servers: list[MCPServer] | None = None,  # noqa: ARG002
+        cancellation_token: asyncio.Event | None = None,
+        **kwargs: Any,  # noqa: ARG002
     ) -> AsyncGenerator[Chunk, None]:
         """
         Generate a Lorem Ipsum response of varying lengths based on the model_id.
@@ -65,6 +70,8 @@ class LoremIpsumProcessor(Processor):
             model_id: The model ID (determines response length).
             files: Optional list of files (ignored for this processor).
             mcp_servers: Optional list of MCP servers (ignored for this processor).
+            cancellation_token: Optional event to signal cancellation.
+            **kwargs: Additional arguments.
 
         Returns:
             An async generator that yields Chunk objects with text content.
@@ -82,9 +89,13 @@ class LoremIpsumProcessor(Processor):
 
         num_paragraphs = random.randint(4, 8)  # noqa: S311
         for i in range(num_paragraphs):
+            if cancellation_token and cancellation_token.is_set():
+                break
             paragraph = random.choice(LOREM_PARAGRAPHS)  # noqa: S311
             words = paragraph.split()
             for word in words:
+                if cancellation_token and cancellation_token.is_set():
+                    break
                 content = word + " "
                 await asyncio.sleep(0.01)
                 yield Chunk(

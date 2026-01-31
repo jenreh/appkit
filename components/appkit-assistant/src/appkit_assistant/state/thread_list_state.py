@@ -15,8 +15,9 @@ from typing import TYPE_CHECKING, Any
 
 import reflex as rx
 
-from appkit_assistant.backend.models import ThreadModel
-from appkit_assistant.backend.repositories import ThreadRepository
+from appkit_assistant.backend.models import ThreadModel, ThreadStatus
+from appkit_assistant.backend.repositories import thread_repo
+from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
 if TYPE_CHECKING:
@@ -87,7 +88,7 @@ class ThreadListState(rx.State):
 
             # Handle user change
             if self._current_user_id != current_user_id:
-                logger.info(
+                logger.debug(
                     "User changed from '%s' to '%s' - resetting state",
                     self._current_user_id or "(none)",
                     current_user_id or "(none)",
@@ -99,7 +100,7 @@ class ThreadListState(rx.State):
 
                 # Reset ThreadState
                 thread_state: ThreadState = await self.get_state(ThreadState)
-                thread_state.new_thread()
+                await thread_state.new_thread()
 
             if self._initialized:
                 self.loading = False
@@ -124,7 +125,24 @@ class ThreadListState(rx.State):
 
         # Fetch threads from database
         try:
-            threads = await ThreadRepository.get_summaries_by_user(user_id)
+            async with get_asyncdb_session() as session:
+                thread_entities = await thread_repo.find_summaries_by_user(
+                    session, user_id
+                )
+
+                # Convert entities to models inside the session context
+                threads = [
+                    ThreadModel(
+                        thread_id=t.thread_id,
+                        title=t.title,
+                        state=ThreadStatus(t.state),
+                        ai_model=t.ai_model,
+                        active=t.active,
+                        messages=[],
+                    )
+                    for t in thread_entities
+                ]
+
             async with self:
                 self.threads = threads
                 self._initialized = True
@@ -208,7 +226,10 @@ class ThreadListState(rx.State):
 
         try:
             # Delete from database
-            await ThreadRepository.delete_thread(thread_id, user_id)
+            async with get_asyncdb_session() as session:
+                await thread_repo.delete_by_thread_id_and_user(
+                    session, thread_id, user_id
+                )
 
             async with self:
                 # Remove from list
@@ -218,7 +239,7 @@ class ThreadListState(rx.State):
                     self.active_thread_id = ""
                     # Reset ThreadState to empty thread
                     thread_state: ThreadState = await self.get_state(ThreadState)
-                    thread_state.new_thread()
+                    await thread_state.new_thread()
 
             yield rx.toast.info(
                 f"Chat '{thread_to_delete.title}' gelöscht.",
@@ -244,7 +265,7 @@ class ThreadListState(rx.State):
         # Late import to avoid circular dependency
         from appkit_assistant.state.thread_state import ThreadState  # noqa: PLC0415
 
-        logger.info(
+        logger.debug(
             "Resetting ThreadListState on logout for user: %s",
             self._current_user_id,
         )
@@ -256,7 +277,7 @@ class ThreadListState(rx.State):
 
         # Reset ThreadState
         thread_state: ThreadState = await self.get_state(ThreadState)
-        thread_state.new_thread()
+        await thread_state.new_thread()
 
         logger.debug("ThreadListState reset complete")
 

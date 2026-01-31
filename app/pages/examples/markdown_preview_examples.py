@@ -229,8 +229,8 @@ def example_section(
 ) -> rx.Component:
     """Create a styled example section."""
     return rx.box(
-        # rx.heading(title, size="6", margin_bottom="4"),
         rx.box(
+            rx.heading(title, size="6", margin_bottom="4"),
             mn.markdown_preview(
                 source=content,
                 enable_mermaid=enable_mermaid,

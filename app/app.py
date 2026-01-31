@@ -3,8 +3,12 @@
 import logging
 
 import reflex as rx
+from fastapi import FastAPI
+from starlette.types import ASGIApp
 
+from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
+from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
     github_oauth_callback_page,
@@ -32,6 +36,7 @@ from app.pages.examples.json_input_examples import json_input_examples  # noqa: 
 from app.pages.examples.markdown_preview_examples import (
     markdown_preview_examples,  # noqa: F401
 )
+from app.pages.examples.modal_examples import modal_examples  # noqa: F401
 from app.pages.examples.multi_select_examples import multi_select_examples  # noqa: F401
 from app.pages.examples.nav_link_examples import nav_link_examples  # noqa: F401
 from app.pages.examples.nprogress_examples import nprogress_examples_page  # noqa: F401
@@ -49,9 +54,12 @@ from app.pages.examples.scroll_area_examples import scroll_area_examples  # noqa
 from app.pages.examples.select_examples import select_examples  # noqa: F401
 from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.tags_input_examples import tags_input_examples  # noqa: F401
+from app.pages.examples.text_input_examples import (
+    text_input_examples_page,  # noqa: F401
+)
 from app.pages.examples.textarea_examples import textarea_examples_page  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
-from app.pages.image_creator import image_creator_page  # noqa: F401
+from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
 logging.basicConfig(level=logging.DEBUG)
@@ -77,10 +85,15 @@ def index() -> rx.Component:
                 rx.link("Mantine UI", href="https://mantine.dev/", is_external=True),
                 margin_bottom="24px",
             ),
-            # rx.separator(margin="12px"),
+            rx.text.strong("AI Tools:", size="3"),
+            rx.list.unordered(
+                rx.list.item(rx.link("Image Generator", href="/image-gallery")),
+                rx.list.item(rx.link("Assistant", href="/assistant")),
+            ),
             rx.text.strong("Inputs:", size="3"),
             rx.list.unordered(
                 rx.list.item(rx.link("Text Inputs", href="/inputs")),
+                rx.list.item(rx.link("TextInput", href="/text-input")),
                 rx.list.item(rx.link("Password Input", href="/password")),
                 rx.list.item(rx.link("Date Input", href="/date")),
                 rx.list.item(rx.link("Number Input", href="/number")),
@@ -101,6 +114,7 @@ def index() -> rx.Component:
             rx.text.strong("Others:", size="3"),
             rx.list.unordered(
                 rx.list.item(rx.link("Markdown Preview", href="/markdown-preview")),
+                rx.list.item(rx.link("Modal", href="/modal")),
                 rx.list.item(rx.link("Navigation Progress", href="/nprogress")),
                 rx.list.item(rx.link("Nav Link", href="/nav-link")),
                 rx.list.item(rx.link("Number Formatter", href="/number-formatter")),
@@ -129,9 +143,19 @@ base_style = {
     },
 }
 
+# Create FastAPI app for custom API routes
+api_app = FastAPI(title="AppKit API")
+api_app.include_router(image_api_router)
+
+
+# Middleware transformer for HTTPS redirect
+def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
+    """Wrap the ASGI app with HTTPS redirect middleware."""
+    return ForceHTTPSMiddleware(asgi_app)
+
+
 app = rx.App(
     stylesheets=base_stylesheets,
     style=base_style,
+    api_transformer=[api_app, add_https_middleware],
 )
-# Add the HTTPS redirect middleware for Azure deployments
-app._api.add_middleware(ForceHTTPSMiddleware)  # noqa: SLF001

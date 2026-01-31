@@ -1,7 +1,6 @@
 from logging.config import fileConfig
 from typing import Any
 
-from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from appkit_commons.database.entities import Base
@@ -105,29 +104,6 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    config = {
-        "sqlalchemy.url": get_database_url(),
-        "sqlalchemy.pool_pre_ping": True,
-    }
-
-    connectable = engine_from_config(
-        config,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            include_object=include_object,
-            compare_type=True,
-            compare_server_default=True,
-            render_as_batch=True,
-        )
-
-        with context.begin_transaction():
-            context.run_migrations()
 
 
 if context.is_offline_mode():

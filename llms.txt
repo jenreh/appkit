@@ -47,22 +47,28 @@ AppKit is a modular workspace-based project with six specialized component libra
 
 ## Examples
 
-- [Button Examples](app/pages/examples/button_examples.py): Button component usage with sizes, variants, loading states, and full-width demonstrations
-- [Input Examples](app/pages/examples/input_examples.py): Text input patterns including basic, disabled, required, left/right sections
-- [Password Input Examples](app/pages/examples/password_examples.py): Secure password input with validation and strength indicators
-- [Date Input Examples](app/pages/examples/date_input_examples.py): Date picker with range selection, disabled dates, and formatting
-- [Number Input Examples](app/pages/examples/number_examples.py): Numeric input with min/max, decimal scaling, and formatting
-- [Textarea Examples](app/pages/examples/textarea_examples.py): Multi-line text input with resize, character count, and validation
-- [JSON Input Examples](app/pages/examples/json_input_examples.py): JSON editor with validation and formatting
-- [Select Examples](app/pages/examples/select_examples.py): Dropdown selection with data binding and event handling
-- [MultiSelect Examples](app/pages/examples/multi_select_examples.py): Multi-value selection with grouping and search
-- [Autocomplete Examples](app/pages/examples/autocomplete_examples.py): Auto-completing input with suggestions
-- [Rich Text Editor Examples](app/pages/examples/tiptap_examples.py): Full-featured rich text editor with toolbars and formatting controls
-- [Navigation Progress Examples](app/pages/examples/nprogress_examples.py): Page loading progress bar with start/stop control
 - [Action Icon Examples](app/pages/examples/action_icon_examples.py): Icon buttons with groups and variants
-- [Nav Link Examples](app/pages/examples/nav_link_examples.py): Navigation link patterns
-- [Table Examples](app/pages/examples/table_examples.py): Data table display and interactions
 - [Auto Scroll Examples](app/pages/examples/auto_scroll_examples.py): Automatic scrolling behavior patterns
+- [Autocomplete Examples](app/pages/examples/autocomplete_examples.py): Auto-completing input with suggestions
+- [Button Examples](app/pages/examples/button_examples.py): Button component usage with sizes, variants, loading states, and full-width demonstrations
+- [Date Input Examples](app/pages/examples/date_input_examples.py): Date picker with range selection, disabled dates, and formatting
+- [Input Examples](app/pages/examples/input_examples.py): Text input patterns including basic, disabled, required, left/right sections
+- [JSON Input Examples](app/pages/examples/json_input_examples.py): JSON editor with validation and formatting
+- [Markdown Preview Examples](app/pages/examples/markdown_preview_examples.py): Usage of Markdown rendering component
+- [Modal Examples](app/pages/examples/modal_examples.py): Dialog and modal window patterns
+- [MultiSelect Examples](app/pages/examples/multi_select_examples.py): Multi-value selection with grouping and search
+- [Nav Link Examples](app/pages/examples/nav_link_examples.py): Navigation link patterns
+- [Navigation Progress Examples](app/pages/examples/nprogress_examples.py): Page loading progress bar with start/stop control
+- [Number Formatter Examples](app/pages/examples/number_formatter_examples.py): Number formatting patterns
+- [Number Input Examples](app/pages/examples/number_examples.py): Numeric input with min/max, decimal scaling, and formatting
+- [Password Input Examples](app/pages/examples/password_examples.py): Secure password input with validation and strength indicators
+- [Rich Select Examples](app/pages/examples/rich_select_examples.py): Advanced select component usage
+- [Rich Text Editor Examples](app/pages/examples/tiptap_examples.py): Full-featured rich text editor with toolbars and formatting controls
+- [Scroll Area Examples](app/pages/examples/scroll_area_examples.py): Custom scroll area implementation
+- [Select Examples](app/pages/examples/select_examples.py): Dropdown selection with data binding and event handling
+- [Table Examples](app/pages/examples/table_examples.py): Data table display and interactions
+- [Tags Input Examples](app/pages/examples/tags_input_examples.py): Input for managing lists of tags
+- [Textarea Examples](app/pages/examples/textarea_examples.py): Multi-line text input with resize, character count, and validation
 
 ## Testing & Quality Assurance
 

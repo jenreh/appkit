@@ -8,14 +8,14 @@ from typing import Final
 import reflex as rx
 from reflex.event import EventSpec
 
-import appkit_user.authentication.backend.oauthstate_repository as oauth_state_repo
-import appkit_user.authentication.backend.user_repository as user_repo
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
-from appkit_user.authentication.backend import user_session_repository as session_repo
 from appkit_user.authentication.backend.entities import OAuthStateEntity
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.backend.oauth_service import OAuthService
+from appkit_user.authentication.backend.oauthstate_repository import oauth_state_repo
+from appkit_user.authentication.backend.user_repository import user_repo
+from appkit_user.authentication.backend.user_session_repository import session_repo
 from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)
@@ -55,9 +55,15 @@ class UserSession(rx.State):
             instance corresponding to the currently authenticated user.
         """
         async with get_asyncdb_session() as session:
-            user_session = await session_repo.get_user_session(
-                session, self.user_id, self.auth_token
-            )
+            if self.user_id > 0:
+                user_session = await session_repo.find_by_user_and_session_id(
+                    session, self.user_id, self.auth_token
+                )
+            else:
+                # Fallback: Recover by valid auth token alone (e.g. new tab/window)
+                user_session = await session_repo.find_by_session_id(
+                    session, self.auth_token
+                )
 
             if user_session is None or user_session.is_expired():
                 return None
@@ -70,6 +76,7 @@ class UserSession(rx.State):
                 user_entity = user_session.user
                 user = User(**user_entity.to_dict())
                 self.user = user
+                self.user_id = user.user_id
 
             await session.commit()
 
@@ -88,8 +95,9 @@ class UserSession(rx.State):
     @rx.event
     async def terminate_session(self) -> None:
         """Terminate the current session and clear storage."""
+        logger.debug("Terminating session for user_id=%s", self.user_id)
         async with get_asyncdb_session() as session:
-            await session_repo.delete_user_session(
+            await session_repo.delete_by_user_and_session_id(
                 session, self.user_id, self.auth_token
             )
 
@@ -105,7 +113,7 @@ class UserSession(rx.State):
 class LoginState(UserSession):
     """Simple authentication state."""
 
-    redirect_to: str = "/"
+    redirect_to: str = rx.LocalStorage(name="login_redirect_to")
     homepage: str = "/"
     login_route: str = LOGIN_ROUTE
     logout_route: str = LOGOUT_ROUTE
@@ -133,7 +141,15 @@ class LoginState(UserSession):
         """
         self.is_loading = True
         self.error_message = ""
+
+        # Save redirect_to before terminating session (which resets state)
+        redirect_target = self.redirect_to
+
         await self.terminate_session()
+
+        # Restore redirect_to if it was set
+        if redirect_target and redirect_target != "/":
+            self.redirect_to = redirect_target
 
         username = form_data["username"]
         password = form_data["password"]
@@ -143,7 +159,7 @@ class LoginState(UserSession):
                 (
                     user_entity,
                     status,
-                ) = await user_repo.get_user_status_by_email_and_password(
+                ) = await user_repo.get_login_status_by_credentials(
                     db, username, password
                 )
 
@@ -167,7 +183,7 @@ class LoginState(UserSession):
                     return
 
                 self.auth_token = self._generate_auth_token()
-                await session_repo.create_or_update_user_session(
+                await session_repo.save(
                     db,
                     user_entity.id,
                     self.auth_token,
@@ -193,7 +209,14 @@ class LoginState(UserSession):
             self.is_loading = True
             self.error_message = ""
 
+            # Save redirect_to before terminating session (which resets state)
+            redirect_target = self.redirect_to
+
             await self.terminate_session()
+
+            # Restore redirect_to if it was set
+            if redirect_target and redirect_target != "/":
+                self.redirect_to = redirect_target
 
             # Normalize provider to string value (handles Enum inputs)
             provider_str = (
@@ -214,10 +237,8 @@ class LoginState(UserSession):
             )
             session_id = self.router.session.client_token
             async with get_asyncdb_session() as db:
-                await oauth_state_repo.cleanup_expired_oauth_states(db)
-                await oauth_state_repo.cleanup_oauth_states_for_session(
-                    db, session_id=session_id
-                )
+                await oauth_state_repo.delete_expired(db)
+                await oauth_state_repo.delete_by_session_id(db, session_id=session_id)
 
                 expires_at = datetime.now(UTC) + SESSION_TIMEOUT
                 oauth_state = OAuthStateEntity(
@@ -227,8 +248,7 @@ class LoginState(UserSession):
                     code_verifier=code_verifier,
                     expires_at=expires_at,
                 )
-                db.add(oauth_state)
-                await db.commit()
+                await oauth_state_repo.create(db, oauth_state)
 
             return rx.redirect(auth_url)
 
@@ -269,9 +289,9 @@ class LoginState(UserSession):
 
             # Verify state (CSRF protection)
             async with get_asyncdb_session() as db:
-                await oauth_state_repo.cleanup_expired_oauth_states(db)
+                await oauth_state_repo.delete_expired(db)
 
-                oauth_state = await oauth_state_repo.get_oauth_state(
+                oauth_state = await oauth_state_repo.find_valid_by_state_and_provider(
                     db, state=state, provider=provider
                 )
 
@@ -284,7 +304,7 @@ class LoginState(UserSession):
                 user_info = self._oauth_service.get_user_info(provider, token)
 
                 try:
-                    user_entity = await user_repo.get_or_create_user(
+                    user_entity = await user_repo.get_or_create_oauth_user(
                         db, user_info, provider, token
                     )
                 except ValueError as e:
@@ -293,7 +313,7 @@ class LoginState(UserSession):
                     return
 
                 self.auth_token = self._generate_auth_token()
-                await session_repo.create_or_update_user_session(
+                await session_repo.save(
                     db,
                     user_entity.id,
                     self.auth_token,
@@ -303,8 +323,7 @@ class LoginState(UserSession):
                 self.user_id = user_entity.id
                 self.user = User(**user_entity.to_dict())
 
-                await db.delete(oauth_state)
-                await db.commit()
+                await oauth_state_repo.delete(db, oauth_state)
 
             yield LoginState.redir()
 
@@ -317,6 +336,8 @@ class LoginState(UserSession):
     @rx.event
     async def logout(self) -> EventSpec:
         """Logout user and terminate session."""
+        await self.terminate_session()
+
         return rx.redirect(LOGOUT_ROUTE)
 
     @rx.event
@@ -329,15 +350,23 @@ class LoginState(UserSession):
         current_page_path = self.router.url.path
         is_auth = await self.is_authenticated
 
+        logger.debug(
+            "Redirection check: is_authenticated=%s, current_page_path=%s",
+            is_auth,
+            current_page_path,
+        )
+
         # 1. If not authenticated and not on the login page, redirect to login.
         #    Store the intended destination to redirect back after successful login.
         if not is_auth and current_page_path != self.login_route:
+            logger.debug("User not authenticated, redirecting to login.")
             self.redirect_to = self.router.url.path
             return rx.redirect(self.login_route)
 
         # 2. If a `redirect_to` path is set (e.g., after login), navigate there.
         #    Clear `redirect_to` after using it.
         if self.redirect_to:
+            logger.debug("Redirecting to stored path: %s", self.redirect_to)
             redirect_url = self.redirect_to
             self.redirect_to = ""  # Clear the stored redirect path
             return rx.redirect(redirect_url or self.homepage)
@@ -346,16 +375,37 @@ class LoginState(UserSession):
         if is_auth:
             # If authenticated and on the login page, redirect to the homepage.
             if current_page_path == self.login_route:
+                logger.debug("User authenticated, redirecting to homepage.")
                 return rx.redirect(self.homepage)
             # If authenticated and on an OAuth callback page (and not handled by
             # redirect to the homepage.
             if current_page_path.startswith("/oauth/") and current_page_path.endswith(
                 "/callback"
             ):
+                logger.debug(
+                    "User authenticated on OAuth callback page, "
+                    "redirecting to homepage."
+                )
                 return rx.redirect(self.homepage)
 
         # 4. Default action:
         #    - Authenticated user on a regular page: stay on the current page.
         #    - Unauthenticated user on the login page: stay on the login page.
         #    rx.redirect to the current page effectively refreshes or ensures the URL.
+        logger.debug("No redirection needed, staying on current page.")
         return rx.redirect(current_page_path)
+
+    @rx.event
+    async def check_auth(self) -> AsyncGenerator | None:
+        """Page guard: redirect to login if not authenticated."""
+        logger.debug("Checking authentication for user_id=%s", self.user_id)
+        if not await self.is_authenticated:
+            logger.debug("User not authenticated, redirecting to login.")
+            return await self.redir()
+
+        # Synchronize with UserSession state for components binding to it
+        user_session = await self.get_state(UserSession)
+        user_session.user_id = self.user_id
+        user_session.user = self.user
+
+        return None

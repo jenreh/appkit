@@ -81,50 +81,91 @@ def user_form_fields(user: User | None = None) -> rx.Component:
     status_fields = []
     if is_edit_mode:
         status_fields = [
-            rx.hstack(
-                rx.switch(
-                    name="is_active",
-                    default_checked=(
-                        user.is_active if user.is_active is not None else False
+            rx.vstack(
+                rx.flex(
+                    rx.box(
+                        rx.hstack(
+                            rx.switch(
+                                name="is_active",
+                                default_checked=(
+                                    user.is_active
+                                    if user.is_active is not None
+                                    else False
+                                ),
+                            ),
+                            rx.text("Aktiv", size="2"),
+                            spacing="2",
+                        ),
+                        class_name="w-[30%] max-w-[30%] flex-grow",
                     ),
-                ),
-                rx.text("Aktiv", size="2"),
-                margin_top="9px",
-            ),
-            rx.hstack(
-                rx.switch(
-                    name="is_verified",
-                    default_checked=(
-                        user.is_verified if user.is_verified is not None else False
+                    rx.box(
+                        rx.hstack(
+                            rx.switch(
+                                name="is_verified",
+                                default_checked=(
+                                    user.is_verified
+                                    if user.is_verified is not None
+                                    else False
+                                ),
+                            ),
+                            rx.text("Verifiziert", size="2"),
+                            spacing="2",
+                        ),
+                        class_name="w-[30%] max-w-[30%] flex-grow",
                     ),
-                ),
-                rx.text("Verifiziert", size="2"),
-            ),
-            rx.hstack(
-                rx.switch(
-                    name="is_admin",
-                    default_checked=(
-                        user.is_admin if user.is_admin is not None else False
+                    rx.box(
+                        rx.hstack(
+                            rx.switch(
+                                name="is_admin",
+                                default_checked=(
+                                    user.is_admin
+                                    if user.is_admin is not None
+                                    else False
+                                ),
+                            ),
+                            rx.text("Superuser", size="2"),
+                            spacing="2",
+                        ),
+                        class_name="w-[30%] max-w-[30%] flex-grow",
                     ),
+                    class_name="w-full flex-wrap gap-2",
                 ),
-                rx.text("Superuser", size="2"),
+                spacing="1",
+                margin="4px 0",
+                width="100%",
             ),
         ]
 
     # Role fields (available for both add and edit modes)
-    role_fields = [
-        rx.vstack(
-            rx.text("Berechtigungen", size="2", weight="bold"),
+    def render_role_group(group_name: str, roles: list[dict[str, str]]) -> rx.Component:
+        """Render a group of roles with a headline."""
+        return rx.vstack(
+            rx.text(group_name, size="1", weight="bold", color="gray"),
             rx.flex(
                 rx.foreach(
-                    UserState.available_roles,
+                    roles,
                     lambda role: role_checkbox(
                         user=user, role=role, is_edit_mode=is_edit_mode
                     ),
                 ),
-                class_name="w-full flex-wrap gap-2 mt-2",
+                class_name="w-full flex-wrap gap-2",
             ),
-            spacing="0",
+            spacing="1",
+            margin="4px 0",
+            width="100%",
+        )
+
+    role_fields = [
+        rx.vstack(
+            rx.text("Berechtigungen", size="2", weight="bold"),
+            rx.foreach(
+                UserState.sorted_group_names,
+                lambda group_name: render_role_group(
+                    group_name,
+                    UserState.grouped_roles[group_name],
+                ),
+            ),
+            spacing="2",
             margin="6px 0",
             width="100%",
         ),
@@ -210,6 +251,7 @@ def update_user_button(
             ),
             class_name="dialog",
         ),
+        width="660px",
     )
 
 

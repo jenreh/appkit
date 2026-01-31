@@ -3,7 +3,7 @@ from collections.abc import Callable
 
 import reflex as rx
 
-from appkit_user.authentication.states import LoginState, UserSession
+from appkit_user.authentication.states import LOGIN_ROUTE, LoginState, UserSession
 from appkit_user.configuration import OAuthProvider
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,11 @@ def default_fallback(
     return rx.center(
         rx.card(
             rx.heading(message, class_name="w-full", size="3"),
+            rx.text(
+                "Melde dich an, um fortzufahren. ",
+                rx.link("Anmelden", href="/login", text_decoration="underline"),
+                class_name="w-full",
+            ),
             class_name="w-[380px] p-8",
         ),
         class_name="w-full h-[80vh]",
@@ -212,7 +217,7 @@ def requires_authenticated(
     return rx.cond(
         UserSession.is_authenticated,
         rx.fragment(*children),
-        fallback,
+        fallback if fallback is not None else rx.redirect(LOGIN_ROUTE),
     )
 
 

@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 
 import reflex as rx
 
 from appkit_ui.global_states import LoadingState
-from appkit_user.authentication.states import (
-    LOGIN_ROUTE,
-    LoginState,
-    UserSession,
-)
+from appkit_user.authentication.components import default_fallback
+from appkit_user.authentication.states import LoginState, UserSession
+
+logger = logging.getLogger(__name__)
 
 # Meta tags for the app.
 default_meta = [
@@ -30,70 +30,6 @@ class ThemeState(rx.State):
     radius: str = "large"
     scaling: str = "100%"
     appearance: str = "inherit"
-
-
-def require_login(page: rx.app.ComponentCallable) -> rx.app.ComponentCallable:
-    """Decorator to require authentication before rendering a page.
-
-    If the user is not authenticated, then redirect to the login page.
-
-    Args:
-        page: The page to wrap.
-
-    Returns:
-        The wrapped page component.
-    """
-
-    def protected_page():
-        return rx.fragment(
-            rx.cond(
-                UserSession.is_authenticated,
-                page(),
-                rx.center(
-                    rx.card(
-                        rx.image(
-                            rx.color_mode_cond(
-                                "/img/logo.svg",
-                                "/img/logo_dark.svg",
-                            ),
-                            height="56px",
-                            margin_bottom="1em",
-                            margin_left="1em",
-                        ),
-                        rx.vstack(
-                            rx.text(
-                                (
-                                    "Sie müssen angemeldet sein, um auf diese Seite "
-                                    "zuzugreifen. Weiterleitung zum "
-                                ),
-                                rx.link(
-                                    "Login",
-                                    href=LOGIN_ROUTE,
-                                    color="primary",
-                                    width="100%",
-                                    align="center",
-                                ),
-                                "...",
-                                on_mount=LoginState.redir,
-                            ),
-                            width="100%",
-                            padding="1em",
-                        ),
-                        variant="classic",
-                        margin_top="-4em",
-                        min_width="26em",
-                        max_width="26em",
-                        width="100%",
-                    ),
-                    width="100%",
-                    height="100vh",
-                    class_name="splash-container",
-                ),
-            ),
-        )
-
-    protected_page.__name__ = page.__name__
-    return protected_page
 
 
 def theme_wrapper(content: rx.Component) -> rx.Component:
@@ -254,17 +190,22 @@ def authenticated(
     navbar: rx.Component | None = None,
     with_header: bool = False,
     admin_only: bool = False,
-    meta: list[dict] | None = None,  # Updated type hint
+    meta: list[dict] | None = None,
     script_tags: list[rx.Component] | None = None,
     on_load: rx.EventHandler | list[rx.EventHandler] | None = None,
 ) -> Callable[[Callable[[], rx.Component]], rx.Component]:
     """The template for each page of the app that requires authentication."""
+
+    # Build on_load handlers with auth check FIRST
+    handlers = [LoginState.check_auth]
+
     if on_load is None:
-        on_load = [LoadingState.set_is_loading(False)]
+        handlers.append(LoadingState.set_is_loading(False))
     elif isinstance(on_load, list):
-        on_load.append(LoadingState.set_is_loading(False))
+        handlers.extend(on_load)
+        handlers.append(LoadingState.set_is_loading(False))
     elif isinstance(on_load, rx.EventHandler):
-        on_load = [on_load, LoadingState.set_is_loading(False)]
+        handlers.extend([on_load, LoadingState.set_is_loading(False)])
 
     def decorator(page_content: Callable[[], rx.Component]) -> rx.Component:
         all_meta = [*default_meta, *(meta or [])]
@@ -298,23 +239,19 @@ def authenticated(
             description=description,
             meta=all_meta,
             script_tags=script_tags,
-            on_load=on_load,
+            on_load=handlers,
         )
-        @require_login
         def theme_wrap():
-            # Create navbar component if provided
             navbar_component = navbar if navbar else rx.fragment()
-            default_page = theme_wrapper(templated_page(page_content, navbar_component))
+            default_page = theme_wrapper(
+                templated_page(
+                    page_content,
+                    navbar_component,
+                )
+            )
             no_permission_page = theme_wrapper(
                 templated_page(
-                    lambda: rx.center(
-                        rx.heading(
-                            "Sie haben nicht die notwendigen Berechtigungen um auf diese Seite zuzugreifen.",  # noqa
-                            size="4",
-                        ),
-                        width="100%",
-                        margin_top="10em",
-                    ),
+                    default_fallback,
                     navbar_component,
                 )
             )
@@ -331,4 +268,5 @@ def authenticated(
 
         return theme_wrap
 
+    logger.debug("Authenticated decorator created for route: %s", route)
     return decorator

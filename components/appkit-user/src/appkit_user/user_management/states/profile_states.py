@@ -5,7 +5,7 @@ import reflex as rx
 from reflex.components.sonner.toast import Toaster
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.backend import user_repository
+from appkit_user.authentication.backend.user_repository import user_repo
 from appkit_user.authentication.states import UserSession
 
 MIN_PASSWORD_LENGTH: Final[int] = 12
@@ -104,7 +104,7 @@ class ProfileState(rx.State):
 
         try:
             async with get_asyncdb_session() as session:
-                await user_repository.update_password(
+                await user_repo.update_password(
                     session,
                     user_id=user_id,
                     old_password=self.current_password,

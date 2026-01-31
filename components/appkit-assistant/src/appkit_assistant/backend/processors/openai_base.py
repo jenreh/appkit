@@ -5,7 +5,7 @@ OpenAI processor for generating AI responses using OpenAI's API.
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Final
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
@@ -18,6 +18,122 @@ from appkit_assistant.backend.models import (
 from appkit_assistant.backend.processor import Processor
 
 logger = logging.getLogger(__name__)
+
+DEFAULT: Final = AIModel(
+    id="default",
+    text="Default (GPT 4.1 Mini)",
+    icon="avvia_intelligence",
+    model="default",
+    stream=True,
+)
+
+GPT_4o: Final = AIModel(
+    id="gpt-4o",
+    text="GPT 4o",
+    icon="openai",
+    model="gpt-4o",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+)
+
+GPT_4_1: Final = AIModel(
+    id="gpt-4.1",
+    text="GPT-4.1",
+    icon="openai",
+    model="gpt-4.1",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+)
+
+O3: Final = AIModel(
+    id="o3",
+    text="o3 Reasoning",
+    icon="openai",
+    model="o3",
+    temperature=1,
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+)
+
+O4_MINI: Final = AIModel(
+    id="o4-mini",
+    text="o4 Mini Reasoning",
+    icon="openai",
+    model="o4-mini",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+    temperature=1,
+)
+
+GPT_5: Final = AIModel(
+    id="gpt-5",
+    text="GPT 5",
+    icon="openai",
+    model="gpt-5",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+    temperature=1,
+)
+
+GPT_5_1: Final = AIModel(
+    id="gpt-5.1",
+    text="GPT 5.1",
+    icon="openai",
+    model="gpt-5.1",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+    temperature=1,
+)
+
+GPT_5_2: Final = AIModel(
+    id="gpt-5.2",
+    text="GPT 5.2",
+    icon="openai",
+    model="gpt-5.2",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+    temperature=1,
+)
+
+GPT_5_MINI: Final = AIModel(
+    id="gpt-5-mini",
+    text="GPT 5 Mini",
+    icon="openai",
+    model="gpt-5-mini",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+    temperature=1,
+)
+
+GPT_5_1_MINI: Final = AIModel(
+    id="gpt-5.1-mini",
+    text="GPT 5.1 Mini",
+    icon="openai",
+    model="gpt-5.1-mini",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+    temperature=1,
+)
+
+GPT_5_NANO: Final = AIModel(
+    id="gpt-5-nano",
+    text="GPT 5 Nano",
+    icon="openai",
+    model="gpt-5-nano",
+    stream=True,
+    supports_attachments=False,
+    supports_tools=True,
+    temperature=1,
+)
 
 
 class BaseOpenAIProcessor(Processor, ABC):

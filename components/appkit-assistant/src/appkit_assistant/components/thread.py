@@ -6,7 +6,7 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_assistant.backend.models import Message, MessageType
 from appkit_assistant.components import composer
-from appkit_assistant.components.message import MessageComponent
+from appkit_assistant.components.message import AuthCardComponent, MessageComponent
 from appkit_assistant.components.threadlist import ThreadList
 from appkit_assistant.state.thread_state import ThreadState
 
@@ -81,6 +81,8 @@ class Assistant:
                     messages,
                     lambda message: MessageComponent.render_message(message),
                 ),
+                # Auth card for MCP OAuth flow
+                AuthCardComponent.render(),
                 rx.spacer(
                     id="scroll-anchor",
                     display="hidden",
@@ -111,16 +113,17 @@ class Assistant:
         **props,
     ) -> rx.Component:
         return composer(
+            composer.selected_files_row(),
             composer.input(),
             rx.hstack(
                 rx.hstack(
                     composer.choose_model(show=with_model_chooser),
                 ),
                 rx.hstack(
+                    composer.file_upload(show=with_attachments),
                     composer.tools(
                         show=with_tools and ThreadState.selected_model_supports_tools
                     ),
-                    composer.add_attachment(show=with_attachments),
                     composer.clear(show=with_clear),
                     composer.submit(),
                     width="100%",
@@ -153,6 +156,16 @@ class Assistant:
         #     ThreadState.set_suggestions(suggestions)
 
         return rx.flex(
+            # OAuth result handler - triggers when popup sets localStorage
+            # rx.LocalStorage(sync=True) auto-syncs, rx.cond re-renders on change
+            rx.cond(
+                ThreadState.oauth_result != "",
+                rx.box(
+                    on_mount=ThreadState.process_oauth_result,
+                    style={"display": "none"},
+                ),
+                rx.fragment(),
+            ),
             rx.cond(
                 ThreadState.messages,
                 Assistant.messages(

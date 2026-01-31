@@ -6,15 +6,30 @@ import reflex as rx
 
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.models import AIModel
-from appkit_assistant.backend.processors.ai_models import (
-    GPT_5_1,
-    GPT_5_MINI,
+from appkit_assistant.backend.processors.claude_base import (
+    CLAUDE_HAIKU_4_5,
+)
+from appkit_assistant.backend.processors.claude_responses_processor import (
+    ClaudeResponsesProcessor,
+)
+from appkit_assistant.backend.processors.gemini_base import (
+    GEMINI_3_FLASH,
+    GEMINI_3_PRO,
+)
+from appkit_assistant.backend.processors.gemini_responses_processor import (
+    GeminiResponsesProcessor,
 )
 from appkit_assistant.backend.processors.lorem_ipsum_processor import (
     LoremIpsumProcessor,
 )
+from appkit_assistant.backend.processors.openai_base import GPT_5_1, GPT_5_2, GPT_5_MINI
 from appkit_assistant.backend.processors.openai_responses_processor import (
     OpenAIResponsesProcessor,
+)
+from appkit_assistant.backend.processors.perplexity_processor import (
+    SONAR,
+    SONAR_DEEP_RESEARCH,
+    PerplexityProcessor,
 )
 from appkit_assistant.components import (
     Suggestion,
@@ -33,7 +48,12 @@ from appkit_user.authentication.components.components import (
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
-from app.roles import ASSISTANT_ROLE
+from app.roles import (
+    ADVANCED_MODEL_ROLE,
+    ASSISTANT_ROLE,
+    BASIC_MODEL_ROLE,
+    PERPLEXITY_MODEL_ROLE,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,19 +78,25 @@ def initialize_model_manager() -> list[AIModel]:
     model_manager.register_processor("lorem_ipsum", LoremIpsumProcessor())
     config = service_registry().get(AssistantConfig)
 
-    # if config.perplexity_api_key is not None:
-    #     model_manager.register_processor(
-    #         "perplexity",
-    #         PerplexityProcessor(
-    #             api_key=config.perplexity_api_key.get_secret_value(),
-    #             models={SONAR.id: SONAR, SONAR_DEEP_RESEARCH.id: SONAR_DEEP_RESEARCH},
-    #         ),
-    #     )
+    SONAR.requires_role = PERPLEXITY_MODEL_ROLE.name
+    SONAR_DEEP_RESEARCH.requires_role = PERPLEXITY_MODEL_ROLE.name
+
+    if config.perplexity_api_key is not None:
+        model_manager.register_processor(
+            "perplexity",
+            PerplexityProcessor(
+                api_key=config.perplexity_api_key.get_secret_value(),
+                models={SONAR.id: SONAR, SONAR_DEEP_RESEARCH.id: SONAR_DEEP_RESEARCH},
+            ),
+        )
+
+    GPT_5_1.requires_role = BASIC_MODEL_ROLE.name
+    GPT_5_2.requires_role = ADVANCED_MODEL_ROLE.name
 
     models = {
-        # GPT_5.id: GPT_5,
         GPT_5_1.id: GPT_5_1,
         GPT_5_MINI.id: GPT_5_MINI,
+        GPT_5_2.id: GPT_5_2,
     }
 
     model_manager.register_processor(
@@ -82,6 +108,40 @@ def initialize_model_manager() -> list[AIModel]:
             is_azure=True,
         ),
     )
+
+    # Register Claude processor if API key is configured
+    CLAUDE_HAIKU_4_5.requires_role = ADVANCED_MODEL_ROLE.name
+
+    if config.claude_api_key is not None:
+        claude_models = {
+            CLAUDE_HAIKU_4_5.id: CLAUDE_HAIKU_4_5,
+            # CLAUDE_SONNET_4_5.id: CLAUDE_SONNET_4_5,
+        }
+        model_manager.register_processor(
+            "claude",
+            ClaudeResponsesProcessor(
+                api_key=config.claude_api_key.get_secret_value(),
+                base_url=config.claude_base_url,
+                models=claude_models,
+            ),
+        )
+
+    # Register Gemini processor if API key is configured
+    GEMINI_3_PRO.requires_role = ADVANCED_MODEL_ROLE.name
+    GEMINI_3_FLASH.requires_role = BASIC_MODEL_ROLE.name
+
+    if config.google_api_key is not None:
+        gemini_models = {
+            GEMINI_3_PRO.id: GEMINI_3_PRO,
+            GEMINI_3_FLASH.id: GEMINI_3_FLASH,
+        }
+        model_manager.register_processor(
+            "gemini",
+            GeminiResponsesProcessor(
+                api_key=config.google_api_key.get_secret_value(),
+                models=gemini_models,
+            ),
+        )
 
     model_manager.set_default_model(GPT_5_MINI.id)
     return model_manager.get_all_models()
@@ -132,7 +192,7 @@ def assistant_page() -> rx.Component:
                                 welcome_message=(
                                     "👋 Hallo, wie kann ich Dir heute helfen?"
                                 ),
-                                with_attachments=False,
+                                with_attachments=True,
                                 with_scroll_to_bottom=False,
                                 with_thread_list=True,
                                 with_tools=True,

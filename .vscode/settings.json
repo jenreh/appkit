@@ -66,24 +66,17 @@
     "terminal.integrated.defaultProfile.osx": "zsh",
     "workbench.iconTheme": "vscode-icons",
     "files.exclude": {
-        "**/.cache": true
+        "**/.cache": true,
+        "**/__pycache__": true
     },
     "files.watcherExclude": {
-        "**/.cache/**": true
+        "**/.cache/**": true,
+        "**/__pycache__/**": true
     },
     "github.copilot.chat.codesearch.enabled": true,
     "github.copilot.chat.codeGeneration.useInstructionFiles": true,
     "github.copilot.chat.copilotDebugCommand.enabled": true,
     "github.copilot.chat.reviewSelection.enabled": true,
-    "github.copilot.chat.startDebugging.enabled": true,
-    "github.copilot.chat.editor.temporalContext.enabled": true,
-    "github.copilot.chat.edits.temporalContext.enabled": true,
-    "mypy-type-checker.preferDaemon": true,
-    "mypy-type-checker.reportingScope": "workspace",
-    "python-envs.defaultPackageManager": "ms-python.python:uv",
-    "pythonEnvy.venvName": ".venv",
-    "chat.agent.maxRequests": 100,
-    "github.copilot.chat.agent.thinkingTool": true,
     "github.copilot.chat.terminalChatLocation": "quickChat",
     "github.copilot.chat.azureModels": {
         "gpt-5": {
@@ -102,4 +95,9 @@
     "[yaml]": {
         "editor.defaultFormatter": "redhat.vscode-yaml"
     },
+    "mypy-type-checker.preferDaemon": true,
+    "mypy-type-checker.reportingScope": "workspace",
+    "python-envs.defaultPackageManager": "ms-python.python:uv",
+    "chat.agent.maxRequests": 100,
+
 }
