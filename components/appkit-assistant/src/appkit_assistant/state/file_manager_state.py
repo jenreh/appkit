@@ -160,6 +160,7 @@ class FileManagerState(rx.State):
     async def load_vector_stores(self) -> AsyncGenerator[Any, Any]:
         """Load all unique vector stores from the database."""
         self.loading = True
+        yield
         try:
             async with get_asyncdb_session() as session:
                 stores = await file_upload_repo.find_unique_vector_stores(session)
@@ -206,6 +207,7 @@ class FileManagerState(rx.State):
             store_id: The ID of the vector store to delete.
         """
         self.deleting_vector_store_id = store_id
+        yield
         try:
             openai_service = get_openai_client_service()
             if not openai_service.is_available:
@@ -296,6 +298,7 @@ class FileManagerState(rx.State):
         cleans up the database records and associated OpenAI files.
         """
         self.loading = True
+        yield
         try:
             # First validate the vector store exists in OpenAI
             openai_service = get_openai_client_service()
@@ -327,7 +330,8 @@ class FileManagerState(rx.State):
 
             self.selected_vector_store_id = store_id
             self.selected_vector_store_name = store_name
-            yield FileManagerState.load_files
+            async for event in self.load_files():
+                yield event
         finally:
             self.loading = False
 
@@ -391,6 +395,7 @@ class FileManagerState(rx.State):
             return
 
         self.loading = True
+        yield
         try:
             # Cache for user names to avoid repeated queries
             user_cache: dict[int, str] = {}
@@ -447,6 +452,7 @@ class FileManagerState(rx.State):
     async def load_openai_files(self) -> AsyncGenerator[Any, Any]:
         """Load files directly from OpenAI API."""
         self.loading = True
+        yield
         try:
             openai_service = get_openai_client_service()
             if not openai_service.is_available:
@@ -504,6 +510,7 @@ class FileManagerState(rx.State):
     async def delete_file(self, file_id: int) -> AsyncGenerator[Any, Any]:
         """Delete a file from OpenAI and the database."""
         self.deleting_file_id = file_id
+        yield
 
         try:
             # Find the file to get OpenAI file ID
@@ -576,6 +583,7 @@ class FileManagerState(rx.State):
     async def delete_openai_file(self, openai_id: str) -> AsyncGenerator[Any, Any]:
         """Delete a file directly from OpenAI API."""
         self.deleting_openai_file_id = openai_id
+        yield
 
         try:
             file_info = self._get_openai_file_by_id(openai_id)

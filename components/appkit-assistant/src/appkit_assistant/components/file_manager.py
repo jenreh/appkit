@@ -135,14 +135,18 @@ def file_table_row(file_info: FileInfo) -> TableRow:
             white_space="nowrap",
         ),
         rx.table.cell(
-            delete_dialog(
-                title="Datei löschen",
-                content=file_info.filename,
-                on_click=lambda: FileManagerState.delete_file(file_info.id),
-                icon_button=True,
-                size="1",
-                variant="ghost",
-                color_scheme="red",
+            rx.cond(
+                FileManagerState.deleting_file_id == file_info.id,
+                rx.spinner(size="1"),
+                delete_dialog(
+                    title="Datei löschen",
+                    content=file_info.filename,
+                    on_click=lambda: FileManagerState.delete_file(file_info.id),
+                    icon_button=True,
+                    size="1",
+                    variant="ghost",
+                    color_scheme="red",
+                ),
             ),
             white_space="nowrap",
         ),
@@ -382,16 +386,20 @@ def openai_file_table_row(file_info: OpenAIFileInfo) -> TableRow:
             white_space="nowrap",
         ),
         rx.table.cell(
-            delete_dialog(
-                title="Datei löschen",
-                content=file_info.filename,
-                on_click=lambda: FileManagerState.delete_openai_file(
-                    file_info.openai_id
+            rx.cond(
+                FileManagerState.deleting_openai_file_id == file_info.openai_id,
+                rx.spinner(size="1"),
+                delete_dialog(
+                    title="Datei löschen",
+                    content=file_info.filename,
+                    on_click=lambda: FileManagerState.delete_openai_file(
+                        file_info.openai_id
+                    ),
+                    icon_button=True,
+                    size="1",
+                    variant="ghost",
+                    color_scheme="red",
                 ),
-                icon_button=True,
-                size="1",
-                variant="ghost",
-                color_scheme="red",
             ),
             white_space="nowrap",
         ),
@@ -532,53 +540,70 @@ def file_manager() -> rx.Component:
                 rx.box(
                     rx.vstack(
                         rx.cond(
-                            FileManagerState.openai_files.length() > 0,
-                            mn.scroll_area(
-                                rx.table.root(
-                                    rx.table.header(
-                                        rx.table.row(
-                                            rx.table.column_header_cell(
-                                                "Dateiname", width="auto"
-                                            ),
-                                            rx.table.column_header_cell(
-                                                "Zweck",
-                                                width="120px",
-                                                white_space="nowrap",
-                                            ),
-                                            rx.table.column_header_cell(
-                                                "Erstellt am",
-                                                width="140px",
-                                                white_space="nowrap",
-                                            ),
-                                            rx.table.column_header_cell(
-                                                "Läuft ab",
-                                                width="140px",
-                                                white_space="nowrap",
-                                            ),
-                                            rx.table.column_header_cell(
-                                                "Größe", width="100px"
-                                            ),
-                                            rx.table.column_header_cell(
-                                                "", width="50px"
+                            FileManagerState.loading,
+                            rx.center(
+                                rx.vstack(
+                                    rx.spinner(size="3"),
+                                    rx.text(
+                                        "Dateien werden geladen...",
+                                        size="2",
+                                        color="gray",
+                                    ),
+                                    spacing="3",
+                                    align="center",
+                                ),
+                                height="200px",
+                                width="100%",
+                            ),
+                            rx.cond(
+                                FileManagerState.openai_files.length() > 0,
+                                mn.scroll_area(
+                                    rx.table.root(
+                                        rx.table.header(
+                                            rx.table.row(
+                                                rx.table.column_header_cell(
+                                                    "Dateiname", width="auto"
+                                                ),
+                                                rx.table.column_header_cell(
+                                                    "Zweck",
+                                                    width="120px",
+                                                    white_space="nowrap",
+                                                ),
+                                                rx.table.column_header_cell(
+                                                    "Erstellt am",
+                                                    width="140px",
+                                                    white_space="nowrap",
+                                                ),
+                                                rx.table.column_header_cell(
+                                                    "Läuft ab",
+                                                    width="140px",
+                                                    white_space="nowrap",
+                                                ),
+                                                rx.table.column_header_cell(
+                                                    "Größe", width="100px"
+                                                ),
+                                                rx.table.column_header_cell(
+                                                    "", width="50px"
+                                                ),
                                             ),
                                         ),
+                                        rx.table.body(
+                                            rx.foreach(
+                                                FileManagerState.openai_files,
+                                                openai_file_table_row,
+                                            )
+                                        ),
+                                        size="2",
+                                        width="100%",
+                                        table_layout="fixed",
                                     ),
-                                    rx.table.body(
-                                        rx.foreach(
-                                            FileManagerState.openai_files,
-                                            openai_file_table_row,
-                                        )
-                                    ),
-                                    size="2",
+                                    height="calc(100vh - 350px)",
                                     width="100%",
-                                    table_layout="fixed",
+                                    scrollbars="y",
+                                    type="auto",
                                 ),
-                                height="calc(100vh - 350px)",
-                                width="100%",
-                                scrollbars="y",
-                                type="auto",
+                                empty_state("Keine OpenAI-Dateien vorhanden."),
                             ),
-                            empty_state("Keine OpenAI-Dateien vorhanden."),
                         ),
                         spacing="2",
                         width="100%",
