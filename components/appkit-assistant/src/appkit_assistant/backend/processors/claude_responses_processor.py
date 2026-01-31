@@ -83,6 +83,8 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self._needs_text_separator: bool = False
         # Tool name tracking: tool_id -> (tool_name, server_label)
         self._tool_name_map: dict[str, tuple[str, str | None]] = {}
+        # Warnings to display to the user (e.g. disabled tools)
+        self._mcp_warnings: list[str] = []
 
     def get_supported_models(self) -> dict[str, AIModel]:
         """Return supported models if API key is available."""
@@ -111,6 +113,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self.clear_pending_auth_servers()
         self._uploaded_file_ids = []
         self._tool_name_map.clear()  # Clear tool tracking for new request
+        self._mcp_warnings = []  # Clear warnings for new request
 
         try:
             # Upload files if provided
@@ -127,6 +130,11 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 user_id,
                 file_content_blocks,
             )
+
+            # Yield warnings if any (e.g. disabled tools)
+            if self._mcp_warnings:
+                for warning in self._mcp_warnings:
+                    yield self.chunk_factory.text(f"⚠️ {warning}\n\n")
 
             try:
                 # Process streaming events
@@ -656,6 +664,20 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         for server in mcp_servers:
             # Parse headers to get auth token and query params
             auth_token, query_suffix = self._parse_mcp_headers(server)
+
+            # Check if tool requires unsupported headers (converted to query suffix).
+            # Claude currently does not support custom headers for MCP servers.
+            if query_suffix:
+                warning_msg = (
+                    f"Der MCP-Server '{server.name}' wurde deaktiviert, da er HTTP-Header benötigt, "
+                    "die von der Claude API nicht unterstützt werden."
+                )
+                self._mcp_warnings.append(warning_msg)
+
+                # prompts.append(
+                #     f"SYSTEM INFO: {warning_msg} (nur Authorization Header wird unterstützt)."
+                # )
+                continue
 
             # Build URL with query params if needed
             server_url = server.url
