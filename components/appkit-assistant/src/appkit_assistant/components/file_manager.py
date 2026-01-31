@@ -457,44 +457,61 @@ def file_manager() -> rx.Component:
                                 FileManagerState.selected_vector_store_id == "",
                                 empty_state("Wähle einen Vector Store aus."),
                                 rx.cond(
-                                    FileManagerState.files.length() > 0,
-                                    mn.scroll_area(
-                                        rx.table.root(
-                                            rx.table.header(
-                                                rx.table.row(
-                                                    rx.table.column_header_cell(
-                                                        "Dateiname", width="auto"
-                                                    ),
-                                                    rx.table.column_header_cell(
-                                                        "Erstellt am", width="140px"
-                                                    ),
-                                                    rx.table.column_header_cell(
-                                                        "Benutzer", width="150px"
-                                                    ),
-                                                    rx.table.column_header_cell(
-                                                        "Größe", width="100px"
-                                                    ),
-                                                    rx.table.column_header_cell(
-                                                        "", width="50px"
+                                    FileManagerState.loading,
+                                    rx.center(
+                                        rx.vstack(
+                                            rx.spinner(size="3"),
+                                            rx.text(
+                                                "Dateien werden geladen...",
+                                                size="2",
+                                                color="gray",
+                                            ),
+                                            spacing="3",
+                                            align="center",
+                                        ),
+                                        height="200px",
+                                        width="100%",
+                                    ),
+                                    rx.cond(
+                                        FileManagerState.files.length() > 0,
+                                        mn.scroll_area(
+                                            rx.table.root(
+                                                rx.table.header(
+                                                    rx.table.row(
+                                                        rx.table.column_header_cell(
+                                                            "Dateiname", width="auto"
+                                                        ),
+                                                        rx.table.column_header_cell(
+                                                            "Erstellt am", width="140px"
+                                                        ),
+                                                        rx.table.column_header_cell(
+                                                            "Benutzer", width="150px"
+                                                        ),
+                                                        rx.table.column_header_cell(
+                                                            "Größe", width="100px"
+                                                        ),
+                                                        rx.table.column_header_cell(
+                                                            "", width="50px"
+                                                        ),
                                                     ),
                                                 ),
+                                                rx.table.body(
+                                                    rx.foreach(
+                                                        FileManagerState.files,
+                                                        file_table_row,
+                                                    )
+                                                ),
+                                                size="2",
+                                                width="100%",
+                                                table_layout="fixed",
                                             ),
-                                            rx.table.body(
-                                                rx.foreach(
-                                                    FileManagerState.files,
-                                                    file_table_row,
-                                                )
-                                            ),
-                                            size="2",
+                                            height="calc(100vh - 350px)",
                                             width="100%",
-                                            table_layout="fixed",
+                                            scrollbars="y",
+                                            type="auto",
                                         ),
-                                        height="calc(100vh - 350px)",
-                                        width="100%",
-                                        scrollbars="y",
-                                        type="auto",
+                                        empty_state("Keine Dateien vorhanden."),
                                     ),
-                                    empty_state("Keine Dateien vorhanden."),
                                 ),
                             ),
                             spacing="2",

@@ -283,11 +283,18 @@ def navbar(
                     LoadingState.is_loading, "rainbow-gradient-bar", "default-bar"
                 ),
             ),
+            sidebar_item(
+                label="Assistent",
+                icon="bot-message-square",
+                url="/assistant",
+            ),
+            sidebar_item(
+                label="Bildgenerator",
+                icon="image",
+                url="/image-gallery",
+            ),
             mn.scroll_area.stateful(
                 navbar_items,
-                requires_admin(
-                    navbar_admin_items,
-                ),
                 width="100%",
                 type="hover",
                 scrollbars="y",
@@ -298,6 +305,9 @@ def navbar(
                 flex="1",
                 min_height="0",
                 height="100%",
+            ),
+            requires_admin(
+                navbar_admin_items,
             ),
             navbar_footer,
             justify="end",
