@@ -5,6 +5,7 @@ from reflex.components.radix.themes.components.table import TableRow
 
 import appkit_mantine as mn
 from appkit_assistant.state.file_manager_state import (
+    CleanupStats,
     FileInfo,
     FileManagerState,
     OpenAIFileInfo,
@@ -164,6 +165,176 @@ def empty_state(message: str) -> rx.Component:
     )
 
 
+def cleanup_stat_row(label: str, value: rx.Var[int]) -> rx.Component:
+    """Render a single cleanup statistic row."""
+    return rx.hstack(
+        rx.text(label, size="2", color="gray"),
+        rx.text(value.to_string(), size="2", weight="bold"),
+        justify="between",
+        width="100%",
+    )
+
+
+def cleanup_progress_modal() -> rx.Component:
+    """Render the cleanup progress modal with live statistics."""
+    stats: CleanupStats = FileManagerState.cleanup_stats
+    is_running = FileManagerState.cleanup_running
+    is_completed = stats.status == "completed"
+    is_error = stats.status == "error"
+
+    # Status message based on current state
+    status_message = rx.match(
+        stats.status,
+        ("idle", "Bereit zur Bereinigung"),
+        ("starting", "Starte Bereinigung..."),
+        ("checking", "Prüfe Vector Stores..."),
+        ("deleting", "Lösche abgelaufene Stores..."),
+        ("completed", "Bereinigung abgeschlossen"),
+        ("error", "Fehler bei der Bereinigung"),
+        "Unbekannter Status",
+    )
+
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title(
+                rx.hstack(
+                    rx.icon(
+                        rx.cond(is_error, "alert-circle", "trash-2"),
+                        size=20,
+                        color=rx.cond(
+                            is_error,
+                            rx.color("red", 11),
+                            rx.cond(
+                                is_completed,
+                                rx.color("green", 11),
+                                rx.color("blue", 11),
+                            ),
+                        ),
+                    ),
+                    rx.text("Bereinigung"),
+                    spacing="2",
+                    align="center",
+                ),
+            ),
+            rx.dialog.description(
+                rx.vstack(
+                    # Status message
+                    rx.hstack(
+                        rx.cond(
+                            is_running,
+                            rx.spinner(size="1"),
+                            rx.fragment(),
+                        ),
+                        rx.text(status_message, size="2"),
+                        spacing="2",
+                        align="center",
+                    ),
+                    # Error message
+                    rx.cond(
+                        is_error,
+                        rx.callout(
+                            stats.error,
+                            icon="triangle-alert",
+                            color="red",
+                            size="1",
+                        ),
+                        rx.fragment(),
+                    ),
+                    # Progress indicator
+                    rx.cond(
+                        stats.total_vector_stores > 0,
+                        rx.vstack(
+                            rx.progress(
+                                value=rx.cond(
+                                    stats.total_vector_stores > 0,
+                                    (stats.vector_stores_checked * 100)
+                                    / stats.total_vector_stores,
+                                    0,
+                                ),
+                                width="100%",
+                            ),
+                            rx.text(
+                                f"Geprüft: {stats.vector_stores_checked} / "
+                                f"{stats.total_vector_stores}",
+                                size="1",
+                                color="gray",
+                            ),
+                            spacing="1",
+                            width="100%",
+                        ),
+                        rx.fragment(),
+                    ),
+                    # Current processing
+                    rx.cond(
+                        stats.current_vector_store.is_not_none(),
+                        rx.text(
+                            f"Aktuell: {stats.current_vector_store}",
+                            size="1",
+                            color="gray",
+                            style={
+                                "overflow": "hidden",
+                                "text_overflow": "ellipsis",
+                                "white_space": "nowrap",
+                                "max_width": "100%",
+                            },
+                        ),
+                        rx.fragment(),
+                    ),
+                    # Statistics
+                    rx.divider(),
+                    rx.vstack(
+                        cleanup_stat_row(
+                            "Abgelaufene Stores:", stats.vector_stores_expired
+                        ),
+                        cleanup_stat_row(
+                            "Gelöschte Stores:", stats.vector_stores_deleted
+                        ),
+                        cleanup_stat_row(
+                            "Aktualisierte Threads:", stats.threads_updated
+                        ),
+                        spacing="1",
+                        width="100%",
+                    ),
+                    spacing="3",
+                    width="100%",
+                    padding_y="2",
+                ),
+            ),
+            rx.flex(
+                rx.button(
+                    "Schließen",
+                    variant="soft",
+                    disabled=is_running,
+                    on_click=FileManagerState.close_cleanup_modal,
+                ),
+                justify="end",
+                spacing="2",
+                margin_top="16px",
+            ),
+            max_width="400px",
+        ),
+        open=FileManagerState.cleanup_modal_open,
+        on_open_change=FileManagerState.set_cleanup_modal_open,
+    )
+
+
+def cleanup_button() -> rx.Component:
+    """Render the cleanup button."""
+    return rx.button(
+        rx.icon("trash-2", size=14),
+        rx.text("Vector Stores aufräumen"),
+        variant="soft",
+        color_scheme="red",
+        size="2",
+        disabled=FileManagerState.cleanup_running,
+        loading=FileManagerState.cleanup_running,
+        on_click=[
+            FileManagerState.open_cleanup_modal,
+            FileManagerState.start_cleanup,
+        ],
+    )
+
+
 def openai_file_table_row(file_info: OpenAIFileInfo) -> TableRow:
     """Render a single OpenAI file row in the table."""
     return rx.table.row(
@@ -231,89 +402,166 @@ def openai_file_table_row(file_info: OpenAIFileInfo) -> TableRow:
 
 def file_manager() -> rx.Component:
     """File manager component with tabs for vector stores and OpenAI files."""
-    return rx.tabs.root(
-        rx.tabs.list(
-            rx.tabs.trigger("Vector Store Dateien", value="vector_stores"),
-            rx.tabs.trigger("OpenAI Dateien", value="openai_files"),
-        ),
-        rx.tabs.content(
+    return rx.fragment(
+        cleanup_progress_modal(),
+        rx.tabs.root(
             rx.hstack(
-                # Left column: Vector stores list
-                rx.box(
-                    rx.vstack(
-                        rx.cond(
-                            FileManagerState.vector_stores.length() > 0,
-                            mn.scroll_area(
-                                rx.vstack(
-                                    rx.foreach(
-                                        FileManagerState.vector_stores,
-                                        vector_store_item,
-                                    ),
-                                    spacing="1",
-                                    width="100%",
-                                ),
-                                height="calc(100vh - 350px)",
-                                width="100%",
-                                scrollbars="y",
-                                type="auto",
-                            ),
-                            empty_state("Keine Vector Stores vorhanden."),
-                        ),
-                        spacing="2",
-                        width="100%",
-                        align="start",
-                    ),
-                    width="280px",
-                    min_width="280px",
-                    padding="16px",
-                    border_right=f"1px solid {rx.color('gray', 5)}",
-                    height="calc(100vh - 280px)",
+                rx.tabs.list(
+                    rx.tabs.trigger("Vector Store Dateien", value="vector_stores"),
+                    rx.tabs.trigger("OpenAI Dateien", value="openai_files"),
+                    width="100%",
                 ),
-                # Right column: Files table
-                rx.box(
-                    rx.vstack(
-                        rx.cond(
-                            FileManagerState.selected_vector_store_id == "",
-                            empty_state("Wähle einen Vector Store aus."),
+                rx.spacer(),
+                cleanup_button(),
+                width="100%",
+                align="center",
+                padding_right="16px",
+            ),
+            rx.tabs.content(
+                rx.hstack(
+                    # Left column: Vector stores list
+                    rx.box(
+                        rx.vstack(
                             rx.cond(
-                                FileManagerState.files.length() > 0,
+                                FileManagerState.vector_stores.length() > 0,
                                 mn.scroll_area(
-                                    rx.table.root(
-                                        rx.table.header(
-                                            rx.table.row(
-                                                rx.table.column_header_cell(
-                                                    "Dateiname", width="auto"
-                                                ),
-                                                rx.table.column_header_cell(
-                                                    "Erstellt am", width="140px"
-                                                ),
-                                                rx.table.column_header_cell(
-                                                    "Benutzer", width="150px"
-                                                ),
-                                                rx.table.column_header_cell(
-                                                    "Größe", width="100px"
-                                                ),
-                                                rx.table.column_header_cell(
-                                                    "", width="50px"
-                                                ),
-                                            ),
+                                    rx.vstack(
+                                        rx.foreach(
+                                            FileManagerState.vector_stores,
+                                            vector_store_item,
                                         ),
-                                        rx.table.body(
-                                            rx.foreach(
-                                                FileManagerState.files, file_table_row
-                                            )
-                                        ),
-                                        size="2",
+                                        spacing="1",
                                         width="100%",
-                                        table_layout="fixed",
                                     ),
                                     height="calc(100vh - 350px)",
                                     width="100%",
                                     scrollbars="y",
                                     type="auto",
                                 ),
-                                empty_state("Keine Dateien vorhanden."),
+                                empty_state("Keine Vector Stores vorhanden."),
                             ),
+                            spacing="2",
+                            width="100%",
+                            align="start",
+                        ),
+                        width="280px",
+                        min_width="280px",
+                        padding="16px",
+                        border_right=f"1px solid {rx.color('gray', 5)}",
+                        height="calc(100vh - 280px)",
+                    ),
+                    # Right column: Files table
+                    rx.box(
+                        rx.vstack(
+                            rx.cond(
+                                FileManagerState.selected_vector_store_id == "",
+                                empty_state("Wähle einen Vector Store aus."),
+                                rx.cond(
+                                    FileManagerState.files.length() > 0,
+                                    mn.scroll_area(
+                                        rx.table.root(
+                                            rx.table.header(
+                                                rx.table.row(
+                                                    rx.table.column_header_cell(
+                                                        "Dateiname", width="auto"
+                                                    ),
+                                                    rx.table.column_header_cell(
+                                                        "Erstellt am", width="140px"
+                                                    ),
+                                                    rx.table.column_header_cell(
+                                                        "Benutzer", width="150px"
+                                                    ),
+                                                    rx.table.column_header_cell(
+                                                        "Größe", width="100px"
+                                                    ),
+                                                    rx.table.column_header_cell(
+                                                        "", width="50px"
+                                                    ),
+                                                ),
+                                            ),
+                                            rx.table.body(
+                                                rx.foreach(
+                                                    FileManagerState.files,
+                                                    file_table_row,
+                                                )
+                                            ),
+                                            size="2",
+                                            width="100%",
+                                            table_layout="fixed",
+                                        ),
+                                        height="calc(100vh - 350px)",
+                                        width="100%",
+                                        scrollbars="y",
+                                        type="auto",
+                                    ),
+                                    empty_state("Keine Dateien vorhanden."),
+                                ),
+                            ),
+                            spacing="2",
+                            width="100%",
+                            align="start",
+                        ),
+                        flex="1",
+                        padding="16px",
+                        height="calc(100vh - 280px)",
+                    ),
+                    spacing="0",
+                    width="100%",
+                    align="start",
+                ),
+                value="vector_stores",
+            ),
+            rx.tabs.content(
+                rx.box(
+                    rx.vstack(
+                        rx.cond(
+                            FileManagerState.openai_files.length() > 0,
+                            mn.scroll_area(
+                                rx.table.root(
+                                    rx.table.header(
+                                        rx.table.row(
+                                            rx.table.column_header_cell(
+                                                "Dateiname", width="auto"
+                                            ),
+                                            rx.table.column_header_cell(
+                                                "Zweck",
+                                                width="120px",
+                                                white_space="nowrap",
+                                            ),
+                                            rx.table.column_header_cell(
+                                                "Erstellt am",
+                                                width="140px",
+                                                white_space="nowrap",
+                                            ),
+                                            rx.table.column_header_cell(
+                                                "Läuft ab",
+                                                width="140px",
+                                                white_space="nowrap",
+                                            ),
+                                            rx.table.column_header_cell(
+                                                "Größe", width="100px"
+                                            ),
+                                            rx.table.column_header_cell(
+                                                "", width="50px"
+                                            ),
+                                        ),
+                                    ),
+                                    rx.table.body(
+                                        rx.foreach(
+                                            FileManagerState.openai_files,
+                                            openai_file_table_row,
+                                        )
+                                    ),
+                                    size="2",
+                                    width="100%",
+                                    table_layout="fixed",
+                                ),
+                                height="calc(100vh - 350px)",
+                                width="100%",
+                                scrollbars="y",
+                                type="auto",
+                            ),
+                            empty_state("Keine OpenAI-Dateien vorhanden."),
                         ),
                         spacing="2",
                         width="100%",
@@ -323,74 +571,11 @@ def file_manager() -> rx.Component:
                     padding="16px",
                     height="calc(100vh - 280px)",
                 ),
-                spacing="0",
-                width="100%",
-                align="start",
+                value="openai_files",
             ),
-            value="vector_stores",
+            default_value="vector_stores",
+            width="100%",
+            on_change=FileManagerState.on_tab_change,
+            on_mount=FileManagerState.load_vector_stores,
         ),
-        rx.tabs.content(
-            rx.box(
-                rx.vstack(
-                    rx.cond(
-                        FileManagerState.openai_files.length() > 0,
-                        mn.scroll_area(
-                            rx.table.root(
-                                rx.table.header(
-                                    rx.table.row(
-                                        rx.table.column_header_cell(
-                                            "Dateiname", width="auto"
-                                        ),
-                                        rx.table.column_header_cell(
-                                            "Zweck",
-                                            width="120px",
-                                            white_space="nowrap",
-                                        ),
-                                        rx.table.column_header_cell(
-                                            "Erstellt am",
-                                            width="140px",
-                                            white_space="nowrap",
-                                        ),
-                                        rx.table.column_header_cell(
-                                            "Läuft ab",
-                                            width="140px",
-                                            white_space="nowrap",
-                                        ),
-                                        rx.table.column_header_cell(
-                                            "Größe", width="100px"
-                                        ),
-                                        rx.table.column_header_cell("", width="50px"),
-                                    ),
-                                ),
-                                rx.table.body(
-                                    rx.foreach(
-                                        FileManagerState.openai_files,
-                                        openai_file_table_row,
-                                    )
-                                ),
-                                size="2",
-                                width="100%",
-                                table_layout="fixed",
-                            ),
-                            height="calc(100vh - 350px)",
-                            width="100%",
-                            scrollbars="y",
-                            type="auto",
-                        ),
-                        empty_state("Keine OpenAI-Dateien vorhanden."),
-                    ),
-                    spacing="2",
-                    width="100%",
-                    align="start",
-                ),
-                flex="1",
-                padding="16px",
-                height="calc(100vh - 280px)",
-            ),
-            value="openai_files",
-        ),
-        default_value="vector_stores",
-        width="100%",
-        on_change=FileManagerState.on_tab_change,
-        on_mount=FileManagerState.load_vector_stores,
     )
