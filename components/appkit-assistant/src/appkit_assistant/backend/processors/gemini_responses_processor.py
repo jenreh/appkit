@@ -9,7 +9,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import Any, Final, NamedTuple
 
 import httpx
 from google import genai
@@ -41,6 +41,45 @@ default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
 # Maximum characters to show in tool result preview
 TOOL_RESULT_PREVIEW_LENGTH: Final[int] = 500
 
+GEMINI_FORBIDDEN_SCHEMA_FIELDS: Final[set[str]] = {
+    "$schema",
+    "$id",
+    "$ref",
+    "$defs",
+    "definitions",
+    "$comment",
+    "examples",
+    "default",
+    "const",
+    "contentMediaType",
+    "contentEncoding",
+    "additionalProperties",
+    "additional_properties",
+    "patternProperties",
+    "unevaluatedProperties",
+    "unevaluatedItems",
+    "minItems",
+    "maxItems",
+    "minLength",
+    "maxLength",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+    "pattern",
+    "format",
+    "title",
+    "allOf",
+    "oneOf",
+    "not",
+    "if",
+    "then",
+    "else",
+    "dependentSchemas",
+    "dependentRequired",
+}
+
 
 @dataclass
 class MCPToolContext:
@@ -49,6 +88,14 @@ class MCPToolContext:
     session: ClientSession
     server_name: str
     tools: dict[str, Any] = field(default_factory=dict)
+
+
+class MCPSessionWrapper(NamedTuple):
+    """Wrapper to store MCP connection details before creating actual session."""
+
+    url: str
+    headers: dict[str, str]
+    name: str
 
 
 class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
@@ -111,9 +158,10 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
         mcp_sessions = []
         mcp_prompt = ""
         if mcp_servers:
-            sessions_result = await self._create_mcp_sessions(mcp_servers, user_id)
-            mcp_sessions = sessions_result["sessions"]
-            for server in sessions_result["auth_required"]:
+            mcp_sessions, auth_required = await self._create_mcp_sessions(
+                mcp_servers, user_id
+            )
+            for server in auth_required:
                 self.add_pending_auth_server(server)
             mcp_prompt = self._build_mcp_prompt(mcp_servers)
             # Note: tools are configured in _stream_with_mcp after connecting to MCP
@@ -150,11 +198,11 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
 
     async def _create_mcp_sessions(
         self, servers: list[MCPServer], user_id: int | None
-    ) -> dict[str, Any]:
+    ) -> tuple[list[MCPSessionWrapper], list[MCPServer]]:
         """Create MCP ClientSession objects for each server.
 
         Returns:
-            Dict with 'sessions' and 'auth_required' lists
+            Tuple with (sessions, auth_required_servers)
         """
         sessions = []
         auth_required = []
@@ -201,7 +249,7 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
                     "Failed to connect to MCP server %s: %s", server.name, str(e)
                 )
 
-        return {"sessions": sessions, "auth_required": auth_required}
+        return sessions, auth_required
 
     async def _stream_with_mcp(
         self,
@@ -450,59 +498,12 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
             return None
 
     def _fix_schema_for_gemini(self, schema: dict[str, Any]) -> dict[str, Any]:
-        """Fix JSON schema for Gemini API compatibility.
-
-        Gemini requires 'items' field for array types and doesn't allow certain
-        JSON Schema fields like '$schema', '$id', 'definitions', etc.
-        This recursively fixes the schema.
-        """
+        """Fix JSON schema for Gemini API compatibility."""
         if not schema:
             return schema
 
         # Deep copy to avoid modifying original
         schema = copy.deepcopy(schema)
-
-        # Fields that Gemini doesn't allow in FunctionDeclaration parameters
-        # Note: additionalProperties gets converted to additional_properties by SDK
-        forbidden_fields = {
-            "$schema",
-            "$id",
-            "$ref",
-            "$defs",
-            "definitions",
-            "$comment",
-            "examples",
-            "default",
-            "const",
-            "contentMediaType",
-            "contentEncoding",
-            "additionalProperties",
-            "additional_properties",
-            "patternProperties",
-            "unevaluatedProperties",
-            "unevaluatedItems",
-            "minItems",
-            "maxItems",
-            "minLength",
-            "maxLength",
-            "minimum",
-            "maximum",
-            "exclusiveMinimum",
-            "exclusiveMaximum",
-            "multipleOf",
-            "pattern",
-            "format",
-            "title",
-            # Composition keywords - Gemini doesn't support these
-            "allOf",
-            "oneOf",
-            "not",
-            "if",
-            "then",
-            "else",
-            "dependentSchemas",
-            "dependentRequired",
-        }
 
         def fix_property(prop: dict[str, Any]) -> dict[str, Any]:
             """Recursively fix a property schema."""
@@ -510,29 +511,24 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
                 return prop
 
             # Remove forbidden fields
-            for forbidden in forbidden_fields:
+            for forbidden in GEMINI_FORBIDDEN_SCHEMA_FIELDS:
                 prop.pop(forbidden, None)
 
-            prop_type = prop.get("type")
-
             # Fix array without items
-            if prop_type == "array" and "items" not in prop:
+            if prop.get("type") == "array" and "items" not in prop:
                 prop["items"] = {"type": "string"}
                 logger.debug("Added missing 'items' to array property")
 
-            # Recurse into items
-            if "items" in prop and isinstance(prop["items"], dict):
+            # Recurse into items, properties, and anyOf/any_of
+            if isinstance(prop.get("items"), dict):
                 prop["items"] = fix_property(prop["items"])
 
-            # Recurse into properties
-            if "properties" in prop and isinstance(prop["properties"], dict):
+            if isinstance(prop.get("properties"), dict):
                 for key, val in prop["properties"].items():
                     prop["properties"][key] = fix_property(val)
 
-            # Recurse into anyOf/any_of arrays (Gemini accepts these but not
-            # forbidden fields inside them)
             for any_of_key in ("anyOf", "any_of"):
-                if any_of_key in prop and isinstance(prop[any_of_key], list):
+                if isinstance(prop.get(any_of_key), list):
                     prop[any_of_key] = [
                         fix_property(item) if isinstance(item, dict) else item
                         for item in prop[any_of_key]
@@ -637,19 +633,16 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
     ) -> types.GenerateContentConfig:
         """Create generation config from model and payload."""
         # Default thinking level depends on model
-        # "medium" is only supported by Flash, Pro uses "high" (default dynamic)
-        thinking_level = "high"
-        if "flash" in model.model.lower():
-            thinking_level = "medium"
+        thinking_level = "medium" if "flash" in model.model.lower() else "high"
 
         # Override from payload if present
-        if payload and "thinking_level" in payload:
-            thinking_level = payload.pop("thinking_level")
+        if payload:
+            thinking_level = payload.get("thinking_level", thinking_level)
 
         # Filter out fields not accepted by GenerateContentConfig
         filtered_payload = {}
         if payload:
-            ignored_fields = {"thread_uuid", "user_id"}
+            ignored_fields = {"thread_uuid", "user_id", "thinking_level"}
             filtered_payload = {
                 k: v for k, v in payload.items() if k not in ignored_fields
             }
@@ -693,30 +686,19 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
 
     def _handle_chunk(self, chunk: Any) -> Chunk | None:
         """Handle a single chunk from Gemini stream."""
-        # Gemini chunks contain candidates. First candidate.
-        if not chunk.candidates or not chunk.candidates[0].content:
+        if (
+            not chunk.candidates
+            or not chunk.candidates[0].content
+            or not chunk.candidates[0].content.parts
+        ):
             return None
 
-        candidate = chunk.candidates[0]
-        content = candidate.content
-
-        # List comprehension for text parts
-        if not content.parts:
-            return None
-
-        text_parts = [part.text for part in content.parts if part.text]
+        text_parts = [
+            part.text for part in chunk.candidates[0].content.parts if part.text
+        ]
 
         if text_parts:
             text_content = "".join(text_parts)
             return self._chunk_factory.text(text_content, delta=text_content)
 
         return None
-
-
-class MCPSessionWrapper:
-    """Wrapper to store MCP connection details before creating actual session."""
-
-    def __init__(self, url: str, headers: dict[str, str], name: str) -> None:
-        self.url = url
-        self.headers = headers
-        self.name = name
