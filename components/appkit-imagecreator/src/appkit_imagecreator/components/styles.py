@@ -43,33 +43,53 @@ def _style_item(style_data: tuple[str, dict]) -> rx.Component:
 def style_popup() -> rx.Component:
     """Popup for selecting image style with dynamic image trigger."""
     return rx.popover.root(
-        rx.popover.trigger(
-            # Ein rx.box Container sorgt für konsistentes Layout als Button
-            rx.box(
-                rx.cond(
-                    ImageGalleryState.selected_style != "",
-                    # FALL 1: Style ausgewählt -> Zeige das Bild des Styles
-                    rx.image(
-                        src=ImageGalleryState.selected_style_path,
-                        width="24px",
-                        height="24px",
-                        object_fit="cover",
-                        border_radius="4px",
-                        alt=ImageGalleryState.selected_style,
+        rx.tooltip(
+            rx.popover.trigger(
+                # Ein rx.box Container sorgt für konsistentes Layout als Button
+                rx.box(
+                    rx.cond(
+                        ImageGalleryState.selected_style != "",
+                        rx.image(
+                            src=ImageGalleryState.selected_style_path,
+                            width="24px",
+                            height="24px",
+                            object_fit="cover",
+                            cursor="pointer",
+                            border_radius="4px",
+                            align_items="center",
+                            justify_content="center",
+                            display="flex",
+                            margin_top="3px",
+                            margin_left="3px",
+                            alt=ImageGalleryState.selected_style,
+                        ),
+                        rx.box(
+                            rx.icon(
+                                "palette",
+                                size=17,
+                                color=rx.color("accent", 11),
+                            ),
+                            display="flex",
+                            cursor="pointer",
+                            width="100%",
+                            height="100%",
+                            _hover={
+                                "background": rx.color("accent", 3),
+                            },
+                            align_items="center",
+                            justify_content="center",
+                            border_radius="8px",
+                        ),
                     ),
-                    # FALL 2: Kein Style -> Zeige das Palette-Icon
-                    rx.icon("palette", size=20, color=rx.color("gray", 11)),
+                    # Styling für den Trigger-Button selbst
+                    display="flex",
+                    width="32px",
+                    height="32px",
+                    margin_right="3px",
+                    margin_left="0px",
                 ),
-                # Styling für den Trigger-Button selbst
-                cursor="pointer",
-                padding="8px",
-                border_radius="8px",
-                display="flex",
-                align_items="center",
-                justify_content="center",
-                _hover={"background": rx.color("gray", 3)},
-                transition="background 0.2s",
             ),
+            content="Wähle den Stil deines Bildes",
         ),
         rx.popover.content(
             rx.vstack(
