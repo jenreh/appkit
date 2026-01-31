@@ -43,15 +43,23 @@ loggers:
     handlers: [console]
     propagate: 0
   appkit_commons:
-    level: INFO
+    level: DEBUG
     handlers: [console]
     propagate: 0
   appkit_ui:
-    level: INFO
+    level: DEBUG
+    handlers: [console]
+    propagate: 0
+  appkit_user:
+    level: DEBUG
+    handlers: [console]
+    propagate: 0
+  appkit_mantine:
+    level: DEBUG
     handlers: [console]
     propagate: 0
   server:
-    level: DEBUG
+    level: INFO
     handlers: [console]
     propagate: 0
   uvicorn:
@@ -63,7 +71,7 @@ loggers:
     handlers: [console]
     propagate: 0
   httpx:
-    level: DEBUG
+    level: WARNING
     handlers: [console]
     propagate: 0
   watchfiles:

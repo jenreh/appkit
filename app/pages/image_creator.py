@@ -25,16 +25,4 @@ def image_gallery() -> rx.Component:
     return requires_role(
         image_generator_page(),
         role=IMAGE_GENERATOR_ROLE.name,
-        fallback=rx.text(
-            "Zugriff verweigert. Sie haben keine Berechtigung für den Bildgenerator. ",
-            rx.link(
-                "Anmelden",
-                href="/login",
-                text_decoration="underline",
-            ),
-            ".",
-            padding="64px",
-            justify_content="center",
-            width="100%",
-        ),
     )
