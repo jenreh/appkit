@@ -185,9 +185,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
     def _handle_message_stop(self, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle message_stop event."""
-        return self.chunk_factory.completion(
-            "Response generation completed", status="response_complete"
-        )
+        return self.chunk_factory.completion(status="response_complete")
 
     def _handle_content_block_start(self, event: Any) -> Chunk | None:
         """Handle content_block_start event."""
@@ -284,7 +282,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             result_text or ("Werkzeugfehler" if is_error else "Erfolgreich"),
             tool_id=tool_use_id,
             status=status,
-            error=is_error,
+            is_error=is_error,
             reasoning_session=self.current_reasoning_session,
         )
 
@@ -315,7 +313,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         if delta_type == "text_delta":
             text = getattr(delta, "text", "")
             # Extract citations using the citation handler
-            citations = self._citation_handler.extract(delta)
+            citations = self._citation_handler.extract_citations(delta)
             metadata: dict[str, Any] = {"delta": text}
             if citations:
                 metadata["citations"] = json.dumps(
@@ -335,19 +333,21 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         if delta_type == "input_json_delta":
             partial_json = getattr(delta, "partial_json", "")
             # Include tool context in streaming chunks
-            metadata = {
-                "status": "arguments_streaming",
-                "delta": partial_json,
-                "reasoning_session": self.current_reasoning_session,
-            }
+            tool_name = "unknown_tool"
+            tool_id = "unknown_id"
+            server_label = None
             if self._current_tool_context:
-                metadata["tool_name"] = self._current_tool_context.get("tool_name")
-                metadata["tool_id"] = self._current_tool_context.get("tool_id")
-                if self._current_tool_context.get("server_label"):
-                    metadata["server_label"] = self._current_tool_context[
-                        "server_label"
-                    ]
-            return self.chunk_factory.tool_call(partial_json, **metadata)
+                tool_name = self._current_tool_context.get("tool_name", "unknown_tool")
+                tool_id = self._current_tool_context.get("tool_id", "unknown_id")
+                server_label = self._current_tool_context.get("server_label")
+            return self.chunk_factory.tool_call(
+                partial_json,
+                tool_name=tool_name,
+                tool_id=tool_id,
+                server_label=server_label,
+                status="arguments_streaming",
+                reasoning_session=self.current_reasoning_session,
+            )
 
         return None
 

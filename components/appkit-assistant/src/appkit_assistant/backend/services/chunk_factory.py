@@ -74,6 +74,7 @@ class ChunkFactory:
         content: str,
         reasoning_id: str | None = None,
         status: str = "in_progress",
+        delta: str | None = None,
     ) -> Chunk:
         """Create a THINKING chunk.
 
@@ -81,6 +82,7 @@ class ChunkFactory:
             content: The thinking content
             reasoning_id: Optional reasoning session ID
             status: Status of the thinking (starting, in_progress, completed)
+            delta: Optional delta text for streaming
 
         Returns:
             A THINKING Chunk
@@ -88,6 +90,8 @@ class ChunkFactory:
         metadata: dict[str, Any] = {"status": status}
         if reasoning_id:
             metadata["reasoning_id"] = reasoning_id
+        if delta is not None:
+            metadata["delta"] = delta
         return self.create(ChunkType.THINKING, content, metadata)
 
     def thinking_result(
