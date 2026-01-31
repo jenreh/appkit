@@ -271,6 +271,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             self._handle_lifecycle_events,
             self._handle_text_events,
             self._handle_item_events,
+            self._handle_search_events,  # Handle file/web search specifically
             self._handle_mcp_events,
             self._handle_content_events,
             self._handle_completion_events,
@@ -280,6 +281,63 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 return result
 
         logger.debug("Unhandled event type: %s", event_type)
+        return None
+
+    def _handle_search_events(self, event_type: str, event: Any) -> Chunk | None:
+        """Handle file_search and web_search specific events."""
+        if "file_search_call" in event_type:
+            return self._handle_file_search_event(event_type, event)
+
+        if "web_search_call" in event_type:
+            return self._handle_web_search_event(event_type, event)
+
+        return None
+
+    def _handle_file_search_event(self, event_type: str, event: Any) -> Chunk | None:
+        call_id = getattr(event, "call_id", "unknown_id")
+
+        if event_type == "response.file_search_call.searching":
+            return self.chunk_factory.tool_call(
+                "Durchsuche Dateien...",
+                tool_name="file_search",
+                tool_id=call_id,
+                status="searching",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if event_type == "response.file_search_call.completed":
+            return self.chunk_factory.tool_result(
+                "Dateisuche abgeschlossen.",
+                tool_id=call_id,
+                status="completed",
+                reasoning_session=self.current_reasoning_session,
+            )
+        return None
+
+    def _handle_web_search_event(self, event_type: str, event: Any) -> Chunk | None:
+        call_id = getattr(event, "call_id", "unknown_id")
+
+        if event_type == "response.web_search_call.searching":
+            query_set = getattr(event, "query_set", None)
+            query_text = "Durchsuche das Web..."
+            if query_set and hasattr(query_set, "queries") and query_set.queries:
+                query_text = f"Suche nach: {query_set.queries[0]}"
+
+            return self.chunk_factory.tool_call(
+                query_text,
+                tool_name="web_search",
+                tool_id=call_id,
+                status="searching",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if event_type == "response.web_search_call.completed":
+            return self.chunk_factory.tool_result(
+                "Websuche abgeschlossen.",
+                tool_id=call_id,
+                status="completed",
+                reasoning_session=self.current_reasoning_session,
+            )
         return None
 
     def _handle_lifecycle_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: ARG002
@@ -316,6 +374,10 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             if isinstance(annotation, dict):
                 return annotation.get(key)
             return getattr(annotation, key, None)
+
+        # First try to get the display text (e.g. [1] or similar citation mark)
+        if text := get_val("text"):
+            return text
 
         ann_type = get_val("type")
         if ann_type == "url_citation":
@@ -357,6 +419,25 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 reasoning_session=self.current_reasoning_session,
             )
 
+        if item.type == "function_call":
+            tool_name = getattr(item, "name", "function")
+            tool_id = getattr(item, "call_id", "unknown_id")
+            return self.chunk_factory.tool_call(
+                f"Benutze Funktion: {tool_name}",
+                tool_name=tool_name,
+                tool_id=tool_id,
+                status="starting",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if item.type in ("file_search_call", "web_search_call"):
+            tool_name = (
+                "file_search" if item.type == "file_search_call" else "web_search"
+            )
+            # Actual searching happens in sub-events, just log start here
+            logger.debug("%s started", tool_name)
+            return None
+
         if item.type == "reasoning":
             reasoning_id = getattr(item, "id", "unknown_id")
             # Track the current reasoning session
@@ -370,6 +451,20 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         """Handle when an item is completed."""
         if item.type == "mcp_call":
             return self._handle_mcp_call_done(item)
+
+        if item.type == "function_call":
+            tool_id = getattr(item, "call_id", "unknown_id")
+            output = getattr(item, "output", "")
+            return self.chunk_factory.tool_result(
+                str(output),
+                tool_id=tool_id,
+                status="completed",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        # file_search_call / web_search_call done events are handled in _handle_search_events
+        if item.type in ("file_search_call", "web_search_call"):
+            return None
 
         if item.type == "reasoning":
             reasoning_id = getattr(item, "id", "unknown_id")
