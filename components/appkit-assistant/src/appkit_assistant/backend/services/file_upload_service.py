@@ -13,13 +13,16 @@ from typing import Any
 from openai import AsyncOpenAI
 from sqlalchemy import select
 
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.database.models import (
     AssistantFileUpload,
     AssistantThread,
+)
+from appkit_assistant.backend.database.repositories import file_upload_repo
+from appkit_assistant.backend.schemas import (
     Chunk,
     ChunkType,
 )
-from appkit_assistant.backend.repositories import file_upload_repo
+from appkit_assistant.backend.services.chunk_factory import ChunkFactory
 from appkit_assistant.configuration import FileUploadConfig
 from appkit_commons.database.session import get_asyncdb_session
 
@@ -55,127 +58,7 @@ class FileUploadService:
         self.client = client
         self.config = config or FileUploadConfig()
         self._max_file_size_bytes = self.config.max_file_size_mb * 1024 * 1024
-
-    async def upload_file(
-        self,
-        file_path: str,
-        thread_id: int,
-        user_id: int,  # noqa: ARG002
-    ) -> str:
-        """Upload a file to OpenAI for assistants/file_search.
-
-        Args:
-            file_path: Local path to the file to upload.
-            thread_id: Database ID of the thread this file belongs to.
-            user_id: ID of the user uploading the file.
-
-        Returns:
-            The OpenAI file ID.
-
-        Raises:
-            FileUploadError: If validation fails or upload errors occur.
-        """
-        path = Path(file_path)
-
-        # Validate file exists
-        if not path.exists():
-            raise FileUploadError(f"File not found: {file_path}")
-
-        # Validate file size
-        file_size = path.stat().st_size
-        if file_size > self._max_file_size_bytes:
-            raise FileUploadError(
-                f"File exceeds maximum size of {self.config.max_file_size_mb}MB"
-            )
-
-        # Validate file count for thread
-        await self._validate_file_count(thread_id)
-
-        # Upload to OpenAI with retry
-        openai_file_id = await self._upload_with_retry(path)
-
-        logger.info(
-            "Uploaded file to OpenAI: %s -> %s",
-            path.name,
-            openai_file_id,
-        )
-
-        return openai_file_id
-
-    async def get_or_create_vector_store(
-        self,
-        thread_id: int,
-        thread_uuid: str,
-    ) -> tuple[str, str]:
-        """Get existing vector store for thread or create a new one.
-
-        Args:
-            thread_id: Database ID of the thread.
-            thread_uuid: UUID string of the thread (for naming).
-
-        Returns:
-            Tuple of (vector_store_id, vector_store_name).
-
-        Raises:
-            FileUploadError: If vector store creation fails.
-        """
-        async with get_asyncdb_session() as session:
-            result = await session.execute(
-                select(AssistantThread).where(AssistantThread.id == thread_id)
-            )
-            thread = result.scalar_one_or_none()
-
-            if not thread:
-                raise FileUploadError(f"Thread not found: {thread_id}")
-
-            # Return existing vector store if present and valid
-            if thread.vector_store_id:
-                logger.debug(
-                    "Checking existing vector store: %s",
-                    thread.vector_store_id,
-                )
-                # Validate vector store exists in OpenAI
-                try:
-                    vs = await self.client.vector_stores.retrieve(
-                        thread.vector_store_id
-                    )
-                    return thread.vector_store_id, vs.name or ""
-                except Exception as e:
-                    error_msg = str(e).lower()
-                    if "not found" in error_msg or "404" in error_msg:
-                        logger.warning(
-                            "Vector store %s no longer exists, creating new one",
-                            thread.vector_store_id,
-                        )
-                        # Vector store doesn't exist - create new one and migrate files
-                        return await self._recreate_vector_store(
-                            session, thread, thread_uuid
-                        )
-                    # Other error - log but try to continue
-                    logger.warning(
-                        "Error checking vector store %s: %s",
-                        thread.vector_store_id,
-                        e,
-                    )
-                    return thread.vector_store_id, f"Thread-{thread_uuid}"
-
-            # Create new vector store with expiration
-            vector_store = await self._create_vector_store_with_retry(thread_uuid)
-            vector_store_id = vector_store.id
-            vector_store_name = vector_store.name or f"Thread-{thread_uuid}"
-
-            # Update thread with vector store ID
-            thread.vector_store_id = vector_store_id
-            session.add(thread)
-            await session.commit()
-
-            logger.info(
-                "Created vector store for thread %s: %s",
-                thread_uuid,
-                vector_store_id,
-            )
-
-            return vector_store_id, vector_store_name
+        self._chunk_factory = ChunkFactory("file_upload_service")
 
     async def _recreate_vector_store(
         self,
@@ -253,67 +136,7 @@ class FileUploadService:
 
         return new_vector_store_id, vector_store_name
 
-    async def validate_or_recreate_vector_store(
-        self,
-        thread_id: int,
-        thread_uuid: str,
-        vector_store_id: str,
-    ) -> str | None:
-        """Validate a vector store exists and recreate if needed.
-
-        Used when processing messages without new files to ensure
-        the existing vector store is still valid.
-
-        Args:
-            thread_id: Database ID of the thread.
-            thread_uuid: UUID string of the thread.
-            vector_store_id: The vector store ID to validate.
-
-        Returns:
-            The valid vector store ID (original or newly created), or None on error.
-        """
-        try:
-            # Check if vector store exists
-            await self.client.vector_stores.retrieve(vector_store_id)
-            return vector_store_id
-        except Exception as e:
-            error_msg = str(e).lower()
-            if "not found" not in error_msg and "404" not in error_msg:
-                logger.warning(
-                    "Error checking vector store %s: %s",
-                    vector_store_id,
-                    e,
-                )
-                return vector_store_id
-
-        # Vector store doesn't exist - recreate it
-        logger.warning(
-            "Vector store %s no longer exists, recreating",
-            vector_store_id,
-        )
-
-        async with get_asyncdb_session() as session:
-            result = await session.execute(
-                select(AssistantThread).where(AssistantThread.id == thread_id)
-            )
-            thread = result.scalar_one_or_none()
-
-            if not thread:
-                logger.error(
-                    "Thread %d not found for vector store recreation", thread_id
-                )
-                return None
-
-            try:
-                new_id, _ = await self._recreate_vector_store(
-                    session, thread, thread_uuid
-                )
-                return new_id
-            except Exception as e:
-                logger.error("Failed to recreate vector store: %s", e)
-                return None
-
-    async def add_files_to_vector_store(
+    async def _add_files_to_vector_store(
         self,
         vector_store_id: str,
         vector_store_name: str,
@@ -323,7 +146,7 @@ class FileUploadService:
         filenames: list[str],
         file_sizes: list[int],
     ) -> None:
-        """Add uploaded files to a vector store and track in database.
+        """Add uploaded files to a vector store and track in database (private helper).
 
         Args:
             vector_store_id: The vector store to add files to.
@@ -382,145 +205,6 @@ class FileUploadService:
                 len(file_ids),
             )
 
-    async def wait_for_processing_streaming(  # noqa: PLR0912
-        self,
-        vector_store_id: str,
-        file_ids: list[str],
-        filenames: list[str],
-        max_wait_seconds: int = 60,
-    ) -> AsyncGenerator[Chunk, None]:
-        """Wait for files to be processed, yielding progress chunks in real-time.
-
-        Args:
-            vector_store_id: The vector store containing the files.
-            file_ids: List of file IDs to wait for.
-            filenames: List of original filenames for progress display.
-            max_wait_seconds: Maximum seconds to wait.
-
-        Yields:
-            Chunk objects with processing status updates.
-        """
-        if not file_ids:
-            return
-
-        # Map file IDs to filenames for display
-        file_id_to_name = dict(zip(file_ids, filenames, strict=True))
-        total_files = len(file_ids)
-        completed_count = 0
-
-        # Initial processing chunk
-        if total_files == 1:
-            initial_text = f"Indiziere: {filenames[0]}"
-        else:
-            initial_text = f"Indiziere {total_files} Dateien..."
-        yield Chunk(
-            type=ChunkType.PROCESSING,
-            text=initial_text,
-            chunk_metadata={
-                "status": "indexing",
-                "total_files": str(total_files),
-                "completed_files": "0",
-            },
-        )
-
-        start_time = asyncio.get_event_loop().time()
-        pending_files = set(file_ids)
-        success = True
-
-        loop = asyncio.get_event_loop()
-        while pending_files and (loop.time() - start_time) < max_wait_seconds:
-            vs_files = await self.client.vector_stores.files.list(
-                vector_store_id=vector_store_id
-            )
-
-            for vs_file in vs_files.data:
-                if vs_file.id in pending_files:
-                    if vs_file.status == "completed":
-                        pending_files.discard(vs_file.id)
-                        completed_count += 1
-                        filename = file_id_to_name.get(vs_file.id, vs_file.id)
-                        logger.debug("File indexed: %s", vs_file.id)
-
-                        # Progress update chunk
-                        progress_text = f"Indiziert: {filename}"
-                        yield Chunk(
-                            type=ChunkType.PROCESSING,
-                            text=progress_text,
-                            chunk_metadata={
-                                "status": "progress",
-                                "total_files": str(total_files),
-                                "completed_files": str(completed_count),
-                                "current_file": filename,
-                            },
-                        )
-                    elif vs_file.status in ("failed", "cancelled"):
-                        error_msg = ""
-                        if vs_file.last_error:
-                            error_msg = vs_file.last_error.message
-                        logger.error(
-                            "File indexing failed: %s - %s",
-                            vs_file.id,
-                            error_msg,
-                        )
-                        failed_name = file_id_to_name.get(vs_file.id, vs_file.id)
-                        yield Chunk(
-                            type=ChunkType.PROCESSING,
-                            text=f"Fehler: {failed_name}",
-                            chunk_metadata={
-                                "status": "failed",
-                                "total_files": str(total_files),
-                                "completed_files": str(completed_count),
-                                "error": error_msg,
-                            },
-                        )
-                        pending_files.discard(vs_file.id)
-                        success = False
-
-            if pending_files:
-                await asyncio.sleep(1)
-
-        if pending_files:
-            logger.warning("Timeout waiting for files: %s", pending_files)
-            yield Chunk(
-                type=ChunkType.PROCESSING,
-                text=f"Zeitüberschreitung ({completed_count}/{total_files})",
-                chunk_metadata={
-                    "status": "timeout",
-                    "total_files": str(total_files),
-                    "completed_files": str(completed_count),
-                },
-            )
-            return
-
-        # Final success chunk
-        if success:
-            if total_files == 1:
-                done_text = f"Bereit: {filenames[0]}"
-            else:
-                done_text = f"{total_files} Dateien bereit"
-            yield Chunk(
-                type=ChunkType.PROCESSING,
-                text=done_text,
-                chunk_metadata={
-                    "status": "completed",
-                    "total_files": str(total_files),
-                    "completed_files": str(total_files),
-                },
-            )
-
-    async def cleanup_files(self, file_ids: list[str]) -> None:
-        """Delete files from OpenAI.
-
-        Args:
-            file_ids: List of OpenAI file IDs to delete.
-        """
-        for file_id in file_ids:
-            try:
-                await self.client.files.delete(file_id=file_id)
-                logger.debug("Deleted OpenAI file: %s", file_id)
-            except Exception as e:
-                logger.warning("Failed to delete file %s: %s", file_id, e)
-
     async def _validate_file_count(self, thread_id: int) -> None:
         """Validate that adding another file won't exceed the limit."""
         async with get_asyncdb_session() as session:
@@ -573,6 +257,132 @@ class FileUploadService:
         msg = f"Failed to upload file after {max_retries} attempts"
         raise FileUploadError(msg) from last_error
 
+    async def _wait_for_processing(  # noqa: PLR0912
+        self,
+        vector_store_id: str,
+        file_ids: list[str],
+        filenames: list[str],
+        max_wait_seconds: int = 60,
+    ) -> AsyncGenerator[Chunk, None]:
+        """Wait for files to be processed, yielding progress chunks in real-time.
+
+        Args:
+            vector_store_id: The vector store containing the files.
+            file_ids: List of file IDs to wait for.
+            filenames: List of original filenames for progress display.
+            max_wait_seconds: Maximum seconds to wait.
+
+        Yields:
+            Chunk objects with processing status updates.
+        """
+        if not file_ids:
+            return
+
+        # Map file IDs to filenames for display
+        file_id_to_name = dict(zip(file_ids, filenames, strict=True))
+        total_files = len(file_ids)
+        completed_count = 0
+
+        # Initial processing chunk
+        if total_files == 1:
+            initial_text = f"Indiziere: {filenames[0]}"
+        else:
+            initial_text = f"Indiziere {total_files} Dateien..."
+        yield self._chunk_factory.create(
+            ChunkType.PROCESSING,
+            initial_text,
+            {
+                "status": "indexing",
+                "total_files": total_files,
+                "completed_files": 0,
+            },
+        )
+
+        start_time = asyncio.get_event_loop().time()
+        pending_files = set(file_ids)
+        success = True
+
+        loop = asyncio.get_event_loop()
+        while pending_files and (loop.time() - start_time) < max_wait_seconds:
+            vs_files = await self.client.vector_stores.files.list(
+                vector_store_id=vector_store_id
+            )
+
+            for vs_file in vs_files.data:
+                if vs_file.id in pending_files:
+                    if vs_file.status == "completed":
+                        pending_files.discard(vs_file.id)
+                        completed_count += 1
+                        filename = file_id_to_name.get(vs_file.id, vs_file.id)
+                        logger.debug("File indexed: %s", vs_file.id)
+
+                        # Progress update chunk
+                        progress_text = f"Indiziert: {filename}"
+                        yield self._chunk_factory.create(
+                            ChunkType.PROCESSING,
+                            progress_text,
+                            {
+                                "status": "progress",
+                                "total_files": total_files,
+                                "completed_files": completed_count,
+                                "current_file": filename,
+                            },
+                        )
+                    elif vs_file.status in ("failed", "cancelled"):
+                        error_msg = ""
+                        if vs_file.last_error:
+                            error_msg = vs_file.last_error.message
+                        logger.error(
+                            "File indexing failed: %s - %s",
+                            vs_file.id,
+                            error_msg,
+                        )
+                        failed_name = file_id_to_name.get(vs_file.id, vs_file.id)
+                        yield self._chunk_factory.create(
+                            ChunkType.PROCESSING,
+                            f"Fehler: {failed_name}",
+                            {
+                                "status": "failed",
+                                "total_files": total_files,
+                                "completed_files": completed_count,
+                                "error": error_msg,
+                            },
+                        )
+                        pending_files.discard(vs_file.id)
+                        success = False
+
+            if pending_files:
+                await asyncio.sleep(1)
+
+        if pending_files:
+            logger.warning("Timeout waiting for files: %s", pending_files)
+            yield self._chunk_factory.create(
+                ChunkType.PROCESSING,
+                f"Zeitüberschreitung ({completed_count}/{total_files})",
+                {
+                    "status": "timeout",
+                    "total_files": total_files,
+                    "completed_files": completed_count,
+                },
+            )
+            return
+
+        # Final success chunk
+        if success:
+            if total_files == 1:
+                done_text = f"Bereit: {filenames[0]}"
+            else:
+                done_text = f"{total_files} Dateien bereit"
+            yield self._chunk_factory.create(
+                ChunkType.PROCESSING,
+                done_text,
+                {
+                    "status": "completed",
+                    "total_files": total_files,
+                    "completed_files": total_files,
+                },
+            )
+
     async def _create_vector_store_with_retry(
         self,
         thread_uuid: str,
@@ -615,7 +425,123 @@ class FileUploadService:
             f"Failed to create vector store after {max_retries} attempts"
         ) from last_error
 
-    async def process_files_for_thread_streaming(  # noqa: PLR0912
+    async def _delete_files_from_vector_stores(
+        self, db_files: list[AssistantFileUpload]
+    ) -> None:
+        """Delete files FROM their vector stores (Level 1)."""
+        # Build map of vector_store_id -> file_ids
+        vector_store_files: dict[str, list[str]] = {}
+        for db_file in db_files:
+            if db_file.vector_store_id:
+                if db_file.vector_store_id not in vector_store_files:
+                    vector_store_files[db_file.vector_store_id] = []
+                vector_store_files[db_file.vector_store_id].append(
+                    db_file.openai_file_id
+                )
+
+        # Delete from each vector store
+        for vs_id, vs_file_ids in vector_store_files.items():
+            for file_id in vs_file_ids:
+                try:
+                    await self.client.vector_stores.files.delete(
+                        vector_store_id=vs_id,
+                        file_id=file_id,
+                    )
+                    logger.debug("Deleted file %s from vector store %s", file_id, vs_id)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to delete file %s from vector store %s: %s",
+                        file_id,
+                        vs_id,
+                        e,
+                    )
+
+    async def _delete_files_from_openai(self, file_ids: list[str]) -> dict[str, bool]:
+        """Delete files from OpenAI (Level 2)."""
+        results = {}
+        for file_id in file_ids:
+            try:
+                await self.client.files.delete(file_id=file_id)
+                logger.debug("Deleted OpenAI file: %s", file_id)
+                results[file_id] = True
+            except Exception as e:
+                logger.warning("Failed to delete OpenAI file %s: %s", file_id, e)
+                results[file_id] = False
+        return results
+
+    async def _delete_file_db_records(
+        self,
+        db_files: list[AssistantFileUpload],
+        deletion_results: dict[str, bool],
+    ) -> None:
+        """Delete database records for successfully deleted files (Level 3)."""
+        deleted_file_ids = [fid for fid, success in deletion_results.items() if success]
+        if not deleted_file_ids:
+            return
+
+        async with get_asyncdb_session() as session:
+            for db_file in db_files:
+                if db_file.openai_file_id in deleted_file_ids:
+                    try:
+                        await session.delete(db_file)
+                        logger.debug(
+                            "Deleted DB record for file: %s", db_file.openai_file_id
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to delete DB record for file %s: %s",
+                            db_file.openai_file_id,
+                            e,
+                        )
+            await session.commit()
+
+    async def upload_file(
+        self,
+        file_path: str,
+        thread_id: int,
+        user_id: int,  # noqa: ARG002
+    ) -> str:
+        """Upload a file to OpenAI for assistants/file_search.
+
+        Args:
+            file_path: Local path to the file to upload.
+            thread_id: Database ID of the thread this file belongs to.
+            user_id: ID of the user uploading the file.
+
+        Returns:
+            The OpenAI file ID.
+
+        Raises:
+            FileUploadError: If validation fails or upload errors occur.
+        """
+        path = Path(file_path)
+
+        # Validate file exists
+        if not path.exists():
+            raise FileUploadError(f"Datei nicht gefunden: {file_path}")
+
+        # Validate file size
+        file_size = path.stat().st_size
+        if file_size > self._max_file_size_bytes:
+            raise FileUploadError(
+                f"Datei überschreitet die maximale Größe von {self.config.max_file_size_mb}MB"
+            )
+
+        # Validate file count for thread
+        await self._validate_file_count(thread_id)
+
+        # Upload to OpenAI with retry
+        openai_file_id = await self._upload_with_retry(path)
+
+        logger.info(
+            "Uploaded file to OpenAI: %s -> %s",
+            path.name,
+            openai_file_id,
+        )
+
+        return openai_file_id
+
+    async def process_files(  # noqa: PLR0912
         self,
         file_paths: list[str],
         thread_db_id: int,
@@ -657,14 +583,14 @@ class FileUploadService:
                 path = Path(file_path)
                 filename = path.name
 
-                yield Chunk(
-                    type=ChunkType.PROCESSING,
-                    text=f"Lade hoch: {filename} ({i}/{total_files})",
-                    chunk_metadata={
+                yield self._chunk_factory.create(
+                    ChunkType.PROCESSING,
+                    f"Lade hoch: {filename} ({i}/{total_files})",
+                    {
                         "status": "uploading",
                         "current_file": filename,
-                        "file_index": str(i),
-                        "total_files": str(total_files),
+                        "file_index": i,
+                        "total_files": total_files,
                     },
                 )
 
@@ -674,13 +600,13 @@ class FileUploadService:
                 file_sizes.append(path.stat().st_size)
 
             # Phase 2: Get or create vector store
-            yield Chunk(
-                type=ChunkType.PROCESSING,
-                text="Bereite Vector Store vor...",
-                chunk_metadata={"status": "preparing_store"},
+            yield self._chunk_factory.create(
+                ChunkType.PROCESSING,
+                "Bereite Vector Store vor...",
+                {"status": "preparing_store"},
             )
 
-            vector_store_id, vector_store_name = await self.get_or_create_vector_store(
+            vector_store_id, vector_store_name = await self.get_vector_store(
                 thread_db_id, thread_uuid
             )
 
@@ -688,14 +614,14 @@ class FileUploadService:
             for i, (file_id, filename) in enumerate(
                 zip(uploaded_file_ids, filenames, strict=True), 1
             ):
-                yield Chunk(
-                    type=ChunkType.PROCESSING,
-                    text=f"Füge hinzu: {filename} ({i}/{total_files})",
-                    chunk_metadata={
+                yield self._chunk_factory.create(
+                    ChunkType.PROCESSING,
+                    f"Füge hinzu: {filename} ({i}/{total_files})",
+                    {
                         "status": "adding_to_store",
                         "current_file": filename,
-                        "file_index": str(i),
-                        "total_files": str(total_files),
+                        "file_index": i,
+                        "total_files": total_files,
                     },
                 )
 
@@ -726,7 +652,7 @@ class FileUploadService:
                 logger.debug("Tracked %d file uploads in database", len(filenames))
 
             # Phase 4: Wait for indexing with streaming progress
-            async for chunk in self.wait_for_processing_streaming(
+            async for chunk in self._wait_for_processing(
                 vector_store_id, uploaded_file_ids, filenames
             ):
                 # Add vector_store_id to final chunk metadata
@@ -745,169 +671,171 @@ class FileUploadService:
                     "Cleaning up %d uploaded files due to error",
                     len(uploaded_file_ids),
                 )
-                await self.cleanup_files(uploaded_file_ids)
+                await self.delete_files(uploaded_file_ids)
             raise
 
-    async def cleanup_openai_files(
+    async def get_vector_store(
         self,
-        openai_file_ids: list[str],
-        vector_store_id: str | None,
-    ) -> None:
-        """Clean up OpenAI files by their IDs.
+        thread_id: int,
+        thread_uuid: str,
+    ) -> tuple[str, str]:
+        """Get existing vector store for thread or create a new one.
 
-        Deletes files from OpenAI. If all files are successfully deleted,
-        attempts to delete the vector store.
-        Failures are logged but do not raise exceptions.
-
-        Note: This method does NOT delete database records - use this when
-        DB records have already been cascade-deleted with the thread.
+        Automatically validates the vector store exists in OpenAI and recreates
+        if missing.
 
         Args:
-            openai_file_ids: List of OpenAI file IDs to delete.
-            vector_store_id: The vector store ID (if any) to delete after files.
+            thread_id: Database ID of the thread.
+            thread_uuid: UUID string of the thread (for naming).
+
+        Returns:
+            Tuple of (vector_store_id, vector_store_name).
+
+        Raises:
+            FileUploadError: If vector store creation fails.
         """
-        logger.info(
-            "Starting OpenAI cleanup for %d files, vector_store=%s",
-            len(openai_file_ids),
-            vector_store_id,
-        )
-
-        if not openai_file_ids:
-            logger.debug("No files to clean up")
-            # If vector store exists but no files, try to delete it
-            if vector_store_id:
-                await self._try_delete_vector_store(vector_store_id)
-            return
-
-        deleted_count = 0
-        all_successful = True
-
-        for file_id in openai_file_ids:
-            success = await self._try_delete_openai_file(file_id)
-            if success:
-                deleted_count += 1
-            else:
-                all_successful = False
-
-        logger.info(
-            "OpenAI cleanup completed: %d/%d files deleted",
-            deleted_count,
-            len(openai_file_ids),
-        )
-
-        # Delete vector store only if all files were cleaned successfully
-        if vector_store_id and all_successful:
-            await self._try_delete_vector_store(vector_store_id)
-        elif vector_store_id:
-            logger.info(
-                "Skipping vector store deletion for %s due to cleanup failures; "
-                "it will auto-expire",
-                vector_store_id,
-            )
-
-    async def cleanup_thread_files(
-        self,
-        thread_db_id: int,
-        vector_store_id: str | None,
-    ) -> None:
-        """Clean up all files associated with a deleted thread.
-
-        Deletes files from OpenAI and database records. If all files are
-        successfully deleted, attempts to delete the vector store.
-        Failures are logged but do not raise exceptions.
-
-        Args:
-            thread_db_id: Database ID of the deleted thread.
-            vector_store_id: The vector store ID (if any) associated with the thread.
-        """
-        from appkit_assistant.backend.repositories import (  # noqa: PLC0415
-            file_upload_repo,
-        )
-
-        logger.info("Starting cleanup for deleted thread %d", thread_db_id)
-
-        # Get all files for this thread
         async with get_asyncdb_session() as session:
-            files = await file_upload_repo.find_by_thread(session, thread_db_id)
-
-        if not files:
-            logger.debug("No files to clean up for thread %d", thread_db_id)
-            # If vector store exists but no files, try to delete it
-            if vector_store_id:
-                await self._try_delete_vector_store(vector_store_id)
-            return
-
-        deleted_count = 0
-        all_successful = True
-
-        for file_upload in files:
-            # Step 1: Delete from OpenAI
-            openai_deleted = await self._try_delete_openai_file(
-                file_upload.openai_file_id
+            result = await session.execute(
+                select(AssistantThread).where(AssistantThread.id == thread_id)
             )
-            if not openai_deleted:
-                all_successful = False
+            thread = result.scalar_one_or_none()
 
-            # Step 2: Delete database record (continue even if OpenAI failed)
-            db_deleted = await self._try_delete_db_record(file_upload.id)
-            if db_deleted:
-                deleted_count += 1
-            else:
-                all_successful = False
+            if not thread:
+                raise FileUploadError(f"Thread not found: {thread_id}")
 
-        logger.info(
-            "Cleanup completed for thread %d: %d/%d files deleted",
-            thread_db_id,
-            deleted_count,
-            len(files),
-        )
+            # Return existing vector store if present and valid
+            if thread.vector_store_id:
+                logger.debug(
+                    "Checking existing vector store: %s",
+                    thread.vector_store_id,
+                )
+                # Validate vector store exists in OpenAI
+                try:
+                    vs = await self.client.vector_stores.retrieve(
+                        thread.vector_store_id
+                    )
+                    return thread.vector_store_id, vs.name or ""
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if "not found" in error_msg or "404" in error_msg:
+                        logger.warning(
+                            "Vector store %s no longer exists, creating new one",
+                            thread.vector_store_id,
+                        )
+                        # Vector store doesn't exist - create new one and migrate files
+                        return await self._recreate_vector_store(
+                            session, thread, thread_uuid
+                        )
+                    # Other error - log but try to continue
+                    logger.warning(
+                        "Error checking vector store %s: %s",
+                        thread.vector_store_id,
+                        e,
+                    )
+                    return thread.vector_store_id, f"Thread-{thread_uuid}"
 
-        # Step 3: Delete vector store only if all files were cleaned successfully
-        if vector_store_id and all_successful:
-            await self._try_delete_vector_store(vector_store_id)
-        elif vector_store_id:
+            # Create new vector store with expiration
+            vector_store = await self._create_vector_store_with_retry(thread_uuid)
+            vector_store_id = vector_store.id
+            vector_store_name = vector_store.name or f"Thread-{thread_uuid}"
+
+            # Update thread with vector store ID
+            thread.vector_store_id = vector_store_id
+            session.add(thread)
+            await session.commit()
+
             logger.info(
-                "Skipping vector store deletion for %s due to cleanup failures; "
-                "it will auto-expire",
+                "Created vector store for thread %s: %s",
+                thread_uuid,
                 vector_store_id,
             )
 
-    async def _try_delete_openai_file(self, openai_file_id: str) -> bool:
-        """Try to delete a file from OpenAI. Returns True if successful."""
+            return vector_store_id, vector_store_name
+
+    async def delete_files(self, file_ids: list[str]) -> dict[str, bool]:
+        """Delete files with proper three-level ordering.
+
+        Order:
+        1. Delete files FROM their vector stores (remove association)
+        2. Delete files from OpenAI
+        3. Delete database records
+
+        Args:
+            file_ids: List of OpenAI file IDs to delete.
+
+        Returns:
+            Dictionary mapping file_id to deletion success status.
+        """
+        if not file_ids:
+            return {}
+
+        # Get file records from database to know which vector stores they belong to
+        async with get_asyncdb_session() as session:
+            file_records = await session.execute(
+                select(AssistantFileUpload).where(
+                    AssistantFileUpload.openai_file_id.in_(file_ids)
+                )
+            )
+            db_files = file_records.scalars().all()
+
+        # LEVEL 1: Delete files FROM their vector stores
+        await self._delete_files_from_vector_stores(db_files)
+
+        # LEVEL 2: Delete files from OpenAI
+        results = await self._delete_files_from_openai(file_ids)
+
+        # LEVEL 3: Delete database records (only for successfully deleted files)
+        await self._delete_file_db_records(db_files, results)
+
+        return results
+
+    async def delete_vector_store(self, vector_store_id: str) -> bool:
+        """Delete a vector store with proper ordering.
+
+        Order:
+        1. Delete all files in the vector store (via delete_files - 3-level deletion)
+        2. Delete the vector store container itself
+
+        Args:
+            vector_store_id: The vector store ID to delete.
+
+        Returns:
+            True if vector store was successfully deleted, False otherwise.
+        """
+        if not vector_store_id:
+            return False
+
+        logger.info("Deleting vector store: %s", vector_store_id)
+
+        # Step 1: List and delete all files in the vector store
         try:
-            await self.client.files.delete(file_id=openai_file_id)
-            logger.debug("Deleted OpenAI file: %s", openai_file_id)
-            return True
+            vs_files = await self.client.vector_stores.files.list(
+                vector_store_id=vector_store_id
+            )
+            file_ids = [vs_file.id for vs_file in vs_files.data]
+
+            if file_ids:
+                logger.info(
+                    "Deleting %d files from vector store %s",
+                    len(file_ids),
+                    vector_store_id,
+                )
+                deletion_results = await self.delete_files(file_ids)
+                successful = sum(1 for success in deletion_results.values() if success)
+                logger.info(
+                    "Successfully deleted %d/%d files from vector store %s",
+                    successful,
+                    len(file_ids),
+                    vector_store_id,
+                )
         except Exception as e:
             logger.warning(
-                "Failed to delete OpenAI file %s: %s",
-                openai_file_id,
+                "Failed to delete files from vector store %s: %s",
+                vector_store_id,
                 e,
             )
-            return False
 
-    async def _try_delete_db_record(self, file_id: int) -> bool:
-        """Try to delete a file record from database. Returns True if successful."""
-        from appkit_assistant.backend.repositories import (  # noqa: PLC0415
-            file_upload_repo,
-        )
-
-        try:
-            async with get_asyncdb_session() as session:
-                await file_upload_repo.delete_file(session, file_id)
-                await session.commit()
-            logger.debug("Deleted DB record for file: %d", file_id)
-            return True
-        except Exception as e:
-            logger.error(
-                "Failed to delete DB record for file %d: %s",
-                file_id,
-                e,
-            )
-            return False
-
-    async def _try_delete_vector_store(self, vector_store_id: str) -> bool:
-        """Try to delete a vector store from OpenAI. Returns True if successful."""
+        # Step 2: Delete the vector store container itself
         try:
             await self.client.vector_stores.delete(vector_store_id=vector_store_id)
             logger.info("Deleted vector store: %s", vector_store_id)
@@ -919,3 +847,57 @@ class FileUploadService:
                 e,
             )
             return False
+
+    async def cleanup_deleted_thread(
+        self,
+        thread_db_id: int,
+        vector_store_id: str | None,
+    ) -> dict[str, Any]:
+        """Clean up all resources for a deleted thread.
+
+        Deletion is handled by delete_vector_store which:
+        1. Deletes all files (3-level: from VS, from OpenAI, from DB)
+        2. Deletes the vector store container
+
+        Args:
+            thread_db_id: Database ID of the deleted thread.
+            vector_store_id: The vector store ID (if any) associated with the thread.
+
+        Returns:
+            Dictionary with cleanup statistics:
+            {
+                'vector_store_deleted': bool,
+                'thread_db_id': int,
+                'errors': list[str]
+            }
+        """
+        logger.info("Starting cleanup for deleted thread %d", thread_db_id)
+
+        result = {
+            "vector_store_deleted": False,
+            "thread_db_id": thread_db_id,
+            "errors": [],
+        }
+
+        if not vector_store_id:
+            logger.debug(
+                "No vector store to clean up for thread %d",
+                thread_db_id,
+            )
+            return result
+
+        # Delete vector store (which handles all file deletion internally)
+        vs_deleted = await self.delete_vector_store(vector_store_id)
+        result["vector_store_deleted"] = vs_deleted
+
+        if not vs_deleted:
+            result["errors"].append(f"Failed to delete vector store {vector_store_id}")
+
+        logger.info(
+            "Cleanup completed for thread %d: VS=%s, errors=%d",
+            thread_db_id,
+            result["vector_store_deleted"],
+            len(result["errors"]),
+        )
+
+        return result

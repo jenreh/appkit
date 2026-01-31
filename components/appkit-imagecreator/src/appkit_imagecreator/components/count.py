@@ -30,19 +30,22 @@ def _count_option() -> rx.Component:
 def count_popup() -> rx.Component:
     """Popup for selecting number of images to generate."""
     return rx.popover.root(
-        rx.popover.trigger(
-            rx.box(
-                rx.text(
-                    ImageGalleryState.count_label,
-                    size="2",
-                    weight="medium",
-                    color=rx.color("gray", 11),
+        rx.tooltip(
+            rx.popover.trigger(
+                rx.button(
+                    rx.text(
+                        ImageGalleryState.count_label,
+                        size="2",
+                        weight="medium",
+                    ),
+                    cursor="pointer",
+                    padding="8px",
+                    variant="ghost",
+                    margin_left="3px",
+                    margin_right="3px",
                 ),
-                cursor="pointer",
-                padding="8px 12px",
-                border_radius="8px",
-                _hover={"background": rx.color("gray", 3)},
             ),
+            content="Wähle die Anzahl der zu generierenden Bilder",
         ),
         rx.popover.content(
             _count_option(),

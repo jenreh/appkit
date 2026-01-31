@@ -20,27 +20,31 @@ from typing import Any
 
 import reflex as rx
 
-from appkit_assistant.backend import file_manager
+from appkit_assistant.backend.database.models import (
+    MCPServer,
+    ThreadStatus,
+)
+from appkit_assistant.backend.database.repositories import mcp_server_repo
 from appkit_assistant.backend.model_manager import ModelManager
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     ChunkType,
-    MCPServer,
     Message,
     MessageType,
     Suggestion,
     Thinking,
     ThinkingType,
     ThreadModel,
-    ThreadStatus,
     UploadedFile,
 )
-from appkit_assistant.backend.repositories import mcp_server_repo
-from appkit_assistant.backend.response_accumulator import ResponseAccumulator
+from appkit_assistant.backend.services import file_manager
+from appkit_assistant.backend.services.response_accumulator import ResponseAccumulator
 from appkit_assistant.backend.services.thread_service import ThreadService
+from appkit_assistant.configuration import AssistantConfig
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_commons.registry import service_registry
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
@@ -76,6 +80,8 @@ class ThreadState(rx.State):
 
     # File upload state
     uploaded_files: list[UploadedFile] = []
+    max_file_size_mb: int = 50
+    max_files_per_thread: int = 10
 
     # Editing state
     editing_message_id: str | None = None
@@ -92,6 +98,9 @@ class ThreadState(rx.State):
     available_mcp_servers: list[MCPServer] = []
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
+
+    # Web Search state
+    web_search_enabled: bool = False
 
     # MCP OAuth state
     pending_auth_server_id: str = ""
@@ -157,6 +166,14 @@ class ThreadState(rx.State):
             return False
         model = ModelManager().get_model(self.selected_model)
         return model.supports_attachments if model else False
+
+    @rx.var
+    def selected_model_supports_search(self) -> bool:
+        """Check if the currently selected model supports web search."""
+        if not self.selected_model:
+            return False
+        model = ModelManager().get_model(self.selected_model)
+        return model.supports_search if model else False
 
     @rx.var
     def get_unique_reasoning_sessions(self) -> list[str]:
@@ -237,6 +254,13 @@ class ThreadState(rx.State):
         self.prompt = ""
         self.show_thinking = False
         self._current_user_id = current_user_id
+
+        # Load config
+        config: AssistantConfig | None = service_registry().get(AssistantConfig)
+        if config:
+            self.max_file_size_mb = config.file_upload.max_file_size_mb
+            self.max_files_per_thread = config.file_upload.max_files_per_thread
+
         self._initialized = True
         logger.debug("Initialized thread state: %s", self._thread.thread_id)
 
@@ -396,15 +420,20 @@ class ThreadState(rx.State):
         """Toggle the expanded state of the thinking section."""
         self.thinking_expanded = not self.thinking_expanded
 
+    @rx.event
+    def toggle_web_search(self) -> None:
+        """Toggle web search."""
+        self.web_search_enabled = not self.web_search_enabled
+
     # -------------------------------------------------------------------------
     # MCP Server tool support
     # -------------------------------------------------------------------------
 
     @rx.event
     async def load_mcp_servers(self) -> None:
-        """Load available MCP servers from the database."""
+        """Load available active MCP servers from the database."""
         async with get_asyncdb_session() as session:
-            servers = await mcp_server_repo.find_all_ordered_by_name(session)
+            servers = await mcp_server_repo.find_all_active_ordered_by_name(session)
             # Create detached copies
             self.available_mcp_servers = [MCPServer(**s.model_dump()) for s in servers]
 
@@ -431,6 +460,12 @@ class ThreadState(rx.State):
             if server.id in self.temp_selected_mcp_servers
         ]
         self.show_tools_modal = False
+
+    @rx.event
+    def deselect_all_mcp_servers(self) -> None:
+        """Deselect all MCP servers in the modal."""
+        self.server_selection_state = {}
+        self.temp_selected_mcp_servers = []
 
     @rx.event
     def is_mcp_server_selected(self, server_id: int) -> bool:
@@ -467,6 +502,15 @@ class ThreadState(rx.State):
 
         Moves files to user-specific directory and adds them to state.
         """
+        # Validate file count (using state variables from config)
+        if len(files) > self.max_files_per_thread:
+            yield rx.toast.error(
+                f"Bitte laden Sie maximal {self.max_files_per_thread} Dateien gleichzeitig hoch.",
+                position="top-right",
+                close_button=True,
+            )
+            return
+
         user_session: UserSession = await self.get_state(UserSession)
         user_id = user_session.user.user_id if user_session.user else "anonymous"
 
@@ -727,6 +771,10 @@ class ThreadState(rx.State):
         try:
             # Build payload with thread_uuid for file upload support
             payload = {"thread_uuid": self._thread.thread_id}
+
+            # Pass web search state to processor via payload
+            if self.web_search_enabled:
+                payload["web_search_enabled"] = True
 
             async for chunk in processor.process(
                 self.messages,

@@ -4,7 +4,7 @@ from collections.abc import Callable
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.models import Message, MessageType
+from appkit_assistant.backend.schemas import Message, MessageType
 from appkit_assistant.components import composer
 from appkit_assistant.components.message import AuthCardComponent, MessageComponent
 from appkit_assistant.components.threadlist import ThreadList

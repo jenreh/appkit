@@ -6,14 +6,16 @@ from typing import Any
 from openai import AsyncStream
 from openai.types.chat import ChatCompletionMessageParam
 
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.database.models import (
+    MCPServer,
+)
+from appkit_assistant.backend.processors.openai_base import BaseOpenAIProcessor
+from appkit_assistant.backend.schemas import (
     Chunk,
     ChunkType,
-    MCPServer,
     Message,
     MessageType,
 )
-from appkit_assistant.backend.processors.openai_base import BaseOpenAIProcessor
 
 logger = logging.getLogger(__name__)
 

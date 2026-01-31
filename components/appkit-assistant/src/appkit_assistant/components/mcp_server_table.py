@@ -3,7 +3,7 @@
 import reflex as rx
 from reflex.components.radix.themes.components.table import TableRow
 
-from appkit_assistant.backend.models import MCPServer
+from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.components.mcp_server_dialogs import (
     add_mcp_server_button,
     delete_mcp_server_dialog,
@@ -37,6 +37,15 @@ def mcp_server_table_row(server: MCPServer) -> TableRow:
             },
         ),
         rx.table.cell(
+            rx.switch(
+                checked=server.active,
+                on_change=lambda checked: MCPServerState.toggle_server_active(
+                    server.id, checked
+                ),
+            ),
+            white_space="nowrap",
+        ),
+        rx.table.cell(
             rx.hstack(
                 update_mcp_server_dialog(server),
                 delete_mcp_server_dialog(server),
@@ -62,8 +71,9 @@ def mcp_servers_table() -> rx.Fragment:
                 rx.table.row(
                     rx.table.column_header_cell("Name", width="20%"),
                     rx.table.column_header_cell(
-                        "Beschreibung", width="calc(80% - 140px)"
+                        "Beschreibung", width="calc(80% - 230px)"
                     ),
+                    rx.table.column_header_cell("Aktiv", width="90px"),
                     rx.table.column_header_cell("", width="140px"),
                 ),
             ),

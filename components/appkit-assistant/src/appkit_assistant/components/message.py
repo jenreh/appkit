@@ -1,7 +1,7 @@
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.schemas import (
     Message,
     MessageType,
     Thinking,
@@ -148,6 +148,60 @@ class MessageActionsBar:
             margin_top="-9px",
             margin_left="9px",
         )
+
+
+def _render_annotation(ann: str) -> rx.Component:
+    return rx.cond(
+        ann.contains("http"),
+        rx.badge(
+            rx.link(
+                rx.hstack(
+                    rx.icon("globe", size=12, flex_shrink=0),
+                    rx.text(
+                        ann,
+                        style={
+                            "overflow": "hidden",
+                            "white_space": "nowrap",
+                            "text_overflow": "ellipsis",
+                        },
+                    ),
+                    align="center",
+                    spacing="1",
+                    width="100%",
+                ),
+                href=ann,
+                is_external=True,
+                size="1",
+                width="100%",
+                text_decoration="none",
+                style={"overflow": "hidden"},
+            ),
+            size="1",
+            variant="soft",
+            color_scheme="gray",
+            max_width="100%",
+        ),
+        rx.badge(
+            rx.hstack(
+                rx.icon("file-text", size=12, flex_shrink=0),
+                rx.text(
+                    ann,
+                    style={
+                        "overflow": "hidden",
+                        "white_space": "nowrap",
+                        "text_overflow": "ellipsis",
+                    },
+                ),
+                align="center",
+                spacing="1",
+                width="100%",
+            ),
+            size="1",
+            variant="soft",
+            color_scheme="gray",
+            max_width="100%",
+        ),
+    )
 
 
 class MessageComponent:
@@ -364,16 +418,12 @@ class MessageComponent:
                     rx.hstack(
                         rx.foreach(
                             message.annotations,
-                            lambda ann: rx.badge(
-                                ann,
-                                size="1",
-                                variant="soft",
-                                color_scheme="gray",
-                            ),
+                            _render_annotation,
                         ),
-                        spacing="1",
+                        spacing="2",
                         align="start",
                         flex_wrap="wrap",
+                        max_width="95%",
                     ),
                     padding="6px",
                     margin_top="6px",

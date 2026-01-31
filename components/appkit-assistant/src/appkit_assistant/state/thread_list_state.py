@@ -15,8 +15,9 @@ from typing import TYPE_CHECKING, Any
 
 import reflex as rx
 
-from appkit_assistant.backend.models import ThreadModel, ThreadStatus
-from appkit_assistant.backend.repositories import thread_repo
+from appkit_assistant.backend.database.models import ThreadStatus
+from appkit_assistant.backend.database.repositories import thread_repo
+from appkit_assistant.backend.schemas import ThreadModel
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
@@ -215,7 +216,13 @@ class ThreadListState(rx.State):
             )
             was_active = thread_id == self.active_thread_id
 
+            if thread_to_delete:
+                self.loading_thread_id = thread_id
+                yield
+
         if not is_authenticated or not user_id:
+            async with self:
+                self.loading_thread_id = ""
             return
 
         if not thread_to_delete:
@@ -223,6 +230,8 @@ class ThreadListState(rx.State):
                 "Chat nicht gefunden.", position="top-right", close_button=True
             )
             logger.warning("Thread %s not found for deletion", thread_id)
+            async with self:
+                self.loading_thread_id = ""
             return
 
         # Capture thread info for cleanup before deletion
@@ -241,7 +250,7 @@ class ThreadListState(rx.State):
                     vector_store_id = db_thread.vector_store_id
 
                     # Fetch file IDs before deletion (cascade will delete records)
-                    from appkit_assistant.backend.repositories import (  # noqa: PLC0415
+                    from appkit_assistant.backend.database.repositories import (  # noqa: PLC0415
                         file_upload_repo,
                     )
 
@@ -256,6 +265,7 @@ class ThreadListState(rx.State):
             async with self:
                 # Remove from list immediately
                 self.threads = [t for t in self.threads if t.thread_id != thread_id]
+                self.loading_thread_id = ""
 
                 if was_active:
                     self.active_thread_id = ""
@@ -279,6 +289,8 @@ class ThreadListState(rx.State):
                 yield ThreadListState.cleanup_thread_openai_files([], vector_store_id)
 
         except Exception as e:
+            async with self:
+                self.loading_thread_id = ""
             logger.error("Error deleting thread %s: %s", thread_id, e)
             yield rx.toast.error(
                 "Fehler beim Löschen des Chats.",
@@ -295,9 +307,12 @@ class ThreadListState(rx.State):
         This runs in the background so the user can continue working.
         Failures are logged but not shown to the user.
 
+        Note: This is called AFTER DB records are cascade-deleted, so it only
+        handles OpenAI resource cleanup.
+
         Args:
             openai_file_ids: List of OpenAI file IDs to delete.
-            vector_store_id: The vector store ID to delete (if all files succeed).
+            vector_store_id: The vector store ID to delete.
         """
         from appkit_assistant.backend.services.file_upload_service import (  # noqa: PLC0415
             FileUploadService,
@@ -323,7 +338,15 @@ class ThreadListState(rx.State):
             return
 
         file_service = FileUploadService(client)
-        await file_service.cleanup_openai_files(openai_file_ids, vector_store_id)
+
+        # Delete vector store (which deletes files FROM store first)
+        if vector_store_id:
+            await file_service.delete_vector_store(vector_store_id)
+
+        # Delete files from OpenAI (independent cleanup)
+        if openai_file_ids:
+            await file_service.delete_files(openai_file_ids)
+
         yield  # Required for async generator
 
     # -------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import reflex as rx
 
-from appkit_assistant.backend.models import ThreadModel
+from appkit_assistant.backend.schemas import ThreadModel
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_assistant.state.thread_state import ThreadState
 

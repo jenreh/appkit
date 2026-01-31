@@ -4,39 +4,81 @@ Gemini responses processor for generating AI responses using Google's GenAI API.
 
 import asyncio
 import copy
-import json
 import logging
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import Any, Final, NamedTuple
 
-import reflex as rx
+import httpx
+from google import genai
 from google.genai import types
 from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client
 
-from appkit_assistant.backend.mcp_auth_service import MCPAuthService
-from appkit_assistant.backend.models import (
-    AIModel,
-    AssistantMCPUserToken,
-    Chunk,
-    ChunkType,
-    MCPAuthType,
+from appkit_assistant.backend.database.models import (
     MCPServer,
+)
+from appkit_assistant.backend.processors.mcp_mixin import MCPCapabilities
+from appkit_assistant.backend.processors.processor_base import (
+    ProcessorBase,
+    mcp_oauth_redirect_uri,
+)
+from appkit_assistant.backend.schemas import (
+    AIModel,
+    Chunk,
+    MCPAuthType,
     Message,
     MessageType,
 )
-from appkit_assistant.backend.processor import mcp_oauth_redirect_uri
-from appkit_assistant.backend.processors.gemini_base import BaseGeminiProcessor
-from appkit_assistant.backend.system_prompt_cache import get_system_prompt
+from appkit_assistant.backend.services.chunk_factory import ChunkFactory
+from appkit_assistant.backend.services.system_prompt_builder import SystemPromptBuilder
 
 logger = logging.getLogger(__name__)
 default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
 
 # Maximum characters to show in tool result preview
 TOOL_RESULT_PREVIEW_LENGTH: Final[int] = 500
+
+GEMINI_FORBIDDEN_SCHEMA_FIELDS: Final[set[str]] = {
+    "$schema",
+    "$id",
+    "$ref",
+    "$defs",
+    "definitions",
+    "$comment",
+    "examples",
+    "default",
+    "const",
+    "contentMediaType",
+    "contentEncoding",
+    "additionalProperties",
+    "additional_properties",
+    "patternProperties",
+    "unevaluatedProperties",
+    "unevaluatedItems",
+    "minItems",
+    "maxItems",
+    "minLength",
+    "maxLength",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+    "multipleOf",
+    "pattern",
+    "format",
+    "title",
+    "allOf",
+    "oneOf",
+    "not",
+    "if",
+    "then",
+    "else",
+    "dependentSchemas",
+    "dependentRequired",
+}
 
 
 @dataclass
@@ -48,7 +90,15 @@ class MCPToolContext:
     tools: dict[str, Any] = field(default_factory=dict)
 
 
-class GeminiResponsesProcessor(BaseGeminiProcessor):
+class MCPSessionWrapper(NamedTuple):
+    """Wrapper to store MCP connection details before creating actual session."""
+
+    url: str
+    headers: dict[str, str]
+    name: str
+
+
+class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
     """Gemini processor using the GenAI API with native MCP support."""
 
     def __init__(
@@ -57,13 +107,27 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         api_key: str | None = None,
         oauth_redirect_uri: str = default_oauth_redirect_uri,
     ) -> None:
-        super().__init__(models, api_key)
-        self._current_reasoning_session: str | None = None
-        self._current_user_id: int | None = None
-        self._mcp_auth_service = MCPAuthService(redirect_uri=oauth_redirect_uri)
-        self._pending_auth_servers: list[MCPServer] = []
+        MCPCapabilities.__init__(self, oauth_redirect_uri, "gemini_responses")
+        self.models = models
+        self.client: genai.Client | None = None
+        self._chunk_factory = ChunkFactory(processor_name="gemini_responses")
+        self._system_prompt_builder = SystemPromptBuilder()
+
+        if api_key:
+            try:
+                self.client = genai.Client(
+                    api_key=api_key, http_options={"api_version": "v1beta"}
+                )
+            except Exception as e:
+                logger.error("Failed to initialize Gemini client: %s", e)
+        else:
+            logger.warning("Gemini API key not found. Processor disabled.")
 
         logger.debug("Using redirect URI for MCP OAuth: %s", oauth_redirect_uri)
+
+    def get_supported_models(self) -> dict[str, AIModel]:
+        """Get supported models."""
+        return self.models
 
     async def process(
         self,
@@ -84,9 +148,8 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
             raise ValueError(msg)
 
         model = self.models[model_id]
-        self._current_user_id = user_id
-        self._pending_auth_servers = []
-        self._current_reasoning_session = None
+        self.current_user_id = user_id
+        self.clear_pending_auth_servers()
 
         # Prepare configuration
         config = self._create_generation_config(model, payload)
@@ -95,14 +158,13 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         mcp_sessions = []
         mcp_prompt = ""
         if mcp_servers:
-            sessions_result = await self._create_mcp_sessions(mcp_servers, user_id)
-            mcp_sessions = sessions_result["sessions"]
-            self._pending_auth_servers = sessions_result["auth_required"]
+            mcp_sessions, auth_required = await self._create_mcp_sessions(
+                mcp_servers, user_id
+            )
+            for server in auth_required:
+                self.add_pending_auth_server(server)
             mcp_prompt = self._build_mcp_prompt(mcp_servers)
-
-            if mcp_sessions:
-                # Pass sessions directly to tools - SDK handles everything!
-                config.tools = mcp_sessions
+            # Note: tools are configured in _stream_with_mcp after connecting to MCP
 
         # Prepare messages with MCP prompts for tool selection
         contents, system_instruction = await self._convert_messages_to_gemini_format(
@@ -127,35 +189,35 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                 yield chunk
 
             # Handle any pending auth
-            for server in self._pending_auth_servers:
-                yield await self._create_auth_required_chunk(server)
+            async for auth_chunk in self.yield_pending_auth_chunks():
+                yield auth_chunk
 
         except Exception as e:
             logger.exception("Error in Gemini processor: %s", str(e))
-            yield self._create_chunk(ChunkType.ERROR, f"Error: {e!s}")
+            yield self._chunk_factory.error(f"Error: {e!s}")
 
     async def _create_mcp_sessions(
         self, servers: list[MCPServer], user_id: int | None
-    ) -> dict[str, Any]:
+    ) -> tuple[list[MCPSessionWrapper], list[MCPServer]]:
         """Create MCP ClientSession objects for each server.
 
         Returns:
-            Dict with 'sessions' and 'auth_required' lists
+            Tuple with (sessions, auth_required_servers)
         """
         sessions = []
         auth_required = []
 
         for server in servers:
             try:
-                # Parse headers
-                headers = self._parse_mcp_headers(server)
+                # Parse headers using MCPCapabilities
+                headers = self.parse_mcp_headers(server)
 
                 # Handle OAuth - inject token
                 if (
                     server.auth_type == MCPAuthType.OAUTH_DISCOVERY
                     and user_id is not None
                 ):
-                    token = await self._get_valid_token_for_server(server, user_id)
+                    token = await self.get_valid_token(server, user_id)
                     if token:
                         headers["Authorization"] = f"Bearer {token.access_token}"
                     else:
@@ -187,7 +249,7 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                     "Failed to connect to MCP server %s: %s", server.name, str(e)
                 )
 
-        return {"sessions": sessions, "auth_required": auth_required}
+        return sessions, auth_required
 
     async def _stream_with_mcp(
         self,
@@ -210,11 +272,14 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
         async with self._mcp_context_manager(mcp_sessions) as tool_contexts:
             if tool_contexts:
                 # Convert MCP tools to Gemini FunctionDeclarations
+                # Use unique naming: server_name__tool_name to avoid duplicates
                 function_declarations = []
                 for ctx in tool_contexts:
                     for tool_name, tool_def in ctx.tools.items():
+                        # Create unique name: server_name__tool_name
+                        unique_name = f"{ctx.server_name}__{tool_name}"
                         func_decl = self._mcp_tool_to_gemini_function(
-                            tool_name, tool_def
+                            unique_name, tool_def, original_name=tool_name
                         )
                         if func_decl:
                             function_declarations.append(func_decl)
@@ -275,27 +340,21 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                 # Execute tool calls and collect results
                 function_responses = []
                 for fc in function_calls:
-                    # Find server name for this tool
-                    server_name = "unknown"
-                    for ctx in tool_contexts:
-                        if fc.name in ctx.tools:
-                            server_name = ctx.server_name
-                            break
+                    # Parse unique tool name: server_name__tool_name
+                    server_name, original_tool_name = self._parse_unique_tool_name(
+                        fc.name
+                    )
 
                     # Generate a unique tool call ID
                     tool_call_id = f"mcp_{uuid.uuid4().hex[:32]}"
 
-                    # Yield TOOL_CALL chunk to show in UI
-                    yield self._create_chunk(
-                        ChunkType.TOOL_CALL,
-                        f"Werkzeug: {server_name}.{fc.name}",
-                        {
-                            "tool_name": fc.name,
-                            "tool_id": tool_call_id,
-                            "server_label": server_name,
-                            "arguments": json.dumps(fc.args),
-                            "status": "starting",
-                        },
+                    # Yield TOOL_CALL chunk to show in UI (use original name)
+                    yield self._chunk_factory.tool_call(
+                        f"Benutze Werkzeug: {server_name}.{original_tool_name}",
+                        tool_name=original_tool_name,
+                        tool_id=tool_call_id,
+                        server_label=server_name,
+                        status="starting",
                     )
 
                     result = await self._execute_mcp_tool(
@@ -308,16 +367,10 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                         if len(result) > TOOL_RESULT_PREVIEW_LENGTH
                         else result
                     )
-                    yield self._create_chunk(
-                        ChunkType.TOOL_RESULT,
+                    yield self._chunk_factory.tool_result(
                         preview,
-                        {
-                            "tool_name": fc.name,
-                            "tool_id": tool_call_id,
-                            "server_label": server_name,
-                            "status": "completed",
-                            "result_length": str(len(result)),
-                        },
+                        tool_id=tool_call_id,
+                        status="completed",
                     )
 
                     function_responses.append(
@@ -342,59 +395,75 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                 # Continue to next round
                 continue
 
-            # No function calls - yield text response
-            text_parts = [part.text for part in content.parts if part.text]
-            if text_parts:
-                yield self._create_chunk(
-                    ChunkType.TEXT,
-                    "".join(text_parts),
-                    {"delta": "".join(text_parts)},
-                )
-
-            # Done - no more function calls
+            # No function calls - yield text response and finish
+            if text := self._extract_text_from_parts(content.parts):
+                yield self._chunk_factory.text(text, delta=text)
             return
 
         logger.warning("Max tool rounds (%d) exceeded", max_tool_rounds)
 
+    def _parse_unique_tool_name(self, unique_name: str) -> tuple[str, str]:
+        """Parse unique tool name back to server name and original tool name.
+
+        Args:
+            unique_name: Tool name in format 'server_name__tool_name'
+
+        Returns:
+            Tuple of (server_name, original_tool_name)
+        """
+        if "__" in unique_name:
+            parts = unique_name.split("__", 1)
+            return parts[0], parts[1]
+        # Fallback for tools without prefix
+        return "unknown", unique_name
+
     async def _execute_mcp_tool(
         self,
-        tool_name: str,
+        unique_tool_name: str,
         args: dict[str, Any],
         tool_contexts: list[MCPToolContext],
     ) -> str:
         """Execute an MCP tool and return the result."""
-        # Find which context has this tool
+        server_name, tool_name = self._parse_unique_tool_name(unique_tool_name)
+
         for ctx in tool_contexts:
-            if tool_name in ctx.tools:
+            if ctx.server_name == server_name and tool_name in ctx.tools:
                 try:
                     logger.debug(
                         "Executing tool %s on server %s with args: %s",
                         tool_name,
-                        ctx.server_name,
+                        server_name,
                         args,
                     )
                     result = await ctx.session.call_tool(tool_name, args)
-                    # Extract text from result
                     if hasattr(result, "content") and result.content:
-                        texts = [
-                            item.text
-                            for item in result.content
-                            if hasattr(item, "text")
-                        ]
+                        texts = [i.text for i in result.content if hasattr(i, "text")]
                         return "\n".join(texts) if texts else str(result)
                     return str(result)
                 except Exception as e:
-                    logger.exception("Error executing tool %s: %s", tool_name, str(e))
+                    logger.exception("Error executing tool %s: %s", tool_name, e)
                     return f"Error executing tool: {e!s}"
 
-        return f"Tool {tool_name} not found in any MCP server"
+        return f"Tool {tool_name} not found on server {server_name}"
 
     def _mcp_tool_to_gemini_function(
-        self, name: str, tool_def: dict[str, Any]
+        self,
+        name: str,
+        tool_def: dict[str, Any],
+        original_name: str | None = None,
     ) -> types.FunctionDeclaration | None:
-        """Convert MCP tool definition to Gemini FunctionDeclaration."""
+        """Convert MCP tool definition to Gemini FunctionDeclaration.
+
+        Args:
+            name: Unique function name (may include server prefix)
+            tool_def: MCP tool definition with description and inputSchema
+            original_name: Original tool name for description enhancement
+        """
         try:
             description = tool_def.get("description", "")
+            # Enhance description with original name if using prefixed naming
+            if original_name and original_name != name:
+                description = f"[{original_name}] {description}"
             input_schema = tool_def.get("inputSchema", {})
 
             # Fix the schema for Gemini compatibility
@@ -410,97 +479,37 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
             return None
 
     def _fix_schema_for_gemini(self, schema: dict[str, Any]) -> dict[str, Any]:
-        """Fix JSON schema for Gemini API compatibility.
-
-        Gemini requires 'items' field for array types and doesn't allow certain
-        JSON Schema fields like '$schema', '$id', 'definitions', etc.
-        This recursively fixes the schema.
-        """
-        if not schema:
+        """Fix JSON schema for Gemini API compatibility (recursive)."""
+        if not isinstance(schema, dict):
             return schema
 
-        # Deep copy to avoid modifying original
-        schema = copy.deepcopy(schema)
+        result = copy.deepcopy(schema)
 
-        # Fields that Gemini doesn't allow in FunctionDeclaration parameters
-        # Note: additionalProperties gets converted to additional_properties by SDK
-        forbidden_fields = {
-            "$schema",
-            "$id",
-            "$ref",
-            "$defs",
-            "definitions",
-            "$comment",
-            "examples",
-            "default",
-            "const",
-            "contentMediaType",
-            "contentEncoding",
-            "additionalProperties",
-            "additional_properties",
-            "patternProperties",
-            "unevaluatedProperties",
-            "unevaluatedItems",
-            "minItems",
-            "maxItems",
-            "minLength",
-            "maxLength",
-            "minimum",
-            "maximum",
-            "exclusiveMinimum",
-            "exclusiveMaximum",
-            "multipleOf",
-            "pattern",
-            "format",
-            "title",
-            # Composition keywords - Gemini doesn't support these
-            "allOf",
-            "oneOf",
-            "not",
-            "if",
-            "then",
-            "else",
-            "dependentSchemas",
-            "dependentRequired",
-        }
+        # Remove forbidden fields
+        for key in GEMINI_FORBIDDEN_SCHEMA_FIELDS:
+            result.pop(key, None)
 
-        def fix_property(prop: dict[str, Any]) -> dict[str, Any]:
-            """Recursively fix a property schema."""
-            if not isinstance(prop, dict):
-                return prop
+        # Fix array without items
+        if result.get("type") == "array" and "items" not in result:
+            result["items"] = {"type": "string"}
 
-            # Remove forbidden fields
-            for forbidden in forbidden_fields:
-                prop.pop(forbidden, None)
+        # Recurse into nested schemas
+        if isinstance(result.get("items"), dict):
+            result["items"] = self._fix_schema_for_gemini(result["items"])
 
-            prop_type = prop.get("type")
+        if isinstance(result.get("properties"), dict):
+            result["properties"] = {
+                k: self._fix_schema_for_gemini(v)
+                for k, v in result["properties"].items()
+            }
 
-            # Fix array without items
-            if prop_type == "array" and "items" not in prop:
-                prop["items"] = {"type": "string"}
-                logger.debug("Added missing 'items' to array property")
+        for key in ("anyOf", "any_of"):
+            if isinstance(result.get(key), list):
+                result[key] = [
+                    self._fix_schema_for_gemini(item) for item in result[key]
+                ]
 
-            # Recurse into items
-            if "items" in prop and isinstance(prop["items"], dict):
-                prop["items"] = fix_property(prop["items"])
-
-            # Recurse into properties
-            if "properties" in prop and isinstance(prop["properties"], dict):
-                for key, val in prop["properties"].items():
-                    prop["properties"][key] = fix_property(val)
-
-            # Recurse into anyOf/any_of arrays (Gemini accepts these but not
-            # forbidden fields inside them)
-            for any_of_key in ("anyOf", "any_of"):
-                if any_of_key in prop and isinstance(prop[any_of_key], list):
-                    prop[any_of_key] = [
-                        fix_property(item) if isinstance(item, dict) else item
-                        for item in prop[any_of_key]
-                    ]
-
-            return prop
-
-        return fix_property(schema)
+        return result
 
     @asynccontextmanager
     async def _mcp_context_manager(
@@ -516,11 +525,18 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
                         "Connecting to MCP server %s via streamablehttp_client",
                         wrapper.name,
                     )
+                    # Create httpx client with headers and timeout
+                    http_client = httpx.AsyncClient(
+                        headers=wrapper.headers,
+                        timeout=60.0,
+                    )
+                    # Register client for cleanup
+                    await stack.enter_async_context(http_client)
+
                     read, write, _ = await stack.enter_async_context(
-                        streamablehttp_client(
+                        streamable_http_client(
                             url=wrapper.url,
-                            headers=wrapper.headers,
-                            timeout=60.0,
+                            http_client=http_client,
                         )
                     )
 
@@ -590,19 +606,16 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
     ) -> types.GenerateContentConfig:
         """Create generation config from model and payload."""
         # Default thinking level depends on model
-        # "medium" is only supported by Flash, Pro uses "high" (default dynamic)
-        thinking_level = "high"
-        if "flash" in model.model.lower():
-            thinking_level = "medium"
+        thinking_level = "medium" if "flash" in model.model.lower() else "high"
 
         # Override from payload if present
-        if payload and "thinking_level" in payload:
-            thinking_level = payload.pop("thinking_level")
+        if payload:
+            thinking_level = payload.get("thinking_level", thinking_level)
 
         # Filter out fields not accepted by GenerateContentConfig
         filtered_payload = {}
         if payload:
-            ignored_fields = {"thread_uuid", "user_id"}
+            ignored_fields = {"thread_uuid", "user_id", "thinking_level"}
             filtered_payload = {
                 k: v for k, v in payload.items() if k not in ignored_fields
             }
@@ -616,133 +629,44 @@ class GeminiResponsesProcessor(BaseGeminiProcessor):
 
     def _build_mcp_prompt(self, mcp_servers: list[MCPServer]) -> str:
         """Build MCP tool selection prompt from server prompts."""
-        prompts = [f"- {server.prompt}" for server in mcp_servers if server.prompt]
-        return "\n".join(prompts) if prompts else ""
+        return "\n".join(f"- {s.prompt}" for s in mcp_servers if s.prompt)
 
     async def _convert_messages_to_gemini_format(
         self, messages: list[Message], mcp_prompt: str = ""
     ) -> tuple[list[types.Content], str | None]:
         """Convert app messages to Gemini Content objects."""
+        system_instruction = await self._system_prompt_builder.build(mcp_prompt)
         contents: list[types.Content] = []
-        system_instruction: str | None = None
-
-        # Build MCP prompt section if tools are available
-        mcp_section = ""
-        if mcp_prompt:
-            mcp_section = (
-                "\n\n### Tool-Auswahlrichtlinien (Einbettung externer Beschreibungen)\n"
-                f"{mcp_prompt}"
-            )
-
-        # Get system prompt content first
-        system_prompt_template = await get_system_prompt()
-        if system_prompt_template:
-            # Format with MCP prompts placeholder
-            system_instruction = system_prompt_template.format(mcp_prompts=mcp_section)
 
         for msg in messages:
-            if msg.type == MessageType.SYSTEM:
-                # Append to system instruction
-                if system_instruction:
-                    system_instruction += f"\n{msg.text}"
-                else:
-                    system_instruction = msg.text
-            elif msg.type in (MessageType.HUMAN, MessageType.ASSISTANT):
-                role = "user" if msg.type == MessageType.HUMAN else "model"
-                contents.append(
-                    types.Content(role=role, parts=[types.Part(text=msg.text)])
-                )
+            match msg.type:
+                case MessageType.SYSTEM:
+                    system_instruction = (
+                        f"{system_instruction}\n{msg.text}"
+                        if system_instruction
+                        else msg.text
+                    )
+                case MessageType.HUMAN | MessageType.ASSISTANT:
+                    role = "user" if msg.type == MessageType.HUMAN else "model"
+                    contents.append(
+                        types.Content(role=role, parts=[types.Part(text=msg.text)])
+                    )
 
         return contents, system_instruction
 
+    def _extract_text_from_parts(self, parts: list[Any]) -> str:
+        """Extract and join text from content parts."""
+        return "".join(p.text for p in parts if p.text)
+
     def _handle_chunk(self, chunk: Any) -> Chunk | None:
         """Handle a single chunk from Gemini stream."""
-        # Gemini chunks contain candidates. First candidate.
-        if not chunk.candidates or not chunk.candidates[0].content:
+        if (
+            not chunk.candidates
+            or not chunk.candidates[0].content
+            or not chunk.candidates[0].content.parts
+        ):
             return None
 
-        candidate = chunk.candidates[0]
-        content = candidate.content
-
-        # List comprehension for text parts
-        if not content.parts:
-            return None
-
-        text_parts = [part.text for part in content.parts if part.text]
-
-        if text_parts:
-            return self._create_chunk(
-                ChunkType.TEXT, "".join(text_parts), {"delta": "".join(text_parts)}
-            )
-
+        if text := self._extract_text_from_parts(chunk.candidates[0].content.parts):
+            return self._chunk_factory.text(text, delta=text)
         return None
-
-    def _create_chunk(
-        self,
-        chunk_type: ChunkType,
-        content: str,
-        extra_metadata: dict[str, str] | None = None,
-    ) -> Chunk:
-        """Create a Chunk."""
-        metadata = {
-            "processor": "gemini_responses",
-        }
-        if extra_metadata:
-            metadata.update(extra_metadata)
-
-        return Chunk(
-            type=chunk_type,
-            text=content,
-            chunk_metadata=metadata,
-        )
-
-    async def _create_auth_required_chunk(self, server: MCPServer) -> Chunk:
-        """Create an AUTH_REQUIRED chunk."""
-        # reusing logic from other processors, simplified here
-        return Chunk(
-            type=ChunkType.AUTH_REQUIRED,
-            text=f"{server.name} authentication required",
-            chunk_metadata={"server_name": server.name},
-        )
-
-    def _parse_mcp_headers(self, server: MCPServer) -> dict[str, str]:
-        """Parse headers from server config.
-
-        Returns:
-            Dictionary of HTTP headers to send to the MCP server.
-        """
-        if not server.headers or server.headers == "{}":
-            return {}
-
-        try:
-            headers_dict = json.loads(server.headers)
-            return dict(headers_dict)
-        except json.JSONDecodeError:
-            logger.warning("Invalid headers JSON for server %s", server.name)
-            return {}
-
-    async def _get_valid_token_for_server(
-        self, server: MCPServer, user_id: int
-    ) -> AssistantMCPUserToken | None:
-        """Get a valid OAuth token for the server/user."""
-        if server.id is None:
-            return None
-
-        with rx.session() as session:
-            token = self._mcp_auth_service.get_user_token(session, user_id, server.id)
-
-            if token is None:
-                return None
-
-            return await self._mcp_auth_service.ensure_valid_token(
-                session, server, token
-            )
-
-
-class MCPSessionWrapper:
-    """Wrapper to store MCP connection details before creating actual session."""
-
-    def __init__(self, url: str, headers: dict[str, str], name: str) -> None:
-        self.url = url
-        self.headers = headers
-        self.name = name

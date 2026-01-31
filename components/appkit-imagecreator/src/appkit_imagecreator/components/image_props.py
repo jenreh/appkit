@@ -32,14 +32,16 @@ def _size_option(option: dict) -> rx.Component:
 def image_props_popup() -> rx.Component:
     """Popup for selecting size and quality."""
     return rx.popover.root(
-        rx.popover.trigger(
-            rx.box(
-                rx.icon("sliders-horizontal", size=20, color=rx.color("gray", 11)),
-                cursor="pointer",
-                padding="8px",
-                border_radius="8px",
-                _hover={"background": rx.color("gray", 3)},
+        rx.tooltip(
+            rx.popover.trigger(
+                rx.button(
+                    rx.icon("sliders-horizontal", size=17),
+                    cursor="pointer",
+                    padding="8px",
+                    variant="ghost",
+                ),
             ),
+            content="Wähle die Größe des Bildes",
         ),
         rx.popover.content(
             rx.vstack(

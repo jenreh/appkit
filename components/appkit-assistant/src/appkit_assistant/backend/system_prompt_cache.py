@@ -3,7 +3,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Final, Self
 
-from appkit_assistant.backend.repositories import system_prompt_repo
+from appkit_assistant.backend.database.repositories import system_prompt_repo
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)

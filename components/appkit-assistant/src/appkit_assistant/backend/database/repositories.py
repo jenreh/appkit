@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from appkit_assistant.backend.models import (
+from appkit_assistant.backend.database.models import (
     AssistantFileUpload,
     AssistantThread,
     MCPServer,
@@ -28,6 +28,18 @@ class MCPServerRepository(BaseRepository[MCPServer, AsyncSession]):
     async def find_all_ordered_by_name(self, session: AsyncSession) -> list[MCPServer]:
         """Retrieve all MCP servers ordered by name."""
         stmt = select(MCPServer).order_by(MCPServer.name)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_active_ordered_by_name(
+        self, session: AsyncSession
+    ) -> list[MCPServer]:
+        """Retrieve all active MCP servers ordered by name."""
+        stmt = (
+            select(MCPServer)
+            .where(MCPServer.active == True)  # noqa: E712
+            .order_by(MCPServer.name)
+        )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 

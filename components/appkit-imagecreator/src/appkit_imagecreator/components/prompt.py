@@ -109,9 +109,9 @@ def _enhance_prompt_checkbox() -> rx.Component:
                 align="center",
             ),
             cursor="pointer",
-            padding="6px 10px",
-            border_radius="8px",
-            _hover={"background": rx.color("gray", 3)},
+            padding="8px 10px",
+            border_radius="4px",
+            _hover={"background": rx.color("accent", 3)},
         ),
         content="Prompt automatisch verbessern (KI optimiert den Prompt)",
     )
@@ -119,28 +119,29 @@ def _enhance_prompt_checkbox() -> rx.Component:
 
 def _reference_image_upload() -> rx.Component:
     """Upload reference images from local files."""
-    return rx.tooltip(
-        rx.upload.root(
-            rx.box(
-                rx.icon("paperclip", size=18, color=rx.color("gray", 9)),
+    return rx.upload.root(
+        rx.tooltip(
+            rx.button(
+                rx.icon("paperclip", size=17),
                 cursor="pointer",
                 padding="8px",
-                border_radius="8px",
-                _hover={"background": rx.color("gray", 3)},
+                variant="ghost",
+                margin_right="3px",
+                margin_left="-6px",
             ),
-            id="image_upload",
-            accept={
-                "image/jpeg": [".jpg", ".jpeg"],
-                "image/png": [".png"],
-                "image/webp": [".webp"],
-            },
-            multiple=True,
-            max_files=5,
-            on_drop=ImageGalleryState.handle_upload(
-                rx.upload_files(upload_id="image_upload")
-            ),
+            content="Lade bis zu 5 Referenzbilder hoch (JPG, PNG, WebP, max 20MB je Bild)",  # noqa: E501
         ),
-        content="Upload up to 5 reference images (JPG, PNG, WebP, max 20MB each)",
+        id="image_upload",
+        accept={
+            "image/jpeg": [".jpg", ".jpeg"],
+            "image/png": [".png"],
+            "image/webp": [".webp"],
+        },
+        multiple=True,
+        max_files=5,
+        on_drop=ImageGalleryState.handle_upload(
+            rx.upload_files(upload_id="image_upload")
+        ),
     )
 
 
@@ -199,8 +200,8 @@ def prompt_input_bar() -> rx.Component:
                     style_popup(),
                     image_props_popup(),
                     count_popup(),
-                    _enhance_prompt_checkbox(),
                     _reference_image_upload(),
+                    _enhance_prompt_checkbox(),
                     _model_selector(),
                     rx.spacer(),
                     _clear(),

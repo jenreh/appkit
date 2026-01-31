@@ -8,7 +8,8 @@ from typing import Any, Final
 import reflex as rx
 from pydantic import BaseModel
 
-from appkit_assistant.backend.repositories import file_upload_repo
+from appkit_assistant.backend.database.repositories import file_upload_repo
+from appkit_assistant.backend.services.file_cleanup_service import run_cleanup
 from appkit_assistant.backend.services.openai_client_service import (
     get_openai_client_service,
 )
@@ -31,6 +32,8 @@ INFO_VECTOR_STORE_EXPIRED: Final[str] = (
     "Vector Store ist abgelaufen und wurde bereinigt."
 )
 INFO_VECTOR_STORE_DELETED: Final[str] = "Vector Store wurde gelöscht."
+INFO_CLEANUP_COMPLETED: Final[str] = "Bereinigung abgeschlossen."
+ERROR_CLEANUP_FAILED: Final[str] = "Fehler bei der Bereinigung."
 
 # File size constants
 KB: Final[int] = 1024
@@ -108,6 +111,19 @@ class VectorStoreInfo(BaseModel):
     name: str
 
 
+class CleanupStats(BaseModel):
+    """Model for cleanup progress statistics."""
+
+    status: str = "idle"  # idle, starting, checking, deleting, completed, error
+    vector_stores_checked: int = 0
+    vector_stores_expired: int = 0
+    vector_stores_deleted: int = 0
+    threads_updated: int = 0
+    current_vector_store: str | None = None
+    total_vector_stores: int = 0
+    error: str | None = None
+
+
 class FileManagerState(rx.State):
     """State class for managing uploaded files in vector stores."""
 
@@ -120,6 +136,11 @@ class FileManagerState(rx.State):
     deleting_file_id: int | None = None
     deleting_openai_file_id: str | None = None
     deleting_vector_store_id: str | None = None
+
+    # Cleanup state
+    cleanup_modal_open: bool = False
+    cleanup_running: bool = False
+    cleanup_stats: CleanupStats = CleanupStats()
 
     def _get_file_by_id(self, file_id: int) -> FileInfo | None:
         """Get a file by ID from the current files list."""
@@ -139,6 +160,7 @@ class FileManagerState(rx.State):
     async def load_vector_stores(self) -> AsyncGenerator[Any, Any]:
         """Load all unique vector stores from the database."""
         self.loading = True
+        yield
         try:
             async with get_asyncdb_session() as session:
                 stores = await file_upload_repo.find_unique_vector_stores(session)
@@ -185,6 +207,7 @@ class FileManagerState(rx.State):
             store_id: The ID of the vector store to delete.
         """
         self.deleting_vector_store_id = store_id
+        yield
         try:
             openai_service = get_openai_client_service()
             if not openai_service.is_available:
@@ -275,6 +298,7 @@ class FileManagerState(rx.State):
         cleans up the database records and associated OpenAI files.
         """
         self.loading = True
+        yield
         try:
             # First validate the vector store exists in OpenAI
             openai_service = get_openai_client_service()
@@ -306,7 +330,8 @@ class FileManagerState(rx.State):
 
             self.selected_vector_store_id = store_id
             self.selected_vector_store_name = store_name
-            yield FileManagerState.load_files
+            async for event in self.load_files():
+                yield event
         finally:
             self.loading = False
 
@@ -370,6 +395,7 @@ class FileManagerState(rx.State):
             return
 
         self.loading = True
+        yield
         try:
             # Cache for user names to avoid repeated queries
             user_cache: dict[int, str] = {}
@@ -426,6 +452,7 @@ class FileManagerState(rx.State):
     async def load_openai_files(self) -> AsyncGenerator[Any, Any]:
         """Load files directly from OpenAI API."""
         self.loading = True
+        yield
         try:
             openai_service = get_openai_client_service()
             if not openai_service.is_available:
@@ -483,6 +510,7 @@ class FileManagerState(rx.State):
     async def delete_file(self, file_id: int) -> AsyncGenerator[Any, Any]:
         """Delete a file from OpenAI and the database."""
         self.deleting_file_id = file_id
+        yield
 
         try:
             # Find the file to get OpenAI file ID
@@ -555,6 +583,7 @@ class FileManagerState(rx.State):
     async def delete_openai_file(self, openai_id: str) -> AsyncGenerator[Any, Any]:
         """Delete a file directly from OpenAI API."""
         self.deleting_openai_file_id = openai_id
+        yield
 
         try:
             file_info = self._get_openai_file_by_id(openai_id)
@@ -602,3 +631,67 @@ class FileManagerState(rx.State):
             )
         finally:
             self.deleting_openai_file_id = None
+
+    def open_cleanup_modal(self) -> None:
+        """Open the cleanup modal and reset stats."""
+        self.cleanup_stats = CleanupStats()
+        self.cleanup_modal_open = True
+
+    def close_cleanup_modal(self) -> None:
+        """Close the cleanup modal."""
+        self.cleanup_modal_open = False
+
+    def set_cleanup_modal_open(self, is_open: bool) -> None:
+        """Set the cleanup modal open state.
+
+        Used by on_open_change handler which receives a boolean.
+        """
+        self.cleanup_modal_open = is_open
+
+    @rx.event(background=True)
+    async def start_cleanup(self) -> AsyncGenerator[Any, Any]:
+        """Start the cleanup process and track progress.
+
+        This is a background task that iterates through the run_cleanup()
+        async generator and updates the cleanup_stats for each progress update.
+        """
+        async with self:
+            self.cleanup_running = True
+            self.cleanup_stats = CleanupStats(status="starting")
+
+        try:
+            async for stats in run_cleanup():
+                async with self:
+                    self.cleanup_stats = CleanupStats(
+                        status=stats.get("status", "checking"),
+                        vector_stores_checked=stats.get("vector_stores_checked", 0),
+                        vector_stores_expired=stats.get("vector_stores_expired", 0),
+                        vector_stores_deleted=stats.get("vector_stores_deleted", 0),
+                        threads_updated=stats.get("threads_updated", 0),
+                        current_vector_store=stats.get("current_vector_store"),
+                        total_vector_stores=stats.get("total_vector_stores", 0),
+                        error=stats.get("error"),
+                    )
+
+            async with self:
+                self.cleanup_running = False
+                if self.cleanup_stats.status == "completed":
+                    yield rx.toast.success(
+                        INFO_CLEANUP_COMPLETED,
+                        position="top-right",
+                    )
+                    # Reload vector stores to reflect changes
+                    yield FileManagerState.load_vector_stores
+
+        except Exception as e:
+            logger.error("Cleanup failed: %s", e)
+            async with self:
+                self.cleanup_running = False
+                self.cleanup_stats = CleanupStats(
+                    status="error",
+                    error=str(e),
+                )
+            yield rx.toast.error(
+                ERROR_CLEANUP_FAILED,
+                position="top-right",
+            )
