@@ -29,19 +29,22 @@ def render_mcp_server_item(server: MCPServer) -> rx.Component:
 def tools_popover() -> rx.Component:
     """Render the tools modal popup."""
     return rx.popover.root(
-        rx.popover.trigger(
-            rx.button(
-                rx.icon("pencil-ruler", size=18),
-                rx.text(
-                    ThreadState.selected_mcp_servers.length().to_string()
-                    + " von "
-                    + ThreadState.available_mcp_servers.length().to_string(),
-                    size="1",
+        rx.tooltip(
+            rx.popover.trigger(
+                rx.button(
+                    rx.icon("pencil-ruler", size=17),
+                    rx.text(
+                        ThreadState.selected_mcp_servers.length().to_string()
+                        + " von "
+                        + ThreadState.available_mcp_servers.length().to_string(),
+                        size="1",
+                    ),
+                    cursor="pointer",
+                    variant="ghost",
+                    padding="8px",
                 ),
-                variant="ghost",
-                size="2",
-                border_radius="4px",
             ),
+            content="Werkzeuge verwalten",
         ),
         rx.popover.content(
             rx.vstack(
@@ -49,8 +52,7 @@ def tools_popover() -> rx.Component:
                 rx.cond(
                     ThreadState.available_mcp_servers.length() > 0,
                     rx.text(
-                        "Wähle die Werkzeuge aus, die für diese Unterhaltung "
-                        "verfügbar sein sollen.",
+                        "Wähle deine Werkzeuge für diese Unterhaltung aus.",
                         size="2",
                         color="gray",
                         margin_bottom="1.5em",
@@ -73,16 +75,31 @@ def tools_popover() -> rx.Component:
                         width="100%",
                     ),
                     width="100%",
-                    max_height="210px",
+                    max_height="calc(66vh - 180px)",
                     scrollbars="vertical",
                     type="auto",
                 ),
-                rx.button(
-                    "Anwenden",
-                    on_click=ThreadState.apply_mcp_server_selection,
-                    variant="solid",
-                    color_scheme="blue",
+                rx.hstack(
+                    rx.button(
+                        "Anwenden",
+                        on_click=ThreadState.apply_mcp_server_selection,
+                        variant="solid",
+                        color_scheme="blue",
+                    ),
+                    rx.tooltip(
+                        rx.button(
+                            rx.icon("paintbrush", size=17),
+                            cursor="pointer",
+                            variant="ghost",
+                            padding="8px",
+                            margin_left="6px",
+                            on_click=ThreadState.deselect_all_mcp_servers,
+                        ),
+                        content="Alle abwählen",
+                    ),
+                    spacing="2",
                     margin_top="1.5em",
+                    align="center",
                 ),
                 spacing="1",
             ),

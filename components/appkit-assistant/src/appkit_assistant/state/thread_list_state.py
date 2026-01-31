@@ -216,7 +216,13 @@ class ThreadListState(rx.State):
             )
             was_active = thread_id == self.active_thread_id
 
+            if thread_to_delete:
+                self.loading_thread_id = thread_id
+                yield
+
         if not is_authenticated or not user_id:
+            async with self:
+                self.loading_thread_id = ""
             return
 
         if not thread_to_delete:
@@ -224,6 +230,8 @@ class ThreadListState(rx.State):
                 "Chat nicht gefunden.", position="top-right", close_button=True
             )
             logger.warning("Thread %s not found for deletion", thread_id)
+            async with self:
+                self.loading_thread_id = ""
             return
 
         # Capture thread info for cleanup before deletion
@@ -257,6 +265,7 @@ class ThreadListState(rx.State):
             async with self:
                 # Remove from list immediately
                 self.threads = [t for t in self.threads if t.thread_id != thread_id]
+                self.loading_thread_id = ""
 
                 if was_active:
                     self.active_thread_id = ""
@@ -280,6 +289,8 @@ class ThreadListState(rx.State):
                 yield ThreadListState.cleanup_thread_openai_files([], vector_store_id)
 
         except Exception as e:
+            async with self:
+                self.loading_thread_id = ""
             logger.error("Error deleting thread %s: %s", thread_id, e)
             yield rx.toast.error(
                 "Fehler beim Löschen des Chats.",

@@ -41,8 +41,10 @@ from appkit_assistant.backend.schemas import (
 from appkit_assistant.backend.services import file_manager
 from appkit_assistant.backend.services.response_accumulator import ResponseAccumulator
 from appkit_assistant.backend.services.thread_service import ThreadService
+from appkit_assistant.configuration import AssistantConfig
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_commons.registry import service_registry
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
@@ -78,6 +80,8 @@ class ThreadState(rx.State):
 
     # File upload state
     uploaded_files: list[UploadedFile] = []
+    max_file_size_mb: int = 50
+    max_files_per_thread: int = 10
 
     # Editing state
     editing_message_id: str | None = None
@@ -239,6 +243,13 @@ class ThreadState(rx.State):
         self.prompt = ""
         self.show_thinking = False
         self._current_user_id = current_user_id
+
+        # Load config
+        config: AssistantConfig | None = service_registry().get(AssistantConfig)
+        if config:
+            self.max_file_size_mb = config.file_upload.max_file_size_mb
+            self.max_files_per_thread = config.file_upload.max_files_per_thread
+
         self._initialized = True
         logger.debug("Initialized thread state: %s", self._thread.thread_id)
 
@@ -435,6 +446,12 @@ class ThreadState(rx.State):
         self.show_tools_modal = False
 
     @rx.event
+    def deselect_all_mcp_servers(self) -> None:
+        """Deselect all MCP servers in the modal."""
+        self.server_selection_state = {}
+        self.temp_selected_mcp_servers = []
+
+    @rx.event
     def is_mcp_server_selected(self, server_id: int) -> bool:
         """Check if an MCP server is selected."""
         return server_id in self.temp_selected_mcp_servers
@@ -469,6 +486,15 @@ class ThreadState(rx.State):
 
         Moves files to user-specific directory and adds them to state.
         """
+        # Validate file count (using state variables from config)
+        if len(files) > self.max_files_per_thread:
+            yield rx.toast.error(
+                f"Bitte laden Sie maximal {self.max_files_per_thread} Dateien gleichzeitig hoch.",
+                position="top-right",
+                close_button=True,
+            )
+            return
+
         user_session: UserSession = await self.get_state(UserSession)
         user_id = user_session.user.user_id if user_session.user else "anonymous"
 

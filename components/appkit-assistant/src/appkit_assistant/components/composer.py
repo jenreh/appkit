@@ -67,11 +67,14 @@ def submit() -> rx.Component:
             ),
             content="Stoppen",
         ),
-        rx.button(
-            rx.icon("arrow-right", size=18),
-            id="composer-submit",
-            name="composer_submit",
-            type="submit",
+        rx.tooltip(
+            rx.button(
+                rx.icon("arrow-right", size=18),
+                id="composer-submit",
+                name="composer_submit",
+                type="submit",
+            ),
+            content="Absenden",
         ),
     )
 
@@ -137,12 +140,18 @@ def file_upload(show: bool = False) -> rx.Component:
         show & ThreadState.selected_model_supports_attachments,
         rx.tooltip(
             rx.upload.root(
-                rx.box(
-                    rx.icon("paperclip", size=18, color=rx.color("gray", 9)),
-                    cursor="pointer",
-                    padding="8px",
-                    border_radius="8px",
-                    _hover={"background": rx.color("gray", 3)},
+                rx.tooltip(
+                    rx.button(
+                        rx.icon("paperclip", size=17),
+                        cursor="pointer",
+                        variant="ghost",
+                        padding="8px",
+                    ),
+                    content=(
+                        "Dateien hochladen (max. "
+                        f"{ThreadState.max_files_per_thread}, "
+                        f"{ThreadState.max_file_size_mb}MB pro Datei)"
+                    ),
                 ),
                 id="composer_file_upload",
                 accept={
@@ -160,13 +169,12 @@ def file_upload(show: bool = False) -> rx.Component:
                     "image/jpeg": [".jpg", ".jpeg"],
                 },
                 multiple=True,
-                max_files=5,
-                max_size=5 * 1024 * 1024,
+                max_size=ThreadState.max_file_size_mb * 1024 * 1024,
                 on_drop=ThreadState.handle_upload(
                     rx.upload_files(upload_id="composer_file_upload")
                 ),
             ),
-            content="Dateien hochladen (max. 5, 5MB pro Datei)",
+            content=f"Dateien hochladen (max. {ThreadState.max_files_per_thread}, {ThreadState.max_file_size_mb}MB pro Datei)",
         ),
         rx.fragment(),
     )
@@ -220,6 +228,7 @@ def clear(show: bool = True) -> rx.Component | None:
     return rx.tooltip(
         rx.button(
             rx.icon("paintbrush", size=17),
+            cursor="pointer",
             variant="ghost",
             padding="8px",
             on_click=ThreadState.clear,
