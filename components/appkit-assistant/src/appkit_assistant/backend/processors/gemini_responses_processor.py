@@ -21,10 +21,8 @@ from appkit_assistant.backend.database.models import (
     MCPServer,
 )
 from appkit_assistant.backend.processors.mcp_mixin import MCPCapabilities
-from appkit_assistant.backend.processors.processor_base import (
-    ProcessorBase,
-    mcp_oauth_redirect_uri,
-)
+from appkit_assistant.backend.processors.processor_base import mcp_oauth_redirect_uri
+from appkit_assistant.backend.processors.streaming_base import StreamingProcessorBase
 from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
@@ -32,7 +30,6 @@ from appkit_assistant.backend.schemas import (
     Message,
     MessageType,
 )
-from appkit_assistant.backend.services.chunk_factory import ChunkFactory
 from appkit_assistant.backend.services.system_prompt_builder import SystemPromptBuilder
 
 logger = logging.getLogger(__name__)
@@ -98,7 +95,7 @@ class MCPSessionWrapper(NamedTuple):
     name: str
 
 
-class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
+class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
     """Gemini processor using the GenAI API with native MCP support."""
 
     def __init__(
@@ -107,10 +104,9 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
         api_key: str | None = None,
         oauth_redirect_uri: str = default_oauth_redirect_uri,
     ) -> None:
+        StreamingProcessorBase.__init__(self, models, "gemini_responses")
         MCPCapabilities.__init__(self, oauth_redirect_uri, "gemini_responses")
-        self.models = models
         self.client: genai.Client | None = None
-        self._chunk_factory = ChunkFactory(processor_name="gemini_responses")
         self._system_prompt_builder = SystemPromptBuilder()
 
         if api_key:
@@ -125,9 +121,9 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
 
         logger.debug("Using redirect URI for MCP OAuth: %s", oauth_redirect_uri)
 
-    def get_supported_models(self) -> dict[str, AIModel]:
-        """Get supported models."""
-        return self.models
+    def _get_event_handlers(self) -> dict[str, Any]:
+        """Get event handlers (empty for Gemini - uses chunk-based handling)."""
+        return {}
 
     async def process(
         self,
@@ -194,7 +190,7 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
 
         except Exception as e:
             logger.exception("Error in Gemini processor: %s", str(e))
-            yield self._chunk_factory.error(f"Error: {e!s}")
+            yield self.chunk_factory.error(f"Error: {e!s}")
 
     async def _create_mcp_sessions(
         self, servers: list[MCPServer], user_id: int | None
@@ -316,89 +312,99 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
                 logger.info("Processing cancelled by user")
                 break
 
-            response = await self.client.aio.models.generate_content(
+            # Use streaming API
+            stream = await self.client.aio.models.generate_content_stream(
                 model=model_name, contents=current_contents, config=config
             )
 
-            if not response.candidates:
+            # Collect function calls and stream text as it arrives
+            collected_function_calls: list[Any] = []
+            collected_parts: list[types.Part] = []
+            streamed_text = ""
+
+            async for chunk in stream:
+                if cancellation_token and cancellation_token.is_set():
+                    logger.info("Processing cancelled by user")
+                    return
+
+                if not chunk.candidates or not chunk.candidates[0].content:
+                    continue
+
+                for part in chunk.candidates[0].content.parts:
+                    # Stream text immediately
+                    if part.text:
+                        streamed_text += part.text
+                        yield self.chunk_factory.text(part.text, delta=part.text)
+                    # Collect function calls
+                    if part.function_call is not None:
+                        collected_function_calls.append(part.function_call)
+                        collected_parts.append(part)
+
+            # If no function calls, we're done (text was already streamed)
+            if not collected_function_calls:
                 return
 
-            candidate = response.candidates[0]
-            content = candidate.content
+            # Build the model's response content with function calls
+            model_response_parts = []
+            if streamed_text:
+                model_response_parts.append(types.Part(text=streamed_text))
+            model_response_parts.extend(collected_parts)
+            current_contents.append(
+                types.Content(role="model", parts=model_response_parts)
+            )
 
-            # Check for function calls
-            function_calls = [
-                part.function_call
-                for part in content.parts
-                if part.function_call is not None
-            ]
+            # Execute tool calls and collect results
+            function_responses = []
+            for fc in collected_function_calls:
+                # Parse unique tool name: server_name__tool_name
+                server_name, original_tool_name = self._parse_unique_tool_name(fc.name)
 
-            if function_calls:
-                # Add model response with function calls to conversation
-                current_contents.append(content)
+                # Generate a unique tool call ID
+                tool_call_id = f"mcp_{uuid.uuid4().hex[:32]}"
 
-                # Execute tool calls and collect results
-                function_responses = []
-                for fc in function_calls:
-                    # Parse unique tool name: server_name__tool_name
-                    server_name, original_tool_name = self._parse_unique_tool_name(
-                        fc.name
-                    )
-
-                    # Generate a unique tool call ID
-                    tool_call_id = f"mcp_{uuid.uuid4().hex[:32]}"
-
-                    # Yield TOOL_CALL chunk to show in UI (use original name)
-                    yield self._chunk_factory.tool_call(
-                        f"Benutze Werkzeug: {server_name}.{original_tool_name}",
-                        tool_name=original_tool_name,
-                        tool_id=tool_call_id,
-                        server_label=server_name,
-                        status="starting",
-                    )
-
-                    result = await self._execute_mcp_tool(
-                        fc.name, fc.args, tool_contexts
-                    )
-
-                    # Yield TOOL_RESULT chunk with preview
-                    preview = (
-                        result[:TOOL_RESULT_PREVIEW_LENGTH]
-                        if len(result) > TOOL_RESULT_PREVIEW_LENGTH
-                        else result
-                    )
-                    yield self._chunk_factory.tool_result(
-                        preview,
-                        tool_id=tool_call_id,
-                        status="completed",
-                    )
-
-                    function_responses.append(
-                        types.Part(
-                            function_response=types.FunctionResponse(
-                                name=fc.name,
-                                response={"result": result},
-                            )
-                        )
-                    )
-                    logger.debug(
-                        "Tool %s executed, result length: %d",
-                        fc.name,
-                        len(str(result)),
-                    )
-
-                # Add function responses
-                current_contents.append(
-                    types.Content(role="user", parts=function_responses)
+                # Yield TOOL_CALL chunk to show in UI (use original name)
+                yield self.chunk_factory.tool_call(
+                    f"Benutze Werkzeug: {server_name}.{original_tool_name}",
+                    tool_name=original_tool_name,
+                    tool_id=tool_call_id,
+                    server_label=server_name,
+                    status="starting",
                 )
 
-                # Continue to next round
-                continue
+                result = await self._execute_mcp_tool(fc.name, fc.args, tool_contexts)
 
-            # No function calls - yield text response and finish
-            if text := self._extract_text_from_parts(content.parts):
-                yield self._chunk_factory.text(text, delta=text)
-            return
+                # Yield TOOL_RESULT chunk with preview
+                preview = (
+                    result[:TOOL_RESULT_PREVIEW_LENGTH]
+                    if len(result) > TOOL_RESULT_PREVIEW_LENGTH
+                    else result
+                )
+                yield self.chunk_factory.tool_result(
+                    preview,
+                    tool_id=tool_call_id,
+                    status="completed",
+                )
+
+                function_responses.append(
+                    types.Part(
+                        function_response=types.FunctionResponse(
+                            name=fc.name,
+                            response={"result": result},
+                        )
+                    )
+                )
+                logger.debug(
+                    "Tool %s executed, result length: %d",
+                    fc.name,
+                    len(str(result)),
+                )
+
+            # Add function responses
+            current_contents.append(
+                types.Content(role="user", parts=function_responses)
+            )
+
+            # Continue to next round
 
         logger.warning("Max tool rounds (%d) exceeded", max_tool_rounds)
 
@@ -668,5 +674,5 @@ class GeminiResponsesProcessor(ProcessorBase, MCPCapabilities):
             return None
 
         if text := self._extract_text_from_parts(chunk.candidates[0].content.parts):
-            return self._chunk_factory.text(text, delta=text)
+            return self.chunk_factory.text(text, delta=text)
         return None
