@@ -51,20 +51,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self.api_key = api_key
         self.base_url = base_url
         self.is_azure = is_azure
-        self.client: AsyncOpenAI | None = None
-
-        if self.api_key and self.base_url and is_azure:
-            self.client = AsyncOpenAI(
-                api_key=self.api_key,
-                base_url=f"{self.base_url}/openai/v1",
-                default_query={"api-version": "preview"},
-            )
-        elif self.api_key and self.base_url:
-            self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
-        elif self.api_key:
-            self.client = AsyncOpenAI(api_key=self.api_key)
-        else:
-            logger.warning("No API key found. Processor will not work.")
+        self.client = self._create_client()
 
         # Services
         self._system_prompt_builder = SystemPromptBuilder()
@@ -87,6 +74,21 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
     def get_supported_models(self) -> dict[str, AIModel]:
         """Return supported models if API key is available."""
         return self.models if self.api_key else {}
+
+    def _create_client(self) -> AsyncOpenAI | None:
+        """Create OpenAI client based on configuration."""
+        if not self.api_key:
+            logger.warning("No API key found. Processor will not work.")
+            return None
+        if self.base_url and self.is_azure:
+            return AsyncOpenAI(
+                api_key=self.api_key,
+                base_url=f"{self.base_url}/openai/v1",
+                default_query={"api-version": "preview"},
+            )
+        if self.base_url:
+            return AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+        return AsyncOpenAI(api_key=self.api_key)
 
     async def process(  # noqa: PLR0912
         self,
@@ -171,23 +173,20 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         # This returns an empty dict as we use _handle_event directly
         return {}
 
-    async def _process_file_uploads_streaming(  # noqa: PLR0911
+    def _processing_chunk(
+        self, status: str, vector_store_id: str | None = None, **extra: Any
+    ) -> Chunk:
+        """Create a processing chunk with standard metadata."""
+        metadata = {"status": status, "vector_store_id": vector_store_id, **extra}
+        return Chunk(type=ChunkType.PROCESSING, text="", chunk_metadata=metadata)
+
+    async def _process_file_uploads_streaming(
         self,
         files: list[str] | None,
         payload: dict[str, Any] | None,
         user_id: int | None,
     ) -> AsyncGenerator[Chunk, None]:
-        """Process file uploads and yield progress chunks in real-time.
-
-        Args:
-            files: List of local file paths to upload.
-            payload: Request payload containing thread_uuid.
-            user_id: ID of the user making the request.
-
-        Yields:
-            Chunk objects with real-time progress updates.
-            Final chunk contains 'vector_store_id' in metadata.
-        """
+        """Process file uploads and yield progress chunks in real-time."""
         thread_uuid = payload.get("thread_uuid") if payload else None
 
         if not thread_uuid:
@@ -195,22 +194,13 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 logger.warning(
                     "Files provided but no thread_uuid in payload, skipping upload"
                 )
-            # Yield final chunk with no vector_store_id
-            yield Chunk(
-                type=ChunkType.PROCESSING,
-                text="",
-                chunk_metadata={"status": "skipped", "vector_store_id": None},
-            )
+            yield self._processing_chunk("skipped")
             return
 
         if not user_id:
             if files:
                 logger.warning("Files provided but no user_id, skipping upload")
-            yield Chunk(
-                type=ChunkType.PROCESSING,
-                text="",
-                chunk_metadata={"status": "skipped", "vector_store_id": None},
-            )
+            yield self._processing_chunk("skipped")
             return
 
         # Look up thread to get database ID and existing vector store
@@ -226,11 +216,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                         "Thread %s not found in database, cannot upload files",
                         thread_uuid,
                     )
-                yield Chunk(
-                    type=ChunkType.PROCESSING,
-                    text="",
-                    chunk_metadata={"status": "skipped", "vector_store_id": None},
-                )
+                yield self._processing_chunk("skipped")
                 return
 
             thread_db_id = thread.id
@@ -238,49 +224,25 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
         # If no files but thread has existing vector store, validate and use it
         if not files:
-            if existing_vector_store_id:
+            if existing_vector_store_id and self._file_upload_service:
                 logger.debug(
                     "Validating existing vector store %s for thread %s",
                     existing_vector_store_id,
                     thread_uuid,
                 )
-                # Validate vector store exists, recreate if needed
-                if self._file_upload_service:
-                    svc = self._file_upload_service
-                    validated_id, _ = await svc.get_vector_store(
-                        thread_id=thread_db_id,
-                        thread_uuid=thread_uuid,
-                    )
-                    yield Chunk(
-                        type=ChunkType.PROCESSING,
-                        text="",
-                        chunk_metadata={
-                            "status": "completed",
-                            "vector_store_id": validated_id,
-                        },
-                    )
-                    return
-            yield Chunk(
-                type=ChunkType.PROCESSING,
-                text="",
-                chunk_metadata={
-                    "status": "completed",
-                    "vector_store_id": existing_vector_store_id,
-                },
-            )
+                validated_id, _ = await self._file_upload_service.get_vector_store(
+                    thread_id=thread_db_id,
+                    thread_uuid=thread_uuid,
+                )
+                yield self._processing_chunk("completed", validated_id)
+                return
+            yield self._processing_chunk("completed", existing_vector_store_id)
             return
 
         # Process file uploads with streaming progress
         if not self._file_upload_service:
             logger.warning("File upload service not available")
-            yield Chunk(
-                type=ChunkType.PROCESSING,
-                text="",
-                chunk_metadata={
-                    "status": "completed",
-                    "vector_store_id": existing_vector_store_id,
-                },
-            )
+            yield self._processing_chunk("completed", existing_vector_store_id)
             return
 
         try:
@@ -292,22 +254,11 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             ):
                 yield chunk
 
-            logger.info(
-                "Processed %d files for thread %s",
-                len(files),
-                thread_uuid,
-            )
+            logger.info("Processed %d files for thread %s", len(files), thread_uuid)
         except FileUploadError as e:
             logger.error("File upload failed: %s", e)
-            # Yield error and existing vector store if available
-            yield Chunk(
-                type=ChunkType.PROCESSING,
-                text=f"Fehler beim Upload: {e}",
-                chunk_metadata={
-                    "status": "failed",
-                    "vector_store_id": existing_vector_store_id,
-                    "error": str(e),
-                },
+            yield self._processing_chunk(
+                "failed", existing_vector_store_id, error=str(e)
             )
 
     def _handle_event(self, event: Any) -> Chunk | None:
@@ -316,32 +267,80 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             return None
 
         event_type = event.type
-        handlers = [
+        for handler in (
             self._handle_lifecycle_events,
-            lambda et: self._handle_text_events(et, event),
-            lambda et: self._handle_item_events(et, event),
-            lambda et: self._handle_mcp_events(et, event),
-            lambda et: self._handle_content_events(et, event),
-            lambda et: self._handle_completion_events(et, event),
-            lambda et: self._handle_image_events(et, event),
-        ]
-
-        for handler in handlers:
-            result = handler(event_type)
-            if result:
-                # content_preview = result.text[:50] if result.text else ""
-                # logger.debug(
-                #     "Event %s → Chunk: type=%s, content=%s",
-                #     event_type,
-                #     result.type,
-                #     content_preview,
-                # )
+            self._handle_text_events,
+            self._handle_item_events,
+            self._handle_search_events,  # Handle file/web search specifically
+            self._handle_mcp_events,
+            self._handle_content_events,
+            self._handle_completion_events,
+            self._handle_image_events,
+        ):
+            if result := handler(event_type, event):
                 return result
 
         logger.debug("Unhandled event type: %s", event_type)
         return None
 
-    def _handle_lifecycle_events(self, event_type: str) -> Chunk | None:
+    def _handle_search_events(self, event_type: str, event: Any) -> Chunk | None:
+        """Handle file_search and web_search specific events."""
+        if "file_search_call" in event_type:
+            return self._handle_file_search_event(event_type, event)
+
+        if "web_search_call" in event_type:
+            return self._handle_web_search_event(event_type, event)
+
+        return None
+
+    def _handle_file_search_event(self, event_type: str, event: Any) -> Chunk | None:
+        call_id = getattr(event, "call_id", "unknown_id")
+
+        if event_type == "response.file_search_call.searching":
+            return self.chunk_factory.tool_call(
+                "Durchsuche Dateien...",
+                tool_name="file_search",
+                tool_id=call_id,
+                status="searching",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if event_type == "response.file_search_call.completed":
+            return self.chunk_factory.tool_result(
+                "Dateisuche abgeschlossen.",
+                tool_id=call_id,
+                status="completed",
+                reasoning_session=self.current_reasoning_session,
+            )
+        return None
+
+    def _handle_web_search_event(self, event_type: str, event: Any) -> Chunk | None:
+        call_id = getattr(event, "call_id", "unknown_id")
+
+        if event_type == "response.web_search_call.searching":
+            query_set = getattr(event, "query_set", None)
+            query_text = "Durchsuche das Web..."
+            if query_set and hasattr(query_set, "queries") and query_set.queries:
+                query_text = f"Suche nach: {query_set.queries[0]}"
+
+            return self.chunk_factory.tool_call(
+                query_text,
+                tool_name="web_search",
+                tool_id=call_id,
+                status="searching",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if event_type == "response.web_search_call.completed":
+            return self.chunk_factory.tool_result(
+                "Websuche abgeschlossen.",
+                tool_id=call_id,
+                status="completed",
+                reasoning_session=self.current_reasoning_session,
+            )
+        return None
+
+    def _handle_lifecycle_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle lifecycle events."""
         if event_type == "response.created":
             return self.chunk_factory.lifecycle("created", {"stage": "created"})
@@ -355,43 +354,46 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         """Handle text-related events."""
         if event_type == "response.output_text.delta":
             return self.chunk_factory.text(event.delta, {"delta": event.delta})
-
         if event_type == "response.output_text.annotation.added":
-            # Annotation can be a dict (file_citation) or other object
             annotation = event.annotation
-            if isinstance(annotation, dict):
-                # Handle URL citations
-                if annotation.get("type") == "url_citation":
-                    annotation_text = annotation.get("url", str(annotation))
-                else:
-                    annotation_text = annotation.get("filename", str(annotation))
-
-                annotation_str = str(annotation)
-            else:
-                annotation_text = str(annotation)
-                annotation_str = annotation_text
-            return self.chunk_factory.annotation(
-                annotation_text, {"annotation": annotation_str}
+            annotation_text = self._extract_annotation_text(annotation)
+            logger.debug(
+                "Annotation added: type=%s, text=%s",
+                getattr(annotation, "type", type(annotation).__name__),
+                annotation_text[:50] if annotation_text else "None",
             )
-
+            return self.chunk_factory.annotation(
+                annotation_text, {"annotation": str(annotation)}
+            )
         return None
+
+    def _extract_annotation_text(self, annotation: Any) -> str:
+        """Extract display text from an annotation (dict or SDK object)."""
+
+        def get_val(key: str) -> Any:
+            if isinstance(annotation, dict):
+                return annotation.get(key)
+            return getattr(annotation, key, None)
+
+        # First try to get the display text (e.g. [1] or similar citation mark)
+        if text := get_val("text"):
+            return text
+
+        ann_type = get_val("type")
+        if ann_type == "url_citation":
+            return get_val("url") or str(annotation)
+        if ann_type == "file_citation" or not ann_type:
+            return get_val("filename") or str(annotation)
+        return str(annotation)
 
     def _handle_item_events(self, event_type: str, event: Any) -> Chunk | None:
         """Handle item added/done events for MCP calls and reasoning."""
-        if (
-            event_type == "response.output_item.added"
-            and hasattr(event, "item")
-            and hasattr(event.item, "type")
-        ):
+        if not hasattr(event, "item") or not hasattr(event.item, "type"):
+            return None
+        if event_type == "response.output_item.added":
             return self._handle_item_added(event.item)
-
-        if (
-            event_type == "response.output_item.done"
-            and hasattr(event, "item")
-            and hasattr(event.item, "type")
-        ):
+        if event_type == "response.output_item.done":
             return self._handle_item_done(event.item)
-
         return None
 
     def _handle_item_added(self, item: Any) -> Chunk | None:
@@ -417,6 +419,25 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 reasoning_session=self.current_reasoning_session,
             )
 
+        if item.type == "function_call":
+            tool_name = getattr(item, "name", "function")
+            tool_id = getattr(item, "call_id", "unknown_id")
+            return self.chunk_factory.tool_call(
+                f"Benutze Funktion: {tool_name}",
+                tool_name=tool_name,
+                tool_id=tool_id,
+                status="starting",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if item.type in ("file_search_call", "web_search_call"):
+            tool_name = (
+                "file_search" if item.type == "file_search_call" else "web_search"
+            )
+            # Actual searching happens in sub-events, just log start here
+            logger.debug("%s started", tool_name)
+            return None
+
         if item.type == "reasoning":
             reasoning_id = getattr(item, "id", "unknown_id")
             # Track the current reasoning session
@@ -430,6 +451,21 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         """Handle when an item is completed."""
         if item.type == "mcp_call":
             return self._handle_mcp_call_done(item)
+
+        if item.type == "function_call":
+            tool_id = getattr(item, "call_id", "unknown_id")
+            output = getattr(item, "output", "")
+            return self.chunk_factory.tool_result(
+                str(output),
+                tool_id=tool_id,
+                status="completed",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        # file_search_call / web_search_call done events are handled in
+        # _handle_search_events
+        if item.type in ("file_search_call", "web_search_call"):
+            return None
 
         if item.type == "reasoning":
             reasoning_id = getattr(item, "id", "unknown_id")
@@ -485,8 +521,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
     def _extract_error_text(self, error: Any) -> str:
         """Extract readable error text from error object."""
-        if isinstance(error, dict) and "content" in error:
-            content = error["content"]
+        if isinstance(error, dict):
+            content = error.get("content", [])
             if isinstance(content, list) and content:
                 return content[0].get("text", str(error))
         return "Unknown error"
@@ -530,29 +566,14 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 reasoning_session=self.current_reasoning_session,
             )
 
-        if event_type == "response.mcp_call.in_progress":
+        if event_type in {
+            "response.mcp_call.in_progress",
+            "response.mcp_call.completed",
+            "response.mcp_list_tools.in_progress",
+            "response.mcp_list_tools.completed",
+        }:
             tool_id = getattr(event, "item_id", "unknown_id")
-            # This event doesn't have tool details, just acknowledge it
-            logger.debug("MCP call in progress: %s", tool_id)
-            return None
-
-        if event_type == "response.mcp_call.completed":
-            # MCP call completed successfully - handled via response.output_item.done
-            # but we can log for debugging
-            tool_id = getattr(event, "item_id", "unknown_id")
-            logger.debug("MCP call completed: %s", tool_id)
-            return None
-
-        if event_type == "response.mcp_list_tools.in_progress":
-            # This is a setup event, not a tool call - just log and return None
-            tool_id = getattr(event, "item_id", "unknown_id")
-            logger.debug("MCP list_tools in progress: %s", tool_id)
-            return None
-
-        if event_type == "response.mcp_list_tools.completed":
-            # This is a setup event, not a tool call - just log and return None
-            tool_id = getattr(event, "item_id", "unknown_id")
-            logger.debug("MCP list_tools completed: %s", tool_id)
+            logger.debug("MCP event %s: %s", event_type, tool_id)
             return None
 
         if event_type == "response.mcp_list_tools.failed":
@@ -637,38 +658,31 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         return None
 
     def _handle_content_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: ARG002
-        """Handle content-related events."""
-        if event_type == "response.content_part.added":
-            # Content part added - this typically starts text streaming
-            return None  # No need to show this as a separate chunk
-
-        if event_type == "response.content_part.done":
-            # Content part completed - this typically ends text streaming
-            return None  # No need to show this as a separate chunk
-
-        if event_type == "response.output_text.done":
-            # Text output completed - already received via delta events
-            # Skip to avoid duplicate content
-            return None
-
+        """Handle content-related events (no-op for streaming events)."""
+        # These events are handled elsewhere or don't need chunks:
+        # - response.content_part.added/done: streaming lifecycle
+        # - response.output_text.done: already received via delta events
         return None
 
     def _handle_completion_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle completion-related events."""
-        if event_type == "response.completed":
-            return self.chunk_factory.completion(status="response_complete")
-        return None
+        return (
+            self.chunk_factory.completion(status="response_complete")
+            if event_type == "response.completed"
+            else None
+        )
 
     def _handle_image_events(self, event_type: str, event: Any) -> Chunk | None:
         """Handle image-related events."""
-        if "image" in event_type and (hasattr(event, "url") or hasattr(event, "data")):
-            image_data = {
-                "url": getattr(event, "url", ""),
-                "data": getattr(event, "data", ""),
-            }
-            image_str = str(image_data)
-            return self.chunk_factory.create(ChunkType.IMAGE, image_str, image_data)
-        return None
+        if "image" not in event_type:
+            return None
+        if not (hasattr(event, "url") or hasattr(event, "data")):
+            return None
+        image_data = {
+            "url": getattr(event, "url", ""),
+            "data": getattr(event, "data", ""),
+        }
+        return self.chunk_factory.create(ChunkType.IMAGE, str(image_data), image_data)
 
     async def _create_responses_request(
         self,
@@ -826,15 +840,12 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
     def _extract_responses_content(self, session: Any) -> str | None:
         """Extract content from non-streaming responses."""
-        if (
-            hasattr(session, "output")
-            and session.output
-            and isinstance(session.output, list)
-            and session.output
-        ):
-            first_output = session.output[0]
-            if hasattr(first_output, "content") and first_output.content:
-                if isinstance(first_output.content, list):
-                    return first_output.content[0].get("text", "")
-                return str(first_output.content)
-        return None
+        output = getattr(session, "output", None)
+        if not output or not isinstance(output, list):
+            return None
+        content = getattr(output[0], "content", None)
+        if not content:
+            return None
+        if isinstance(content, list):
+            return content[0].get("text", "")
+        return str(content)
