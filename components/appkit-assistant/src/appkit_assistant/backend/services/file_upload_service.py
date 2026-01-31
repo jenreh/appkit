@@ -518,13 +518,13 @@ class FileUploadService:
 
         # Validate file exists
         if not path.exists():
-            raise FileUploadError(f"File not found: {file_path}")
+            raise FileUploadError(f"Datei nicht gefunden: {file_path}")
 
         # Validate file size
         file_size = path.stat().st_size
         if file_size > self._max_file_size_bytes:
             raise FileUploadError(
-                f"File exceeds maximum size of {self.config.max_file_size_mb}MB"
+                f"Datei überschreitet die maximale Größe von {self.config.max_file_size_mb}MB"
             )
 
         # Validate file count for thread
