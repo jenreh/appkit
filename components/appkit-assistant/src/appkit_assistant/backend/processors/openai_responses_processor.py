@@ -71,6 +71,9 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self._file_upload_config = file_upload_config or FileUploadConfig()
         self._file_upload_service: FileUploadService | None = None
 
+        # Tool name tracking: tool_id -> tool_name for MCP streaming events
+        self._tool_name_map: dict[str, str] = {}
+
         # Initialize file upload service if client is available
         if self.client:
             self._file_upload_service = FileUploadService(
@@ -342,7 +345,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         if event_type == "response.in_progress":
             return self.chunk_factory.lifecycle("in_progress", {"stage": "in_progress"})
         if event_type == "response.done":
-            return self.chunk_factory.completion("done", stage="done")
+            return self.chunk_factory.completion(status="done")
         return None
 
     def _handle_text_events(self, event_type: str, event: Any) -> Chunk | None:
@@ -389,6 +392,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             tool_name = getattr(item, "name", "unknown_tool")
             tool_id = getattr(item, "id", "unknown_id")
             server_label = getattr(item, "server_label", "unknown_server")
+            # Store tool name mapping for streaming events
+            self._tool_name_map[tool_id] = f"{server_label}.{tool_name}"
             logger.debug(
                 "MCP call started: %s.%s (id=%s)",
                 server_label,
@@ -447,23 +452,18 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             if self.auth_detector.is_auth_error(error):
                 # Find the server config and queue for auth flow
                 return self.chunk_factory.tool_result(
-                    f"Authentifizierung erforderlich für {server_label}",
+                    f"Authentifizierung erforderlich für {server_label}.{tool_name}",
                     tool_id=tool_id,
-                    tool_name=tool_name,
-                    server_label=server_label,
                     status="auth_required",
-                    error=True,
-                    auth_required=True,
+                    is_error=True,
                     reasoning_session=self.current_reasoning_session,
                 )
 
             return self.chunk_factory.tool_result(
-                f"Werkzeugfehler: {error_text}",
+                f"Werkzeugfehler bei {tool_name}: {error_text}",
                 tool_id=tool_id,
-                tool_name=tool_name,
                 status="error",
-                error=True,
-                error_details=str(error),
+                is_error=True,
                 reasoning_session=self.current_reasoning_session,
             )
 
@@ -471,7 +471,6 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         return self.chunk_factory.tool_result(
             output_text,
             tool_id=tool_id,
-            tool_name=tool_name,
             status="completed",
             reasoning_session=self.current_reasoning_session,
         )
@@ -489,32 +488,35 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         if event_type == "response.mcp_call_arguments.delta":
             tool_id = getattr(event, "item_id", "unknown_id")
             arguments_delta = getattr(event, "delta", "")
+            tool_name = self._tool_name_map.get(tool_id, "mcp_tool")
             return self.chunk_factory.tool_call(
                 arguments_delta,
+                tool_name=tool_name,
                 tool_id=tool_id,
                 status="arguments_streaming",
-                delta=arguments_delta,
                 reasoning_session=self.current_reasoning_session,
             )
 
         if event_type == "response.mcp_call_arguments.done":
             tool_id = getattr(event, "item_id", "unknown_id")
             arguments = getattr(event, "arguments", "")
+            tool_name = self._tool_name_map.get(tool_id, "mcp_tool")
             return self.chunk_factory.tool_call(
                 f"Parameter: {arguments}",
+                tool_name=tool_name,
                 tool_id=tool_id,
                 status="arguments_complete",
-                arguments=arguments,
                 reasoning_session=self.current_reasoning_session,
             )
 
         if event_type == "response.mcp_call.failed":
             tool_id = getattr(event, "item_id", "unknown_id")
+            tool_name = self._tool_name_map.get(tool_id, tool_id)
             return self.chunk_factory.tool_result(
-                f"Werkzeugnutzung abgebrochen: {tool_id}",
+                f"Werkzeugnutzung abgebrochen: {tool_name}",
                 tool_id=tool_id,
                 status="failed",
-                error=True,
+                is_error=True,
                 reasoning_session=self.current_reasoning_session,
             )
 
@@ -600,8 +602,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                     f"Authentifizierung erforderlich für {pending_server.name}",
                     tool_id=tool_id,
                     status="auth_required",
-                    server_name=pending_server.name,
-                    auth_pending=True,
+                    is_error=True,
                     reasoning_session=self.current_reasoning_session,
                 )
 
@@ -610,7 +611,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 f"Werkzeugliste konnte nicht geladen werden: {tool_id}",
                 tool_id=tool_id,
                 status="listing_failed",
-                error=True,
+                is_error=True,
                 reasoning_session=self.current_reasoning_session,
             )
 
@@ -636,9 +637,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
     def _handle_completion_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle completion-related events."""
         if event_type == "response.completed":
-            return self.chunk_factory.completion(
-                "Response generation completed", status="response_complete"
-            )
+            return self.chunk_factory.completion(status="response_complete")
         return None
 
     def _handle_image_events(self, event_type: str, event: Any) -> Chunk | None:
