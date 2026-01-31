@@ -81,6 +81,8 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self._uploaded_file_ids: list[str] = []
         self._current_tool_context: dict[str, Any] | None = None
         self._needs_text_separator: bool = False
+        # Tool name tracking: tool_id -> (tool_name, server_label)
+        self._tool_name_map: dict[str, tuple[str, str | None]] = {}
 
     def get_supported_models(self) -> dict[str, AIModel]:
         """Return supported models if API key is available."""
@@ -108,6 +110,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self.current_user_id = user_id
         self.clear_pending_auth_servers()
         self._uploaded_file_ids = []
+        self._tool_name_map.clear()  # Clear tool tracking for new request
 
         try:
             # Upload files if provided
@@ -226,21 +229,36 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             "Denke nach...", reasoning_id=thinking_id, status="starting"
         )
 
+    def _handle_tool_use_common(
+        self,
+        tool_name: str,
+        tool_id: str,
+        server_label: str | None,
+        tool_display_name: str,
+    ) -> Chunk:
+        """Common handler for tool use start."""
+        self._current_tool_context = {
+            "tool_name": tool_name,
+            "tool_id": tool_id,
+            "server_label": server_label,
+        }
+        # Store for result lookup
+        self._tool_name_map[tool_id] = (tool_name, server_label)
+        return self.chunk_factory.tool_call(
+            tool_display_name,
+            tool_name=tool_name,
+            tool_id=tool_id,
+            server_label=server_label,
+            status="starting",
+            reasoning_session=self.current_reasoning_session,
+        )
+
     def _handle_tool_use_block_start(self, content_block: Any) -> Chunk:
         """Handle start of tool_use content block."""
         tool_name = getattr(content_block, "name", "unknown_tool")
         tool_id = getattr(content_block, "id", "unknown_id")
-        self._current_tool_context = {
-            "tool_name": tool_name,
-            "tool_id": tool_id,
-            "server_label": None,
-        }
-        return self.chunk_factory.tool_call(
-            f"Benutze Werkzeug: {tool_name}",
-            tool_name=tool_name,
-            tool_id=tool_id,
-            status="starting",
-            reasoning_session=self.current_reasoning_session,
+        return self._handle_tool_use_common(
+            tool_name, tool_id, None, f"Benutze Werkzeug: {tool_name}"
         )
 
     def _handle_mcp_tool_use_block_start(self, content_block: Any) -> Chunk:
@@ -248,18 +266,11 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         tool_name = getattr(content_block, "name", "unknown_tool")
         tool_id = getattr(content_block, "id", "unknown_id")
         server_name = getattr(content_block, "server_name", "unknown_server")
-        self._current_tool_context = {
-            "tool_name": tool_name,
-            "tool_id": tool_id,
-            "server_label": server_name,
-        }
-        return self.chunk_factory.tool_call(
+        return self._handle_tool_use_common(
+            tool_name,
+            tool_id,
+            server_name,
             f"Benutze Werkzeug: {server_name}.{tool_name}",
-            tool_name=tool_name,
-            tool_id=tool_id,
-            server_label=server_name,
-            status="starting",
-            reasoning_session=self.current_reasoning_session,
         )
 
     def _handle_mcp_tool_result_block_start(self, content_block: Any) -> Chunk:
@@ -269,11 +280,16 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         is_error = bool(getattr(content_block, "is_error", False))
         content = getattr(content_block, "content", "")
 
+        # Look up tool name and server from map
+        tool_info = self._tool_name_map.get(tool_use_id, ("unknown_tool", None))
+        tool_name, server_label = tool_info
+
         logger.debug(
-            "MCP tool result - tool_use_id: %s, is_error: %s, content type: %s",
+            "MCP tool result - tool_use_id: %s, tool: %s, server: %s, is_error: %s",
             tool_use_id,
+            tool_name,
+            server_label,
             is_error,
-            type(content).__name__,
         )
 
         result_text = self._extract_mcp_result_text(content)
@@ -281,6 +297,8 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         return self.chunk_factory.tool_result(
             result_text or ("Werkzeugfehler" if is_error else "Erfolgreich"),
             tool_id=tool_use_id,
+            tool_name=tool_name,
+            server_label=server_label,
             status=status,
             is_error=is_error,
             reasoning_session=self.current_reasoning_session,
@@ -288,6 +306,8 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
     def _extract_mcp_result_text(self, content: Any) -> str:
         """Extract text from MCP tool result content."""
+        if not content:
+            return ""
         if isinstance(content, list):
             parts = []
             for item in content:
@@ -298,9 +318,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 else:
                     parts.append(str(item))
             return "".join(parts)
-        return str(content) if content else ""
-
-        return None
+        return str(content)
 
     def _handle_content_block_delta(self, event: Any) -> Chunk | None:
         """Handle content_block_delta event."""
@@ -349,6 +367,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 reasoning_session=self.current_reasoning_session,
             )
 
+        logger.debug("Unhandled delta type in stream: %s", delta_type)
         return None
 
     def _handle_content_block_stop(self, event: Any) -> Chunk | None:  # noqa: ARG002
