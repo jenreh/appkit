@@ -219,6 +219,9 @@ class MantineInputComponentBase(MantineComponentBase):
     pointer: Var[bool]
     """Changes cursor to pointer"""
 
+    styles: Var[dict]
+    """Custom styles for the component."""
+
     # ========================================================================
     # State Props - Value, placeholder, disabled state
     # ========================================================================

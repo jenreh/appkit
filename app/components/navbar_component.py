@@ -289,6 +289,11 @@ def navbar(
                     icon="bot-message-square",
                     url="/assistant",
                 ),
+                admin_sidebar_item(
+                    label="Meine Prompts",
+                    icon="message-square-text",
+                    url="/prompts",
+                ),
                 sidebar_item(
                     label="Bildgenerator",
                     icon="image",

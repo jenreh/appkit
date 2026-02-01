@@ -111,6 +111,10 @@ class Textarea(MantineInputComponentBase):
     resize: Var[Literal["none", "vertical", "both", "horizontal"]] = None
     """CSS resize property to control manual resizing."""
 
+    # Mantine styles prop for targeting internal sub-components
+    styles: Var[dict] = None
+    """Mantine styles object for targeting internal elements (root, wrapper, input)."""
+
 
 # ============================================================================
 # Convenience Function
