@@ -2,7 +2,7 @@
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Pre-release](https://img.shields.io/badge/status-pre--release-orange.svg)](https://github.com/jenreh/appkit)
+[![Release](https://img.shields.io/badge/status-release-green.svg)](https://github.com/jenreh/appkit)
 
 **A comprehensive, production-ready Reflex web application framework with AI-powered features, enterprise user management, and Mantine UI components.**
 
