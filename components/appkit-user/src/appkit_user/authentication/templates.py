@@ -8,7 +8,7 @@ from collections.abc import Callable
 import reflex as rx
 
 from appkit_ui.global_states import LoadingState
-from appkit_user.authentication.components import default_fallback
+from appkit_user.authentication.components import default_fallback, session_monitor
 from appkit_user.authentication.states import LoginState, UserSession
 
 logger = logging.getLogger(__name__)
@@ -244,15 +244,21 @@ def authenticated(
         def theme_wrap():
             navbar_component = navbar if navbar else rx.fragment()
             default_page = theme_wrapper(
-                templated_page(
-                    page_content,
-                    navbar_component,
+                rx.fragment(
+                    session_monitor(),  # Inject session monitor for timeout detection
+                    templated_page(
+                        page_content,
+                        navbar_component,
+                    ),
                 )
             )
             no_permission_page = theme_wrapper(
-                templated_page(
-                    default_fallback,
-                    navbar_component,
+                rx.fragment(
+                    session_monitor(),  # Also monitor on permission denied pages
+                    templated_page(
+                        default_fallback,
+                        navbar_component,
+                    ),
                 )
             )
 

@@ -57,6 +57,7 @@ class AuthenticationConfiguration(BaseSettings):
 
     session_timeout: int = 25  # minutes
     auth_token_refresh_delta: int = 10  # minutes
+    session_monitor_interval_seconds: int = 60  # seconds between session checks
     server_url: str
     server_port: int
 

@@ -69,7 +69,7 @@ class ThreadListState(rx.State):
     async def initialize(self) -> AsyncGenerator[Any, Any]:
         """Initialize thread list - load summaries from database."""
         async with self:
-            if self._initialized:
+            if self._initialized or self.loading:
                 return
             self.loading = True
         yield
