@@ -1,53 +1,45 @@
-# AppKit - Reflex-Mantine Component Library
+# AppKit
 
-> Production-ready Mantine UI components for Reflex web applications, focusing on form inputs, user authentication, image generation, and assistant functionality. Built with Python 3.13, Reflex 0.8+, React 18, and Mantine 8.3.3. Features type-safe components, inheritance-based architecture eliminating code duplication, and comprehensive examples.
+> A production-ready Reflex application and component workspace packaging Mantine UI wrappers, AI assistant tooling, enterprise authentication, and supporting infrastructure.
 
-AppKit is a modular workspace-based project with six specialized component libraries designed to accelerate development of robust web applications. The project emphasizes clean architecture, inheritance-based design patterns, and production-ready examples.
-
-**Key Stack:** Python 3.13 · Reflex (UI Framework) · FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic · Mantine 8.3.3 · React 18 · FastMCP · LangChain
+AppKit is a modular workspace-based project designed to accelerate development of robust web applications. The project emphasizes clean architecture, inheritance-based design patterns, and production-ready examples.
 
 ## Documentation
 
-- [Main README](README.md): Project overview, features, installation instructions, and acknowledgments
-- [Copilot Instructions](.github/copilot-instructions.md): Comprehensive development workflow, golden rules, architecture patterns, and best practices for extending the codebase
-- [GitHub README](.github/README.md): GitHub-specific documentation and guidelines
-- [License](LICENSE.md): MIT License for the project
+- [Project Overview](README.md): Primary project documentation, features, installation, and roadmap
+- [Agent Guide](AGENTS.md): Comprehensive architecture snapshot, setup instructions, and development workflow for AI agents
+- [Copilot Instructions](.github/copilot-instructions.md): Main instructions for Copilot, including golden rules and coding standards
 
-## Component Libraries
+## Components
 
-- [appkit-mantine README](components/appkit-mantine/README.md): Mantine UI component wrappers - Input, DateInput, NumberInput, PasswordInput, Textarea, NavigationProgress, RichTextEditor with full type safety
-- [appkit-commons README](components/appkit-commons/README.md): Shared utilities, configuration, database helpers, registry, and common patterns across all modules
-- [appkit-user README](components/appkit-user/README.md): User authentication, OAuth integration (Azure, GitHub), user management, and role-based access control (RBAC)
-- [appkit-assistant README](components/appkit-assistant/README.md): AI assistant functionality with multiple LLM integrations (OpenAI, Perplexity, custom processors) and MCP server management
-- [appkit-imagecreator README](components/appkit-imagecreator/README.md): Image generation capabilities with state management and processor integration
-- [appkit-ui README](components/appkit-ui/README.md): Reusable UI components, dialogs, form inputs, headers, and common UI patterns
+- [Mantine UI](components/appkit-mantine/README.md): Core Mantine UI component wrappers for Reflex
+- [Commons](components/appkit-commons/README.md): Shared configuration, logging, and database utilities
+- [User Management](components/appkit-user/README.md): Authentication (OAuth), RBAC, and user administration
+- [AI Assistant](components/appkit-assistant/README.md): LLM processor integration and MCP server management
+- [Image Creator](components/appkit-imagecreator/README.md): Multi-provider image generation workflows
+- [UI Shared](components/appkit-ui/README.md): Reusable layout components and UI patterns
 
-## Architecture & Design
+## Developer Guidelines
 
-- [Mantine Component Architecture](components/appkit-mantine/README.md#project-architecture): Inheritance-based design with MantineComponentBase, MantineInputComponentBase for 40+ common props, MantineProvider integration
-- [Base Classes & Inheritance](.github/copilot-instructions.md#critical-integration-patterns): Parent class hierarchies, event handler transformations, prop inheritance patterns
-- [Design Patterns](.github/copilot-instructions.md#project-architecture): Strategy, Factory, Template Method, Builder, Repository patterns applied across the workspace
-- [State Management Patterns](.github/copilot-instructions.md#code-quality-standards): Type-safe state definitions, event handlers, controlled vs uncontrolled components
+- [Python Guidelines](.github/instructions/python.instructions.md): Python development standards and best practices
+- [CI/CD Best Practices](.github/instructions/github-actions-ci-cd-best-practices.instructions.md): GitHub Actions workflow structure and security
+- [Terraform Guidelines](.github/instructions/terraform.instructions.md): Terraform coding conventions
+- [Azure Terraform](.github/instructions/terraform-azure.instructions.md): Specific guidelines for Azure resources via Terraform
 
-## Development Workflow
+## Configuration
 
-- [Golden Rules](.github/copilot-instructions.md#1-golden-rules-short-actionable): Think → Memory → Tools → Code → Memory, tests are truth, small safe changes, consistency
-- [Task Bootstrap Pattern](.github/copilot-instructions.md#2-task-bootstrap-pattern-for-inline-copilot--chat): Template for planning and documenting task changes
-- [Tooling Decision Matrix](.github/copilot-instructions.md#3-tooling-decision-matrix-condensed): When to use Context7, DuckDuckGo, Memory, etc.
-- [Development Workflow SOP](.github/copilot-instructions.md#4-sop--development-workflow): Prepare, Triage, Implement, Quality Gates, Commit & PR, Learn phases
-
-## Configuration & Setup
-
-- [Pyproject Configuration](pyproject.toml): Workspace members, dependencies, tool configurations (ruff, pytest, mypy, coverage)
-- [Reflex Configuration](rxconfig.py): Reflex app settings, database configuration, plugin setup
-- [Environment Configuration](configuration/): YAML-based configuration files for different environments (local, docker_test, devcontainer, prod)
-- [Alembic Configuration](alembic.ini): Database migration settings and version control configuration
-- [Docker Setup](docker-compose.yml): Multi-container development environment with PostgreSQL and application services
-- [Makefile](Makefile): Development commands for install, test, run, migrations, and utility tasks
+- [Task Definitions](Taskfile.dist.yml): Definitive source of build, run, and utility commands (replaces Makefile)
+- [Project Config](pyproject.toml): Workspace definition, dependencies, and tool settings (ruff, etc.)
+- [Reflex Config](rxconfig.py): App structure, styling plugins, and service connectivity
+- [Alembic Config](alembic.ini): Database migration settings
+- [Environment Config](configuration/config.yaml): Base configuration structure
 
 ## Examples
 
-- [Action Icon Examples](app/pages/examples/action_icon_examples.py): Icon buttons with groups and variants
+- [App Entry](app/app.py): Main application entry point showing page registration
+- [Assistant Page](app/pages/assistant/assistant.py): Implementation of the AI assistant interface
+- [User Pages](app/pages/users.py): User management and profile implementation
+
 - [Auto Scroll Examples](app/pages/examples/auto_scroll_examples.py): Automatic scrolling behavior patterns
 - [Autocomplete Examples](app/pages/examples/autocomplete_examples.py): Auto-completing input with suggestions
 - [Button Examples](app/pages/examples/button_examples.py): Button component usage with sizes, variants, loading states, and full-width demonstrations
