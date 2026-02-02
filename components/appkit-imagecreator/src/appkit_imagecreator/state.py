@@ -215,12 +215,14 @@ class ImageGalleryState(rx.State):
                 self.history_images = []
                 yield
 
-            if self._initialized or self.loading_images:
-                if self._initialized:
-                    self.loading_images = False
+            if self._initialized:
+                self.loading_images = False
                 yield
                 return
 
+            if self.loading_images:
+                yield
+                return
             self.loading_images = True
 
             # Check authentication
