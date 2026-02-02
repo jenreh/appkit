@@ -5,6 +5,7 @@ from appkit_user.authentication.components.components import (
     requires_admin,
     requires_authenticated,
     requires_role,
+    session_monitor,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "requires_admin",
     "requires_authenticated",
     "requires_role",
+    "session_monitor",
 ]

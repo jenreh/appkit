@@ -220,6 +220,9 @@ class ImageGalleryState(rx.State):
                 yield
                 return
 
+            if self.loading_images:
+                yield
+                return
             self.loading_images = True
 
             # Check authentication
