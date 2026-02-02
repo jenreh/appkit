@@ -13,6 +13,8 @@ app:
 
   authentication:
     server_url: http://localhost:8080
+    session_timeout: 5 # minutes
+    auth_token_refresh_delta: 2 # minutes
 
     oauth_providers:
       - provider: "github"

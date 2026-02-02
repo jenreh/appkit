@@ -3,28 +3,125 @@ from collections.abc import Callable
 
 import reflex as rx
 
+from appkit_commons.registry import service_registry
 from appkit_user.authentication.states import LOGIN_ROUTE, LoginState, UserSession
-from appkit_user.configuration import OAuthProvider
+from appkit_user.configuration import AuthenticationConfiguration, OAuthProvider
 
 logger = logging.getLogger(__name__)
 ComponentCallable = Callable[[], rx.Component]
 
+# Get session monitor interval from configuration
+_auth_config: AuthenticationConfiguration = service_registry().get(
+    AuthenticationConfiguration
+)
+SESSION_MONITOR_INTERVAL_MS = _auth_config.session_monitor_interval_seconds * 1000
+PROLONG_INTERVAL_MS = int(_auth_config.auth_token_refresh_delta * 60 * 1000)
+
 ### components ###
 
 
-def _form_inline_field(
-    icon: str,
-    **kwargs,
-) -> rx.Component:
-    if "class_name" not in kwargs:
-        kwargs["class_name"] = ""
-    kwargs["class_name"] += " w-full"
-    if kwargs.get("size") is None:
-        kwargs["size"] = "3"
+_SESSION_MONITOR_JS = """
+(function() {{
+    const monitorId = 'session-monitor-trigger';
+    const prolongId = 'session-prolong-trigger';
+    const monitorIntervalMs = {monitor_interval_ms};
+    const prolongIntervalMs = {prolong_interval_ms};
+    const events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
 
+    // Cleanup previous instances to prevent leaks and duplicate listeners
+    if (window._sessionMonitorInterval) {{
+        clearInterval(window._sessionMonitorInterval);
+    }}
+    if (window._sessionMonitorHandler) {{
+        events.forEach(e => document.removeEventListener(
+            e, window._sessionMonitorHandler
+        ));
+    }}
+
+    let lastActivity = Date.now();
+    let lastProlong = Date.now(); // Start fresh to avoid immediate prolong on reload
+
+    const updateActivity = (e) => {{
+        // Only trust real user events, ignore script-generated events
+        // (like our own clicks)
+        if (e.isTrusted) {{
+            lastActivity = Date.now();
+        }}
+    }};
+
+    // Store handler globally for cleanup
+    window._sessionMonitorHandler = updateActivity;
+
+    events.forEach(e => document.addEventListener(
+        e, updateActivity, {{ passive: true }}
+    ));
+
+    window._sessionMonitorInterval = setInterval(() => {{
+        const checkBtn = document.getElementById(monitorId);
+        const prolongBtn = document.getElementById(prolongId);
+
+        const now = Date.now();
+        const idle = now - lastActivity;
+        const timeSinceProlong = now - lastProlong;
+
+        // 1. Prolong session if active in last 60s AND enough time passed
+        if (idle < monitorIntervalMs && timeSinceProlong > prolongIntervalMs && prolongBtn) {{
+            prolongBtn.click();
+            lastProlong = now;
+        }}
+        // 2. Otherwise check authentication (redirect if expired)
+        else if (checkBtn) {{
+            checkBtn.click();
+        }}
+    }}, monitorIntervalMs);
+}})();
+"""
+
+
+def _themed_logo(light: str, dark: str, **kwargs) -> rx.Component:
+    """Helper to render a logo that changes with color mode."""
+    return rx.color_mode_cond(
+        rx.image(light, **kwargs),
+        rx.image(dark, **kwargs),
+    )
+
+
+def _oauth_button(
+    provider: OAuthProvider,
+    text: str,
+    icon_light: str,
+    enabled_var: rx.Var[bool],
+    icon_dark: str | None = None,
+) -> rx.Component:
+    """Helper to render an OAuth login button."""
+    icon_class = "absolute left-[30px] top-1/2 -translate-y-1/2 w-5 h-5"
+    if icon_dark:
+        icon = _themed_logo(icon_light, icon_dark, class_name=icon_class)
+    else:
+        icon = rx.image(icon_light, class_name=icon_class)
+
+    return rx.cond(
+        enabled_var,
+        rx.button(
+            icon,
+            text,
+            variant="outline",
+            size="3",
+            class_name="relative flex w-full",
+            loading=LoginState.is_loading,
+            on_click=[LoginState.login_with_provider(provider)],
+        ),
+    )
+
+
+def _form_inline_field(icon: str, **kwargs) -> rx.Component:
+    """Helper to render an inline form field."""
+    class_name = kwargs.pop("class_name", "")
     return rx.form.field(
         rx.input(
             rx.input.slot(rx.icon(icon)),
+            class_name=f"{class_name} w-full",
+            size=kwargs.pop("size", "3"),
             **kwargs,
         ),
         class_name="form-group w-full",
@@ -49,26 +146,43 @@ def default_fallback(
     )
 
 
+def session_monitor() -> rx.Component:
+    """Frontend-only component that periodically checks session validity.
+
+    Tracks user activity and extends session if active.
+    """
+    return rx.fragment(
+        rx.el.button(
+            id="session-monitor-trigger",
+            on_click=LoginState.check_auth,
+            style={"display": "none"},
+        ),
+        rx.el.button(
+            id="session-prolong-trigger",
+            on_click=UserSession.prolong_session,
+            style={"display": "none"},
+        ),
+        rx.script(
+            _SESSION_MONITOR_JS.format(
+                monitor_interval_ms=SESSION_MONITOR_INTERVAL_MS,
+                prolong_interval_ms=PROLONG_INTERVAL_MS,
+            )
+        ),
+    )
+
+
 def login_form(
     header: str, logo: str, logo_dark: str, margin_left: str = "0px"
 ) -> rx.Component:
-    icon_class = "absolute left-[30px] top-1/2 -translate-y-1/2 w-5 h-5"
-
     return rx.center(
         rx.card(
             rx.vstack(
                 rx.hstack(
-                    rx.color_mode_cond(
-                        rx.image(
-                            logo,
-                            class_name="h-[60px]",
-                            style={"marginLeft": margin_left},
-                        ),
-                        rx.image(
-                            logo_dark,
-                            class_name="h-[60px]",
-                            style={"marginLeft": margin_left},
-                        ),
+                    _themed_logo(
+                        logo,
+                        logo_dark,
+                        class_name="h-[60px]",
+                        style={"marginLeft": margin_left},
                     ),
                     rx.heading(header, size="8", margin_left="9px", margin_top="24px"),
                     align="center",
@@ -103,11 +217,7 @@ def login_form(
                             type="submit",
                             size="3",
                             class_name="w-full mt-3",
-                            loading=rx.cond(
-                                LoginState.is_loading,
-                                True,
-                                False,
-                            ),
+                            loading=LoginState.is_loading,
                         ),
                         class_name="justify-start w-full gap-2",
                     ),
@@ -125,48 +235,18 @@ def login_form(
                     class_name="items-center w-full",
                 ),
                 rx.vstack(
-                    rx.cond(
+                    _oauth_button(
+                        OAuthProvider.GITHUB,
+                        "Mit Github anmelden",
+                        "/icons/GitHub_light.svg",
                         LoginState.enable_github_oauth,
-                        rx.button(
-                            rx.color_mode_cond(
-                                rx.image(
-                                    "/icons/GitHub_light.svg", class_name=icon_class
-                                ),
-                                rx.image(
-                                    "/icons/GitHub_dark.svg", class_name=icon_class
-                                ),
-                            ),
-                            "Mit Github anmelden",
-                            variant="outline",
-                            size="3",
-                            class_name="relative flex w-full",
-                            loading=rx.cond(
-                                LoginState.is_loading,
-                                True,
-                                False,
-                            ),
-                            on_click=[
-                                LoginState.login_with_provider(OAuthProvider.GITHUB),
-                            ],
-                        ),
+                        icon_dark="/icons/GitHub_dark.svg",
                     ),
-                    rx.cond(
+                    _oauth_button(
+                        OAuthProvider.AZURE,
+                        "Mit Microsoft anmelden",
+                        "/icons/microsoft.svg",
                         LoginState.enable_azure_oauth,
-                        rx.button(
-                            rx.image("/icons/microsoft.svg", class_name=icon_class),
-                            "Mit Microsoft anmelden",
-                            variant="outline",
-                            size="3",
-                            class_name="relative flex w-full",
-                            loading=rx.cond(
-                                LoginState.is_loading,
-                                True,
-                                False,
-                            ),
-                            on_click=[
-                                LoginState.login_with_provider(OAuthProvider.AZURE),
-                            ],
-                        ),
                     ),
                     class_name="w-full gap-1",
                 ),
@@ -194,10 +274,7 @@ def oauth_login_splash(
     """Render a splash screen while handling OAuth callback."""
     return rx.card(
         rx.vstack(
-            rx.color_mode_cond(
-                rx.image(logo, class_name="w-[70%]"),
-                rx.image(logo_dark, class_name="w-[70%]"),
-            ),
+            _themed_logo(logo, logo_dark, class_name="w-[70%]"),
             rx.hstack(
                 rx.text(message.format(provider=provider)),
                 rx.spinner(),

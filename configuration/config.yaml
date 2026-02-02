@@ -27,6 +27,7 @@ app:
   authentication:
     session_timeout: 25 # minutes
     auth_token_refresh_delta: 10 # minutes
+    session_monitor_interval_seconds: 60 # seconds
     server_url: https://localhost
     server_port: 8080
 
