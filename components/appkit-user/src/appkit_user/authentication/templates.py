@@ -274,5 +274,4 @@ def authenticated(
 
         return theme_wrap
 
-    logger.debug("Authenticated decorator created for route: %s", route)
     return decorator
