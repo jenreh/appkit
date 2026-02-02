@@ -23,6 +23,9 @@ def _starts_with_secret(s: str) -> bool:
 def _replace_value_if_secret(
     key: str, value: Any, secret_function: Callable[[str], str]
 ) -> Any:
+    if isinstance(value, list):
+        return [_replace_value_if_secret(key, item, secret_function) for item in value]
+
     if not isinstance(value, str):
         return value
 
