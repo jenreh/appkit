@@ -1,6 +1,6 @@
 [project]
 name = "appkit-mantine"
-version = "1.0.2"
+version = "1.0.3"
 description = "Mantine UI input components for Reflex with type safety and comprehensive examples"
 readme = "README.md"
 requires-python = ">=3.13"
