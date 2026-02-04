@@ -331,6 +331,7 @@ class ThreadState(rx.State):
                     ThreadListState
                 )
                 threadlist_state.loading_thread_id = ""
+            yield
             return
 
         try:
@@ -343,6 +344,7 @@ class ThreadState(rx.State):
                         ThreadListState
                     )
                     threadlist_state.loading_thread_id = ""
+                yield
                 return
 
             # Mark all messages as done (loaded from DB)
@@ -371,6 +373,7 @@ class ThreadState(rx.State):
                 threadlist_state.loading_thread_id = ""
 
                 logger.debug("Loaded thread: %s", thread_id)
+            yield
 
         except Exception as e:
             logger.error("Error loading thread %s: %s", thread_id, e)
@@ -379,6 +382,7 @@ class ThreadState(rx.State):
                     ThreadListState
                 )
                 threadlist_state.loading_thread_id = ""
+            yield
 
     # -------------------------------------------------------------------------
     # Prompt and model management
