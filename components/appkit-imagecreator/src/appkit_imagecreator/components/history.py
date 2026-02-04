@@ -135,12 +135,14 @@ def history_drawer() -> rx.Component:
     drawer_content = rx.vstack(
         rx.cond(
             ImageGalleryState.history_images.length() > 0,
-            rx.box(
+            mn.scroll_area(
+                # rx.box(
                 rx.foreach(
                     ImageGalleryState.history_images_by_date,
                     lambda group: _history_date_group(group[0], group[1]),
                 ),
                 width="100%",
+                height="calc(100vh - 102px)",
             ),
             rx.center(
                 rx.vstack(
@@ -158,13 +160,10 @@ def history_drawer() -> rx.Component:
             ),
         ),
         width="100%",
-        height="calc(100vh - 60px)",
-        background=rx.color("gray", 1),
         display="flex",
         padding="0",
         margin="0",
         flex_direction="column",
-        overflow_y="auto",
     )
 
     return mn.drawer(
