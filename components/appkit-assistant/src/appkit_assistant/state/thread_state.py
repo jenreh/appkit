@@ -431,11 +431,23 @@ class ThreadState(rx.State):
 
     @rx.event
     async def load_mcp_servers(self) -> None:
-        """Load available active MCP servers from the database."""
+        """Load available active MCP servers filtered by user roles."""
+        # Get the user session to check roles
+        user_session = await self.get_state(UserSession)
+        user = await user_session.authenticated_user
+        user_roles: list[str] = user.roles if user else []
+
         async with get_asyncdb_session() as session:
             servers = await mcp_server_repo.find_all_active_ordered_by_name(session)
-            # Create detached copies
-            self.available_mcp_servers = [MCPServer(**s.model_dump()) for s in servers]
+            # Filter servers by user roles:
+            # - Include if required_role is empty/None (no restriction)
+            # - Include if user has the required_role
+            filtered_servers = [
+                MCPServer(**s.model_dump())
+                for s in servers
+                if not s.required_role or s.required_role in user_roles
+            ]
+            self.available_mcp_servers = filtered_servers
 
     @rx.event
     def toogle_tools_modal(self, show: bool) -> None:
