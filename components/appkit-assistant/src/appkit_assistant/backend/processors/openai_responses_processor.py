@@ -462,7 +462,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 reasoning_session=self.current_reasoning_session,
             )
 
-        # file_search_call / web_search_call done events are handled in _handle_search_events
+        # file_search_call / web_search_call done events are handled in
+        # _handle_search_events
         if item.type in ("file_search_call", "web_search_call"):
             return None
 

@@ -193,7 +193,7 @@ class ImageGalleryState(rx.State):
         async for _ in self._load_images():
             yield
 
-    async def _load_images(self) -> AsyncGenerator[Any, Any]:
+    async def _load_images(self) -> AsyncGenerator[Any, Any]:  # noqa: PLR0915
         """Load images from database (internal)."""
         async with self:
             user_session: UserSession = await self.get_state(UserSession)

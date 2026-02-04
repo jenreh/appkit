@@ -174,7 +174,10 @@ def file_upload(show: bool = False) -> rx.Component:
                     rx.upload_files(upload_id="composer_file_upload")
                 ),
             ),
-            content=f"Dateien hochladen (max. {ThreadState.max_files_per_thread}, {ThreadState.max_file_size_mb}MB pro Datei)",
+            content=(
+                f"Dateien hochladen (max. {ThreadState.max_files_per_thread}, "
+                f"{ThreadState.max_file_size_mb}MB pro Datei)"
+            ),
         ),
         rx.fragment(),
     )

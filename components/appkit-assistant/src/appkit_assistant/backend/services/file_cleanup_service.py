@@ -14,11 +14,10 @@ from typing import Any
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from openai import AsyncOpenAI, NotFoundError
-from sqlalchemy import select
 
-from appkit_assistant.backend.database.models import (
-    AssistantFileUpload,
-    AssistantThread,
+from appkit_assistant.backend.database.repositories import (
+    file_upload_repo,
+    thread_repo,
 )
 from appkit_assistant.backend.services.file_upload_service import FileUploadService
 from appkit_assistant.backend.services.openai_client_service import (
@@ -76,6 +75,8 @@ class FileCleanupService:
             "vector_stores_checked": 0,
             "vector_stores_expired": 0,
             "vector_stores_deleted": 0,
+            "files_found": 0,
+            "files_deleted": 0,
             "threads_updated": 0,
             "current_vector_store": None,
             "total_vector_stores": 0,
@@ -83,12 +84,19 @@ class FileCleanupService:
         }
 
         try:
-            # Get all unique vector store IDs from file uploads
+            # Get all unique vector store IDs from BOTH file uploads AND threads
             async with get_asyncdb_session() as session:
-                result = await session.execute(
-                    select(AssistantFileUpload.vector_store_id).distinct()
+                # Vector stores from file uploads
+                file_stores = await file_upload_repo.find_unique_vector_stores(session)
+                file_store_ids = {store_id for store_id, _ in file_stores if store_id}
+
+                # Vector stores from threads (may have orphaned references)
+                thread_store_ids = set(
+                    await thread_repo.find_unique_vector_store_ids(session)
                 )
-                vector_store_ids = [row[0] for row in result.all() if row[0]]
+
+                # Combine both sets
+                vector_store_ids = list(file_store_ids | thread_store_ids)
 
             stats["total_vector_stores"] = len(vector_store_ids)
             stats["status"] = "checking"
@@ -111,9 +119,11 @@ class FileCleanupService:
                     yield stats.copy()
 
                     # Delegate cleanup to FileUploadService
-                    deleted = await self._file_upload_service.delete_vector_store(vs_id)
-                    if deleted:
+                    result = await self._file_upload_service.delete_vector_store(vs_id)
+                    if result["deleted"]:
                         stats["vector_stores_deleted"] += 1
+                    stats["files_found"] += result["files_found"]
+                    stats["files_deleted"] += result["files_deleted"]
                     # Clear vector_store_id from associated threads
                     threads_updated = await self._clear_thread_vector_store_ids(vs_id)
                     stats["threads_updated"] += threads_updated
@@ -142,11 +152,23 @@ class FileCleanupService:
             True if the vector store is expired/deleted, False otherwise.
         """
         try:
-            await self._client.vector_stores.retrieve(vector_store_id=vector_store_id)
+            vector_store = await self._client.vector_stores.retrieve(
+                vector_store_id=vector_store_id
+            )
+            # Check if the vector store has expired status
+            if vector_store.status == "expired":
+                logger.info(
+                    "Vector store %s has expired status",
+                    vector_store_id,
+                )
+                return True
+            return False
         except NotFoundError:
+            logger.info(
+                "Vector store %s not found (deleted)",
+                vector_store_id,
+            )
             return True
-
-        return False
 
     async def _clear_thread_vector_store_ids(self, vector_store_id: str) -> int:
         """Clear vector_store_id from all threads associated with the store.
@@ -157,25 +179,16 @@ class FileCleanupService:
         Returns:
             Number of threads updated.
         """
-        updated_count = 0
         async with get_asyncdb_session() as session:
-            thread_result = await session.execute(
-                select(AssistantThread).where(
-                    AssistantThread.vector_store_id == vector_store_id
-                )
+            updated_count = await thread_repo.clear_vector_store_id(
+                session, vector_store_id
             )
-            threads = list(thread_result.scalars().all())
-
-            for thread in threads:
-                thread.vector_store_id = None
-                session.add(thread)
-                updated_count += 1
-                logger.debug(
-                    "Cleared vector_store_id from thread %s",
-                    thread.thread_id,
-                )
-
             await session.commit()
+            logger.debug(
+                "Cleared vector_store_id from %d threads for store %s",
+                updated_count,
+                vector_store_id,
+            )
 
         return updated_count
 

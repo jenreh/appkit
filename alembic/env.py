@@ -104,7 +104,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    from sqlalchemy import create_engine, pool
+    from sqlalchemy import create_engine, pool  # noqa: PLC0415
 
     url = get_database_url()
     connectable = create_engine(

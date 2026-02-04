@@ -8,7 +8,7 @@ from typing import Any, Final
 import reflex as rx
 from pydantic import BaseModel
 
-from appkit_assistant.backend.database.repositories import file_upload_repo
+from appkit_assistant.backend.database.repositories import file_upload_repo, thread_repo
 from appkit_assistant.backend.services.file_cleanup_service import run_cleanup
 from appkit_assistant.backend.services.openai_client_service import (
     get_openai_client_service,
@@ -118,6 +118,8 @@ class CleanupStats(BaseModel):
     vector_stores_checked: int = 0
     vector_stores_expired: int = 0
     vector_stores_deleted: int = 0
+    files_found: int = 0
+    files_deleted: int = 0
     threads_updated: int = 0
     current_vector_store: str | None = None
     total_vector_stores: int = 0
@@ -257,10 +259,17 @@ class FileManagerState(rx.State):
 
                 # Delete records from database
                 await file_upload_repo.delete_by_vector_store(session, store_id)
+
+                # Clear vector_store_id from any threads referencing this store
+                threads_updated = await thread_repo.clear_vector_store_id(
+                    session, store_id
+                )
+
                 await session.commit()
                 logger.info(
-                    "Deleted %d files for vector store %s",
+                    "Deleted %d files and cleared %d threads for vector store %s",
                     len(files),
+                    threads_updated,
                     store_id,
                 )
 
@@ -300,20 +309,31 @@ class FileManagerState(rx.State):
         self.loading = True
         yield
         try:
-            # First validate the vector store exists in OpenAI
+            # First validate the vector store exists and is not expired in OpenAI
             openai_service = get_openai_client_service()
             if openai_service.is_available:
                 client = openai_service.create_client()
                 if client:
                     try:
-                        await client.vector_stores.retrieve(store_id)
+                        vector_store = await client.vector_stores.retrieve(store_id)
+                        # Check if the vector store has expired
+                        if vector_store.status == "expired":
+                            logger.info(
+                                "Vector store %s has expired status, cleaning up",
+                                store_id,
+                            )
+                            async for event in self._cleanup_expired_vector_store(
+                                store_id
+                            ):
+                                yield event
+                            return
                         logger.debug("Vector store %s exists in OpenAI", store_id)
                     except Exception as e:
                         # Vector store not found - clean up
                         error_msg = str(e).lower()
                         if "not found" in error_msg or "404" in error_msg:
                             logger.info(
-                                "Vector store %s expired/deleted, cleaning up",
+                                "Vector store %s not found, cleaning up",
                                 store_id,
                             )
                             async for event in self._cleanup_expired_vector_store(
@@ -338,18 +358,19 @@ class FileManagerState(rx.State):
     async def _cleanup_expired_vector_store(
         self, store_id: str
     ) -> AsyncGenerator[Any, Any]:
-        """Clean up an expired vector store: delete DB records and OpenAI files."""
+        """Clean up an expired vector store: delete OpenAI files, store, and DB."""
         try:
             # Get files from DB to know which OpenAI files to delete
             async with get_asyncdb_session() as session:
                 files = await file_upload_repo.find_by_vector_store(session, store_id)
                 openai_file_ids = [f.openai_file_id for f in files]
 
-                # Delete files from OpenAI
+                # Delete files and vector store from OpenAI
                 openai_service = get_openai_client_service()
                 if openai_service.is_available:
                     client = openai_service.create_client()
                     if client:
+                        # Delete files from OpenAI storage
                         for file_id in openai_file_ids:
                             try:
                                 await client.files.delete(file_id=file_id)
@@ -363,12 +384,34 @@ class FileManagerState(rx.State):
                                     e,
                                 )
 
+                        # Delete the vector store from OpenAI
+                        try:
+                            await client.vector_stores.delete(vector_store_id=store_id)
+                            logger.info(
+                                "Deleted expired vector store from OpenAI: %s",
+                                store_id,
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "Failed to delete vector store %s from OpenAI "
+                                "(may already be deleted): %s",
+                                store_id,
+                                e,
+                            )
+
                 # Delete records from database
                 await file_upload_repo.delete_by_vector_store(session, store_id)
+
+                # Clear vector_store_id from any threads referencing this store
+                threads_updated = await thread_repo.clear_vector_store_id(
+                    session, store_id
+                )
+
                 await session.commit()
                 logger.info(
-                    "Cleaned up %d files for expired vector store %s",
+                    "Cleaned up %d files and %d threads for expired vector store %s",
                     len(files),
+                    threads_updated,
                     store_id,
                 )
 
@@ -667,6 +710,8 @@ class FileManagerState(rx.State):
                         vector_stores_checked=stats.get("vector_stores_checked", 0),
                         vector_stores_expired=stats.get("vector_stores_expired", 0),
                         vector_stores_deleted=stats.get("vector_stores_deleted", 0),
+                        files_found=stats.get("files_found", 0),
+                        files_deleted=stats.get("files_deleted", 0),
                         threads_updated=stats.get("threads_updated", 0),
                         current_vector_store=stats.get("current_vector_store"),
                         total_vector_stores=stats.get("total_vector_stores", 0),

@@ -132,7 +132,7 @@ def get_file_validation_service() -> FileValidationService:
     Returns:
         The FileValidationService instance
     """
-    global _file_validation_service
+    global _file_validation_service  # noqa: PLW0603
     if _file_validation_service is None:
         _file_validation_service = FileValidationService()
     return _file_validation_service

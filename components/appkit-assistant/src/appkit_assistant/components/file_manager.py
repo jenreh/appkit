@@ -293,6 +293,8 @@ def cleanup_progress_modal() -> rx.Component:
                         cleanup_stat_row(
                             "Gelöschte Stores:", stats.vector_stores_deleted
                         ),
+                        cleanup_stat_row("Gefundene Dateien:", stats.files_found),
+                        cleanup_stat_row("Gelöschte Dateien:", stats.files_deleted),
                         cleanup_stat_row(
                             "Aktualisierte Threads:", stats.threads_updated
                         ),

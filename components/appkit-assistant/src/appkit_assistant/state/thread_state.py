@@ -517,7 +517,10 @@ class ThreadState(rx.State):
         # Validate file count (using state variables from config)
         if len(files) > self.max_files_per_thread:
             yield rx.toast.error(
-                f"Bitte laden Sie maximal {self.max_files_per_thread} Dateien gleichzeitig hoch.",
+                (
+                    f"Bitte laden Sie maximal {self.max_files_per_thread} "
+                    "Dateien gleichzeitig hoch."
+                ),
                 position="top-right",
                 close_button=True,
             )

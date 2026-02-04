@@ -93,7 +93,7 @@ def get_auth_error_detector() -> AuthErrorDetector:
     Returns:
         The AuthErrorDetector instance
     """
-    global _auth_error_detector
+    global _auth_error_detector  # noqa: PLW0603
     if _auth_error_detector is None:
         _auth_error_detector = AuthErrorDetector()
     return _auth_error_detector

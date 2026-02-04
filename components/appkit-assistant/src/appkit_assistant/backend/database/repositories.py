@@ -168,6 +168,40 @@ class ThreadRepository(BaseRepository[AssistantThread, AsyncSession]):
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
+    async def find_unique_vector_store_ids(self, session: AsyncSession) -> list[str]:
+        """Get unique vector store IDs from all threads.
+
+        Returns:
+            List of unique vector store IDs (excluding None/empty).
+        """
+        stmt = select(AssistantThread.vector_store_id).distinct()
+        result = await session.execute(stmt)
+        return [row[0] for row in result.all() if row[0]]
+
+    async def clear_vector_store_id(
+        self, session: AsyncSession, vector_store_id: str
+    ) -> int:
+        """Clear vector_store_id from all threads referencing the given store.
+
+        Args:
+            vector_store_id: The vector store ID to clear from threads.
+
+        Returns:
+            Number of threads updated.
+        """
+        stmt = select(AssistantThread).where(
+            AssistantThread.vector_store_id == vector_store_id
+        )
+        result = await session.execute(stmt)
+        threads = list(result.scalars().all())
+
+        for thread in threads:
+            thread.vector_store_id = None
+            session.add(thread)
+
+        await session.flush()
+        return len(threads)
+
 
 class FileUploadRepository(BaseRepository[AssistantFileUpload, AsyncSession]):
     """Repository class for file upload database operations."""

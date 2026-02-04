@@ -426,19 +426,13 @@ class FileUploadService:
         ) from last_error
 
     async def _delete_files_from_vector_stores(
-        self, db_files: list[AssistantFileUpload]
+        self, vector_store_files: dict[str, list[str]]
     ) -> None:
-        """Delete files FROM their vector stores (Level 1)."""
-        # Build map of vector_store_id -> file_ids
-        vector_store_files: dict[str, list[str]] = {}
-        for db_file in db_files:
-            if db_file.vector_store_id:
-                if db_file.vector_store_id not in vector_store_files:
-                    vector_store_files[db_file.vector_store_id] = []
-                vector_store_files[db_file.vector_store_id].append(
-                    db_file.openai_file_id
-                )
+        """Delete files FROM their vector stores (Level 1).
 
+        Args:
+            vector_store_files: Map of vector_store_id -> list of file_ids.
+        """
         # Delete from each vector store
         for vs_id, vs_file_ids in vector_store_files.items():
             for file_id in vs_file_ids:
@@ -471,28 +465,36 @@ class FileUploadService:
 
     async def _delete_file_db_records(
         self,
-        db_files: list[AssistantFileUpload],
-        deletion_results: dict[str, bool],
+        openai_file_ids: list[str],
     ) -> None:
-        """Delete database records for successfully deleted files (Level 3)."""
-        deleted_file_ids = [fid for fid, success in deletion_results.items() if success]
-        if not deleted_file_ids:
+        """Delete database records for files by their OpenAI file IDs (Level 3).
+
+        Args:
+            openai_file_ids: List of OpenAI file IDs to delete from database.
+        """
+        if not openai_file_ids:
             return
 
         async with get_asyncdb_session() as session:
+            result = await session.execute(
+                select(AssistantFileUpload).where(
+                    AssistantFileUpload.openai_file_id.in_(openai_file_ids)
+                )
+            )
+            db_files = result.scalars().all()
+
             for db_file in db_files:
-                if db_file.openai_file_id in deleted_file_ids:
-                    try:
-                        await session.delete(db_file)
-                        logger.debug(
-                            "Deleted DB record for file: %s", db_file.openai_file_id
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            "Failed to delete DB record for file %s: %s",
-                            db_file.openai_file_id,
-                            e,
-                        )
+                try:
+                    await session.delete(db_file)
+                    logger.debug(
+                        "Deleted DB record for file: %s", db_file.openai_file_id
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to delete DB record for file %s: %s",
+                        db_file.openai_file_id,
+                        e,
+                    )
             await session.commit()
 
     async def upload_file(
@@ -524,7 +526,8 @@ class FileUploadService:
         file_size = path.stat().st_size
         if file_size > self._max_file_size_bytes:
             raise FileUploadError(
-                f"Datei überschreitet die maximale Größe von {self.config.max_file_size_mb}MB"
+                "Datei überschreitet die maximale Größe von "
+                f"{self.config.max_file_size_mb}MB"
             )
 
         # Validate file count for thread
@@ -769,84 +772,117 @@ class FileUploadService:
         if not file_ids:
             return {}
 
-        # Get file records from database to know which vector stores they belong to
+        # Get file records and extract needed data within session
+        vector_store_files: dict[str, list[str]] = {}
         async with get_asyncdb_session() as session:
             file_records = await session.execute(
                 select(AssistantFileUpload).where(
                     AssistantFileUpload.openai_file_id.in_(file_ids)
                 )
             )
-            db_files = file_records.scalars().all()
+            for db_file in file_records.scalars().all():
+                if db_file.vector_store_id:
+                    if db_file.vector_store_id not in vector_store_files:
+                        vector_store_files[db_file.vector_store_id] = []
+                    vector_store_files[db_file.vector_store_id].append(
+                        db_file.openai_file_id
+                    )
 
         # LEVEL 1: Delete files FROM their vector stores
-        await self._delete_files_from_vector_stores(db_files)
+        await self._delete_files_from_vector_stores(vector_store_files)
 
         # LEVEL 2: Delete files from OpenAI
         results = await self._delete_files_from_openai(file_ids)
 
         # LEVEL 3: Delete database records (only for successfully deleted files)
-        await self._delete_file_db_records(db_files, results)
+        deleted_file_ids = [fid for fid, success in results.items() if success]
+        await self._delete_file_db_records(deleted_file_ids)
 
         return results
 
-    async def delete_vector_store(self, vector_store_id: str) -> bool:
+    async def delete_vector_store(self, vector_store_id: str) -> dict[str, Any]:
         """Delete a vector store with proper ordering.
 
         Order:
-        1. Delete all files in the vector store (via delete_files - 3-level deletion)
-        2. Delete the vector store container itself
+        1. Get file IDs from database (reliable even for expired stores)
+        2. Try to get file IDs from OpenAI vector store (may fail if expired)
+        3. Delete all files (3-level deletion)
+        4. Delete the vector store container itself
+        5. Clean up database records
 
         Args:
             vector_store_id: The vector store ID to delete.
 
         Returns:
-            True if vector store was successfully deleted, False otherwise.
+            Dict with 'deleted' (bool), 'files_found' (int), 'files_deleted' (int).
         """
+        result = {"deleted": False, "files_found": 0, "files_deleted": 0}
+
         if not vector_store_id:
-            return False
+            return result
 
         logger.info("Deleting vector store: %s", vector_store_id)
 
-        # Step 1: List and delete all files in the vector store
+        # Step 1: Get file IDs from database (reliable even for expired stores)
+        db_file_ids: set[str] = set()
+        async with get_asyncdb_session() as session:
+            db_files = await file_upload_repo.find_by_vector_store(
+                session, vector_store_id
+            )
+            db_file_ids = {f.openai_file_id for f in db_files}
+
+        # Step 2: Try to get file IDs from OpenAI (may fail for expired stores)
+        openai_file_ids: set[str] = set()
         try:
             vs_files = await self.client.vector_stores.files.list(
                 vector_store_id=vector_store_id
             )
-            file_ids = [vs_file.id for vs_file in vs_files.data]
-
-            if file_ids:
-                logger.info(
-                    "Deleting %d files from vector store %s",
-                    len(file_ids),
-                    vector_store_id,
-                )
-                deletion_results = await self.delete_files(file_ids)
-                successful = sum(1 for success in deletion_results.values() if success)
-                logger.info(
-                    "Successfully deleted %d/%d files from vector store %s",
-                    successful,
-                    len(file_ids),
-                    vector_store_id,
-                )
+            openai_file_ids = {vs_file.id for vs_file in vs_files.data}
         except Exception as e:
             logger.warning(
-                "Failed to delete files from vector store %s: %s",
+                "Could not list files from vector store %s (may be expired): %s",
                 vector_store_id,
                 e,
             )
 
-        # Step 2: Delete the vector store container itself
+        # Merge file IDs from both sources
+        all_file_ids = list(db_file_ids | openai_file_ids)
+        result["files_found"] = len(all_file_ids)
+
+        # Step 3: Delete all files (3-level deletion)
+        if all_file_ids:
+            logger.info(
+                "Deleting %d files from vector store %s (db: %d, openai: %d)",
+                len(all_file_ids),
+                vector_store_id,
+                len(db_file_ids),
+                len(openai_file_ids),
+            )
+            deletion_results = await self.delete_files(all_file_ids)
+            successful = sum(1 for success in deletion_results.values() if success)
+            result["files_deleted"] = successful
+            logger.info(
+                "Successfully deleted %d/%d files from vector store %s",
+                successful,
+                len(all_file_ids),
+                vector_store_id,
+            )
+
+        # Step 4: Delete the vector store container itself
         try:
             await self.client.vector_stores.delete(vector_store_id=vector_store_id)
             logger.info("Deleted vector store: %s", vector_store_id)
-            return True
+            result["deleted"] = True
+            return result
         except Exception as e:
             logger.warning(
-                "Failed to delete vector store %s (will auto-expire): %s",
+                "Failed to delete vector store %s (may already be expired): %s",
                 vector_store_id,
                 e,
             )
-            return False
+            # Still return True if files were cleaned up - store may auto-expire
+            result["deleted"] = len(all_file_ids) > 0
+            return result
 
     async def cleanup_deleted_thread(
         self,
@@ -887,10 +923,10 @@ class FileUploadService:
             return result
 
         # Delete vector store (which handles all file deletion internally)
-        vs_deleted = await self.delete_vector_store(vector_store_id)
-        result["vector_store_deleted"] = vs_deleted
+        vs_result = await self.delete_vector_store(vector_store_id)
+        result["vector_store_deleted"] = vs_result["deleted"]
 
-        if not vs_deleted:
+        if not vs_result["deleted"]:
             result["errors"].append(f"Failed to delete vector store {vector_store_id}")
 
         logger.info(

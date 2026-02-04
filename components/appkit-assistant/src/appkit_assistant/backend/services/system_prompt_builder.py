@@ -83,7 +83,7 @@ def get_system_prompt_builder() -> SystemPromptBuilder:
     Returns:
         The SystemPromptBuilder instance
     """
-    global _system_prompt_builder
+    global _system_prompt_builder  # noqa: PLW0603
     if _system_prompt_builder is None:
         _system_prompt_builder = SystemPromptBuilder()
     return _system_prompt_builder
