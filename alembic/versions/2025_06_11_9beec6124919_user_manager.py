@@ -18,7 +18,7 @@ from app import configuration
 
 # revision identifiers, used by Alembic.
 revision: str = "9beec6124919"
-down_revision: str | None = "2025_05_31_add_fields"
+down_revision: str | None = "8bcdef012345"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

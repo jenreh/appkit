@@ -7,3 +7,11 @@ class Role(BaseModel):
     label: str
     description: str | None = ""
     group: str = "default"
+
+
+NO_ROLE = Role(
+    name="__none__",
+    label="Keine Einschränkung",
+    description="Kein Rollenzwang",
+    group="default",
+)

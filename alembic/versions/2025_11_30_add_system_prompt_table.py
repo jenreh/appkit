@@ -1,6 +1,6 @@
 """Add system prompt table
 
-Revision ID: 123456789abc
+Revision ID: 8a7b6c5d4e3f
 Revises: 2025_11_30_add_oauth_to_mcp_server
 Create Date: 2025-11-30 15:00:00.000000
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "20251130_system_prompt"
-down_revision: str | None = "20251130_add_oauth_to_mcp_server"
+revision: str = "8a7b6c5d4e3f"  # 20251130_system_prompt
+down_revision: str | None = "4afe63b2d1c0"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

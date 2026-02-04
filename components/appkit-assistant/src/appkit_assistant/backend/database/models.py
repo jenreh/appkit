@@ -67,6 +67,7 @@ class MCPServer(rx.Model, table=True):
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
     active: bool = Field(default=True, nullable=False)
+    required_role: str | None = Field(default=None, nullable=True)
 
 
 class SystemPrompt(rx.Model, table=True):

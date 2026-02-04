@@ -4,6 +4,9 @@ import reflex as rx
 
 from appkit_assistant.components import file_manager, mcp_servers_table
 from appkit_assistant.components.system_prompt_editor import system_prompt_editor
+from appkit_assistant.roles import (
+    ASSISTANT_USER_ROLE,
+)
 from appkit_assistant.state.file_manager_state import FileManagerState
 from appkit_assistant.state.system_prompt_state import SystemPromptState
 from appkit_ui.components.header import header
@@ -11,6 +14,20 @@ from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
+from app.roles import MCP_ADVANCED_ROLE, MCP_BASIC_ROLE
+
+# Mapping from role name to display label
+ROLE_LABELS: dict[str, str] = {
+    ASSISTANT_USER_ROLE.name: ASSISTANT_USER_ROLE.label,
+    MCP_BASIC_ROLE.name: MCP_BASIC_ROLE.label,
+    MCP_ADVANCED_ROLE.name: MCP_ADVANCED_ROLE.label,
+}
+
+AVAILABLE_ROLES = [
+    {"value": ASSISTANT_USER_ROLE.name, "label": ASSISTANT_USER_ROLE.label},
+    {"value": MCP_BASIC_ROLE.name, "label": MCP_BASIC_ROLE.label},
+    {"value": MCP_ADVANCED_ROLE.name, "label": MCP_ADVANCED_ROLE.label},
+]
 
 
 class AdminAssistantState(rx.State):
@@ -53,7 +70,9 @@ def admin_assistant_page() -> rx.Component:
                     margin_bottom="21px",
                 ),
                 rx.tabs.content(
-                    mcp_servers_table(),
+                    mcp_servers_table(
+                        role_labels=ROLE_LABELS, available_roles=AVAILABLE_ROLES
+                    ),
                     value="mcp",
                 ),
                 rx.tabs.content(

@@ -23,6 +23,17 @@ class MCPServerState(rx.State):
     servers: list[MCPServer] = []
     current_server: MCPServer | None = None
     loading: bool = False
+    available_roles: list[dict[str, str]] = []
+    role_labels: dict[str, str] = {}
+
+    def set_available_roles(
+        self,
+        available_roles: list[dict[str, str]],
+        role_labels: dict[str, str],
+    ) -> None:
+        """Set the available roles for MCP server access control."""
+        self.available_roles = available_roles
+        self.role_labels = role_labels
 
     async def load_servers(self) -> None:
         """Load all MCP servers from the database.
@@ -82,6 +93,7 @@ class MCPServerState(rx.State):
                 headers=headers,
                 description=form_data.get("description") or None,
                 prompt=form_data.get("prompt") or None,
+                required_role=form_data.get("required_role") or None,
                 auth_type=auth_type,
                 oauth_client_id=(
                     form_data.get("oauth_client_id")
@@ -156,6 +168,9 @@ class MCPServerState(rx.State):
                     existing_server.headers = headers
                     existing_server.description = form_data.get("description") or None
                     existing_server.prompt = form_data.get("prompt") or None
+                    existing_server.required_role = (
+                        form_data.get("required_role") or None
+                    )
                     existing_server.auth_type = auth_type
                     existing_server.oauth_client_id = (
                         form_data.get("oauth_client_id")

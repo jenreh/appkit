@@ -1,7 +1,7 @@
 """add_openai_agent_table
 
 Revision ID: 5c7cb666c10d
-Revises: 20251130_system_prompt
+Revises: 8a7b6c5d4e3f
 Create Date: 2025-12-07 19:33:50.224585
 
 """
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "20251207_openai_agents"
-down_revision: str | None = "20251130_system_prompt"
+revision: str = "5c7cb666c10d"
+down_revision: str | None = "8a7b6c5d4e3f"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

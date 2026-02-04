@@ -1,7 +1,7 @@
 """add_assistant_thread_table
 
 Revision ID: db3b5623e5a4
-Revises: 20251207_openai_agents
+Revises: 5c7cb666c10d
 Create Date: 2025-12-07 22:48:11.831752
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "db3b5623e5a4"
-down_revision: str | None = "20251207_openai_agents"
+down_revision: str | None = "5c7cb666c10d"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

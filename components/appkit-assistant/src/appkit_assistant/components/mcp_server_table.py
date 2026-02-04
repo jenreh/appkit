@@ -37,6 +37,19 @@ def mcp_server_table_row(server: MCPServer) -> TableRow:
             },
         ),
         rx.table.cell(
+            rx.cond(
+                server.required_role,
+                rx.text(
+                    MCPServerState.role_labels.get(
+                        server.required_role, server.required_role
+                    ),
+                    size="2",
+                ),
+                rx.text("-", size="2", color="gray"),
+            ),
+            white_space="nowrap",
+        ),
+        rx.table.cell(
             rx.switch(
                 checked=server.active,
                 on_change=lambda checked: MCPServerState.toggle_server_active(
@@ -60,7 +73,16 @@ def mcp_server_table_row(server: MCPServer) -> TableRow:
     )
 
 
-def mcp_servers_table() -> rx.Fragment:
+def mcp_servers_table(
+    role_labels: dict[str, str] | None = None,
+    available_roles: list[dict[str, str]] | None = None,
+) -> rx.Fragment:
+    # Set default empty values if not provided
+    if role_labels is None:
+        role_labels = {}
+    if available_roles is None:
+        available_roles = []
+
     return rx.fragment(
         rx.flex(
             add_mcp_server_button(),
@@ -71,8 +93,9 @@ def mcp_servers_table() -> rx.Fragment:
                 rx.table.row(
                     rx.table.column_header_cell("Name", width="20%"),
                     rx.table.column_header_cell(
-                        "Beschreibung", width="calc(80% - 230px)"
+                        "Beschreibung", width="calc(80% - 350px)"
                     ),
+                    rx.table.column_header_cell("Rolle", width="120px"),
                     rx.table.column_header_cell("Aktiv", width="90px"),
                     rx.table.column_header_cell("", width="140px"),
                 ),
@@ -81,6 +104,9 @@ def mcp_servers_table() -> rx.Fragment:
             size="3",
             width="100%",
             table_layout="fixed",
-            on_mount=MCPServerState.load_servers_with_toast,
+            on_mount=[
+                MCPServerState.set_available_roles(available_roles, role_labels),
+                MCPServerState.load_servers_with_toast,
+            ],
         ),
     )

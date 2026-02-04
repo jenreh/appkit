@@ -11,6 +11,7 @@ from reflex.vars.base import RETURN, CustomVarOperationReturn
 import appkit_mantine as mn
 from appkit_assistant.backend.database.models import MCPAuthType, MCPServer
 from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
+from appkit_assistant.roles import ASSISTANT_USER_ROLE
 from appkit_assistant.state.mcp_server_state import MCPServerState
 from appkit_ui.components.dialogs import (
     delete_dialog,
@@ -30,6 +31,8 @@ class ValidationState(rx.State):
     name: str = ""
     desciption: str = ""
     prompt: str = ""
+    required_role: str = ASSISTANT_USER_ROLE.name
+    active: bool = False
 
     # Authentication type selection
     auth_type: str = AUTH_TYPE_API_KEY
@@ -60,6 +63,7 @@ class ValidationState(rx.State):
             self.name = ""
             self.desciption = ""
             self.prompt = ""
+            self.required_role = ASSISTANT_USER_ROLE.name
             self.auth_type = AUTH_TYPE_API_KEY
             self.oauth_client_id = ""
             self.oauth_client_secret = ""
@@ -72,6 +76,9 @@ class ValidationState(rx.State):
             self.name = server.name
             self.desciption = server.description
             self.prompt = server.prompt or ""
+            self.active = server.active
+            # Use sentinel value if no role is set
+            self.required_role = server.required_role or ASSISTANT_USER_ROLE.name
             # Determine auth type from server
             if server.oauth_client_id:
                 self.auth_type = AUTH_TYPE_OAUTH
@@ -231,6 +238,10 @@ class ValidationState(rx.State):
     def set_oauth_scopes(self, value: str) -> None:
         """Set the OAuth scopes."""
         self.oauth_scopes = value
+
+    def set_required_role(self, role: str) -> None:
+        """Set the required role for accessing this MCP server."""
+        self.required_role = role
 
     async def check_discovery(self) -> AsyncGenerator[Any, Any]:
         """Check for OAuth configuration at the given URL."""
@@ -438,6 +449,40 @@ def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
     )
 
 
+def _role_select() -> rx.Component:
+    """Role selection dropdown for MCP server access control."""
+    return rx.box(
+        rx.text("Erforderliche Rolle", size="2", weight="medium"),
+        rx.text(
+            "Nur Benutzer mit dieser Rolle können den MCP Server verwenden.",
+            size="1",
+            color="gray",
+            margin_bottom="3px",
+        ),
+        rx.select.root(
+            rx.select.trigger(
+                placeholder="Rolle auswählen",
+                width="100%",
+            ),
+            rx.select.content(
+                rx.foreach(
+                    MCPServerState.available_roles,
+                    lambda role: rx.select.item(
+                        role["label"],
+                        value=role["value"],
+                    ),
+                ),
+            ),
+            value=ValidationState.required_role,
+            on_change=ValidationState.set_required_role,
+            name="required_role",
+            width="100%",
+        ),
+        width="100%",
+        margin_bottom="12px",
+    )
+
+
 def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
     """Reusable form fields for MCP server add/update dialogs."""
     is_edit_mode = server is not None
@@ -528,6 +573,7 @@ def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
             spacing="0",
             width="100%",
         ),
+        _role_select(),
         # Authentication type selector and conditional fields
         _auth_type_selector(),
         _api_key_auth_fields(server),
