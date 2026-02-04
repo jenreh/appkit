@@ -180,11 +180,6 @@ def file_upload(show: bool = False) -> rx.Component:
     )
 
 
-def add_attachment(show: bool = False) -> rx.Component:
-    """Legacy attachment function - now wraps file_upload."""
-    return file_upload(show=show)
-
-
 def choose_model(show: bool = False) -> rx.Component | None:
     if not show:
         return None
@@ -237,7 +232,6 @@ def tools(show: bool = False) -> rx.Component:
     return rx.cond(
         show,
         rx.hstack(
-            web_search_toggle(),
             tools_popover(),
             spacing="1",
             align="center",
@@ -274,7 +268,6 @@ def composer(*children, on_submit: Callable, **kwargs) -> rx.Component:
 
 class ComposerComponent(rx.ComponentNamespace):
     __call__ = staticmethod(composer)
-    add_attachment = staticmethod(add_attachment)
     choose_model = staticmethod(choose_model)
     clear = staticmethod(clear)
     file_upload = staticmethod(file_upload)

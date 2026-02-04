@@ -18,6 +18,7 @@ from appkit_assistant.backend.schemas import (
     ChunkType,
     Message,
 )
+from appkit_assistant.roles import ASSISTANT_BASIC_MODELS_ROLE
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,8 @@ LOREM_MODELS = {
         stream=True,
         supports_attachments=True,
         supports_tools=True,
+        keywords=["lorem", "ipsum", "short"],
+        requires_role=ASSISTANT_BASIC_MODELS_ROLE.name,
     )
 }
 

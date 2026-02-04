@@ -8,7 +8,9 @@ from appkit_assistant.backend.schemas import Message, MessageType
 from appkit_assistant.components import composer
 from appkit_assistant.components.message import AuthCardComponent, MessageComponent
 from appkit_assistant.components.threadlist import ThreadList
+from appkit_assistant.roles import ASSISTANT_FILE_UPLOAD_ROLE, ASSISTANT_WEB_SEARCH_ROLE
 from appkit_assistant.state.thread_state import ThreadState
+from appkit_user.authentication.components.components import requires_role
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +122,14 @@ class Assistant:
                     composer.choose_model(show=with_model_chooser),
                 ),
                 rx.hstack(
-                    composer.file_upload(show=with_attachments),
+                    requires_role(
+                        composer.file_upload(show=with_attachments),
+                        role=ASSISTANT_FILE_UPLOAD_ROLE.name,
+                    ),
+                    requires_role(
+                        composer.web_search_toggle(),
+                        role=ASSISTANT_WEB_SEARCH_ROLE.name,
+                    ),
                     composer.tools(
                         show=with_tools and ThreadState.selected_model_supports_tools
                     ),

@@ -1,6 +1,7 @@
 import enum
 
 from appkit_assistant.backend.schemas import AIModel
+from appkit_assistant.roles import ASSISTANT_PERPLEXITY_MODEL_ROLE
 
 
 class ContextSize(enum.StrEnum):
@@ -24,6 +25,8 @@ SONAR = PerplexityAIModel(
     icon="perplexity",
     model="sonar",
     stream=True,
+    keywords=["sonar", "perplexity"],
+    requires_role=ASSISTANT_PERPLEXITY_MODEL_ROLE.name,
 )
 
 SONAR_PRO = PerplexityAIModel(
@@ -33,6 +36,7 @@ SONAR_PRO = PerplexityAIModel(
     model="sonar-pro",
     stream=True,
     keywords=["sonar", "perplexity"],
+    requires_role=ASSISTANT_PERPLEXITY_MODEL_ROLE.name,
 )
 
 SONAR_DEEP_RESEARCH = PerplexityAIModel(
@@ -43,6 +47,7 @@ SONAR_DEEP_RESEARCH = PerplexityAIModel(
     search_context_size=ContextSize.HIGH,
     stream=True,
     keywords=["reasoning", "deep", "research", "perplexity"],
+    requires_role=ASSISTANT_PERPLEXITY_MODEL_ROLE.name,
 )
 
 SONAR_REASONING = PerplexityAIModel(
@@ -53,4 +58,5 @@ SONAR_REASONING = PerplexityAIModel(
     search_context_size=ContextSize.HIGH,
     stream=True,
     keywords=["reasoning", "perplexity"],
+    requires_role=ASSISTANT_PERPLEXITY_MODEL_ROLE.name,
 )

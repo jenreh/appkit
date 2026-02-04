@@ -2,6 +2,7 @@ from typing import Final
 
 import reflex as rx
 
+from appkit_assistant.roles import ASSISTANT_ADMIN_ROLE
 from appkit_commons.registry import service_registry
 from appkit_user.authentication.components.components import requires_role
 
@@ -12,7 +13,6 @@ from app.components.navbar_component import (
     sub_heading_styles,
 )
 from app.configuration import AppConfig
-from app.roles import ASSISTANT_ROLE
 
 _config = service_registry().get(AppConfig)
 VERSION: Final[str] = (
@@ -65,7 +65,7 @@ def navbar_admin_items() -> rx.Component:
                 icon="bot",
                 url="/admin/assistant",
             ),
-            role=ASSISTANT_ROLE.name,
+            role=ASSISTANT_ADMIN_ROLE.name,
         ),
         width="95%",
         spacing="1",

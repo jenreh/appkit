@@ -28,6 +28,9 @@ from appkit_assistant.components import (
 )
 from appkit_assistant.components.thread import Assistant
 from appkit_assistant.configuration import AssistantConfig
+from appkit_assistant.roles import (
+    ASSISTANT_USER_ROLE,
+)
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_assistant.state.thread_state import ThreadState
 from appkit_commons.registry import service_registry
@@ -40,12 +43,6 @@ from appkit_user.authentication.components.components import (
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
-from app.roles import (
-    ADVANCED_MODEL_ROLE,
-    ASSISTANT_ROLE,
-    BASIC_MODEL_ROLE,
-    PERPLEXITY_MODEL_ROLE,
-)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -70,9 +67,6 @@ def initialize_model_manager() -> list[AIModel]:
     model_manager.register_processor("lorem_ipsum", LoremIpsumProcessor())
     config = service_registry().get(AssistantConfig)
 
-    SONAR.requires_role = PERPLEXITY_MODEL_ROLE.name
-    SONAR_DEEP_RESEARCH.requires_role = PERPLEXITY_MODEL_ROLE.name
-
     if config.perplexity_api_key is not None:
         model_manager.register_processor(
             "perplexity",
@@ -81,9 +75,6 @@ def initialize_model_manager() -> list[AIModel]:
                 models={SONAR.id: SONAR, SONAR_DEEP_RESEARCH.id: SONAR_DEEP_RESEARCH},
             ),
         )
-
-    GPT_5_1.requires_role = BASIC_MODEL_ROLE.name
-    GPT_5_2.requires_role = ADVANCED_MODEL_ROLE.name
 
     models = {
         GPT_5_1.id: GPT_5_1,
@@ -103,9 +94,6 @@ def initialize_model_manager() -> list[AIModel]:
         ),
     )
 
-    # Register Claude processor if API key is configured
-    CLAUDE_HAIKU_4_5.requires_role = ADVANCED_MODEL_ROLE.name
-
     if config.claude_api_key is not None:
         claude_models = {
             CLAUDE_HAIKU_4_5.id: CLAUDE_HAIKU_4_5,
@@ -119,10 +107,6 @@ def initialize_model_manager() -> list[AIModel]:
                 models=claude_models,
             ),
         )
-
-    # Register Gemini processor if API key is configured
-    GEMINI_3_PRO.requires_role = ADVANCED_MODEL_ROLE.name
-    GEMINI_3_FLASH.requires_role = BASIC_MODEL_ROLE.name
 
     if config.google_api_key is not None:
         gemini_models = {
@@ -209,7 +193,7 @@ def assistant_page() -> rx.Component:
                 width="100%",
                 spacing="0",
             ),
-            role=ASSISTANT_ROLE.name,
+            role=ASSISTANT_USER_ROLE.name,
             fallback=default_fallback(),
         ),
     )

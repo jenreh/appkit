@@ -2,7 +2,8 @@ import reflex as rx
 from reflex.components.sonner.toast import Toaster
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.backend.models import Role, User, UserCreate
+from appkit_commons.roles import Role
+from appkit_user.authentication.backend.models import User, UserCreate
 from appkit_user.authentication.backend.user_repository import user_repo
 from appkit_user.authentication.decorators import is_authenticated
 
