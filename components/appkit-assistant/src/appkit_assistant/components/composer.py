@@ -218,7 +218,7 @@ def web_search_toggle() -> rx.Component:
                 color_scheme=rx.cond(ThreadState.web_search_enabled, "blue", "accent"),
                 padding="8px",
                 margin_right=rx.cond(
-                    ThreadState.selected_model_supports_attachments, "6px", "14px"
+                    ThreadState.selected_model_supports_attachments, "0px", "8px"
                 ),
                 margin_left="-6px",
                 on_click=ThreadState.toggle_web_search,
