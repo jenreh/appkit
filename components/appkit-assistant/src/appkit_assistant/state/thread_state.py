@@ -443,6 +443,16 @@ class ThreadState(rx.State):
     # Command palette management
     # -------------------------------------------------------------------------
 
+    @rx.event
+    async def reload_commands(self) -> None:
+        """Reload user prompts as commands.
+
+        Call this after creating, updating, or deleting prompts to refresh
+        the command palette.
+        """
+        if self._current_user_id:
+            await self._load_user_prompts_as_commands(int(self._current_user_id))
+
     async def _load_user_prompts_as_commands(self, user_id: int) -> None:
         """Load user prompts from database and convert to CommandDefinitions.
 

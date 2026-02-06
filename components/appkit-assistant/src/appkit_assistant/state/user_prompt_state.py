@@ -8,6 +8,7 @@ from reflex.state import State
 from appkit_assistant.backend.database.models import UserPrompt
 from appkit_assistant.backend.database.repositories import user_prompt_repo
 from appkit_assistant.backend.services.user_prompt_service import validate_handle
+from appkit_assistant.state.thread_state import ThreadState
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
@@ -426,6 +427,7 @@ class UserPromptState(State):
             await self.load_user_prompts()
             await self.set_selected_by_handle(handle)
             yield rx.toast.success(f"Prompt '{handle}' erstellt.")
+            yield ThreadState.reload_commands
 
         except Exception as exc:
             logger.exception("Failed to create prompt")
@@ -484,6 +486,7 @@ class UserPromptState(State):
             await self.load_user_prompts()  # Refresh sidebar list
             await self.set_selected_by_handle(self.current_handle)  # Re-select
             yield rx.toast.success("Gespeichert.")
+            yield ThreadState.reload_commands
 
         except Exception as exc:
             logger.exception("Failed to save prompt version")
@@ -510,6 +513,8 @@ class UserPromptState(State):
             self._clear_selection()
             await self.load_user_prompts()
             yield rx.toast.success("Prompt gelöscht.")
+            # Refresh command palette
+            yield ThreadState.reload_commands
 
         except Exception as exc:
             logger.exception("Failed to delete prompt")
@@ -537,6 +542,7 @@ class UserPromptState(State):
                     await user_prompt_repo.update(session, latest)
 
             await self.load_user_prompts()  # Refresh so icon updates
+            yield ThreadState.reload_commands
 
         except Exception:
             logger.exception("Failed to toggle shared")
