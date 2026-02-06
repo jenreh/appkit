@@ -2,6 +2,7 @@
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +13,10 @@ from appkit_assistant.backend.database.models import (
     AssistantThread,
     MCPServer,
     SystemPrompt,
+    UserPrompt,
 )
 from appkit_commons.database.base_repository import BaseRepository
+from appkit_user.authentication.backend.entities import UserEntity
 
 logger = logging.getLogger(__name__)
 
@@ -281,8 +284,273 @@ class FileUploadRepository(BaseRepository[AssistantFileUpload, AsyncSession]):
         return files
 
 
+class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
+    """Repository for user prompts (single table design)."""
+
+    @property
+    def model_class(self) -> type[UserPrompt]:
+        return UserPrompt
+
+    async def find_latest_prompts_by_user(
+        self, session: AsyncSession, user_id: int
+    ) -> list[UserPrompt]:
+        """Find latest versions of prompts owned by the user.
+
+        Used for the sidebar list.
+        """
+        stmt = (
+            select(UserPrompt)
+            .where(
+                UserPrompt.user_id == user_id,
+                UserPrompt.is_latest == True,  # noqa: E712
+            )
+            .order_by(UserPrompt.handle)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_latest_shared_prompts(
+        self, session: AsyncSession, user_id: int
+    ) -> list[dict[str, Any]]:
+        """Find latest shared prompts (excluding own).
+
+        Returns a list of dicts containing the prompt and the creator's name.
+        """
+
+        stmt = (
+            select(UserPrompt, UserEntity.name)
+            .join(UserEntity, UserPrompt.user_id == UserEntity.id)
+            .where(
+                UserPrompt.is_shared == True,  # noqa: E712
+                UserPrompt.user_id != user_id,
+                UserPrompt.is_latest == True,  # noqa: E712
+            )
+            .order_by(UserPrompt.handle)
+        )
+
+        result = await session.execute(stmt)
+        prompts = []
+        for prompt, creator_name in result:
+            prompt_dict = prompt.dict()
+            prompt_dict["creator_name"] = creator_name or "Unbekannt"
+            prompts.append(prompt_dict)
+
+        return prompts
+
+    async def find_all_versions(
+        self, session: AsyncSession, user_id: int, handle: str
+    ) -> list[UserPrompt]:
+        """Find all versions of a specific prompt (by handle)."""
+        stmt = (
+            select(UserPrompt)
+            .where(UserPrompt.user_id == user_id, UserPrompt.handle == handle)
+            .order_by(UserPrompt.version.desc())
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_latest_by_handle(
+        self, session: AsyncSession, user_id: int, handle: str
+    ) -> UserPrompt | None:
+        """Find the latest version of a prompt by handle."""
+        stmt = select(UserPrompt).where(
+            UserPrompt.user_id == user_id,
+            UserPrompt.handle == handle,
+            UserPrompt.is_latest == True,  # noqa: E712
+        )
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+    async def validate_handle_unique(
+        self, session: AsyncSession, user_id: int, handle: str
+    ) -> bool:
+        """Check if a handle is unique for the user.
+
+        Returns True if unique (safe to use), False otherwise.
+        """
+        existing = await self.find_latest_by_handle(session, user_id, handle)
+        return existing is None
+
+    async def create_new_prompt(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        handle: str,
+        description: str,
+        prompt_text: str,
+        is_shared: bool = False,
+    ) -> UserPrompt:
+        """Create the first version of a new prompt."""
+        prompt = UserPrompt(
+            user_id=user_id,
+            handle=handle,
+            description=description,
+            prompt_text=prompt_text,
+            version=1,
+            is_latest=True,
+            is_shared=is_shared,
+            created_at=datetime.now(UTC),
+        )
+        session.add(prompt)
+        await session.flush()
+        await session.refresh(prompt)
+        return prompt
+
+    async def create_next_version(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        handle: str,
+        description: str | None = None,
+        prompt_text: str | None = None,
+        is_shared: bool | None = None,
+    ) -> UserPrompt:
+        """Create a new version for an existing prompt.
+
+        Updates the old latest version's is_latest to False.
+        Copies over values from previous version if not provided.
+        """
+        # 1. Get current latest
+        current_latest = await self.find_latest_by_handle(session, user_id, handle)
+        if not current_latest:
+            raise ValueError(
+                f"Prompt with handle '{handle}' not found for user {user_id}"
+            )
+
+        # 2. Update metadata on old latest (optional, but 'is_latest' MUST change)
+        current_latest.is_latest = False
+        session.add(current_latest)
+
+        # 3. Prepare new values (use new if provided, else copy from old)
+        new_desc = (
+            description if description is not None else current_latest.description
+        )
+        new_text = (
+            prompt_text if prompt_text is not None else current_latest.prompt_text
+        )
+        new_shared = is_shared if is_shared is not None else current_latest.is_shared
+
+        # 4. Create new version
+        new_version = UserPrompt(
+            user_id=user_id,
+            handle=handle,
+            description=new_desc,
+            prompt_text=new_text,
+            version=current_latest.version + 1,
+            is_latest=True,
+            is_shared=new_shared,
+            created_at=datetime.now(UTC),
+        )
+        session.add(new_version)
+        await session.flush()
+        await session.refresh(new_version)
+
+        return new_version
+
+    async def delete_all_versions(
+        self, session: AsyncSession, user_id: int, handle: str
+    ) -> bool:
+        """Delete all versions of a prompt (hard delete)."""
+        stmt = select(UserPrompt).where(
+            UserPrompt.user_id == user_id, UserPrompt.handle == handle
+        )
+        result = await session.execute(stmt)
+        prompts = result.scalars().all()
+
+        if not prompts:
+            return False
+
+        for p in prompts:
+            await session.delete(p)
+
+        await session.flush()
+        return True
+
+    async def update_handle(
+        self, session: AsyncSession, user_id: int, old_handle: str, new_handle: str
+    ) -> bool:
+        """Update handle for all versions of a prompt.
+
+        Returns True if successful, False if no prompts found.
+        """
+        stmt = select(UserPrompt).where(
+            UserPrompt.user_id == user_id, UserPrompt.handle == old_handle
+        )
+        result = await session.execute(stmt)
+        prompts = list(result.scalars().all())
+
+        if not prompts:
+            return False
+
+        for p in prompts:
+            p.handle = new_handle
+            session.add(p)
+
+        await session.flush()
+        return True
+
+    async def find_all_accessible_prompts_filtered(
+        self, session: AsyncSession, user_id: int, filter_text: str = ""
+    ) -> list[dict[str, Any]]:
+        """Find all prompts accessible to the user, filtered by handle.
+
+        Returns user's own prompts and shared prompts from others.
+        Filters by handle.startswith(filter_text) if provided.
+
+        Returns list of dicts with handle, description, prompt_text, is_own.
+        """
+        # Query own prompts
+        own_stmt = select(UserPrompt).where(
+            UserPrompt.user_id == user_id,
+            UserPrompt.is_latest == True,  # noqa: E712
+        )
+        if filter_text:
+            own_stmt = own_stmt.where(UserPrompt.handle.startswith(filter_text))
+        own_stmt = own_stmt.order_by(UserPrompt.handle)
+
+        own_result = await session.execute(own_stmt)
+        own_prompts = own_result.scalars().all()
+
+        # Query shared prompts from others
+        shared_stmt = select(UserPrompt).where(
+            UserPrompt.is_shared == True,  # noqa: E712
+            UserPrompt.user_id != user_id,
+            UserPrompt.is_latest == True,  # noqa: E712
+        )
+        if filter_text:
+            shared_stmt = shared_stmt.where(UserPrompt.handle.startswith(filter_text))
+        shared_stmt = shared_stmt.order_by(UserPrompt.handle)
+
+        shared_result = await session.execute(shared_stmt)
+        shared_prompts = shared_result.scalars().all()
+
+        # Combine and return as dicts
+        result: list[dict[str, Any]] = [
+            {
+                "handle": p.handle,
+                "description": p.description,
+                "prompt_text": p.prompt_text,
+                "is_own": True,
+            }
+            for p in own_prompts
+        ]
+
+        result.extend(
+            {
+                "handle": p.handle,
+                "description": p.description,
+                "prompt_text": p.prompt_text,
+                "is_own": False,
+            }
+            for p in shared_prompts
+        )
+
+        return result
+
+
 # Export instances
 mcp_server_repo = MCPServerRepository()
 system_prompt_repo = SystemPromptRepository()
 thread_repo = ThreadRepository()
 file_upload_repo = FileUploadRepository()
+user_prompt_repo = UserPromptRepository()
