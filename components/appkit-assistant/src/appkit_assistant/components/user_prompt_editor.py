@@ -15,6 +15,13 @@ from appkit_assistant.state.user_prompt_state import (
 )
 from appkit_ui.components.dialogs import delete_dialog
 
+# Styling constants (matching navbar_component.py)
+accent_bg_color = rx.color("accent", 3)
+gray_bg_color = rx.color("gray", 3)
+text_color = rx.color("gray", 11)
+accent_text_color = rx.color("accent", 9)
+border_radius = "var(--radius-2)"
+
 
 def create_prompt_dialog() -> rx.Component:
     """Dialog to create a new user prompt."""

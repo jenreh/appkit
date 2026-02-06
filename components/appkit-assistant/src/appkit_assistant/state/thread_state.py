@@ -24,7 +24,10 @@ from appkit_assistant.backend.database.models import (
     MCPServer,
     ThreadStatus,
 )
-from appkit_assistant.backend.database.repositories import mcp_server_repo
+from appkit_assistant.backend.database.repositories import (
+    mcp_server_repo,
+    user_prompt_repo,
+)
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.schemas import (
     AIModel,
@@ -120,44 +123,7 @@ class ThreadState(rx.State):
     command_trigger_position: int = 0  # Position of "/" in textarea
 
     # Available slash commands (hardcoded for now)
-    available_commands: list[CommandDefinition] = [
-        CommandDefinition(
-            id="teach",
-            label="/teach",
-            description="Erkläre mir ein Konzept oder Thema",
-            icon="graduation-cap",
-        ),
-        CommandDefinition(
-            id="evaluate",
-            label="/evaluate",
-            description="Bewerte einen Text oder Code",
-            icon="check-circle",
-        ),
-        CommandDefinition(
-            id="summarize",
-            label="/summarize",
-            description="Fasse einen Text zusammen",
-            icon="file-text",
-        ),
-        CommandDefinition(
-            id="translate",
-            label="/translate",
-            description="Übersetze einen Text",
-            icon="languages",
-        ),
-        CommandDefinition(
-            id="code",
-            label="/code",
-            description="Schreibe oder erkläre Code",
-            icon="code",
-        ),
-        CommandDefinition(
-            id="brainstorm",
-            label="/brainstorm",
-            description="Generiere Ideen zu einem Thema",
-            icon="lightbulb",
-        ),
-    ]
+    available_commands: list[CommandDefinition] = []
 
     # Thread list integration
     with_thread_list: bool = False
@@ -308,6 +274,13 @@ class ThreadState(rx.State):
         if config:
             self.max_file_size_mb = config.file_upload.max_file_size_mb
             self.max_files_per_thread = config.file_upload.max_files_per_thread
+
+        # Load user prompts as commands
+        try:
+            if current_user_id:
+                await self._load_user_prompts_as_commands(int(current_user_id))
+        except Exception as e:
+            logger.warning("Failed to load user prompts as commands: %s", e)
 
         self._initialized = True
         logger.debug("Initialized thread state: %s", self._thread.thread_id)
@@ -467,6 +440,34 @@ class ThreadState(rx.State):
     # -------------------------------------------------------------------------
     # Command palette management
     # -------------------------------------------------------------------------
+
+    async def _load_user_prompts_as_commands(self, user_id: int) -> None:
+        """Load user prompts from database and convert to CommandDefinitions.
+
+        Called during initialization to populate available_commands.
+        """
+        try:
+            async with get_asyncdb_session() as session:
+                prompts = await user_prompt_repo.find_latest_prompts_by_user(
+                    session, user_id
+                )
+                self.available_commands = [
+                    CommandDefinition(
+                        id=p.handle,
+                        label=f"/{p.handle}",
+                        description=p.description,
+                        icon="",
+                    )
+                    for p in prompts
+                ]
+                logger.debug(
+                    "Loaded %d user prompts as commands for user %d",
+                    len(self.available_commands),
+                    user_id,
+                )
+        except Exception as e:
+            logger.error("Error loading user prompts as commands: %s", e)
+            self.available_commands = []
 
     def _update_command_palette(self, prompt: str) -> None:
         """Update command palette state based on prompt content.
