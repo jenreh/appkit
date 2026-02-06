@@ -14,6 +14,9 @@ from appkit_assistant.state.thread_state import (
 from appkit_ui.components.collabsible import collabsible
 from appkit_ui.components.dialogs import delete_dialog
 
+# Approximate character threshold for 6 lines of text
+USER_MESSAGE_COLLAPSE_THRESHOLD = 300
+
 message_styles = {
     "spacing": "4",
     "width": "100%",
@@ -234,6 +237,96 @@ class MessageComponent:
         )
 
     @staticmethod
+    def _message_text_box(message: Message) -> rx.Component:
+        """Render the message text box with collapsible support for long messages."""
+        # Check if message is expanded
+        is_expanded = ThreadState.expanded_message_ids.contains(message.id)
+        is_long = message.text.length() > USER_MESSAGE_COLLAPSE_THRESHOLD
+
+        # Text content
+        text_content = rx.text(
+            message.text,
+            padding="0.5em",
+            white_space="pre-line",
+        )
+
+        # Animated text container - uses max-height transition
+        text_container = rx.box(
+            text_content,
+            max_height=rx.cond(is_expanded, "2000px", "156px"),
+            overflow="hidden",
+            # Only apply line clamp when collapsed
+            style=rx.cond(
+                is_expanded,
+                {
+                    "transition": "max-height 0.3s ease-in-out",
+                },
+                {
+                    "text-overflow": "ellipsis",
+                    "transition": "max-height 0.4s ease-in-out",
+                },
+            ),
+        )
+
+        # Expand/collapse button inside the bubble
+        expand_button = rx.box(
+            rx.hstack(
+                rx.icon(
+                    rx.cond(is_expanded, "chevron-up", "chevron-down"),
+                    size=14,
+                    color=rx.color("gray", 9),
+                    style={
+                        "transition": "transform 0.2s ease-in-out",
+                    },
+                ),
+                rx.text(
+                    rx.cond(is_expanded, "Weniger anzeigen", "Mehr anzeigen"),
+                    size="1",
+                    color=rx.color("gray", 9),
+                ),
+                spacing="1",
+                align="center",
+                justify="center",
+                width="100%",
+            ),
+            on_click=ThreadState.toggle_message_expanded(message.id),
+            cursor="pointer",
+            padding="6px",
+            border_top=f"1px solid {rx.color('accent', 5)}",
+            width="100%",
+            _hover={"background_color": rx.color("accent", 4)},
+        )
+
+        # Message box with optional expand button
+        return rx.box(
+            rx.vstack(
+                # Animated text container
+                rx.cond(
+                    is_long,
+                    text_container,
+                    text_content,
+                ),
+                # Expand/collapse button (only for long messages)
+                rx.cond(
+                    is_long,
+                    expand_button,
+                    rx.fragment(),
+                ),
+                spacing="0",
+                width="100%",
+            ),
+            padding="4px",
+            padding_bottom=rx.cond(is_long, "0px", "4px"),
+            max_width="800px",
+            background_color=rx.color_mode_cond(
+                light=rx.color("accent", 3),
+                dark=rx.color("accent", 3),
+            ),
+            border_radius="9px",
+            overflow="hidden",
+        )
+
+    @staticmethod
     def human_message(message: Message) -> rx.Component:
         return rx.cond(
             ThreadState.editing_message_id == message.id,
@@ -267,21 +360,7 @@ class MessageComponent:
                 rx.hstack(
                     rx.spacer(),
                     rx.vstack(
-                        rx.box(
-                            rx.text(
-                                message.text,
-                                padding="0.5em",
-                                border_radius="10px",
-                                white_space="pre-line",
-                            ),
-                            padding="4px",
-                            max_width="800px",
-                            background_color=rx.color_mode_cond(
-                                light=rx.color("accent", 3),
-                                dark=rx.color("accent", 3),
-                            ),
-                            border_radius="9px",
-                        ),
+                        MessageComponent._message_text_box(message),
                         MessageComponent._attachments_row(message.attachments),
                         align="end",
                         spacing="1",

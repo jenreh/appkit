@@ -92,6 +92,9 @@ class ThreadState(rx.State):
     editing_message_id: str | None = None
     edited_message_content: str = ""
 
+    # Expanded message state (for long user messages)
+    expanded_message_ids: list[str] = []
+
     # Internal logic helper (not reactive)
     @property
     def _thread_service(self) -> ThreadService:
@@ -804,6 +807,16 @@ class ThreadState(rx.State):
         """Cancel editing mode."""
         self.editing_message_id = None
         self.edited_message_content = ""
+
+    @rx.event
+    def toggle_message_expanded(self, message_id: str) -> None:
+        """Toggle expanded state for a user message."""
+        if message_id in self.expanded_message_ids:
+            self.expanded_message_ids = [
+                mid for mid in self.expanded_message_ids if mid != message_id
+            ]
+        else:
+            self.expanded_message_ids = [*self.expanded_message_ids, message_id]
 
     @rx.event(background=True)
     async def submit_edited_message(self) -> AsyncGenerator[Any, Any]:
