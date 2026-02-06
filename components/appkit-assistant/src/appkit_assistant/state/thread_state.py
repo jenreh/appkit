@@ -269,6 +269,7 @@ class ThreadState(rx.State):
         self.prompt = ""
         self.show_thinking = False
         self._current_user_id = current_user_id
+        self.available_commands = []
 
         # Load config
         config: AssistantConfig | None = service_registry().get(AssistantConfig)
@@ -446,24 +447,43 @@ class ThreadState(rx.State):
         """Load user prompts from database and convert to CommandDefinitions.
 
         Called during initialization to populate available_commands.
+        Loads both user's own prompts and shared prompts from other users.
         """
         try:
             async with get_asyncdb_session() as session:
-                prompts = await user_prompt_repo.find_latest_prompts_by_user(
+                own_prompts = await user_prompt_repo.find_latest_prompts_by_user(
                     session, user_id
                 )
-                self.available_commands = [
+                commands = [
                     CommandDefinition(
                         id=p.handle,
                         label=f"/{p.handle}",
                         description=p.description,
                         icon="",
                     )
-                    for p in prompts
+                    for p in own_prompts
                 ]
+
+                # Load shared prompts from other users
+                shared_prompts = await user_prompt_repo.find_latest_shared_prompts(
+                    session, user_id
+                )
+                commands.extend(
+                    CommandDefinition(
+                        id=p["handle"],
+                        label=f"/{p['handle']}",
+                        description=p.get("description", ""),
+                        icon="share",
+                    )
+                    for p in shared_prompts
+                )
+
+                self.available_commands = commands
                 logger.debug(
-                    "Loaded %d user prompts as commands for user %d",
+                    "Loaded %d commands (%d own, %d shared) for user %d",
                     len(self.available_commands),
+                    len(own_prompts),
+                    len(shared_prompts),
                     user_id,
                 )
         except Exception as e:

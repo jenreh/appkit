@@ -24,9 +24,6 @@ class KeyboardShortcuts(rx.Component):
         return [
             """
 useEffect(() => {
-    const textarea = document.getElementById('composer-area');
-    const submitBtn = document.getElementById('composer-submit');
-
     // Helper to scroll selected item into view after DOM update
     const scrollSelectedIntoView = () => {
         // Try multiple times with increasing delays to catch the DOM update
@@ -45,57 +42,66 @@ useEffect(() => {
         });
     };
 
-    if (textarea && submitBtn) {
-        const handleKeydown = (e) => {
-            // Check if command palette is open by looking for the palette element
-            const paletteEl = document.getElementById('command-palette');
-            const paletteOpen = paletteEl !== null;
+    const handleKeydown = (e) => {
+        const textarea = document.getElementById('composer-area');
+        const submitBtn = document.getElementById('composer-submit');
 
-            // Command palette navigation when open
-            if (paletteOpen) {
-                if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    const btn = document.getElementById('cmd-palette-up');
-                    if (btn) {
-                        btn.click();
-                        scrollSelectedIntoView();
-                    }
-                    return;
-                }
-                if (e.key === 'ArrowDown' || e.key === 'Tab') {
-                    e.preventDefault();
-                    const btn = document.getElementById('cmd-palette-down');
-                    if (btn) {
-                        btn.click();
-                        scrollSelectedIntoView();
-                    }
-                    return;
-                }
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    const btn = document.getElementById('cmd-palette-select');
-                    if (btn) btn.click();
-                    return;
-                }
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    const btn = document.getElementById('cmd-palette-dismiss');
-                    if (btn) btn.click();
-                    return;
-                }
-            }
+        // Only handle if we're focused on the textarea
+        if (document.activeElement !== textarea) return;
+        if (!submitBtn) return;
 
-            // Default Enter behavior (submit) when palette is closed
-            if (e.key === 'Enter' && !e.shiftKey && !paletteOpen) {
+        // Check if command palette is open by looking for the palette element
+        // Use getBoundingClientRect to check actual visibility (works with absolute positioned elements)
+        const paletteEl = document.getElementById('command-palette');
+        const paletteOpen = paletteEl !== null && paletteEl.getBoundingClientRect().height > 0;
+
+        // Command palette navigation when open
+        if (paletteOpen) {
+            if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                if (textarea.value.trim() && !submitBtn.disabled) {
-                    submitBtn.click();
+                const btn = document.getElementById('cmd-palette-up');
+                if (btn) {
+                    btn.click();
+                    scrollSelectedIntoView();
                 }
+                return;
             }
-        };
-        textarea.addEventListener('keydown', handleKeydown);
-        return () => textarea.removeEventListener('keydown', handleKeydown);
-    }
+            if (e.key === 'ArrowDown' || e.key === 'Tab') {
+                e.preventDefault();
+                const btn = document.getElementById('cmd-palette-down');
+                if (btn) {
+                    btn.click();
+                    scrollSelectedIntoView();
+                }
+                return;
+            }
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const btn = document.getElementById('cmd-palette-select');
+                if (btn) btn.click();
+                return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                const btn = document.getElementById('cmd-palette-dismiss');
+                if (btn) btn.click();
+                return;
+            }
+        }
+
+        // Default Enter behavior (submit) when palette is closed
+        if (e.key === 'Enter' && !e.shiftKey && !paletteOpen) {
+            e.preventDefault();
+            if (textarea.value.trim() && !submitBtn.disabled) {
+                submitBtn.click();
+            }
+        }
+    };
+
+    // Use document-level listener to ensure we catch events even if useEffect
+    // runs before textarea is mounted
+    document.addEventListener('keydown', handleKeydown);
+    return () => document.removeEventListener('keydown', handleKeydown);
 }, []);
             """
         ]

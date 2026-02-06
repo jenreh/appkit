@@ -358,7 +358,7 @@ def navbar(
                 ),
                 align="start",
                 width="100%",
-                spacing="0",
+                spacing="1",
             ),
             mn.scroll_area.stateful(
                 navbar_items,

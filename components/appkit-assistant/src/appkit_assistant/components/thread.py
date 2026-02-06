@@ -91,6 +91,7 @@ class Assistant:
                     min_height="44px",
                     wrap="nowrap",
                 ),
+                viewport_id="messages-scroll-viewport",
                 type="hover",
                 autoscroll=True,
                 show_controls=True,
