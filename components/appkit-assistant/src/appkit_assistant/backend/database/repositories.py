@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
@@ -357,6 +357,30 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
             UserPrompt.user_id == user_id,
             UserPrompt.handle == handle,
             UserPrompt.is_latest == True,  # noqa: E712
+        )
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+    async def find_latest_accessible_by_handle(
+        self, session: AsyncSession, user_id: int, handle: str
+    ) -> UserPrompt | None:
+        """Find the latest version of a prompt accessible to the user.
+
+        Returns the prompt if it's owned by the user OR shared by another user.
+        Prefers user's own prompt if both exist with the same handle.
+        """
+        stmt = (
+            select(UserPrompt)
+            .where(
+                UserPrompt.handle == handle,
+                UserPrompt.is_latest == True,  # noqa: E712
+                or_(
+                    UserPrompt.user_id == user_id,
+                    UserPrompt.is_shared == True,  # noqa: E712
+                ),
+            )
+            # Prefer user's own prompt over shared ones
+            .order_by((UserPrompt.user_id == user_id).desc())
         )
         result = await session.execute(stmt)
         return result.scalars().first()

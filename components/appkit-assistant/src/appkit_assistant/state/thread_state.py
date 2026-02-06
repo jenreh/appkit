@@ -1033,6 +1033,10 @@ class ThreadState(rx.State):
         Identifies command patterns (/command_name) and splits text into
         segments of type "text" or "command".
 
+        Commands are only recognized when "/" is at the start of the string
+        or preceded by whitespace, matching the command palette trigger behavior.
+        Handle pattern matches validate_handle: letters, numbers, and hyphens only.
+
         Args:
             prompt: The user prompt text.
 
@@ -1045,12 +1049,13 @@ class ThreadState(rx.State):
             ]
         """
         segments = []
-        # Pattern: "/" followed by word chars (command name)
-        pattern = r"/(\w+)"
+        # Pattern: "/" at start or after whitespace, followed by valid handle chars
+        # Matches validate_handle pattern: [a-zA-Z0-9-]+
+        pattern = r"(?:^|(?<=\s))/([a-zA-Z0-9-]+)"
 
         last_end = 0
         for match in re.finditer(pattern, prompt):
-            # Add text before command
+            # Add text before command (include any whitespace before the "/")
             text_before = prompt[last_end : match.start()].strip()
             if text_before:
                 segments.append({"type": "text", "content": text_before})
@@ -1086,7 +1091,7 @@ class ThreadState(rx.State):
             handle = command_handle.lstrip("/")
 
             async with get_asyncdb_session() as session:
-                prompt = await user_prompt_repo.find_latest_by_handle(
+                prompt = await user_prompt_repo.find_latest_accessible_by_handle(
                     session, user_id, handle
                 )
                 if prompt:

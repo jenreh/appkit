@@ -1,6 +1,6 @@
 """Add user prompts tables
 
-Revision ID: 2026_02_01_add_user_prompts
+Revision ID: bah25gab8c9a
 Revises: a4b672c7b9d0
 Create Date: 2026-02-01 10:00:00.000000
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "2026_02_01_user_prompts"
+revision: str = "bah25gab8c9a"
 down_revision: str | None = "a4b672c7b9d0"  # Use the other head as the parent
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -27,7 +27,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("handle", sa.String(length=50), nullable=False),
         sa.Column(
-            "description", sa.String(length=2000), nullable=False, server_default=""
+            "description", sa.String(length=100), nullable=False, server_default=""
         ),
         sa.Column("prompt_text", sa.String(length=20000), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
