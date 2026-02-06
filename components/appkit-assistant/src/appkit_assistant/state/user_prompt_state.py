@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 from typing import Any, Final
 
 import reflex as rx
+from pydantic import BaseModel
 from reflex.state import State
 
 from appkit_assistant.backend.database.models import UserPrompt
@@ -19,7 +20,7 @@ MAX_DESCRIPTION_LENGTH: Final[int] = 100
 MAX_HANDLE_LENGTH: Final[int] = 50
 
 
-class UserPromptDisplay(rx.Base):
+class UserPromptDisplay(BaseModel):
     """Display model for user prompts in the UI."""
 
     handle: str = ""
