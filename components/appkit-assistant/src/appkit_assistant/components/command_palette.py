@@ -106,7 +106,7 @@ def command_palette() -> rx.Component:
                 rx.vstack(
                     rx.hstack(
                         rx.text(
-                            "Befehle",
+                            "Prompts",
                             size="1",
                             weight="medium",
                             color=rx.color("gray", 10),
@@ -124,9 +124,9 @@ def command_palette() -> rx.Component:
                             variant="ghost",
                             size="1",
                             cursor="pointer",
-                            padding="0",
-                            min_width="24px",
+                            padding="3px",
                             justify_content="center",
+                            type="button",
                         ),
                         width="100%",
                         padding_x="12px",
