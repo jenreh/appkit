@@ -13,6 +13,7 @@ See thread_list_state.py for ThreadListState which manages the thread list sideb
 import asyncio
 import json
 import logging
+import re
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -996,6 +997,87 @@ class ThreadState(rx.State):
         finally:
             await self._finalize_processing()
 
+    def _parse_prompt_segments(self, prompt: str) -> list[dict]:
+        """Parse prompt into text and command segments.
+
+        Identifies command patterns (/command_name) and splits text into
+        segments of type "text" or "command".
+
+        Args:
+            prompt: The user prompt text.
+
+        Returns:
+            List of dicts with "type" and "content"/"handle" keys.
+            Example: [
+                {"type": "text", "content": "do something"},
+                {"type": "command", "handle": "boost"},
+                {"type": "text", "content": "i want to..."}
+            ]
+        """
+        segments = []
+        # Pattern: "/" followed by word chars (command name)
+        pattern = r"/(\w+)"
+
+        last_end = 0
+        for match in re.finditer(pattern, prompt):
+            # Add text before command
+            text_before = prompt[last_end : match.start()].strip()
+            if text_before:
+                segments.append({"type": "text", "content": text_before})
+
+            # Add command
+            command_handle = match.group(1)
+            segments.append({"type": "command", "handle": command_handle})
+
+            last_end = match.end()
+
+        # Add remaining text after last command
+        if last_end < len(prompt):
+            text_after = prompt[last_end:].strip()
+            if text_after:
+                segments.append({"type": "text", "content": text_after})
+
+        return segments
+
+    async def _load_command_prompt_text(
+        self, user_id: int, command_handle: str
+    ) -> str | None:
+        """Load the prompt text for a command from the database.
+
+        Args:
+            user_id: The user ID to filter prompts by.
+            command_handle: The command handle (ID) to load.
+
+        Returns:
+            The prompt_text from the user_prompt, or None if not found.
+        """
+        try:
+            # Strip leading "/" if present
+            handle = command_handle.lstrip("/")
+
+            async with get_asyncdb_session() as session:
+                prompt = await user_prompt_repo.find_latest_by_handle(
+                    session, user_id, handle
+                )
+                if prompt:
+                    logger.debug(
+                        "Loaded command prompt for handle '%s'",
+                        handle,
+                    )
+                    return prompt.prompt_text
+
+                logger.debug(
+                    "Command prompt not found for handle '%s'",
+                    handle,
+                )
+        except Exception as e:
+            logger.error(
+                "Error loading command prompt for %s: %s",
+                command_handle,
+                e,
+            )
+        return None
+
     async def _begin_message_processing(
         self,
     ) -> tuple[str, str, list[MCPServer], list[str], bool] | None:
@@ -1027,17 +1109,65 @@ class ThreadState(rx.State):
                 file_paths,
             )
 
-            # Add user message unless skipped (e.g., OAuth resend)
+            # Add user message(s) unless skipped (e.g., OAuth resend)
             if self._skip_user_message:
                 self._skip_user_message = False
             else:
-                self.messages.append(
-                    Message(
-                        text=current_prompt,
-                        type=MessageType.HUMAN,
-                        attachments=attachment_names,
+                # Parse prompt into segments (text and commands)
+                segments = self._parse_prompt_segments(current_prompt)
+
+                if segments:
+                    # Process each segment
+                    for i, segment in enumerate(segments):
+                        if segment["type"] == "text":
+                            # Add text segment as message
+                            is_first = i == 0
+                            self.messages.append(
+                                Message(
+                                    text=segment["content"],
+                                    type=MessageType.HUMAN,
+                                    attachments=(attachment_names if is_first else []),
+                                )
+                            )
+                        elif segment["type"] == "command":
+                            # Load command prompt and add as message
+                            command_handle = segment["handle"]
+                            command_prompt = await self._load_command_prompt_text(
+                                int(self.current_user_id), command_handle
+                            )
+
+                            if command_prompt:
+                                self.messages.append(
+                                    Message(
+                                        text=command_prompt,
+                                        type=MessageType.HUMAN,
+                                    )
+                                )
+                                logger.debug(
+                                    "Loaded command %s prompt",
+                                    command_handle,
+                                )
+                            else:
+                                logger.warning(
+                                    "Command %s not found for user %s",
+                                    command_handle,
+                                    self.current_user_id,
+                                )
+
+                    logger.debug(
+                        "Split prompt into %d segments and %d messages",
+                        len(segments),
+                        len([m for m in self.messages if m.type == MessageType.HUMAN]),
                     )
-                )
+                else:
+                    # No segments - add original message as-is
+                    self.messages.append(
+                        Message(
+                            text=current_prompt,
+                            type=MessageType.HUMAN,
+                            attachments=attachment_names,
+                        )
+                    )
             # Always add assistant placeholder
             self.messages.append(Message(text="", type=MessageType.ASSISTANT))
 
