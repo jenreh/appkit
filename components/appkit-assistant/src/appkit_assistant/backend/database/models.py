@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
+from sqlalchemy import Index
 from sqlalchemy.sql import func
 from sqlmodel import Column, DateTime, Field
 
@@ -171,4 +172,35 @@ class AssistantFileUpload(rx.Model, table=True):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    )
+
+
+class UserPrompt(rx.Model, table=True):
+    """Model for user-defined prompts.
+
+    Handles are unique per user. Prompts can be shared with other users.
+    Single table design with versioning (similar to SystemPrompt).
+    """
+
+    __tablename__ = "assistant_user_prompts"
+    __table_args__ = (
+        Index("ix_user_prompt_lookup", "user_id", "handle"),
+        Index("ix_user_prompt_listing", "user_id", "is_latest"),
+        Index("ix_user_prompt_shared", "is_shared", "is_latest"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, nullable=False)
+    handle: str = Field(max_length=50, nullable=False)
+    description: str = Field(default="", max_length=100, nullable=False)
+    prompt_text: str = Field(max_length=20000, nullable=False)
+
+    # Versioning fields
+    version: int = Field(nullable=False)
+    is_latest: bool = Field(default=False, nullable=False)
+    is_shared: bool = Field(default=False, nullable=False)
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True)),
     )

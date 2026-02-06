@@ -13,6 +13,7 @@ See thread_list_state.py for ThreadListState which manages the thread list sideb
 import asyncio
 import json
 import logging
+import re
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -24,12 +25,16 @@ from appkit_assistant.backend.database.models import (
     MCPServer,
     ThreadStatus,
 )
-from appkit_assistant.backend.database.repositories import mcp_server_repo
+from appkit_assistant.backend.database.repositories import (
+    mcp_server_repo,
+    user_prompt_repo,
+)
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     ChunkType,
+    CommandDefinition,
     Message,
     MessageType,
     Suggestion,
@@ -87,6 +92,9 @@ class ThreadState(rx.State):
     editing_message_id: str | None = None
     edited_message_content: str = ""
 
+    # Expanded message state (for long user messages)
+    expanded_message_ids: list[str] = []
+
     # Internal logic helper (not reactive)
     @property
     def _thread_service(self) -> ThreadService:
@@ -110,6 +118,16 @@ class ThreadState(rx.State):
     pending_oauth_message: str = ""  # Message that triggered OAuth, resent on success
     # Cross-tab synced localStorage - triggers re-render when popup sets value
     oauth_result: str = rx.LocalStorage(name="mcp-oauth-result", sync=True)
+
+    # Command palette state
+    show_command_palette: bool = False
+    filtered_commands: list[CommandDefinition] = []
+    selected_command_index: int = 0
+    command_search_prefix: str = ""
+    command_trigger_position: int = 0  # Position of "/" in textarea
+
+    # Available slash commands (hardcoded for now)
+    available_commands: list[CommandDefinition] = []
 
     # Thread list integration
     with_thread_list: bool = False
@@ -254,12 +272,20 @@ class ThreadState(rx.State):
         self.prompt = ""
         self.show_thinking = False
         self._current_user_id = current_user_id
+        self.available_commands = []
 
         # Load config
         config: AssistantConfig | None = service_registry().get(AssistantConfig)
         if config:
             self.max_file_size_mb = config.file_upload.max_file_size_mb
             self.max_files_per_thread = config.file_upload.max_files_per_thread
+
+        # Load user prompts as commands
+        try:
+            if current_user_id:
+                await self._load_user_prompts_as_commands(int(current_user_id))
+        except Exception as e:
+            logger.warning("Failed to load user prompts as commands: %s", e)
 
         self._initialized = True
         logger.debug("Initialized thread state: %s", self._thread.thread_id)
@@ -390,8 +416,9 @@ class ThreadState(rx.State):
 
     @rx.event
     def set_prompt(self, prompt: str) -> None:
-        """Set the current prompt."""
+        """Set the current prompt and handle command palette detection."""
         self.prompt = prompt
+        self._update_command_palette(prompt)
 
     @rx.event
     def set_suggestions(self, suggestions: list[Suggestion] | list[dict]) -> None:
@@ -414,6 +441,184 @@ class ThreadState(rx.State):
     def set_with_thread_list(self, with_thread_list: bool) -> None:
         """Set whether thread list integration is enabled."""
         self.with_thread_list = with_thread_list
+
+    # -------------------------------------------------------------------------
+    # Command palette management
+    # -------------------------------------------------------------------------
+
+    @rx.event
+    async def reload_commands(self) -> None:
+        """Reload user prompts as commands.
+
+        Call this after creating, updating, or deleting prompts to refresh
+        the command palette.
+        """
+        if self._current_user_id:
+            await self._load_user_prompts_as_commands(int(self._current_user_id))
+
+    async def _load_user_prompts_as_commands(self, user_id: int) -> None:
+        """Load user prompts from database and convert to CommandDefinitions.
+
+        Called during initialization to populate available_commands.
+        Loads both user's own prompts and shared prompts from other users.
+        """
+        try:
+            async with get_asyncdb_session() as session:
+                own_prompts = await user_prompt_repo.find_latest_prompts_by_user(
+                    session, user_id
+                )
+                commands = [
+                    CommandDefinition(
+                        id=p.handle,
+                        label=f"/{p.handle}",
+                        description=p.description,
+                        icon="",
+                    )
+                    for p in own_prompts
+                ]
+
+                # Load shared prompts from other users
+                shared_prompts = await user_prompt_repo.find_latest_shared_prompts(
+                    session, user_id
+                )
+                commands.extend(
+                    CommandDefinition(
+                        id=p["handle"],
+                        label=f"/{p['handle']}",
+                        description=p.get("description", ""),
+                        icon="share",
+                    )
+                    for p in shared_prompts
+                )
+
+                self.available_commands = commands
+                logger.debug(
+                    "Loaded %d commands (%d own, %d shared) for user %d",
+                    len(self.available_commands),
+                    len(own_prompts),
+                    len(shared_prompts),
+                    user_id,
+                )
+        except Exception as e:
+            logger.error("Error loading user prompts as commands: %s", e)
+            self.available_commands = []
+
+    def _update_command_palette(self, prompt: str) -> None:
+        """Update command palette state based on prompt content.
+
+        Detects "/" character and filters available commands by prefix match.
+        """
+        # Find the last "/" in the prompt that could trigger the palette
+        slash_pos = -1
+        for i in range(len(prompt) - 1, -1, -1):
+            char = prompt[i]
+            if char == "/":
+                # Check if "/" is at start or preceded by whitespace/newline
+                if i == 0 or prompt[i - 1] in (" ", "\n", "\t"):
+                    slash_pos = i
+                    break
+            elif char in (" ", "\n", "\t"):
+                # Stop searching if we hit whitespace without finding a valid "/"
+                break
+
+        if slash_pos == -1:
+            # No valid "/" found - hide palette
+            self._hide_command_palette()
+            return
+
+        # Extract text after "/" up to cursor (end of string for now)
+        text_after_slash = prompt[slash_pos + 1 :]
+
+        # Check if we hit a space after the command (command is complete)
+        if " " in text_after_slash or "\n" in text_after_slash:
+            self._hide_command_palette()
+            return
+
+        # Filter commands by prefix (case-insensitive)
+        search_term = text_after_slash.lower()
+        self.filtered_commands = [
+            cmd
+            for cmd in self.available_commands
+            if cmd.id.lower().startswith(search_term)
+            or cmd.label.lower().startswith("/" + search_term)
+        ]
+
+        # Show palette if we have matches (or show all if just "/" typed)
+        if self.filtered_commands:
+            self.show_command_palette = True
+            self.command_search_prefix = text_after_slash
+            self.command_trigger_position = slash_pos
+            # Reset selection to first item
+            self.selected_command_index = 0
+        else:
+            self._hide_command_palette()
+
+    def _hide_command_palette(self) -> None:
+        """Hide the command palette and reset state."""
+        self.show_command_palette = False
+        self.filtered_commands = []
+        self.selected_command_index = 0
+        self.command_search_prefix = ""
+        self.command_trigger_position = 0
+
+    @rx.event
+    def navigate_command_palette(self, direction: str) -> None:
+        """Navigate through command palette items.
+
+        Args:
+            direction: "up" or "down" to move selection
+        """
+        if not self.show_command_palette or not self.filtered_commands:
+            return
+
+        count = len(self.filtered_commands)
+        if direction == "up":
+            self.selected_command_index = (self.selected_command_index - 1) % count
+        elif direction == "down":
+            self.selected_command_index = (self.selected_command_index + 1) % count
+
+    @rx.event
+    def select_command(self, command_id: str) -> None:
+        """Select a command from the palette and insert it into the prompt.
+
+        Args:
+            command_id: The ID of the command to select.
+        """
+        # Find the command
+        command = None
+        for cmd in self.filtered_commands:
+            if cmd.id == command_id:
+                command = cmd
+                break
+
+        if not command:
+            self._hide_command_palette()
+            return
+
+        # Replace "/" + search text with the full command label
+        before_slash = self.prompt[: self.command_trigger_position]
+        after_command = ""  # Since we search to end of string
+
+        # Insert the command label followed by a space
+        self.prompt = before_slash + command.label + " " + after_command
+
+        # Hide palette
+        self._hide_command_palette()
+
+    @rx.event
+    def select_current_command(self) -> None:
+        """Select the currently highlighted command in the palette."""
+        if not self.show_command_palette or not self.filtered_commands:
+            return
+
+        if 0 <= self.selected_command_index < len(self.filtered_commands):
+            command = self.filtered_commands[self.selected_command_index]
+            self.select_command(command.id)
+
+    @rx.event
+    def dismiss_command_palette(self) -> None:
+        """Dismiss the command palette without selecting."""
+        self._hide_command_palette()
 
     # -------------------------------------------------------------------------
     # UI state management
@@ -602,6 +807,16 @@ class ThreadState(rx.State):
         """Cancel editing mode."""
         self.editing_message_id = None
         self.edited_message_content = ""
+
+    @rx.event
+    def toggle_message_expanded(self, message_id: str) -> None:
+        """Toggle expanded state for a user message."""
+        if message_id in self.expanded_message_ids:
+            self.expanded_message_ids = [
+                mid for mid in self.expanded_message_ids if mid != message_id
+            ]
+        else:
+            self.expanded_message_ids = [*self.expanded_message_ids, message_id]
 
     @rx.event(background=True)
     async def submit_edited_message(self) -> AsyncGenerator[Any, Any]:
@@ -825,6 +1040,92 @@ class ThreadState(rx.State):
         finally:
             await self._finalize_processing()
 
+    def _parse_prompt_segments(self, prompt: str) -> list[dict]:
+        """Parse prompt into text and command segments.
+
+        Identifies command patterns (/command_name) and splits text into
+        segments of type "text" or "command".
+
+        Commands are only recognized when "/" is at the start of the string
+        or preceded by whitespace, matching the command palette trigger behavior.
+        Handle pattern matches validate_handle: letters, numbers, and hyphens only.
+
+        Args:
+            prompt: The user prompt text.
+
+        Returns:
+            List of dicts with "type" and "content"/"handle" keys.
+            Example: [
+                {"type": "text", "content": "do something"},
+                {"type": "command", "handle": "boost"},
+                {"type": "text", "content": "i want to..."}
+            ]
+        """
+        segments = []
+        # Pattern: "/" at start or after whitespace, followed by valid handle chars
+        # Matches validate_handle pattern: [a-zA-Z0-9-]+
+        pattern = r"(?:^|(?<=\s))/([a-zA-Z0-9-]+)"
+
+        last_end = 0
+        for match in re.finditer(pattern, prompt):
+            # Add text before command (include any whitespace before the "/")
+            text_before = prompt[last_end : match.start()].strip()
+            if text_before:
+                segments.append({"type": "text", "content": text_before})
+
+            # Add command
+            command_handle = match.group(1)
+            segments.append({"type": "command", "handle": command_handle})
+
+            last_end = match.end()
+
+        # Add remaining text after last command
+        if last_end < len(prompt):
+            text_after = prompt[last_end:].strip()
+            if text_after:
+                segments.append({"type": "text", "content": text_after})
+
+        return segments
+
+    async def _load_command_prompt_text(
+        self, user_id: int, command_handle: str
+    ) -> str | None:
+        """Load the prompt text for a command from the database.
+
+        Args:
+            user_id: The user ID to filter prompts by.
+            command_handle: The command handle (ID) to load.
+
+        Returns:
+            The prompt_text from the user_prompt, or None if not found.
+        """
+        try:
+            # Strip leading "/" if present
+            handle = command_handle.lstrip("/")
+
+            async with get_asyncdb_session() as session:
+                prompt = await user_prompt_repo.find_latest_accessible_by_handle(
+                    session, user_id, handle
+                )
+                if prompt:
+                    logger.debug(
+                        "Loaded command prompt for handle '%s'",
+                        handle,
+                    )
+                    return prompt.prompt_text
+
+                logger.debug(
+                    "Command prompt not found for handle '%s'",
+                    handle,
+                )
+        except Exception as e:
+            logger.error(
+                "Error loading command prompt for %s: %s",
+                command_handle,
+                e,
+            )
+        return None
+
     async def _begin_message_processing(
         self,
     ) -> tuple[str, str, list[MCPServer], list[str], bool] | None:
@@ -856,17 +1157,65 @@ class ThreadState(rx.State):
                 file_paths,
             )
 
-            # Add user message unless skipped (e.g., OAuth resend)
+            # Add user message(s) unless skipped (e.g., OAuth resend)
             if self._skip_user_message:
                 self._skip_user_message = False
             else:
-                self.messages.append(
-                    Message(
-                        text=current_prompt,
-                        type=MessageType.HUMAN,
-                        attachments=attachment_names,
+                # Parse prompt into segments (text and commands)
+                segments = self._parse_prompt_segments(current_prompt)
+
+                if segments:
+                    # Process each segment
+                    for i, segment in enumerate(segments):
+                        if segment["type"] == "text":
+                            # Add text segment as message
+                            is_first = i == 0
+                            self.messages.append(
+                                Message(
+                                    text=segment["content"],
+                                    type=MessageType.HUMAN,
+                                    attachments=(attachment_names if is_first else []),
+                                )
+                            )
+                        elif segment["type"] == "command":
+                            # Load command prompt and add as message
+                            command_handle = segment["handle"]
+                            command_prompt = await self._load_command_prompt_text(
+                                int(self.current_user_id), command_handle
+                            )
+
+                            if command_prompt:
+                                self.messages.append(
+                                    Message(
+                                        text=command_prompt,
+                                        type=MessageType.HUMAN,
+                                    )
+                                )
+                                logger.debug(
+                                    "Loaded command %s prompt",
+                                    command_handle,
+                                )
+                            else:
+                                logger.warning(
+                                    "Command %s not found for user %s",
+                                    command_handle,
+                                    self.current_user_id,
+                                )
+
+                    logger.debug(
+                        "Split prompt into %d segments and %d messages",
+                        len(segments),
+                        len([m for m in self.messages if m.type == MessageType.HUMAN]),
                     )
-                )
+                else:
+                    # No segments - add original message as-is
+                    self.messages.append(
+                        Message(
+                            text=current_prompt,
+                            type=MessageType.HUMAN,
+                            attachments=attachment_names,
+                        )
+                    )
             # Always add assistant placeholder
             self.messages.append(Message(text="", type=MessageType.ASSISTANT))
 

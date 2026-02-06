@@ -10,6 +10,7 @@ from app.components.navbar_component import (
     admin_sidebar_item,
     border_radius,
     navbar,
+    sidebar_sub_item,
     sub_heading_styles,
 )
 from app.configuration import AppConfig
@@ -75,36 +76,48 @@ def navbar_admin_items() -> rx.Component:
 def navbar_items() -> rx.Component:
     return rx.vstack(
         rx.text("Inputs", size="2", weight="bold", style=sub_heading_styles),
-        rx.list.unordered(
-            rx.list.item(rx.link("Inputs", href="/inputs")),
-            rx.list.item(rx.link("TextInput", href="/text-input")),
-            rx.list.item(rx.link("Password Input", href="/password")),
-            rx.list.item(rx.link("Date Input", href="/date")),
-            rx.list.item(rx.link("Number Input", href="/number")),
-            rx.list.item(rx.link("Textarea", href="/textarea")),
-            rx.list.item(rx.link("Json Input", href="/json-input")),
-            rx.list.item(rx.link("Select", href="/select")),
-            rx.list.item(rx.link("Rich Select", href="/rich_select")),
-            rx.list.item(rx.link("MultiSelect", href="/multi-select")),
-            rx.list.item(rx.link("TagsInput", href="/tags-input")),
-            rx.list.item(rx.link("Autocomplete", href="/autocomplete")),
-            rx.list.item(rx.link("Rich Text Editor (Tiptap)", href="/tiptap")),
+        rx.vstack(
+            sidebar_sub_item(label="Inputs", icon="", url="/inputs"),
+            sidebar_sub_item(label="TextInput", icon="", url="/text-input"),
+            sidebar_sub_item(label="Password Input", icon="", url="/password"),
+            sidebar_sub_item(label="Date Input", icon="", url="/date"),
+            sidebar_sub_item(label="Number Input", icon="", url="/number"),
+            sidebar_sub_item(label="Textarea", icon="", url="/textarea"),
+            sidebar_sub_item(label="Json Input", icon="", url="/json-input"),
+            sidebar_sub_item(label="Select", icon="", url="/select"),
+            sidebar_sub_item(label="Rich Select", icon="", url="/rich_select"),
+            sidebar_sub_item(label="MultiSelect", icon="", url="/multi-select"),
+            sidebar_sub_item(label="TagsInput", icon="", url="/tags-input"),
+            sidebar_sub_item(label="Autocomplete", icon="", url="/autocomplete"),
+            sidebar_sub_item(label="Rich Text Editor (Tiptap)", icon="", url="/tiptap"),
+            spacing="0",
+            width="100%",
         ),
         rx.text("Buttons", size="2", weight="bold", style=sub_heading_styles),
-        rx.list.unordered(
-            rx.list.item(rx.link("Action Icon (Group demo)", href="/action-icon")),
-            rx.list.item(rx.link("Button", href="/button")),
+        rx.vstack(
+            sidebar_sub_item(
+                label="Action Icon (Group demo)", icon="", url="/action-icon"
+            ),
+            sidebar_sub_item(label="Button", icon="", url="/button"),
+            spacing="0",
+            width="100%",
         ),
         rx.text("Others", size="2", weight="bold", style=sub_heading_styles),
-        rx.list.unordered(
-            rx.list.item(rx.link("Markdown Preview", href="/markdown-preview")),
-            rx.list.item(rx.link("Modal", href="/modal")),
-            rx.list.item(rx.link("Navigation Progress", href="/nprogress")),
-            rx.list.item(rx.link("Nav Link", href="/nav-link")),
-            rx.list.item(rx.link("Number Formatter", href="/number-formatter")),
-            rx.list.item(rx.link("ScrollArea", href="/scroll-area")),
-            rx.list.item(rx.link("Auto Scroll", href="/auto-scroll")),
-            rx.list.item(rx.link("Table", href="/table")),
+        rx.vstack(
+            sidebar_sub_item(
+                label="Markdown Preview", icon="", url="/markdown-preview"
+            ),
+            sidebar_sub_item(label="Modal", icon="", url="/modal"),
+            sidebar_sub_item(label="Navigation Progress", icon="", url="/nprogress"),
+            sidebar_sub_item(label="Nav Link", icon="", url="/nav-link"),
+            sidebar_sub_item(
+                label="Number Formatter", icon="", url="/number-formatter"
+            ),
+            sidebar_sub_item(label="ScrollArea", icon="", url="/scroll-area"),
+            sidebar_sub_item(label="Auto Scroll", icon="", url="/auto-scroll"),
+            sidebar_sub_item(label="Table", icon="", url="/table"),
+            spacing="0",
+            width="100%",
         ),
         rx.spacer(min_height="1em"),
         spacing="1",

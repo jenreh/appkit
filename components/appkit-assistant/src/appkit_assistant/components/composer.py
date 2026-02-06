@@ -4,6 +4,8 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_assistant.backend.schemas import UploadedFile
+from appkit_assistant.components.command_palette import command_palette
+from appkit_assistant.components.composer_key_handler import keyboard_shortcuts
 from appkit_assistant.components.tools_modal import tools_popover
 from appkit_assistant.state.thread_state import ThreadState
 
@@ -28,27 +30,63 @@ def render_model_option(model: dict) -> rx.Component:
     )
 
 
-def composer_input(placeholder: str = "Frage etwas...") -> rx.Component:
-    return rx.text_area(
-        id="composer-area",
-        name="composer_prompt",
-        placeholder=placeholder,
-        value=ThreadState.prompt,
-        auto_height=True,
-        enter_key_submit=True,
-        # stil
-        border="0",
-        outline="none",
-        variant="soft",
-        background_color=rx.color("white", 1, alpha=False),
-        padding="9px 3px",
-        size="3",
-        min_height="24px",
-        max_height="244px",
-        resize="none",
-        rows="1",
+def composer_input(
+    placeholder: str = "Frage etwas... (oder nutze einen / Befehl)",
+) -> rx.Component:
+    return rx.box(
+        # Command palette overlay
+        command_palette(),
+        # Textarea for user input
+        rx.text_area(
+            id="composer-area",
+            name="composer_prompt",
+            placeholder=placeholder,
+            value=ThreadState.prompt,
+            auto_height=True,
+            enter_key_submit=False,  # Handled by keyboard_shortcuts for palette support
+            # stil
+            border="0",
+            outline="none",
+            variant="soft",
+            background_color=rx.color("white", 1, alpha=False),
+            padding="9px 3px",
+            size="3",
+            min_height="24px",
+            max_height="244px",
+            resize="none",
+            rows="1",
+            width="100%",
+            on_change=ThreadState.set_prompt,
+        ),
+        # Hidden buttons for keyboard navigation (triggered via JS)
+        rx.button(
+            id="cmd-palette-up",
+            type="button",
+            on_click=lambda: ThreadState.navigate_command_palette("up"),
+            display="none",
+        ),
+        rx.button(
+            id="cmd-palette-down",
+            type="button",
+            on_click=lambda: ThreadState.navigate_command_palette("down"),
+            display="none",
+        ),
+        rx.button(
+            id="cmd-palette-select",
+            type="button",
+            on_click=ThreadState.select_current_command,
+            display="none",
+        ),
+        rx.button(
+            id="cmd-palette-dismiss",
+            type="button",
+            on_click=ThreadState.dismiss_command_palette,
+            display="none",
+        ),
+        # Keyboard shortcuts handler
+        keyboard_shortcuts(),
+        position="relative",
         width="100%",
-        on_change=ThreadState.set_prompt,
     )
 
 

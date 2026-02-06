@@ -143,6 +143,63 @@ def sidebar_item(label: str, icon: str, url: str) -> rx.Component:
     )
 
 
+def sidebar_sub_item(
+    label: str, icon: str, url: str, svg: str | None = None
+) -> rx.Component:
+    active = (rx.State.router.page.path == url.lower()) | (
+        (rx.State.router.page.path == "/") & label == "Overview"
+    )
+
+    return rx.link(
+        rx.box(
+            rx.hstack(
+                rx.text(label, size="2", weight="regular"),
+                color=rx.cond(
+                    active,
+                    accent_text_color,
+                    text_color,
+                ),
+                background_color=rx.cond(active, accent_bg_color, "transparent"),
+                style={
+                    "_hover": {
+                        "background_color": rx.cond(
+                            active,
+                            accent_bg_color,
+                            gray_bg_color,
+                        ),
+                        "color": rx.cond(
+                            active,
+                            accent_text_color,
+                            text_color,
+                        ),
+                        "opacity": "1",
+                    },
+                    "opacity": rx.cond(
+                        active,
+                        "1",
+                        "0.95",
+                    ),
+                },
+                align="center",
+                border_radius=border_radius,
+                width="90%",
+                padding="3px 6px",
+                margin_left="15px",
+            ),
+            border_left=f"1px solid {rx.color('gray', 7)}",
+            padding="3px",
+        ),
+        on_click=[
+            LoadingState.set_is_loading(True),
+        ],
+        underline="none",
+        href=url,
+        width="100%",
+        padding="0",
+        margin="0 0 0 12px",
+    )
+
+
 def sidebar_icon_button(
     label: str,
     icon: str,
@@ -288,6 +345,11 @@ def navbar(
                     label="Assistent",
                     icon="bot-message-square",
                     url="/assistant",
+                ),
+                sidebar_sub_item(
+                    label="Meine Prompts",
+                    icon="message-square-text",
+                    url="/prompts",
                 ),
                 sidebar_item(
                     label="Bildgenerator",
