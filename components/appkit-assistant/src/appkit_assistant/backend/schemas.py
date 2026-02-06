@@ -136,3 +136,12 @@ class MCPAuthType(StrEnum):
     NONE = "none"
     API_KEY = "api_key"
     OAUTH_DISCOVERY = "oauth_discovery"
+
+
+class CommandDefinition(BaseModel):
+    """Model for slash command definitions in the command palette."""
+
+    id: str  # Unique command identifier (e.g., "teach", "evaluate")
+    label: str  # Display label (e.g., "/teach")
+    description: str = ""  # Optional description shown in palette
+    icon: str = ""  # Optional icon name

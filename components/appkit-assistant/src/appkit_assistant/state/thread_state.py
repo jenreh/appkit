@@ -30,6 +30,7 @@ from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     ChunkType,
+    CommandDefinition,
     Message,
     MessageType,
     Suggestion,
@@ -110,6 +111,53 @@ class ThreadState(rx.State):
     pending_oauth_message: str = ""  # Message that triggered OAuth, resent on success
     # Cross-tab synced localStorage - triggers re-render when popup sets value
     oauth_result: str = rx.LocalStorage(name="mcp-oauth-result", sync=True)
+
+    # Command palette state
+    show_command_palette: bool = False
+    filtered_commands: list[CommandDefinition] = []
+    selected_command_index: int = 0
+    command_search_prefix: str = ""
+    command_trigger_position: int = 0  # Position of "/" in textarea
+
+    # Available slash commands (hardcoded for now)
+    available_commands: list[CommandDefinition] = [
+        CommandDefinition(
+            id="teach",
+            label="/teach",
+            description="Erkläre mir ein Konzept oder Thema",
+            icon="graduation-cap",
+        ),
+        CommandDefinition(
+            id="evaluate",
+            label="/evaluate",
+            description="Bewerte einen Text oder Code",
+            icon="check-circle",
+        ),
+        CommandDefinition(
+            id="summarize",
+            label="/summarize",
+            description="Fasse einen Text zusammen",
+            icon="file-text",
+        ),
+        CommandDefinition(
+            id="translate",
+            label="/translate",
+            description="Übersetze einen Text",
+            icon="languages",
+        ),
+        CommandDefinition(
+            id="code",
+            label="/code",
+            description="Schreibe oder erkläre Code",
+            icon="code",
+        ),
+        CommandDefinition(
+            id="brainstorm",
+            label="/brainstorm",
+            description="Generiere Ideen zu einem Thema",
+            icon="lightbulb",
+        ),
+    ]
 
     # Thread list integration
     with_thread_list: bool = False
@@ -390,8 +438,9 @@ class ThreadState(rx.State):
 
     @rx.event
     def set_prompt(self, prompt: str) -> None:
-        """Set the current prompt."""
+        """Set the current prompt and handle command palette detection."""
         self.prompt = prompt
+        self._update_command_palette(prompt)
 
     @rx.event
     def set_suggestions(self, suggestions: list[Suggestion] | list[dict]) -> None:
@@ -414,6 +463,127 @@ class ThreadState(rx.State):
     def set_with_thread_list(self, with_thread_list: bool) -> None:
         """Set whether thread list integration is enabled."""
         self.with_thread_list = with_thread_list
+
+    # -------------------------------------------------------------------------
+    # Command palette management
+    # -------------------------------------------------------------------------
+
+    def _update_command_palette(self, prompt: str) -> None:
+        """Update command palette state based on prompt content.
+
+        Detects "/" character and filters available commands by prefix match.
+        """
+        # Find the last "/" in the prompt that could trigger the palette
+        slash_pos = -1
+        for i in range(len(prompt) - 1, -1, -1):
+            char = prompt[i]
+            if char == "/":
+                # Check if "/" is at start or preceded by whitespace/newline
+                if i == 0 or prompt[i - 1] in (" ", "\n", "\t"):
+                    slash_pos = i
+                    break
+            elif char in (" ", "\n", "\t"):
+                # Stop searching if we hit whitespace without finding a valid "/"
+                break
+
+        if slash_pos == -1:
+            # No valid "/" found - hide palette
+            self._hide_command_palette()
+            return
+
+        # Extract text after "/" up to cursor (end of string for now)
+        text_after_slash = prompt[slash_pos + 1 :]
+
+        # Check if we hit a space after the command (command is complete)
+        if " " in text_after_slash or "\n" in text_after_slash:
+            self._hide_command_palette()
+            return
+
+        # Filter commands by prefix (case-insensitive)
+        search_term = text_after_slash.lower()
+        self.filtered_commands = [
+            cmd
+            for cmd in self.available_commands
+            if cmd.id.lower().startswith(search_term)
+            or cmd.label.lower().startswith("/" + search_term)
+        ]
+
+        # Show palette if we have matches (or show all if just "/" typed)
+        if self.filtered_commands:
+            self.show_command_palette = True
+            self.command_search_prefix = text_after_slash
+            self.command_trigger_position = slash_pos
+            # Reset selection to first item
+            self.selected_command_index = 0
+        else:
+            self._hide_command_palette()
+
+    def _hide_command_palette(self) -> None:
+        """Hide the command palette and reset state."""
+        self.show_command_palette = False
+        self.filtered_commands = []
+        self.selected_command_index = 0
+        self.command_search_prefix = ""
+        self.command_trigger_position = 0
+
+    @rx.event
+    def navigate_command_palette(self, direction: str) -> None:
+        """Navigate through command palette items.
+
+        Args:
+            direction: "up" or "down" to move selection
+        """
+        if not self.show_command_palette or not self.filtered_commands:
+            return
+
+        count = len(self.filtered_commands)
+        if direction == "up":
+            self.selected_command_index = (self.selected_command_index - 1) % count
+        elif direction == "down":
+            self.selected_command_index = (self.selected_command_index + 1) % count
+
+    @rx.event
+    def select_command(self, command_id: str) -> None:
+        """Select a command from the palette and insert it into the prompt.
+
+        Args:
+            command_id: The ID of the command to select.
+        """
+        # Find the command
+        command = None
+        for cmd in self.filtered_commands:
+            if cmd.id == command_id:
+                command = cmd
+                break
+
+        if not command:
+            self._hide_command_palette()
+            return
+
+        # Replace "/" + search text with the full command label
+        before_slash = self.prompt[: self.command_trigger_position]
+        after_command = ""  # Since we search to end of string
+
+        # Insert the command label followed by a space
+        self.prompt = before_slash + command.label + " " + after_command
+
+        # Hide palette
+        self._hide_command_palette()
+
+    @rx.event
+    def select_current_command(self) -> None:
+        """Select the currently highlighted command in the palette."""
+        if not self.show_command_palette or not self.filtered_commands:
+            return
+
+        if 0 <= self.selected_command_index < len(self.filtered_commands):
+            command = self.filtered_commands[self.selected_command_index]
+            self.select_command(command.id)
+
+    @rx.event
+    def dismiss_command_palette(self) -> None:
+        """Dismiss the command palette without selecting."""
+        self._hide_command_palette()
 
     # -------------------------------------------------------------------------
     # UI state management

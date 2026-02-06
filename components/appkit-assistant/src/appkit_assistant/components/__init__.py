@@ -1,4 +1,5 @@
 from appkit_assistant.components.composer import composer
+from appkit_assistant.components.command_palette import command_palette
 from appkit_assistant.components.file_manager import file_manager
 from appkit_assistant.components.thread import Assistant
 from appkit_assistant.components.message import MessageComponent
@@ -10,6 +11,7 @@ from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     ChunkType,
+    CommandDefinition,
     Message,
     MessageType,
     Suggestion,
@@ -25,6 +27,7 @@ __all__ = [
     "Assistant",
     "Chunk",
     "ChunkType",
+    "CommandDefinition",
     "MCPServer",
     "Message",
     "MessageComponent",
@@ -36,6 +39,7 @@ __all__ = [
     "ThreadState",
     "ThreadStatus",
     "UploadedFile",
+    "command_palette",
     "composer",
     "file_manager",
     "mcp_servers_table",
