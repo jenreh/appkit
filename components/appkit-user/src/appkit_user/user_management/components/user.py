@@ -323,9 +323,7 @@ def users_table_row(
             rx.hstack(
                 *rendered_additional_components,
                 update_user_button(user=user, variant="surface"),
-                delete_user_button(
-                    user=user, variant="surface", color_scheme="crimson"
-                ),
+                delete_user_button(user=user, variant="subtle"),
                 class_name="whitespace-nowrap",
             ),
         ),

@@ -48,6 +48,21 @@
         margin-bottom: 3px;
     }
 
+    .mantine-Modal-content {
+        border-radius: 9px !important;
+        border: 3px solid var(--mantine-primary-color-4) !important;
+    }
+
+    .mantine-Modal-title {
+        font-weight: 800 !important;
+        font-size: 1.5rem !important;
+    }
+
+    .mantine-Modal-header {
+        border-bottom: 1px solid var(--gray-5) !important;
+        margin-bottom: 12px !important;
+    }
+
     /* Rainbow gradient bar styles */
 
     .rainbow-gradient-bar {

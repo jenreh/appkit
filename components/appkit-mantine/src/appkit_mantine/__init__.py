@@ -38,6 +38,7 @@ from appkit_mantine.markdown_zoom import mermaid_zoom_script
 from appkit_mantine.drawer import drawer
 from appkit_mantine.modal import modal
 from appkit_mantine.text_input import text_input
+from appkit_mantine.switch import switch
 
 __all__ = [
     "MANTINE_LIBARY",

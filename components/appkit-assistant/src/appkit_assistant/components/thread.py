@@ -7,6 +7,7 @@ import appkit_mantine as mn
 from appkit_assistant.backend.schemas import Message, MessageType
 from appkit_assistant.components import composer
 from appkit_assistant.components.message import AuthCardComponent, MessageComponent
+from appkit_assistant.components.prompt_edit_modal import prompt_edit_modal
 from appkit_assistant.components.threadlist import ThreadList
 from appkit_assistant.roles import ASSISTANT_FILE_UPLOAD_ROLE, ASSISTANT_WEB_SEARCH_ROLE
 from appkit_assistant.state.thread_state import ThreadState
@@ -228,6 +229,8 @@ class Assistant:
                     ThreadState.load_mcp_servers,
                 ],
             ),
+            # Prompt edit modal for editing from command palette
+            prompt_edit_modal(),
             **props,
         )
 

@@ -219,6 +219,32 @@ class ThreadState(rx.State):
                 return message.text
         return ""
 
+    @rx.var
+    def filtered_user_prompts(self) -> list[CommandDefinition]:
+        """User's own prompts (editable), sorted alphabetically."""
+        return sorted(
+            [cmd for cmd in self.filtered_commands if cmd.is_editable],
+            key=lambda c: c.id.lower(),
+        )
+
+    @rx.var
+    def filtered_shared_prompts(self) -> list[CommandDefinition]:
+        """Shared prompts from others (not editable), sorted alphabetically."""
+        return sorted(
+            [cmd for cmd in self.filtered_commands if not cmd.is_editable],
+            key=lambda c: c.id.lower(),
+        )
+
+    @rx.var
+    def has_filtered_user_prompts(self) -> bool:
+        """Check if there are any filtered user prompts."""
+        return any(cmd.is_editable for cmd in self.filtered_commands)
+
+    @rx.var
+    def has_filtered_shared_prompts(self) -> bool:
+        """Check if there are any filtered shared prompts."""
+        return any(not cmd.is_editable for cmd in self.filtered_commands)
+
     # -------------------------------------------------------------------------
     # Initialization and thread management
     # -------------------------------------------------------------------------
@@ -455,6 +481,8 @@ class ThreadState(rx.State):
         """
         if self._current_user_id:
             await self._load_user_prompts_as_commands(int(self._current_user_id))
+            # Refresh palette filtering with new commands list
+            self._update_command_palette(self.prompt)
 
     async def _load_user_prompts_as_commands(self, user_id: int) -> None:
         """Load user prompts from database and convert to CommandDefinitions.
@@ -473,6 +501,8 @@ class ThreadState(rx.State):
                         label=f"/{p.handle}",
                         description=p.description,
                         icon="",
+                        is_editable=True,
+                        user_id=user_id,
                     )
                     for p in own_prompts
                 ]
@@ -487,6 +517,8 @@ class ThreadState(rx.State):
                         label=f"/{p['handle']}",
                         description=p.get("description", ""),
                         icon="share",
+                        is_editable=False,
+                        user_id=p.get("user_id", 0),
                     )
                     for p in shared_prompts
                 )
