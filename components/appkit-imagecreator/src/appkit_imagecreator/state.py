@@ -39,9 +39,30 @@ logger = logging.getLogger(__name__)
 
 # Image size presets
 SIZE_OPTIONS: list[dict[str, str | int]] = [
-    {"label": "Square (1024x1024)", "width": 1024, "height": 1024},
-    {"label": "Portrait (1024x1536)", "width": 1024, "height": 1536},
-    {"label": "Landscape (1536x1024)", "width": 1536, "height": 1024},
+    {
+        "label": "Square (1:1)",
+        "width": 1024,
+        "height": 1024,
+        "icon": "square",
+    },
+    {
+        "label": "Portrait (2:3)",
+        "width": 1024,
+        "height": 1536,
+        "icon": "gallery-horizontal",
+    },
+    {
+        "label": "Landscape (3:2)",
+        "width": 1536,
+        "height": 1024,
+        "icon": "gallery-vertical",
+    },
+    # {
+    #     "label": "Widescreen (16:9)",
+    #     "width": 1536,
+    #     "height": 864,
+    #     "icon": "tv",
+    # },
 ]
 QUALITY_OPTIONS: list[str] = ["Auto", "High", "Medium", "Low"]
 COUNT_OPTIONS: list[int] = [1, 2, 3, 4]
@@ -104,7 +125,7 @@ class ImageGalleryState(rx.State):
     enhance_prompt: bool = True
 
     # Model selection
-    generator: str = generator_registry.get_default_generator().id
+    generator: str = generator_registry.get_default_generator().model.id
     generators: list[dict[str, str]] = generator_registry.list_generators()
 
     # Zoom modal state

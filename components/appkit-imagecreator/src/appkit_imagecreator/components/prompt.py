@@ -33,6 +33,7 @@ def _selected_image_thumbnail(image: GeneratedImageModel) -> rx.Component:
             top="-6px",
             right="-6px",
             border_radius="12px",
+            padding="3px",
             cursor="pointer",
             on_click=lambda: ImageGalleryState.remove_image_from_prompt(image.id),
         ),

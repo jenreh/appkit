@@ -4,12 +4,20 @@ from typing import Final
 from appkit_commons.configuration.configuration import ReflexConfig
 from appkit_commons.registry import service_registry
 from appkit_imagecreator.backend.generators.black_forest_labs import (
+    FLUX1_KONTEXT_PRO,
+    FLUX2_PRO,
     BlackForestLabsImageGenerator,
 )
 from appkit_imagecreator.backend.generators.nano_banana import (
+    NANO_BANANA,
+    NANO_BANANA_PRO,
     NanoBananaImageGenerator,
 )
-from appkit_imagecreator.backend.generators.openai import OpenAIImageGenerator
+from appkit_imagecreator.backend.generators.openai import (
+    GPT_IMAGE_1_5,
+    GPT_IMAGE_1_MINI,
+    OpenAIImageGenerator,
+)
 from appkit_imagecreator.backend.models import ImageGenerator
 from appkit_imagecreator.configuration import ImageGeneratorConfig
 
@@ -35,55 +43,42 @@ class ImageGeneratorRegistry:
         """Initialize the registry with default generators."""
         self.register(
             OpenAIImageGenerator(
+                model=GPT_IMAGE_1_MINI,
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
-                model="gpt-image-1-mini",
-                label="OpenAI GPT-Image-1 mini (Azure)",
-                id="azure-gpt-image-1-mini",
             )
         )
         self.register(
             OpenAIImageGenerator(
+                model=GPT_IMAGE_1_5,
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
-                model="gpt-image-1.5",
-                label="OpenAI GPT-Image-1.5 (Azure)",
-                id="azure-gpt-image-1.5",
             )
         )
         self.register(
             NanoBananaImageGenerator(
                 api_key=self.config.google_api_key.get_secret_value(),
-                model="gemini-2.5-flash-image",
-                label="Google Nano Banana",
-                id="nano-banana",
+                model=NANO_BANANA,
             )
         )
         self.register(
             NanoBananaImageGenerator(
                 api_key=self.config.google_api_key.get_secret_value(),
-                model="gemini-3-pro-image-preview",
-                label="Google Nano Banana Pro",
-                id="nano-banana-pro",
+                model=NANO_BANANA_PRO,
             )
         )
         self.register(
             OpenAIImageGenerator(
+                model=FLUX1_KONTEXT_PRO,
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
-                model="FLUX.1-Kontext-pro",
-                label="Blackforest Labs FLUX.1-Kontext-pro (Azure)",
-                id="FLUX.1-Kontext-pro",
             )
         )
         self.register(
             BlackForestLabsImageGenerator(
                 api_key=self.config.blackforestlabs_api_key.get_secret_value(),
                 base_url=self.config.blackforestlabs_base_url,
-                model="flux-2-pro",
-                label="Blackforest Labs FLUX.2-pro (Azure)",
-                id="azure-flux-2-pro",
-                supports_size=True,
+                model=FLUX2_PRO,
             )
         )
         # self.register(
@@ -98,7 +93,7 @@ class ImageGeneratorRegistry:
 
     def register(self, generator: ImageGenerator) -> None:
         """Register a new generator in the registry."""
-        self._generators[generator.id] = generator
+        self._generators[generator.model.id] = generator
 
     def get(
         self,
@@ -112,7 +107,10 @@ class ImageGeneratorRegistry:
 
     def list_generators(self) -> list[dict[str, str]]:
         """List all available generators with their IDs and labels."""
-        return [{"id": gen.id, "label": gen.label} for gen in self._generators.values()]
+        return [
+            {"id": gen.model.id, "label": gen.model.label}
+            for gen in self._generators.values()
+        ]
 
     def get_generator_ids(self) -> list[str]:
         """Get the IDs of all registered generators."""

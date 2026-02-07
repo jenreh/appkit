@@ -27,6 +27,13 @@ def get_image_api_base_url() -> str:
     return f"{reflex_config.deploy_url}:{reflex_config.backend_port}"
 
 
+class ImageModel(BaseModel):
+    id: str
+    model: str
+    label: str
+    config: dict[str, Any] | None = None
+
+
 class GeneratedImage(rx.Model, table=True):
     """Model for storing generated images in the database.
 
@@ -149,23 +156,17 @@ class ImageGenerator(ABC):
     and return GeneratedImageData with raw bytes or external URLs.
     """
 
-    id: str
-    model: str
-    label: str
+    model: ImageModel
     api_key: str
     supports_edit: bool
 
     def __init__(
         self,
-        id: str,  # noqa: A002
-        label: str,
-        model: str,
+        model: ImageModel,
         api_key: str,
         supports_edit: bool = True,
     ):
-        self.id = id
         self.model = model
-        self.label = label
         self.api_key = api_key
         self.supports_edit = supports_edit
 
@@ -198,14 +199,19 @@ class ImageGenerator(ABC):
         )
 
     def _aspect_ratio(self, width: int, height: int) -> str:
-        """Calculate the aspect ratio based on width and height."""
-        if width == height:
-            return "1:1"
+        """Calculate the closest supported aspect ratio based on width and height."""
+        ratios = {
+            "2:1": 2 / 1,
+            "1:1": 1.0,
+            "1:2": 1 / 2,
+        }
 
-        if width > height:
-            return "4:3"
-
-        return "3:4"
+        current_ratio = width / height
+        ratio = min(ratios, key=lambda k: abs(ratios[k] - current_ratio))
+        logger.debug(
+            "Calculated aspect ratio %s for dimensions %dx%d", ratio, width, height
+        )
+        return ratio
 
     async def generate(self, input_data: GenerationInput) -> ImageGeneratorResponse:
         """
@@ -215,9 +221,9 @@ class ImageGenerator(ABC):
         try:
             return await self._perform_generation(input_data)
         except Exception as e:
-            logger.exception("Error during image generation with %s", self.id)
+            logger.exception("Error during image generation with %s", self.model.id)
             return ImageGeneratorResponse(
-                state=ImageResponseState.FAILED, images=[], error=str(e)
+                state=ImageResponseState.FAILED, generated_images=[], error=str(e)
             )
 
     async def _perform_generation(
@@ -247,7 +253,7 @@ class ImageGenerator(ABC):
         if not self.supports_edit:
             logger.error(
                 "Image editing is not supported by %s",
-                self.id,
+                self.model.id,
             )
             return ImageGeneratorResponse(
                 state=ImageResponseState.FAILED,
@@ -258,7 +264,7 @@ class ImageGenerator(ABC):
         try:
             return await self._perform_edit(input_data, reference_images)
         except Exception as e:
-            logger.exception("Error during image editing with %s", self.id)
+            logger.exception("Error during image editing with %s", self.model.id)
             return ImageGeneratorResponse(
                 state=ImageResponseState.FAILED, generated_images=[], error=str(e)
             )

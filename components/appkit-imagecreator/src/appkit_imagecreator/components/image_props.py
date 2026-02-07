@@ -1,6 +1,6 @@
 import reflex as rx
 
-from appkit_imagecreator.state import ImageGalleryState
+from appkit_imagecreator.state import SIZE_OPTIONS, ImageGalleryState
 
 # -----------------------------------------------------------------------------
 # Config Popup Component (Size & Quality)
@@ -16,7 +16,8 @@ def _size_option(option: dict) -> rx.Component:
                 rx.icon("check", size=16, color=rx.color("accent", 9)),
                 rx.box(width="16px"),
             ),
-            rx.text(option["label"], size="2"),
+            rx.icon(option["icon"], size=17),
+            rx.text(option["label"], size="2", width="100%"),
             spacing="2",
             align="center",
             width="100%",
@@ -29,13 +30,25 @@ def _size_option(option: dict) -> rx.Component:
     )
 
 
+def _active_size_icon() -> rx.Component:
+    """Get the icon for the currently selected size."""
+    match_cases = [
+        (opt["label"], rx.icon(opt["icon"], size=17)) for opt in SIZE_OPTIONS
+    ]
+    return rx.match(
+        ImageGalleryState.selected_size,
+        *match_cases,
+        rx.icon("ratio", size=17),
+    )
+
+
 def image_props_popup() -> rx.Component:
     """Popup for selecting size and quality."""
     return rx.popover.root(
         rx.tooltip(
             rx.popover.trigger(
                 rx.button(
-                    rx.icon("sliders-horizontal", size=17),
+                    _active_size_icon(),
                     cursor="pointer",
                     padding="8px",
                     variant="ghost",
@@ -46,7 +59,7 @@ def image_props_popup() -> rx.Component:
         rx.popover.content(
             rx.vstack(
                 rx.vstack(
-                    rx.foreach(ImageGalleryState.size_options, _size_option),
+                    *[_size_option(opt) for opt in SIZE_OPTIONS],
                     spacing="1",
                     width="100%",
                 ),
