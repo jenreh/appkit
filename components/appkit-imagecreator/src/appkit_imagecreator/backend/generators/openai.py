@@ -1,5 +1,6 @@
 import base64
 import logging
+from typing import Literal
 
 import httpx
 from openai import AsyncAzureOpenAI
@@ -20,8 +21,8 @@ GPT_IMAGE_1_5 = ImageModel(
     model="gpt-image-1.5",
     label="OpenAI GPT-Image-1.5 (Azure)",
     config={
+        "input_fidelity": "high",
         "moderation": "low",
-        # "input_fidelity": "high",
         "output_compression": 95,
         "output_format": "jpeg",
         "quality": "high",
@@ -35,7 +36,6 @@ GPT_IMAGE_1_MINI = ImageModel(
     label="OpenAI GPT-Image-1 mini (Azure)",
     config={
         "moderation": "low",
-        # "input_fidelity": "high",
         "output_compression": 90,
         "output_format": "jpeg",
         "quality": "high",
@@ -69,19 +69,31 @@ class OpenAIImageGenerator(ImageGenerator):
             api_key=api_key,
         )
 
-    def _build_api_params(self, **overrides: any) -> dict:
+    # Parameters not supported by each endpoint
+    _GENERATE_UNSUPPORTED = {"input_fidelity"}
+    _EDIT_UNSUPPORTED = {"moderation"}
+
+    def _build_api_params(
+        self, endpoint: Literal["generate", "edit"] = "generate", **overrides: any
+    ) -> dict:
         """Build API parameters from model config with overrides.
 
         Args:
+            endpoint: Either "generate" or "edit" - filters unsupported params
             **overrides: Parameters that override model config defaults
 
         Returns:
             Dict of API parameters to use
         """
-        params = {}
-        if self.model.config:
-            params.update(self.model.config)
-        params.update(overrides)
+        unsupported = (
+            self._EDIT_UNSUPPORTED if endpoint == "edit" else self._GENERATE_UNSUPPORTED
+        )
+        params = (
+            {k: v for k, v in self.model.config.items() if k not in unsupported}
+            if self.model.config
+            else {}
+        )
+        params.update({k: v for k, v in overrides.items() if k not in unsupported})
         return params
 
     def _get_content_type(self, params: dict) -> str:
@@ -241,6 +253,7 @@ class OpenAIImageGenerator(ImageGenerator):
     ) -> list[GeneratedImageData]:
         """Call OpenAI edit API and process response."""
         api_params = self._build_api_params(
+            endpoint="edit",
             model=self.model.model,
             image=image_files,
             prompt=prompt,
