@@ -162,8 +162,10 @@ def prompt_edit_modal() -> rx.Component:
                 UserPromptState.modal_error != "",
                 rx.callout(
                     UserPromptState.modal_error,
-                    icon="circle-alert",
-                    color="red",
+                    icon="info",
+                    role="alert",
+                    color_scheme="red",
+                    variant="surface",
                     size="1",
                 ),
                 rx.fragment(),

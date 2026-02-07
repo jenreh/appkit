@@ -28,6 +28,7 @@ class UserPromptState(State):
     modal_open: bool = False
     modal_is_new: bool = False
     modal_handle: str = ""  # Handle being edited (display only)
+    modal_original_handle: str = ""  # Original handle when editing (for rename)
     modal_description: str = ""
     modal_prompt: str = ""
     modal_is_shared: bool = False
@@ -73,6 +74,7 @@ class UserPromptState(State):
         self.modal_open = False
         self.modal_is_new = False
         self.modal_handle = ""
+        self.modal_original_handle = ""
         self.modal_description = ""
         self.modal_prompt = ""
         self.modal_is_shared = False
@@ -110,6 +112,7 @@ class UserPromptState(State):
         """Open modal to edit an existing prompt."""
         self._reset_modal()
         self.modal_handle = handle
+        self.modal_original_handle = handle
 
         try:
             user_session: UserSession = await self.get_state(UserSession)
@@ -272,6 +275,25 @@ class UserPromptState(State):
                     )
                 else:
                     # Update existing (create new version)
+                    original_handle = self.modal_original_handle
+
+                    # Check if handle was changed
+                    if handle != original_handle:
+                        # Validate new handle is unique
+                        is_unique = await user_prompt_repo.validate_handle_unique(
+                            session, user_id, handle
+                        )
+                        if not is_unique:
+                            self.modal_error = f"Handle '/{handle}' existiert bereits"
+                            self.is_loading = False
+                            return
+
+                        # Update all old versions to new handle
+                        await user_prompt_repo.update_handle(
+                            session, user_id, original_handle, handle
+                        )
+
+                    # Create new version (now handle is consistent)
                     await user_prompt_repo.create_next_version(
                         session,
                         user_id=user_id,
