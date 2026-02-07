@@ -88,6 +88,9 @@ class ScrollArea(rx.Component):
     viewport_props: Var[dict] = None
     """Props passed down to the viewport element."""
 
+    # Mantine styles prop for targeting internal sub-components
+    styles: Var[dict] = None
+
     # Event handlers
     on_scroll_position_change: EventHandler[lambda position: [position]] = None
     """Called with current position (x and y coordinates) when viewport is scrolled."""
@@ -508,6 +511,8 @@ class ScrollAreaWithState(rx.ComponentState):
             "}"
             "}"
             "if(!vp)return;"
+            # Prevent scroll chaining to parent when reaching boundaries
+            "vp.style.overscrollBehavior='contain';"
             f"const btnTop=document.getElementById('{viewport_id}-btn-top');"
             f"const btnBottom=document.getElementById('{viewport_id}-btn-bottom');"
             "const content=vp.firstElementChild||vp;"

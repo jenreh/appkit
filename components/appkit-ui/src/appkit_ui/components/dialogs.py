@@ -20,23 +20,24 @@ class DeleteDialog(rx.ComponentState):
         action_loading: bool = False,
         **kwargs,
     ) -> rx.Component:
-        # Create the appropriate trigger based on icon_button parameter
+        # Defaults
+        kwargs.setdefault("color", "red")
+
         if icon_button:
-            variant = kwargs.pop("variant", "subtle")
+            kwargs.setdefault("variant", "subtle")
+            icon = kwargs.pop("icon", None) or rx.icon("trash-2", size=18)
+
             trigger = mn.action_icon(
-                rx.icon("trash-2", size=18),
-                color="red",
-                variant=variant,
+                icon,
                 on_click=cls.toggle,
                 **kwargs,
             )
         else:
-            variant = kwargs.pop("variant", "light")
+            kwargs.setdefault("variant", "light")
+            kwargs.setdefault("left_section", rx.icon("trash-2", size=16))
+
             trigger = mn.button(
                 "Löschen",
-                left_section=rx.icon("trash-2", size=16),
-                color="red",
-                variant=variant,
                 on_click=cls.toggle,
                 **kwargs,
             )

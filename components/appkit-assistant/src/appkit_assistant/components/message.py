@@ -96,22 +96,22 @@ class MessageActionsBar:
     def render(message: Message) -> rx.Component:
         return rx.hstack(
             rx.tooltip(
-                rx.icon_button(
+                mn.action_icon(
                     rx.icon("copy", size=14),
                     on_click=ThreadState.copy_message(message.text),
-                    variant="ghost",
-                    size="1",
-                    color_scheme="gray",
+                    variant="subtle",
+                    size="sm",
+                    color="gray",
                 ),
                 content="Kopieren",
             ),
             rx.tooltip(
-                rx.icon_button(
+                mn.action_icon(
                     rx.icon("download", size=14),
                     on_click=ThreadState.download_message(message.text, message.id),
-                    variant="ghost",
-                    size="1",
-                    color_scheme="gray",
+                    variant="subtle",
+                    size="sm",
+                    color="gray",
                 ),
                 content="Herunterladen",
             ),
@@ -122,7 +122,9 @@ class MessageActionsBar:
                     on_click=ThreadState.delete_message(message.id),
                     icon_button=True,
                     variant="subtle",
-                    size="1",
+                    size="sm",
+                    color="gray",
+                    icon=rx.icon("trash-2", size=14),
                 ),
                 content="Löschen",
             ),
@@ -130,16 +132,16 @@ class MessageActionsBar:
                 (message.type == MessageType.ASSISTANT)
                 | (message.type == MessageType.ERROR),
                 rx.tooltip(
-                    rx.icon_button(
+                    mn.action_icon(
                         rx.cond(
                             ThreadState.processing,
                             rx.spinner(size="1"),
                             rx.icon("refresh-cw", size=14),
                         ),
                         on_click=ThreadState.retry_message(message.id),
-                        variant="ghost",
-                        size="1",
-                        color_scheme="gray",
+                        variant="subtle",
+                        size="sm",
+                        color="gray",
                         disabled=ThreadState.processing,
                     ),
                     content="Erneut generieren (folgende Nachrichten werden entfernt)",
@@ -368,14 +370,14 @@ class MessageComponent:
                 rx.hstack(
                     rx.spacer(),
                     rx.tooltip(
-                        rx.icon_button(
+                        mn.action_icon(
                             rx.icon("pencil", size=14),
                             on_click=ThreadState.set_editing_mode(
                                 message.id, message.text
                             ),
-                            variant="ghost",
-                            size="1",
-                            color_scheme="gray",
+                            variant="subtle",
+                            size="sm",
+                            color="gray",
                         ),
                         content="Bearbeiten",
                     ),
@@ -386,17 +388,19 @@ class MessageComponent:
                             on_click=ThreadState.delete_message(message.id),
                             icon_button=True,
                             variant="subtle",
-                            size="1",
+                            size="sm",
+                            color="gray",
+                            icon=rx.icon("trash-2", size=14),
                         ),
                         content="Löschen",
                     ),
                     rx.tooltip(
-                        rx.icon_button(
+                        mn.action_icon(
                             rx.icon("copy", size=14),
                             on_click=ThreadState.copy_message(message.text),
-                            variant="ghost",
-                            size="1",
-                            color_scheme="gray",
+                            variant="subtle",
+                            size="sm",
+                            color="gray",
                         ),
                         content="Kopieren",
                     ),

@@ -6,6 +6,14 @@ from appkit_assistant.backend.schemas import CommandDefinition
 from appkit_assistant.state.thread_state import ThreadState
 from appkit_assistant.state.user_prompt_state import UserPromptState
 
+_GRID_TEMPLATE = "max-content minmax(0, 1fr) auto"
+_GRID_PROPS = {
+    "display": "grid",
+    "grid_template_columns": _GRID_TEMPLATE,
+    "gap": "2px",
+    "width": "100%",
+}
+
 
 def render_command_label(command: CommandDefinition, index: int) -> rx.Component:
     """Render the label cell for a command item."""
@@ -28,7 +36,7 @@ def render_command_description(command: CommandDefinition) -> rx.Component:
         white_space="nowrap",
         overflow="hidden",
         text_overflow="ellipsis",
-        min_width="0",  # Allow shrinking in grid
+        min_width="0",
     )
 
 
@@ -48,19 +56,12 @@ def render_edit_button(command: CommandDefinition) -> rx.Component:
             color_scheme="gray",
             type="button",
         ),
-        rx.box(width="24px"),  # Placeholder for non-editable commands
+        rx.box(width="24px"),
     )
 
 
 def render_command_item(command: CommandDefinition, index: int) -> rx.Component:
-    """Render a single command item in the palette.
-
-    Uses CSS display:contents to participate in parent grid.
-
-    Args:
-        command: The command definition to render.
-        index: The index of this item in the filtered list.
-    """
+    """Render a single command item in the palette."""
     is_selected = ThreadState.selected_command_index == index
 
     return rx.box(
@@ -77,7 +78,7 @@ def render_command_item(command: CommandDefinition, index: int) -> rx.Component:
         cursor="pointer",
         gap="12px",
         align_items="center",
-        min_width="0",  # Allow shrinking in grid
+        min_width="0",
         background=rx.cond(
             is_selected,
             rx.color("accent", 3),
@@ -91,7 +92,6 @@ def render_command_item(command: CommandDefinition, index: int) -> rx.Component:
 def render_new_prompt_item() -> rx.Component:
     """Render the 'New Prompt...' entry at the bottom of the palette."""
     return rx.box(
-        # Icon + text aligned with command labels
         rx.hstack(
             rx.icon("plus", size=14, color=rx.color("gray", 10)),
             rx.text(
@@ -104,9 +104,7 @@ def render_new_prompt_item() -> rx.Component:
             spacing="1",
             align="center",
         ),
-        # Spacer to push close button right
-        rx.box(flex="1"),
-        # Close button - aligned with edit buttons
+        rx.spacer(),
         rx.icon_button(
             rx.icon("x", size=16),
             on_click=[rx.stop_propagation, ThreadState.dismiss_command_palette],
@@ -123,7 +121,6 @@ def render_new_prompt_item() -> rx.Component:
         border_radius="6px",
         cursor="pointer",
         width="100%",
-        flex_wrap="nowrap",
         margin_bottom="2px",
         _hover={"background": rx.color("gray", 3)},
         on_click=UserPromptState.open_new_modal,
@@ -138,10 +135,25 @@ def render_section_header(label: str) -> rx.Component:
             label,
             size="1",
             color=rx.color("gray", 9),
-            class_name="whitespace-nowrap font-medium",
+            white_space="nowrap",
+            font_weight="500",
         ),
         rx.divider(margin="0"),
-        class_name="items-center w-full",
+        align_items="center",
+        width="100%",
+    )
+
+
+def _render_command_grid(
+    commands: list[CommandDefinition], offset: int = 0
+) -> rx.Component:
+    """Render a list of commands in a grid layout."""
+    return rx.box(
+        rx.foreach(
+            commands,
+            lambda cmd, idx: render_command_item(cmd, idx + offset),
+        ),
+        **_GRID_PROPS,
     )
 
 
@@ -152,38 +164,18 @@ def command_palette_content() -> rx.Component:
         rx.cond(
             ThreadState.filtered_commands.length() > 0,
             rx.fragment(
-                # User prompts section
                 rx.cond(
                     ThreadState.has_filtered_user_prompts,
-                    rx.box(
-                        rx.foreach(
-                            ThreadState.filtered_user_prompts,
-                            lambda cmd, idx: render_command_item(cmd, idx),
-                        ),
-                        display="grid",
-                        grid_template_columns="max-content minmax(0, 1fr) auto",
-                        gap="2px",
-                        width="100%",
-                    ),
+                    _render_command_grid(ThreadState.filtered_user_prompts),
                     rx.fragment(),
                 ),
-                # Shared prompts section
                 rx.cond(
                     ThreadState.has_filtered_shared_prompts,
                     rx.fragment(
                         render_section_header("Geteilte Prompts"),
-                        rx.box(
-                            rx.foreach(
-                                ThreadState.filtered_shared_prompts,
-                                lambda cmd, idx: render_command_item(
-                                    cmd,
-                                    idx + ThreadState.filtered_user_prompts.length(),
-                                ),
-                            ),
-                            display="grid",
-                            grid_template_columns="max-content minmax(0, 1fr) auto",
-                            gap="2px",
-                            width="100%",
+                        _render_command_grid(
+                            ThreadState.filtered_shared_prompts,
+                            offset=ThreadState.filtered_user_prompts.length(),
                         ),
                     ),
                     rx.fragment(),
@@ -206,22 +198,14 @@ def command_palette_content() -> rx.Component:
 
 
 def command_palette() -> rx.Component:
-    """Render the command palette popover.
-
-    The palette appears above the textarea when "/" is typed.
-    It shows available commands filtered by the text after "/".
-    Clicking outside the palette dismisses it.
-    """
+    """Render the command palette popover."""
     return rx.cond(
         ThreadState.show_command_palette,
         rx.fragment(
-            # Invisible overlay to catch clicks outside the palette
+            # Overlay to catch clicks outside
             rx.box(
                 position="fixed",
-                top="0",
-                left="0",
-                right="0",
-                bottom="0",
+                inset="0",
                 z_index="999",
                 on_click=ThreadState.dismiss_command_palette,
             ),
@@ -231,14 +215,11 @@ def command_palette() -> rx.Component:
                         command_palette_content(),
                         id="command-palette-scroll",
                         max_height="300px",
-                        scrollbars="vertical",
                         type="auto",
                         width="100%",
                     ),
                     size="1",
-                    style={
-                        "box-shadow": "0 4px 12px rgba(0, 0, 0, 0.15)",
-                    },
+                    box_shadow="0 4px 12px rgba(0, 0, 0, 0.15)",
                     padding="6px",
                 ),
                 id="command-palette",

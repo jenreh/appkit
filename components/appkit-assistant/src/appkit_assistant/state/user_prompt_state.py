@@ -181,6 +181,20 @@ class UserPromptState(State):
         is_valid, error_msg = validate_handle(value)
         self.modal_handle_error = error_msg if not is_valid else ""
 
+    def _get_description_error(self, value: str) -> str:
+        """Validate description and return error message."""
+        if len(value) > MAX_DESCRIPTION_LENGTH:
+            return f"Beschreibung max. {MAX_DESCRIPTION_LENGTH} Zeichen"
+        return ""
+
+    def _get_prompt_error(self, value: str) -> str:
+        """Validate prompt and return error message."""
+        if not value or not value.strip():
+            return "Der Prompt darf nicht leer sein."
+        if len(value) > MAX_PROMPT_LENGTH:
+            return f"Der Prompt max. {MAX_PROMPT_LENGTH} Zeichen"
+        return ""
+
     @rx.event
     def set_modal_description(self, value: str) -> None:
         """Set modal description."""
@@ -189,12 +203,7 @@ class UserPromptState(State):
     def set_modal_description_and_validate(self, value: str) -> None:
         """Set modal description on blur and validate."""
         self.modal_description = value
-        if len(value) > MAX_DESCRIPTION_LENGTH:
-            self.modal_description_error = (
-                f"Beschreibung max. {MAX_DESCRIPTION_LENGTH} Zeichen"
-            )
-        else:
-            self.modal_description_error = ""
+        self.modal_description_error = self._get_description_error(value)
 
     @rx.event
     def set_modal_prompt(self, value: str) -> None:
@@ -206,12 +215,7 @@ class UserPromptState(State):
         """Set modal prompt on blur and validate."""
         self.modal_prompt = value
         self.modal_char_count = len(value)
-        if not value or value.strip() == "":
-            self.modal_prompt_error = "Der Prompt darf nicht leer sein."
-        elif len(value) > MAX_PROMPT_LENGTH:
-            self.modal_prompt_error = f"Der Prompt max. {MAX_PROMPT_LENGTH} Zeichen"
-        else:
-            self.modal_prompt_error = ""
+        self.modal_prompt_error = self._get_prompt_error(value)
 
     @rx.event
     def set_modal_is_shared(self, value: Any) -> None:
@@ -225,18 +229,17 @@ class UserPromptState(State):
         prompt_text = self.modal_prompt.strip()
 
         # Validation
-        is_valid, error = validate_handle(handle)
-        if not is_valid:
-            self.modal_error = error
+        is_handle_valid, handle_error = validate_handle(handle)
+        if not is_handle_valid:
+            self.modal_error = handle_error
             return
-        if not prompt_text:
-            self.modal_error = "Prompt-Text ist erforderlich"
+
+        if prompt_error := self._get_prompt_error(prompt_text):
+            self.modal_error = prompt_error
             return
-        if len(prompt_text) > MAX_PROMPT_LENGTH:
-            self.modal_error = f"Prompt max. {MAX_PROMPT_LENGTH} Zeichen"
-            return
-        if len(description) > MAX_DESCRIPTION_LENGTH:
-            self.modal_error = f"Beschreibung max. {MAX_DESCRIPTION_LENGTH} Zeichen"
+
+        if desc_error := self._get_description_error(description):
+            self.modal_error = desc_error
             return
 
         self.is_loading = True

@@ -266,55 +266,63 @@ class ThreadState(rx.State):
             )
             return
 
+        self._setup_models(user)
+
+        self._thread = self._thread_service.create_new_thread(
+            current_model=self.selected_model,
+            user_roles=user.roles if user else [],
+        )
+        self._reset_ui_state()
+        self._current_user_id = current_user_id
+
+        self._load_config()
+
+        if current_user_id:
+            try:
+                await self._load_user_prompts_as_commands(int(current_user_id))
+            except Exception as e:
+                logger.warning("Failed to load user prompts as commands: %s", e)
+
+        self._initialized = True
+        logger.debug("Initialized thread state: %s", self._thread.thread_id)
+
+    def _setup_models(self, user: Any) -> None:
+        """Setup available AI models based on user roles."""
         model_manager = ModelManager()
         all_models = model_manager.get_all_models()
         self.selected_model = model_manager.get_default_model()
 
-        # Filter models based on user roles
         user_roles = user.roles if user else []
-
         self.ai_models = [
             m
             for m in all_models
             if not m.requires_role or m.requires_role in user_roles
         ]
 
-        # If selected model is not in available models, pick the first one
-        available_model_ids = [m.id for m in self.ai_models]
-        if self.selected_model not in available_model_ids:
-            if available_model_ids:
-                self.selected_model = available_model_ids[0]
+        # Ensure selected model is available
+        available_ids = {m.id for m in self.ai_models}
+        if self.selected_model not in available_ids:
+            if self.ai_models:
+                self.selected_model = self.ai_models[0].id
             else:
                 logger.warning("No models available for user")
                 self.selected_model = ""
 
-        self._thread = self._thread_service.create_new_thread(
-            current_model=self.selected_model,
-            user_roles=user_roles,
-        )
-        self.messages = []
-        self.thinking_items = []
-        self.image_chunks = []
-        self.prompt = ""
-        self.show_thinking = False
-        self._current_user_id = current_user_id
-        self.available_commands = []
-
-        # Load config
+    def _load_config(self) -> None:
+        """Load assistant configuration."""
         config: AssistantConfig | None = service_registry().get(AssistantConfig)
         if config:
             self.max_file_size_mb = config.file_upload.max_file_size_mb
             self.max_files_per_thread = config.file_upload.max_files_per_thread
 
-        # Load user prompts as commands
-        try:
-            if current_user_id:
-                await self._load_user_prompts_as_commands(int(current_user_id))
-        except Exception as e:
-            logger.warning("Failed to load user prompts as commands: %s", e)
-
-        self._initialized = True
-        logger.debug("Initialized thread state: %s", self._thread.thread_id)
+    def _reset_ui_state(self) -> None:
+        """Reset UI-related state variables."""
+        self.messages = []
+        self.thinking_items = []
+        self.image_chunks = []
+        self.prompt = ""
+        self.show_thinking = False
+        self.available_commands = []
 
     @rx.event
     async def new_thread(self) -> None:
@@ -485,17 +493,17 @@ class ThreadState(rx.State):
             self._update_command_palette(self.prompt)
 
     async def _load_user_prompts_as_commands(self, user_id: int) -> None:
-        """Load user prompts from database and convert to CommandDefinitions.
-
-        Called during initialization to populate available_commands.
-        Loads both user's own prompts and shared prompts from other users.
-        """
+        """Load user prompts from database and convert to CommandDefinitions."""
         try:
             async with get_asyncdb_session() as session:
                 own_prompts = await user_prompt_repo.find_latest_prompts_by_user(
                     session, user_id
                 )
-                commands = [
+                shared_prompts = await user_prompt_repo.find_latest_shared_prompts(
+                    session, user_id
+                )
+
+                self.available_commands = [
                     CommandDefinition(
                         id=p.handle,
                         label=f"/{p.handle}",
@@ -505,13 +513,7 @@ class ThreadState(rx.State):
                         user_id=user_id,
                     )
                     for p in own_prompts
-                ]
-
-                # Load shared prompts from other users
-                shared_prompts = await user_prompt_repo.find_latest_shared_prompts(
-                    session, user_id
-                )
-                commands.extend(
+                ] + [
                     CommandDefinition(
                         id=p["handle"],
                         label=f"/{p['handle']}",
@@ -521,9 +523,8 @@ class ThreadState(rx.State):
                         user_id=p.get("user_id", 0),
                     )
                     for p in shared_prompts
-                )
+                ]
 
-                self.available_commands = commands
                 logger.debug(
                     "Loaded %d commands (%d own, %d shared) for user %d",
                     len(self.available_commands),
@@ -536,51 +537,32 @@ class ThreadState(rx.State):
             self.available_commands = []
 
     def _update_command_palette(self, prompt: str) -> None:
-        """Update command palette state based on prompt content.
+        """Update command palette state based on prompt content."""
+        # Find the last "/" that starts a word (at start or after whitespace)
+        # and has no whitespace after it.
+        match = re.search(r"(?:^|\s)/([^\s]*)$", prompt)
 
-        Detects "/" character and filters available commands by prefix match.
-        """
-        # Find the last "/" in the prompt that could trigger the palette
-        slash_pos = -1
-        for i in range(len(prompt) - 1, -1, -1):
-            char = prompt[i]
-            if char == "/":
-                # Check if "/" is at start or preceded by whitespace/newline
-                if i == 0 or prompt[i - 1] in (" ", "\n", "\t"):
-                    slash_pos = i
-                    break
-            elif char in (" ", "\n", "\t"):
-                # Stop searching if we hit whitespace without finding a valid "/"
-                break
-
-        if slash_pos == -1:
-            # No valid "/" found - hide palette
+        if not match:
             self._hide_command_palette()
             return
 
-        # Extract text after "/" up to cursor (end of string for now)
-        text_after_slash = prompt[slash_pos + 1 :]
+        text_after_slash = match.group(1)
+        # Calculate slash position: match end - length of text - 1 (for the slash)
+        slash_pos = match.end() - len(text_after_slash) - 1
 
-        # Check if we hit a space after the command (command is complete)
-        if " " in text_after_slash or "\n" in text_after_slash:
-            self._hide_command_palette()
-            return
-
-        # Filter commands by prefix (case-insensitive)
+        # Filter commands
         search_term = text_after_slash.lower()
         self.filtered_commands = [
             cmd
             for cmd in self.available_commands
             if cmd.id.lower().startswith(search_term)
-            or cmd.label.lower().startswith("/" + search_term)
+            or cmd.label.lower().startswith(f"/{search_term}")
         ]
 
-        # Show palette if we have matches (or show all if just "/" typed)
         if self.filtered_commands:
             self.show_command_palette = True
             self.command_search_prefix = text_after_slash
             self.command_trigger_position = slash_pos
-            # Reset selection to first item
             self.selected_command_index = 0
         else:
             self._hide_command_palette()
@@ -691,7 +673,7 @@ class ThreadState(rx.State):
             self.available_mcp_servers = filtered_servers
 
     @rx.event
-    def toogle_tools_modal(self, show: bool) -> None:
+    def toggle_tools_modal(self, show: bool) -> None:
         """Set the visibility of the tools modal."""
         self.show_tools_modal = show
 
@@ -750,7 +732,9 @@ class ThreadState(rx.State):
     # -------------------------------------------------------------------------
 
     @rx.event
-    async def handle_upload(self, files: list[rx.UploadFile]) -> None:
+    async def handle_upload(
+        self, files: list[rx.UploadFile]
+    ) -> AsyncGenerator[Any, Any]:
         """Handle uploaded files from the browser.
 
         Moves files to user-specific directory and adds them to state.
@@ -855,18 +839,21 @@ class ThreadState(rx.State):
         """Submit edited message."""
         async with self:
             content = self.edited_message_content.strip()
-            if len(content) < 1:
+            if not content:
                 yield rx.toast.error(
                     "Nachricht darf nicht leer sein", position="top-right"
                 )
                 return
 
             # Find message index
-            msg_index = -1
-            for i, m in enumerate(self.messages):
-                if m.id == self.editing_message_id:
-                    msg_index = i
-                    break
+            msg_index = next(
+                (
+                    i
+                    for i, m in enumerate(self.messages)
+                    if m.id == self.editing_message_id
+                ),
+                -1,
+            )
 
             if msg_index == -1:
                 self.cancel_edit()

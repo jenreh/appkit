@@ -1,10 +1,8 @@
-import logging
 from collections.abc import Callable
 
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.schemas import Message, MessageType
 from appkit_assistant.components import composer
 from appkit_assistant.components.message import AuthCardComponent, MessageComponent
 from appkit_assistant.components.prompt_edit_modal import prompt_edit_modal
@@ -12,8 +10,6 @@ from appkit_assistant.components.threadlist import ThreadList
 from appkit_assistant.roles import ASSISTANT_FILE_UPLOAD_ROLE, ASSISTANT_WEB_SEARCH_ROLE
 from appkit_assistant.state.thread_state import ThreadState
 from appkit_user.authentication.components.components import requires_role
-
-logger = logging.getLogger(__name__)
 
 
 class Assistant:
@@ -25,16 +21,13 @@ class Assistant:
         **props,
     ) -> rx.Component:
         """Component to display a suggestion."""
-
-        on_click_handler = update_prompt(prompt) if update_prompt else None
-
         return rx.button(
             rx.cond(icon, rx.icon(icon), None),
             prompt,
             size="2",
             variant="soft",
             radius="large",
-            on_click=on_click_handler,
+            on_click=update_prompt(prompt) if update_prompt else None,
             **props,
         )
 
@@ -72,17 +65,14 @@ class Assistant:
         **props,
     ) -> rx.Component:
         """Component to display messages in the thread."""
-
-        if ThreadState.messages is None:
-            messages = [Message(text="👋 Hi!", type=MessageType.ASSISTANT)]
-        else:
-            messages = ThreadState.messages
+        # Remove unused prop passed from thread()
+        props.pop("with_scroll_to_bottom", None)
 
         return rx.fragment(
             mn.scroll_area.stateful(
                 rx.foreach(
-                    messages,
-                    lambda message: MessageComponent.render_message(message),
+                    ThreadState.messages,
+                    MessageComponent.render_message,
                 ),
                 # Auth card for MCP OAuth flow
                 AuthCardComponent.render(),
@@ -161,11 +151,6 @@ class Assistant:
         with_tools: bool = False,
         **props,
     ) -> rx.Component:
-        # Note: avoid mutating state during component tree building
-        # Use ThreadState.set_suggestions() event handler to update suggestions
-        # if suggestions is not None:
-        #     ThreadState.set_suggestions(suggestions)
-
         return rx.flex(
             # OAuth result handler - triggers when popup sets localStorage
             # rx.LocalStorage(sync=True) auto-syncs, rx.cond re-renders on change
