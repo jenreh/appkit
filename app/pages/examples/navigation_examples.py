@@ -7,120 +7,96 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_user.authentication.templates import navbar_layout
 
+from app.components.examples import example_box
 from app.components.navbar import app_navbar
 
 
-@navbar_layout(
-    route="/breadcrumbs",
-    title="Breadcrumbs Examples",
-    navbar=app_navbar(),
-    with_header=False,
-)
-def breadcrumbs_examples() -> rx.Component:
-    return rx.container(
-        rx.vstack(
-            rx.heading("Breadcrumbs", size="8"),
-            rx.text("Show current location path", size="3", color="gray"),
-            mn.card(
-                mn.breadcrumbs(
-                    rx.link("Home", href="#"),
-                    rx.link("Mantine", href="#"),
-                    rx.link("Core", href="#"),
-                    rx.text("Breadcrumbs"),
-                    separator="-",
-                    separator_margin="md",
-                ),
-                with_border=True,
-                shadow="sm",
-                padding="lg",
-                radius="md",
-                w="100%",
-            ),
-            spacing="6",
-            width="100%",
-            padding_y="8",
-        ),
-        size="3",
-        width="100%",
-    )
+class NavigationState(rx.State):
+    """State for navigation examples."""
 
-
-class PaginationState(rx.State):
+    # Pagination
     active_page: int = 1
 
     @rx.event
     def set_page(self, page: int) -> None:
         self.active_page = page
 
+    # Stepper
+    active_step: int = 1
+
+    @rx.event
+    def next_step(self) -> None:
+        self.active_step = min(self.active_step + 1, 3)
+
+    @rx.event
+    def prev_step(self) -> None:
+        self.active_step = max(self.active_step - 1, 0)
+
 
 @navbar_layout(
-    route="/pagination",
-    title="Pagination Examples",
+    route="/navigation",
+    title="Navigation Examples",
     navbar=app_navbar(),
     with_header=False,
 )
-def pagination_examples() -> rx.Component:
-    return rx.container(
-        rx.vstack(
-            rx.heading("Pagination", size="8"),
-            rx.text("Navigate through pages", size="3", color="gray"),
-            mn.card(
-                mn.stack(
-                    rx.text(f"Active Page: {PaginationState.active_page}"),
-                    mn.pagination(
-                        total=20,
-                        value=PaginationState.active_page,
-                        on_change=PaginationState.set_page,
-                        with_edges=True,
+def navigation_examples() -> rx.Component:
+    """Consolidated navigation components page."""
+    return mn.container(
+        mn.stack(
+            mn.title("Navigation", order=1),
+            mn.text(
+                "Components for navigating between pages or steps.",
+                size="md",
+                c="dimmed",
+            ),
+            # Breadcrumbs
+            mn.title("Breadcrumbs", order=2, mt="lg"),
+            mn.text("Show current location path.", size="sm", c="dimmed"),
+            example_box(
+                "Basic Breadcrumbs",
+                mn.breadcrumbs(
+                    rx.link("Home", href="#"),
+                    rx.link("Mantine", href="#"),
+                    rx.link("Core", href="#"),
+                    rx.text("Breadcrumbs"),
+                    separator="/",
+                    separator_margin="sm",
+                ),
+            ),
+            # Pagination
+            mn.title("Pagination", order=2, mt="lg"),
+            mn.text("Navigate through pages.", size="sm", c="dimmed"),
+            mn.simple_grid(
+                example_box(
+                    "Controlled Pagination",
+                    mn.stack(
+                        rx.text(f"Active Page: {NavigationState.active_page}"),
+                        mn.pagination(
+                            total=20,
+                            value=NavigationState.active_page,
+                            on_change=NavigationState.set_page,
+                            with_edges=True,
+                        ),
+                        gap="md",
                     ),
+                ),
+                example_box(
+                    "Styles",
                     mn.pagination(
                         total=10,
                         color="orange",
                         radius="xl",
                         default_value=5,
                     ),
-                    spacing="4",
-                    width="100%",
                 ),
-                with_border=True,
-                shadow="sm",
-                padding="lg",
-                radius="md",
-                w="100%",
+                cols=1,
+                spacing="md",
             ),
-            spacing="6",
-            width="100%",
-            padding_y="8",
-        ),
-        size="3",
-        width="100%",
-    )
-
-
-class StepperState(rx.State):
-    active: int = 1
-
-    @rx.event
-    def next_step(self) -> None:
-        self.active = min(self.active + 1, 3)
-
-    @rx.event
-    def prev_step(self) -> None:
-        self.active = max(self.active - 1, 0)
-
-
-@navbar_layout(
-    route="/stepper",
-    title="Stepper Examples",
-    navbar=app_navbar(),
-    with_header=False,
-)
-def stepper_examples() -> rx.Component:
-    return rx.container(
-        rx.vstack(
-            rx.heading("Stepper", size="8"),
-            rx.text("Display progress through a sequence", size="3", color="gray"),
-            mn.card(
+            # Stepper
+            mn.title("Stepper", order=2, mt="lg"),
+            mn.text("Display progress through a sequence.", size="sm", c="dimmed"),
+            example_box(
+                "Basic Stepper",
                 mn.stack(
                     mn.stepper(
                         mn.stepper.step(
@@ -140,44 +116,24 @@ def stepper_examples() -> rx.Component:
                                 "Completed, click back button to get to previous step"
                             ),
                         ),
-                        active=StepperState.active,
+                        active=NavigationState.active_step,
                     ),
                     rx.hstack(
                         mn.button(
-                            "Back", variant="default", on_click=StepperState.prev_step
+                            "Back",
+                            variant="default",
+                            on_click=NavigationState.prev_step,
                         ),
-                        mn.button("Next step", on_click=StepperState.next_step),
+                        mn.button("Next step", on_click=NavigationState.next_step),
                     ),
-                    spacing="6",
-                    width="100%",
+                    gap="md",
                 ),
-                with_border=True,
-                shadow="sm",
-                padding="lg",
-                radius="md",
-                w="100%",
             ),
-            spacing="6",
-            width="100%",
-            padding_y="8",
-        ),
-        size="3",
-        width="100%",
-    )
-
-
-@navbar_layout(
-    route="/tabs",
-    title="Tabs Examples",
-    navbar=app_navbar(),
-    with_header=False,
-)
-def tabs_examples() -> rx.Component:
-    return rx.container(
-        rx.vstack(
-            rx.heading("Tabs", size="8"),
-            rx.text("Switch between different views", size="3", color="gray"),
-            mn.card(
+            # Tabs
+            mn.title("Tabs", order=2, mt="lg"),
+            mn.text("Switch between different views.", size="sm", c="dimmed"),
+            example_box(
+                "Tab Interface",
                 mn.tabs(
                     mn.tabs.list(
                         mn.tabs.tab(
@@ -200,16 +156,11 @@ def tabs_examples() -> rx.Component:
                     default_value="gallery",
                     variant="outline",
                 ),
-                with_border=True,
-                shadow="sm",
-                padding="lg",
-                radius="md",
-                w="100%",
             ),
-            spacing="6",
-            width="100%",
-            padding_y="8",
+            spacing="md",
+            w="100%",
+            mb="6rem",
         ),
-        size="3",
-        width="100%",
+        size="lg",
+        w="100%",
     )

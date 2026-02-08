@@ -70,6 +70,7 @@ from appkit_mantine.overlay import (
     tooltip,
 )
 from appkit_mantine.scroll_area import scroll_area
+from appkit_mantine.slider import slider, range_slider
 from appkit_mantine.switch import switch
 from appkit_mantine.table import table
 from appkit_mantine.tiptap import (
@@ -135,12 +136,14 @@ __all__ = [
     "pagination",
     "password_input",
     "progress",
+    "range_slider",
     "rich_select",
     "rich_text_editor",
     "scroll_area",
     "select",
     "simple_grid",
     "skeleton",
+    "slider",
     "space",
     "stack",
     "stepper",

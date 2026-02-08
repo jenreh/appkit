@@ -97,18 +97,9 @@ def navbar_items() -> rx.Component:
             gap="0",
             w="100%",
         ),
-        sub_heading("Data Display"),
-        mn.stack(
-            sidebar_sub_item(label="Data Display", icon="", url="/data-display"),
-            gap="0",
-            w="100%",
-        ),
         sub_heading("Navigation"),
         mn.stack(
-            sidebar_sub_item(label="Breadcrumbs", icon="", url="/breadcrumbs"),
-            sidebar_sub_item(label="Pagination", icon="", url="/pagination"),
-            sidebar_sub_item(label="Stepper", icon="", url="/stepper"),
-            sidebar_sub_item(label="Tabs", icon="", url="/tabs"),
+            sidebar_sub_item(label="Navigation", icon="", url="/navigation"),
             sidebar_sub_item(label="Navigation Progress", icon="", url="/nprogress"),
             sidebar_sub_item(label="Nav Link", icon="", url="/nav-link"),
             gap="0",
@@ -116,6 +107,7 @@ def navbar_items() -> rx.Component:
         ),
         sub_heading("Others"),
         mn.stack(
+            sidebar_sub_item(label="Data Display", icon="", url="/data-display"),
             sidebar_sub_item(label="Feedback", icon="", url="/feedback"),
             sidebar_sub_item(label="Overlay", icon="", url="/overlay"),
             sidebar_sub_item(

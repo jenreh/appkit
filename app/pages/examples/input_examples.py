@@ -346,6 +346,20 @@ class InputExamplesState(rx.State):
         if not self.form_error and self.form_password:
             self.form_submitted = True
 
+    # --- Slider & Switch ---
+    slider_value: int = 50
+    range_slider_value: list[int] = [20, 80]
+    switch_checked: bool = False
+
+    def set_slider_value(self, val: int) -> None:
+        self.slider_value = val
+
+    def set_range_slider_value(self, val: list[int]) -> None:
+        self.range_slider_value = val
+
+    def set_switch_checked(self, val: bool) -> None:
+        self.switch_checked = val
+
 
 def text_input_content() -> rx.Component:
     """Content for Text Input tab."""
@@ -871,6 +885,101 @@ def password_input_content() -> rx.Component:
     )
 
 
+def slider_switch_content() -> rx.Component:
+    """Content for Slider & Switch tab."""
+    return mn.stack(
+        mn.simple_grid(
+            example_box(
+                "Basic Slider",
+                mn.stack(
+                    mn.slider(
+                        label=None,
+                        default_value=40,
+                        marks=[
+                            {"value": 20, "label": "20%"},
+                            {"value": 50, "label": "50%"},
+                            {"value": 80, "label": "80%"},
+                        ],
+                    ),
+                    mn.slider(
+                        color="red",
+                        size="xl",
+                        radius="xs",
+                        default_value=60,
+                        label_always_on=True,
+                    ),
+                    gap="xl",
+                ),
+            ),
+            example_box(
+                "Controlled Slider",
+                mn.stack(
+                    mn.slider(
+                        value=InputExamplesState.slider_value,
+                        on_change=InputExamplesState.set_slider_value,
+                    ),
+                    mn.text(
+                        f"Value: {InputExamplesState.slider_value}",
+                        size="sm",
+                        c="dimmed",
+                    ),
+                    gap="md",
+                ),
+            ),
+            example_box(
+                "Range Slider",
+                mn.stack(
+                    mn.range_slider(
+                        min_range=10,
+                        min=0,
+                        max=100,
+                        step=5,
+                        value=InputExamplesState.range_slider_value,
+                        on_change=InputExamplesState.set_range_slider_value,
+                    ),
+                    mn.text(
+                        f"Range: {InputExamplesState.range_slider_value}",
+                        size="sm",
+                        c="dimmed",
+                    ),
+                    gap="md",
+                ),
+            ),
+            example_box(
+                "Switches",
+                mn.stack(
+                    mn.switch(
+                        label="Basic switch",
+                        default_checked=True,
+                    ),
+                    mn.switch(
+                        label="Controlled switch",
+                        checked=InputExamplesState.switch_checked,
+                        on_change=InputExamplesState.set_switch_checked,
+                    ),
+                    mn.group(
+                        mn.switch(
+                            size="lg",
+                            on_label="ON",
+                            off_label="OFF",
+                        ),
+                        mn.switch(
+                            color="red",
+                            label="Red switch",
+                            default_checked=True,
+                        ),
+                    ),
+                    gap="md",
+                ),
+            ),
+            cols=2,
+            spacing="md",
+            w="100%",
+        ),
+        w="100%",
+    )
+
+
 @navbar_layout(
     route="/inputs",
     title="Input Examples",
@@ -896,6 +1005,7 @@ def input_examples_page() -> rx.Component:
                     mn.tabs.tab("DateInput", value="date"),
                     mn.tabs.tab("JsonInput", value="json"),
                     mn.tabs.tab("TagsInput", value="tags"),
+                    mn.tabs.tab("Sliders & Switch", value="slider_switch"),
                 ),
                 mn.tabs.panel(
                     text_input_content(),
@@ -930,6 +1040,11 @@ def input_examples_page() -> rx.Component:
                 mn.tabs.panel(
                     tags_input_content(),
                     value="tags",
+                    py="md",
+                ),
+                mn.tabs.panel(
+                    slider_switch_content(),
+                    value="slider_switch",
                     py="md",
                 ),
                 default_value="text",

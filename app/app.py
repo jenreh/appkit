@@ -44,12 +44,7 @@ from app.pages.examples.markdown_preview_examples import (
 )
 from app.pages.examples.modal_examples import modal_examples  # noqa: F401
 from app.pages.examples.nav_link_examples import nav_link_examples  # noqa: F401
-from app.pages.examples.navigation_examples import (
-    breadcrumbs_examples,  # noqa: F401
-    pagination_examples,  # noqa: F401
-    stepper_examples,  # noqa: F401
-    tabs_examples,  # noqa: F401
-)
+from app.pages.examples.navigation_examples import navigation_examples  # noqa: F401
 from app.pages.examples.nprogress_examples import nprogress_examples_page  # noqa: F401
 from app.pages.examples.number_formatter_examples import (
     number_formatter_examples,  # noqa: F401
@@ -120,10 +115,11 @@ def index() -> rx.Component:
                 mn.stack(
                     mn.text("Navigation:", fw="bold", size="md"),
                     mn.list_(
-                        mn.list_.item(rx.link("Breadcrumbs", href="/breadcrumbs")),
-                        mn.list_.item(rx.link("Pagination", href="/pagination")),
-                        mn.list_.item(rx.link("Stepper", href="/stepper")),
-                        mn.list_.item(rx.link("Tabs", href="/tabs")),
+                        mn.list_.item(rx.link("Navigation", href="/navigation")),
+                        mn.list_.item(
+                            rx.link("Navigation Progress", href="/nprogress")
+                        ),
+                        mn.list_.item(rx.link("Nav Link", href="/nav-link")),
                         type="unordered",
                         list_style_type="disc",
                     ),
