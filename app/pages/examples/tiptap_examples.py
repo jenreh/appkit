@@ -101,15 +101,14 @@ synced with Reflex state.</p>
 )
 def tiptap_page() -> rx.Component:
     """Main Tiptap examples page."""
-    return rx.container(
-        rx.color_mode.button(position="top-right"),
-        rx.vstack(
-            rx.heading("Mantine RichTextEditor (Tiptap)", size="9"),
-            rx.text(
+    return mn.container(
+        mn.stack(
+            mn.title("Mantine RichTextEditor (Tiptap)", order=1),
+            mn.text(
                 "Comprehensive WYSIWYG editor based on Tiptap with full "
                 "formatting support.",
-                size="4",
-                color_scheme="gray",
+                size="lg",
+                c="gray",
             ),
             rx.link(
                 "← Back to Home",
@@ -117,13 +116,13 @@ def tiptap_page() -> rx.Component:
                 size="3",
             ),
             # Simple editor with default toolbar
-            rx.heading("Rich Text Editor", size="7", mt="6"),
-            rx.text(
+            mn.title("Rich Text Editor", order=2, mt="lg"),
+            mn.text(
                 "Full-featured editor with pre-configured toolbar, min/max "
                 "height, and sticky toolbar.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content=TiptapState.simple_content,
@@ -134,24 +133,24 @@ def tiptap_page() -> rx.Component:
                 styles={"content": {"minHeight": "100px", "maxHeight": "160px"}},
                 width="100%",
             ),
-            rx.text(
+            mn.text(
                 "Current content length: "
                 + rx.cond(
                     TiptapState.simple_content,
                     TiptapState.simple_content.length().to(str),
                     "0",
                 ),
-                size="2",
-                color_scheme="gray",
-                mt="2",
+                size="sm",
+                c="gray",
+                mt="sm",
             ),
             # Minimal toolbar example
-            rx.heading("Minimal Toolbar", size="7", mt="8"),
-            rx.text(
+            mn.title("Minimal Toolbar", order=2, mt="xl"),
+            mn.text(
                 "Custom toolbar with only basic formatting controls.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content=TiptapState.minimal_toolbar_content,
@@ -166,12 +165,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Custom toolbar example
-            rx.heading("Custom Toolbar Groups", size="7", mt="8"),
-            rx.text(
+            mn.title("Custom Toolbar Groups", order=2, mt="xl"),
+            mn.text(
                 "Fully custom toolbar configuration with specific controls.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content=TiptapState.custom_toolbar_content,
@@ -189,12 +188,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Controlled editor with custom toolbar
-            rx.heading("Controlled Editor with State", size="7", mt="8"),
-            rx.text(
+            mn.title("Controlled Editor with State", order=2, mt="xl"),
+            mn.text(
                 "Editor content synced with Reflex state via on_update callback.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content=TiptapState.controlled_content,
@@ -203,12 +202,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Color picker example
-            rx.heading("Text Color Support", size="7", mt="8"),
-            rx.text(
+            mn.title("Text Color Support", order=2, mt="xl"),
+            mn.text(
                 "Select text and apply colors using the color picker or preset colors.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content=TiptapState.color_content,
@@ -224,12 +223,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Minimal editor (no toolbar)
-            rx.heading("Content Area", size="7", mt="8"),
-            rx.text(
+            mn.title("Content Area", order=2, mt="xl"),
+            mn.text(
                 "The editor automatically includes a full toolbar with all controls.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content=TiptapState.minimal_content,
@@ -238,12 +237,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Code and special formatting
-            rx.heading("Code Support", size="7", mt="8"),
-            rx.text(
+            mn.title("Code Support", order=2, mt="xl"),
+            mn.text(
                 "Inline code and code blocks with syntax highlighting.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content=TiptapState.code_content,
@@ -251,12 +250,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Readonly editor
-            rx.heading("Read-Only Editor", size="7", mt="8"),
-            rx.text(
+            mn.title("Read-Only Editor", order=2, mt="xl"),
+            mn.text(
                 "Content display mode - no editing allowed.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content=TiptapState.readonly_content,
@@ -264,12 +263,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Text alignment example
-            rx.heading("Text Alignment", size="7", mt="8"),
-            rx.text(
+            mn.title("Text Alignment", order=2, mt="xl"),
+            mn.text(
                 "Align paragraphs left, center, right, or justify.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content="""<h2 style="text-align: left;">Left Aligned Heading</h2>
@@ -281,12 +280,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Subscript and superscript
-            rx.heading("Subscript & Superscript", size="7", mt="8"),
-            rx.text(
+            mn.title("Subscript & Superscript", order=2, mt="xl"),
+            mn.text(
                 "Useful for mathematical formulas and footnotes.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content="""<p>Chemical formula: H<sub>2</sub>O</p>
@@ -295,12 +294,12 @@ def tiptap_page() -> rx.Component:
                 width="100%",
             ),
             # Variant example - subtle
-            rx.heading("Subtle Variant", size="7", mt="8"),
-            rx.text(
+            mn.title("Subtle Variant", order=2, mt="xl"),
+            mn.text(
                 "Borderless design with larger controls and reduced spacing.",
-                size="3",
-                color_scheme="gray",
-                mb="3",
+                size="md",
+                c="gray",
+                mb="md",
             ),
             mn.rich_text_editor(
                 content="<p>This editor uses the subtle variant style.</p>",
@@ -312,75 +311,76 @@ def tiptap_page() -> rx.Component:
                 rx.button(
                     "Reset All Content",
                     on_click=TiptapState.reset_content,
-                    color_scheme="red",
+                    c="red",
                     variant="outline",
                 ),
-                mt="6",
-                mb="6",
+                mt="lg",
+                mb="lg",
             ),
             # Usage notes
-            rx.heading("Usage Notes", size="6", mt="6"),
-            rx.unordered_list(
-                rx.list_item(
+            mn.title("Usage Notes", order=2, mt="lg"),
+            mn.list_(
+                mn.list_.item(
                     "Use ",
-                    rx.code("mn.rich_text_editor()"),
+                    mn.code("mn.rich_text_editor()"),
                     " - all-in-one component with full toolbar",
                 ),
-                rx.list_item(
+                mn.list_.item(
                     "Handles Tiptap editor lifecycle automatically via inline wrapper",
                 ),
-                rx.list_item(
+                mn.list_.item(
                     "Content is HTML - use ",
-                    rx.code("on_update"),
+                    mn.code("on_update"),
                     " event to sync with state",
                 ),
-                rx.list_item(
+                mn.list_.item(
                     "Set ",
-                    rx.code("editable=False"),
+                    mn.code("editable=False"),
                     " for read-only display mode",
                 ),
-                rx.list_item(
+                mn.list_.item(
                     "All extensions included: Highlight, TextAlign, Color, "
                     "Link, Subscript, Superscript, Code, and more",
                 ),
-                rx.list_item(
+                mn.list_.item(
                     "Keyboard shortcuts work automatically (Cmd+B, Cmd+I, etc.)",
                 ),
-                size="3",
-                spacing="2",
+                type="unordered",
+                size="lg",
+                spacing="md",
             ),
             # Technical details
-            rx.heading("Technical Details", size="6", mt="6"),
-            rx.text(
+            mn.title("Technical Details", order=2, mt="lg"),
+            mn.text(
                 "Pure Python implementation - no external JavaScript files needed.",
-                size="3",
+                size="md",
             ),
-            rx.unordered_list(
-                rx.list_item(
+            mn.list_(
+                mn.list_.item(
                     "Wrapper component defined inline via ",
-                    rx.code("_get_custom_code()"),
+                    mn.code("_get_custom_code()"),
                 ),
-                rx.list_item(
+                mn.list_.item(
                     "Handles ",
-                    rx.code("useEditor"),
+                    mn.code("useEditor"),
                     " React hook internally with ",
-                    rx.code("React.createElement"),
+                    mn.code("React.createElement"),
                 ),
-                rx.list_item(
+                mn.list_.item(
                     "Syncs content bidirectionally between Reflex state "
                     "and Tiptap editor",
                 ),
-                rx.list_item(
+                mn.list_.item(
                     "Based on Tiptap 2.x with Mantine UI components",
                 ),
-                size="3",
-                spacing="2",
+                type="unordered",
+                size="lg",
+                spacing="md",
             ),
-            spacing="4",
             width="100%",
-            max_width="900px",
-            padding="4",
+            padding="md",
+            mb="6rem",
         ),
-        size="3",
-        width="100%",
+        size="md",
+        w="100%",
     )

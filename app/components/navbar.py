@@ -75,41 +75,53 @@ def navbar_admin_items() -> rx.Component:
 
 def navbar_items() -> rx.Component:
     return rx.vstack(
-        rx.text("Inputs", size="2", weight="bold", style=sub_heading_styles),
+        rx.text("Inputs & Buttons", size="2", weight="bold", style=sub_heading_styles),
         rx.vstack(
+            sidebar_sub_item(label="Buttons & Icons", icon="", url="/buttons"),
             sidebar_sub_item(label="Inputs", icon="", url="/inputs"),
-            sidebar_sub_item(label="TextInput", icon="", url="/text-input"),
-            sidebar_sub_item(label="Password Input", icon="", url="/password"),
-            sidebar_sub_item(label="Date Input", icon="", url="/date"),
-            sidebar_sub_item(label="Number Input", icon="", url="/number"),
-            sidebar_sub_item(label="Textarea", icon="", url="/textarea"),
-            sidebar_sub_item(label="Json Input", icon="", url="/json-input"),
-            sidebar_sub_item(label="Select", icon="", url="/select"),
-            sidebar_sub_item(label="Rich Select", icon="", url="/rich_select"),
-            sidebar_sub_item(label="MultiSelect", icon="", url="/multi-select"),
-            sidebar_sub_item(label="TagsInput", icon="", url="/tags-input"),
-            sidebar_sub_item(label="Autocomplete", icon="", url="/autocomplete"),
+            sidebar_sub_item(label="Comboboxes", icon="", url="/comboboxes"),
             sidebar_sub_item(label="Rich Text Editor (Tiptap)", icon="", url="/tiptap"),
             spacing="0",
             width="100%",
         ),
-        rx.text("Buttons", size="2", weight="bold", style=sub_heading_styles),
+        rx.text("Data Display", size="2", weight="bold", style=sub_heading_styles),
         rx.vstack(
-            sidebar_sub_item(
-                label="Action Icon (Group demo)", icon="", url="/action-icon"
-            ),
-            sidebar_sub_item(label="Button", icon="", url="/button"),
+            sidebar_sub_item(label="Accordion", icon="", url="/accordion"),
+            sidebar_sub_item(label="Avatar", icon="", url="/avatar"),
+            sidebar_sub_item(label="Card", icon="", url="/card"),
+            sidebar_sub_item(label="Image", icon="", url="/image"),
+            sidebar_sub_item(label="Indicator", icon="", url="/indicator"),
+            sidebar_sub_item(label="Timeline", icon="", url="/timeline"),
+            spacing="0",
+            width="100%",
+        ),
+        rx.text("Feedback", size="2", weight="bold", style=sub_heading_styles),
+        rx.vstack(
+            sidebar_sub_item(label="Alert", icon="", url="/alert"),
+            sidebar_sub_item(label="Notification", icon="", url="/notification"),
+            sidebar_sub_item(label="Progress", icon="", url="/progress"),
+            sidebar_sub_item(label="Skeleton", icon="", url="/skeleton"),
+            spacing="0",
+            width="100%",
+        ),
+        rx.text("Navigation", size="2", weight="bold", style=sub_heading_styles),
+        rx.vstack(
+            sidebar_sub_item(label="Breadcrumbs", icon="", url="/breadcrumbs"),
+            sidebar_sub_item(label="Pagination", icon="", url="/pagination"),
+            sidebar_sub_item(label="Stepper", icon="", url="/stepper"),
+            sidebar_sub_item(label="Tabs", icon="", url="/tabs"),
+            sidebar_sub_item(label="Navigation Progress", icon="", url="/nprogress"),
+            sidebar_sub_item(label="Nav Link", icon="", url="/nav-link"),
             spacing="0",
             width="100%",
         ),
         rx.text("Others", size="2", weight="bold", style=sub_heading_styles),
         rx.vstack(
+            sidebar_sub_item(label="Overlay", icon="", url="/overlay"),
             sidebar_sub_item(
                 label="Markdown Preview", icon="", url="/markdown-preview"
             ),
             sidebar_sub_item(label="Modal", icon="", url="/modal"),
-            sidebar_sub_item(label="Navigation Progress", icon="", url="/nprogress"),
-            sidebar_sub_item(label="Nav Link", icon="", url="/nav-link"),
             sidebar_sub_item(
                 label="Number Formatter", icon="", url="/number-formatter"
             ),

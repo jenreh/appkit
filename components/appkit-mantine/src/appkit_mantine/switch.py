@@ -4,10 +4,10 @@ import reflex as rx
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
-from appkit_mantine.base import MantineComponentBase
+from appkit_mantine.base import MantineInputComponentBase
 
 
-class Switch(MantineComponentBase):
+class Switch(MantineInputComponentBase):
     """Mantine Switch component.
 
     Documentation: https://mantine.dev/core/switch/
@@ -17,16 +17,10 @@ class Switch(MantineComponentBase):
 
     checked: Var[bool] = None
     default_checked: Var[bool] = None
-    label: Var[str] = None
-    description: Var[str] = None
-    error: Var[str] = None
-    disabled: Var[bool] = None
 
     label_position: Var[Literal["left", "right"]] = None
     """Position of the label relative to the switch."""
 
-    size: Var[Literal["xs", "sm", "md", "lg", "xl"]] = None
-    radius: Var[Literal["xs", "sm", "md", "lg", "xl"]] = None
     color: Var[str] = None
 
     on_label: Var[str] = None

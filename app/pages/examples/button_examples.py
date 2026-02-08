@@ -1,8 +1,7 @@
-"""Examples demonstrating Mantine Button usage in Reflex.
+"""Examples demonstrating Mantine Button and ActionIcon usage in Reflex.
 
-This page shows common Button usages: basic, sizes & variants, left/right
-sections, loading/disabled, and full width. It also includes a simple click
-counter to demonstrate event wiring.
+This page consolidates examples for Button and ActionIcon components,
+demonstrating sizes, variants, loading states, and event handling.
 """
 
 from __future__ import annotations
@@ -12,58 +11,70 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_user.authentication.templates import navbar_layout
 
+from app.components.examples import example_box
 from app.components.navbar import app_navbar
 
 
-class ButtonState(rx.State):
-    clicks: int = 0
+class ButtonExState(rx.State):
+    """State for Button and ActionIcon examples."""
+
+    button_clicks: int = 0
+    icon_clicks: int = 0
 
     @rx.event
-    def increment(self) -> None:
-        self.clicks += 1
+    def increment_button(self) -> None:
+        self.button_clicks += 1
+
+    @rx.event
+    def increment_icon(self) -> None:
+        self.icon_clicks += 1
 
 
 @navbar_layout(
-    route="/button",
-    title="Button Examples",
+    route="/buttons",
+    title="Buttons & Icons",
     navbar=app_navbar(),
     with_header=False,
 )
 def button_examples() -> rx.Component:
-    return rx.container(
-        rx.color_mode.button(position="top-right"),
-        rx.vstack(
-            rx.heading("Button Examples", size="8"),
-            rx.text("Small showcase of Mantine Button wrapper", size="3", color="gray"),
+    """Page demonstrating Button and ActionIcon usage."""
+    return mn.container(
+        mn.stack(
+            mn.title("Buttons & Action Icons", order=1),
+            mn.text(
+                "Showcase of Mantine Button and ActionIcon wrappers",
+                size="md",
+                c="gray",
+            ),
             rx.link("← Back to Home", href="/", size="3"),
-            rx.grid(
-                rx.card(
-                    rx.vstack(
-                        rx.heading("Basic Button", size="4"),
+            # --- BUTTONS SECTION ---
+            mn.title("Buttons", order=2, mt="4px"),
+            mn.simple_grid(
+                example_box(
+                    "Basic Button",
+                    mn.stack(
                         mn.button(
                             "Click me",
-                            on_click=ButtonState.increment,
+                            on_click=ButtonExState.increment_button,
                             aria_label="Click me",
                         ),
-                        rx.text(f"Clicks: {ButtonState.clicks}"),
-                        spacing="3",
-                        width="100%",
+                        mn.text(f"Clicks: {ButtonExState.button_clicks}"),
+                        gap="md",
                     ),
-                    padding="4",
-                    border_radius="md",
                 ),
-                rx.card(
-                    rx.vstack(
-                        rx.heading("Sizes & Variants", size="4"),
-                        rx.hstack(
+                example_box(
+                    "Sizes & Variants",
+                    mn.stack(
+                        mn.group(
                             mn.button("XS", size="xs"),
                             mn.button("SM", size="sm"),
                             mn.button("MD", size="md"),
                             mn.button("LG", size="lg"),
                             mn.button("XL", size="xl"),
+                            wrap="wrap",
                             spacing="3",
                         ),
-                        rx.hstack(
+                        mn.group(
                             mn.button("Filled", variant="filled", color="blue"),
                             mn.button("Outline", variant="outline"),
                             mn.button("Light", variant="light"),
@@ -72,81 +83,134 @@ def button_examples() -> rx.Component:
                                 variant="gradient",
                                 gradient={"from": "indigo", "to": "cyan", "deg": 45},
                             ),
+                            wrap="wrap",
                             spacing="3",
                         ),
-                        spacing="3",
-                        width="100%",
+                        gap="md",
                     ),
-                    padding="4",
-                    border_radius="md",
                 ),
-                rx.card(
-                    rx.vstack(
-                        rx.heading("Sections & Justify", size="4"),
-                        mn.button("With left", left_section=rx.icon("search")),
-                        mn.button("With right", right_section=rx.icon("chevron-right")),
+                example_box(
+                    "Sections & Justify",
+                    mn.stack(
+                        mn.group(
+                            mn.button("Left Icon", left_section=rx.icon("search")),
+                            mn.button(
+                                "Right Icon", right_section=rx.icon("chevron-right")
+                            ),
+                            wrap="wrap",
+                            gap="sm",
+                        ),
                         mn.button(
                             "Space between",
                             left_section=rx.icon("star"),
                             right_section=rx.icon("chevron-right"),
                             justify="space-between",
-                        ),
-                        spacing="3",
-                        width="100%",
-                    ),
-                    padding="4",
-                    border_radius="md",
-                ),
-                rx.card(
-                    rx.vstack(
-                        rx.heading("Space between (demo)", size="4"),
-                        mn.button(
-                            "Space between example",
-                            left_section=rx.icon("star"),
-                            right_section=rx.icon("chevron-right"),
-                            justify="space-between",
                             full_width=True,
                         ),
-                        rx.text(
-                            "A full-width button using justify='space-between' to "
-                            "separate left/right sections."
+                        gap="md",
+                        w="100%",
+                    ),
+                ),
+                example_box(
+                    "Loading & Disabled",
+                    mn.stack(
+                        mn.group(
+                            mn.button(
+                                "Loading", loading=True, loader_props={"type": "dots"}
+                            ),
+                            mn.button("Disabled", disabled=True),
+                            mn.button("Data-disabled", data_disabled=True),
+                            wrap="wrap",
+                            gap="sm",
                         ),
-                        spacing="3",
-                        width="100%",
+                        gap="md",
                     ),
-                    padding="4",
-                    border_radius="md",
                 ),
-                rx.card(
-                    rx.vstack(
-                        rx.heading("Loading & Disabled", size="4"),
-                        mn.button("Load", loading=True, loader_props={"type": "dots"}),
-                        mn.button("Disabled", disabled=True),
-                        mn.button("Data-disabled", data_disabled=True),
-                        spacing="3",
-                        width="100%",
-                    ),
-                    padding="4",
-                    border_radius="md",
-                ),
-                rx.card(
-                    rx.vstack(
-                        rx.heading("Full width", size="4"),
-                        mn.button("Full width button", full_width=True, color="teal"),
-                        spacing="3",
-                        width="100%",
-                    ),
-                    padding="4",
-                    border_radius="md",
-                ),
-                columns="2",
-                spacing="4",
-                width="100%",
+                cols=2,
+                w="100%",
             ),
-            spacing="6",
-            width="100%",
-            padding_y="8",
+            # --- ACTION ICONS SECTION ---
+            mn.title("Action Icons", order=2, mt="24px"),
+            mn.simple_grid(
+                example_box(
+                    "Basic ActionIcon",
+                    mn.stack(
+                        mn.action_icon(
+                            rx.icon("trash"),
+                            on_click=ButtonExState.increment_icon,
+                            aria_label="Delete",
+                        ),
+                        mn.text(f"Clicks: {ButtonExState.icon_clicks}"),
+                    ),
+                ),
+                example_box(
+                    "Sizes & Variants",
+                    mn.stack(
+                        mn.group(
+                            mn.action_icon(rx.icon("star"), size="xs"),
+                            mn.action_icon(rx.icon("star"), size="sm"),
+                            mn.action_icon(rx.icon("star"), size="md"),
+                            mn.action_icon(rx.icon("star"), size="lg"),
+                            mn.action_icon(rx.icon("star"), size="xl"),
+                            wrap="wrap",
+                        ),
+                        mn.group(
+                            mn.action_icon(
+                                rx.icon("heart"), variant="filled", color="blue"
+                            ),
+                            mn.action_icon(
+                                rx.icon("heart"), variant="light", color="red"
+                            ),
+                            mn.action_icon(rx.icon("heart"), variant="subtle"),
+                            mn.action_icon(rx.icon("heart"), variant="outline"),
+                            mn.action_icon(
+                                rx.icon("heart"),
+                                variant="gradient",
+                                gradient={"from": "blue", "to": "grape", "deg": 90},
+                            ),
+                            wrap="wrap",
+                        ),
+                    ),
+                ),
+                example_box(
+                    "States",
+                    mn.group(
+                        mn.action_icon(rx.icon("ban"), disabled=True),
+                        mn.action_icon(rx.icon("check"), disabled=False, color="gray"),
+                        mn.action_icon(
+                            size="xl",
+                            loading=True,
+                            loader_props={"type": "dots"},
+                            aria_label="Loading",
+                        ),
+                        wrap="wrap",
+                        gap="md",
+                    ),
+                ),
+                example_box(
+                    "ActionIcon Group",
+                    mn.action_icon.group(
+                        mn.action_icon(
+                            rx.icon("arrow-left"), size="md", variant="default"
+                        ),
+                        mn.action_icon(rx.icon("minus"), size="md", variant="default"),
+                        mn.action_icon.group_section(
+                            rx.text("Grp", size="1"), size="md", variant="default"
+                        ),
+                        mn.action_icon(
+                            rx.icon("arrow-right"), size="md", variant="default"
+                        ),
+                        orientation="horizontal",
+                    ),
+                ),
+                cols=2,
+                spacing="md",
+                w="100%",
+            ),
+            w="100%",
+            mb="6rem",
+            gap="sm",
         ),
-        size="3",
-        width="100%",
+        size="lg",
+        w="100%",
     )

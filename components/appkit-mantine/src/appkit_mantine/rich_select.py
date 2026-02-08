@@ -10,6 +10,8 @@ import reflex as rx
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
+from appkit_mantine.base import MantineInputComponentBase
+
 # Lokales Asset (kein npm "rich_select" mehr!)
 _JSX = rx.asset("rich_select.jsx", shared=True)
 
@@ -29,7 +31,7 @@ Notes:
 """
 
 
-class RichSelect(rx.Component):
+class RichSelect(MantineInputComponentBase):
     """Reflex wrapper um die JSX-Komponente (Mantine Combobox mapping).
 
     Mantine prop -> Python mapping examples:
@@ -42,8 +44,6 @@ class RichSelect(rx.Component):
     tag = "RichSelect"
 
     # Core props (existing)
-    value: Var[str | None]
-    placeholder: Var[str]
     nothing_found: Var[str] = "Nothing found"
 
     # Search and clear
@@ -90,11 +90,6 @@ class RichSelect(rx.Component):
     min_height: Var[str | int]
     height: Var[str | int]
 
-    # Size and appearance
-    size: Var[Literal["xs", "sm", "md", "lg", "xl"]]
-    radius: Var[str | int]
-    disabled: Var[bool] = False
-
     # Styles API / appearance
     class_names: Var[dict[str, str] | None] = None
     styles: Var[dict[str, Any] | None] = None
@@ -105,11 +100,6 @@ class RichSelect(rx.Component):
 
     # Multiselect (optional)
     values: Var[list[str] | None] = None
-
-    # Form / accessibility
-    aria_label: Var[str] | None = None
-    name: Var[str] | None = None
-    id: Var[str] | None = None
 
     # Events
     on_create: EventHandler[lambda value: [value]]
@@ -138,6 +128,17 @@ class RichSelect(rx.Component):
     # Extra props passthrough - JS side expects `extra_props` dict for safe
     # forwarding of nested props (combobox, input_base, search, nothing_found).
     extra_props: Var[dict[str, Any] | None] = None
+
+    def get_event_triggers(self) -> dict[str, Any]:
+        """Transform events to work with Reflex state system."""
+
+        def _on_change(value: Var) -> list[Var]:
+            return [value]
+
+        return {
+            **super().get_event_triggers(),
+            "on_change": _on_change,
+        }
 
 
 class RichSelectItem(rx.Component):

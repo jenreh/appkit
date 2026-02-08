@@ -4,51 +4,19 @@ from typing import Literal
 
 from reflex.vars.base import Var
 
-from appkit_mantine.base import MantineComponentBase
+from appkit_mantine.base import (
+    MantineComponentBase,
+    MantineLayoutComponentBase,
+    MantineSize,
+)
 
 
-class MantineLayoutComponentBase(MantineComponentBase):
-    """Base class for layout components with common style props."""
+class Box(MantineLayoutComponentBase):
+    """Mantine Box component."""
 
-    # Width and Height
-    w: Var[str | int]
-    h: Var[str | int]
-    miw: Var[str | int]
-    maw: Var[str | int]
-    mih: Var[str | int]
-    mah: Var[str | int]
+    tag = "Box"
 
-    # Margins
-    m: Var[str | int]
-    my: Var[str | int]
-    mx: Var[str | int]
-    mt: Var[str | int]
-    mb: Var[str | int]
-    ml: Var[str | int]
-    mr: Var[str | int]
-
-    # Paddings
-    p: Var[str | int]
-    py: Var[str | int]
-    px: Var[str | int]
-    pt: Var[str | int]
-    pb: Var[str | int]
-    pl: Var[str | int]
-    pr: Var[str | int]
-
-    # Display and Position
-    display: Var[str]
-    pos: Var[str]
-    top: Var[str | int]
-    left: Var[str | int]
-    bottom: Var[str | int]
-    right: Var[str | int]
-    inset: Var[str | int]
-
-    # Background and Color
-    bg: Var[str]
-    c: Var[str]
-    opacity: Var[str | int]
+    component: Var[str]
 
 
 class Center(MantineLayoutComponentBase):
@@ -65,7 +33,7 @@ class Container(MantineLayoutComponentBase):
     tag = "Container"
 
     fluid: Var[bool]
-    size: Var[str | int]
+    size: Var[MantineSize | str]
 
 
 class Flex(MantineLayoutComponentBase):
@@ -145,6 +113,39 @@ class Space(MantineLayoutComponentBase):
     tag = "Space"
 
 
+class Divider(MantineLayoutComponentBase):
+    """Mantine Divider component."""
+
+    tag = "Divider"
+
+    color: Var[str]
+    label: Var[str]
+    label_position: Var[Literal["left", "center", "right"]]
+    orientation: Var[Literal["horizontal", "vertical"]]
+    size: Var[str | int]
+    variant: Var[Literal["solid", "dashed", "dotted"]]
+
+
+class Affix(MantineLayoutComponentBase):
+    """Mantine Affix component."""
+
+    tag = "Affix"
+
+    position: Var[dict]
+    within_portal: Var[bool]
+    z_index: Var[int | str]
+
+
+class FocusTrap(MantineComponentBase):
+    """Mantine FocusTrap component."""
+
+    tag = "FocusTrap"
+
+    active: Var[bool]
+    ref_prop: Var[str]
+
+
+box = Box.create
 center = Center.create
 container = Container.create
 flex = Flex.create
@@ -154,3 +155,6 @@ simple_grid = SimpleGrid.create
 grid = Grid.create
 grid_col = GridCol.create
 space = Space.create
+divider = Divider.create
+affix = Affix.create
+focus_trap = FocusTrap.create

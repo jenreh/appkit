@@ -276,7 +276,7 @@ mn.modal.root(
         mn.modal.body(
             rx.vstack(
                 rx.text("Custom modal body"),
-                mn.button.button("Action", on_click=State.handle_action),
+                mn.button("Action", on_click=State.handle_action),
                 spacing="3",
             ),
         ),
@@ -356,7 +356,7 @@ mn.modal.stack(
     mn.modal(
         rx.vstack(
             rx.text("First modal"),
-            mn.button.button(
+            mn.button(
                 "Open Second",
                 on_click=State.set_second_opened(True),
             ),
@@ -370,7 +370,7 @@ mn.modal.stack(
     mn.modal(
         rx.vstack(
             rx.text("Second modal"),
-            mn.button.button(
+            mn.button(
                 "Open Third",
                 on_click=State.set_third_opened(True),
             ),
@@ -384,7 +384,7 @@ mn.modal.stack(
     mn.modal(
         rx.vstack(
             rx.text("Third modal"),
-            mn.button.button(
+            mn.button(
                 "Close All",
                 on_click=State.close_all,
             ),
@@ -546,12 +546,12 @@ def delete_confirmation() -> rx.Component:
             rx.text("Are you sure you want to delete this item?"),
             rx.text("This action cannot be undone.", color="gray"),
             rx.hstack(
-                mn.button.button(
+                mn.button(
                     "Cancel",
                     on_click=State.close_modal,
                     variant="outline",
                 ),
-                mn.button.button(
+                mn.button(
                     "Delete",
                     on_click=State.confirm_delete,
                     color="red",
@@ -594,12 +594,12 @@ def user_form_modal() -> rx.Component:
                 on_change=State.set_bio,
             ),
             rx.hstack(
-                mn.button.button(
+                mn.button(
                     "Cancel",
                     on_click=State.close_modal,
                     variant="outline",
                 ),
-                mn.button.button(
+                mn.button(
                     "Save",
                     on_click=State.save_user,
                 ),

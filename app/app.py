@@ -30,40 +30,44 @@ from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F4
 from app.pages.assistant.assistant import assistant_page  # noqa: F401
 
 # from app.pages.assitant.assistant import assistant_page  # noqa: F401
-from app.pages.examples.action_icon_examples import action_icon_examples  # noqa: F401
 from app.pages.examples.auto_scroll_examples import auto_scroll_examples  # noqa: F401
-from app.pages.examples.autocomplete_examples import autocomplete_examples  # noqa: F401
 from app.pages.examples.button_examples import button_examples  # noqa: F401
-from app.pages.examples.date_input_examples import (
-    date_input_examples_page,  # noqa: F401
+from app.pages.examples.combobox_examples import combobox_examples  # noqa: F401
+from app.pages.examples.data_display_examples import (
+    accordion_examples,  # noqa: F401
+    avatar_examples,  # noqa: F401
+    card_examples,  # noqa: F401
+    image_examples,  # noqa: F401
+    indicator_examples,  # noqa: F401
+    timeline_examples,  # noqa: F401
 )
-from app.pages.examples.input_examples import form_inputs_showcase  # noqa: F401
-from app.pages.examples.json_input_examples import json_input_examples  # noqa: F401
+from app.pages.examples.feedback_examples import (
+    alert_examples,  # noqa: F401
+    notification_examples,  # noqa: F401
+    progress_examples,  # noqa: F401
+    skeleton_examples,  # noqa: F401
+)
+from app.pages.examples.input_examples import input_examples_page  # noqa: F401
 from app.pages.examples.markdown_preview_examples import (
     markdown_preview_examples,  # noqa: F401
 )
 from app.pages.examples.modal_examples import modal_examples  # noqa: F401
-from app.pages.examples.multi_select_examples import multi_select_examples  # noqa: F401
 from app.pages.examples.nav_link_examples import nav_link_examples  # noqa: F401
+from app.pages.examples.navigation_examples import (
+    breadcrumbs_examples,  # noqa: F401
+    pagination_examples,  # noqa: F401
+    stepper_examples,  # noqa: F401
+    tabs_examples,  # noqa: F401
+)
 from app.pages.examples.nprogress_examples import nprogress_examples_page  # noqa: F401
 from app.pages.examples.number_formatter_examples import (
     number_formatter_examples,  # noqa: F401
 )
-from app.pages.examples.number_input_examples import (
-    number_input_examples_page,  # noqa: F401
+from app.pages.examples.overlay_examples import (
+    overlay_examples,  # noqa: F401
 )
-from app.pages.examples.password_input_examples import (
-    password_input_examples_page,  # noqa: F401
-)
-from app.pages.examples.rich_select_examples import rich_select_example  # noqa: F401
 from app.pages.examples.scroll_area_examples import scroll_area_examples  # noqa: F401
-from app.pages.examples.select_examples import select_examples  # noqa: F401
 from app.pages.examples.table_examples import table_examples  # noqa: F401
-from app.pages.examples.tags_input_examples import tags_input_examples  # noqa: F401
-from app.pages.examples.text_input_examples import (
-    text_input_examples_page,  # noqa: F401
-)
-from app.pages.examples.textarea_examples import textarea_examples_page  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
 from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
@@ -98,17 +102,12 @@ def index() -> rx.Component:
             ),
             rx.text.strong("Inputs:", size="3"),
             rx.list.unordered(
-                rx.list.item(rx.link("Text Inputs", href="/inputs")),
-                rx.list.item(rx.link("TextInput", href="/text-input")),
+                rx.list.item(rx.link("Input Components", href="/inputs")),
                 rx.list.item(rx.link("Password Input", href="/password")),
                 rx.list.item(rx.link("Date Input", href="/date")),
-                rx.list.item(rx.link("Number Input", href="/number")),
-                rx.list.item(rx.link("Textarea", href="/textarea")),
-                rx.list.item(rx.link("Json Input", href="/json-input")),
                 rx.list.item(rx.link("Select", href="/select")),
                 rx.list.item(rx.link("Rich Select", href="/rich_select")),
                 rx.list.item(rx.link("MultiSelect", href="/multi-select")),
-                rx.list.item(rx.link("TagsInput", href="/tags-input")),
                 rx.list.item(rx.link("Autocomplete", href="/autocomplete")),
                 rx.list.item(rx.link("Rich Text Editor (Tiptap)", href="/tiptap")),
             ),
@@ -116,6 +115,34 @@ def index() -> rx.Component:
             rx.list.unordered(
                 rx.list.item(rx.link("Action Icon (Group demo)", href="/action-icon")),
                 rx.list.item(rx.link("Button", href="/button")),
+            ),
+            rx.text.strong("Data Display:", size="3"),
+            rx.list.unordered(
+                rx.list.item(rx.link("Accordion", href="/accordion")),
+                rx.list.item(rx.link("Avatar", href="/avatar")),
+                rx.list.item(rx.link("Card", href="/card")),
+                rx.list.item(rx.link("Image", href="/image")),
+                rx.list.item(rx.link("Indicator", href="/indicator")),
+                rx.list.item(rx.link("Timeline", href="/timeline")),
+            ),
+            rx.text.strong("Feedback:", size="3"),
+            rx.list.unordered(
+                rx.list.item(rx.link("Alert", href="/alert")),
+                rx.list.item(rx.link("Notification", href="/notification")),
+                rx.list.item(rx.link("Progress", href="/progress")),
+                rx.list.item(rx.link("Skeleton", href="/skeleton")),
+            ),
+            rx.text.strong("Navigation:", size="3"),
+            rx.list.unordered(
+                rx.list.item(rx.link("Breadcrumbs", href="/breadcrumbs")),
+                rx.list.item(rx.link("Pagination", href="/pagination")),
+                rx.list.item(rx.link("Stepper", href="/stepper")),
+                rx.list.item(rx.link("Tabs", href="/tabs")),
+            ),
+            rx.text.strong("Overlay:", size="3"),
+            rx.list.unordered(
+                rx.list.item(rx.link("HoverCard", href="/hover-card")),
+                rx.list.item(rx.link("Tooltip", href="/tooltip")),
             ),
             rx.text.strong("Others:", size="3"),
             rx.list.unordered(

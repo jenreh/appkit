@@ -6,6 +6,8 @@ eliminating code duplication and ensuring consistency across components.
 Architecture:
     MantineComponentBase - Minimal base for any Mantine component
         ↓
+    MantineLayoutComponentBase - Adds common layout and style props (w, m, p, display)
+        ↓
     MantineInputComponentBase - Complete base for all input-like components
         ↓
     Specific Components (PasswordInput, Textarea, DateInput, NumberInput, etc.)
@@ -46,6 +48,21 @@ public_provider_path = "$/public/" + asset(path="mantine_provider.js", shared=Tr
 
 MANTINE_LIBARY: Final[str] = "@mantine/core"
 MANTINE_VERSION: Final[str] = "8.3.10"
+
+
+MantineSize = Literal["xs", "sm", "md", "lg", "xl"]
+MantineNumberSize = MantineSize | str | int
+MantineDisplay = Literal[
+    "none", "inline", "block", "inline-block", "flex", "inline-flex", "grid"
+]
+MantinePosition = Literal["static", "absolute", "relative", "fixed", "sticky"]
+MantineTextAlign = Literal["left", "center", "right", "justify"]
+MantineFontStyle = Literal["normal", "italic"]
+MantineTextTransform = Literal["capitalize", "uppercase", "lowercase", "none"]
+MantineBackgroundRepeat = Literal[
+    "no-repeat", "repeat", "repeat-x", "repeat-y", "round", "space"
+]
+MantineBackgroundAttachment = Literal["scroll", "fixed", "local"]
 
 
 class MemoizedMantineProvider(rx.Component):
@@ -119,7 +136,192 @@ class MantineProvider(MantineComponentBase):
     with_global_classes: Var[bool]
 
 
-class MantineInputComponentBase(MantineComponentBase):
+class MantineLayoutComponentBase(MantineComponentBase):
+    """Base class for layout components with common style props."""
+
+    # Width and Height
+    w: Var[MantineNumberSize] = None
+    h: Var[MantineNumberSize] = None
+    miw: Var[MantineNumberSize] = None
+    maw: Var[MantineNumberSize] = None
+    mih: Var[MantineNumberSize] = None
+    mah: Var[MantineNumberSize] = None
+
+    # Margins
+    m: Var[MantineNumberSize] = None
+    my: Var[MantineNumberSize] = None
+    mx: Var[MantineNumberSize] = None
+    mt: Var[MantineNumberSize] = None
+    mb: Var[MantineNumberSize] = None
+    ml: Var[MantineNumberSize] = None
+    mr: Var[MantineNumberSize] = None
+
+    # Paddings
+    p: Var[MantineNumberSize] = None
+    py: Var[MantineNumberSize] = None
+    px: Var[MantineNumberSize] = None
+    pt: Var[MantineNumberSize] = None
+    pb: Var[MantineNumberSize] = None
+    pl: Var[MantineNumberSize] = None
+    pr: Var[MantineNumberSize] = None
+
+    # Display and Position
+    display: Var[MantineDisplay] = None
+    pos: Var[MantinePosition] = None
+    top: Var[MantineNumberSize] = None
+    left: Var[MantineNumberSize] = None
+    bottom: Var[MantineNumberSize] = None
+    right: Var[MantineNumberSize] = None
+    inset: Var[MantineNumberSize] = None
+
+    # Background and Color
+    bg: Var[str] = None
+    c: Var[str] = None
+    opacity: Var[str | int] = None
+
+    # Typography
+    ff: Var[str] = None
+    fz: Var[MantineNumberSize] = None
+    fw: Var[str | int] = None
+    lts: Var[MantineNumberSize] = None
+    ta: Var[MantineTextAlign] = None
+    lh: Var[MantineNumberSize] = None
+    fs: Var[MantineFontStyle] = None
+    tt: Var[MantineTextTransform] = None
+    td: Var[str] = None
+
+    # Border
+    bd: Var[str] = None
+
+    # Background (Extended)
+    bgsz: Var[MantineNumberSize] = None
+    bgp: Var[str] = None
+    bgr: Var[MantineBackgroundRepeat] = None
+    bga: Var[MantineBackgroundAttachment] = None
+
+    # Other
+    flex: Var[str | int] = None
+    hidden_from: Var[MantineSize] = None
+    visible_from: Var[MantineSize] = None
+
+
+class MantineOverlayComponentBase(MantineLayoutComponentBase):
+    """Base class for overlay components (Modal, Drawer).
+
+    Provides common props for overlay-based components:
+    - Visibility state (opened, on_close)
+    - Behavior (close_on_click_outside, close_on_escape, lock_scroll, trap_focus)
+    - Visuals (overlay_props, transition_props, radius, shadow)
+    """
+
+    # Core Props
+    opened: Var[bool] = None
+    """Controls overlay visibility (required)."""
+
+    keep_mounted: Var[bool] = None
+    """Whether to keep overlay mounted in DOM when closed."""
+
+    title: Var[str] = None
+    """Title text displayed in header."""
+
+    # Behavior
+    close_on_click_outside: Var[bool] = None
+    """Whether to close overlay on click outside."""
+
+    close_on_escape: Var[bool] = None
+    """Whether to close overlay on Escape key."""
+
+    lock_scroll: Var[bool] = None
+    """Whether to lock body scroll when open."""
+
+    trap_focus: Var[bool] = None
+    """Whether to trap focus inside overlay."""
+
+    return_focus: Var[bool] = None
+    """Whether to return focus to trigger element on close."""
+
+    within_portal: Var[bool] = None
+    """Whether to render inside portal."""
+
+    # Visual/Content
+    with_overlay: Var[bool] = None
+    """Whether to show overlay."""
+
+    with_close_button: Var[bool] = None
+    """Whether to show close button."""
+
+    # Styling
+    radius: Var[MantineNumberSize] = None
+    """Border radius."""
+
+    shadow: Var[MantineNumberSize] = None
+    """Box shadow."""
+
+    size: Var[MantineNumberSize] = None
+    """Size (width for Modal/Drawer)."""
+
+    padding: Var[MantineNumberSize] = None
+    """Content padding."""
+
+    z_index: Var[int | str] = None
+    """CSS z-index."""
+
+    id: Var[str] = None
+    """Element ID."""
+
+    # Configuration Props
+    overlay_props: Var[dict[str, Any]] = None
+    """Props for Overlay component."""
+
+    transition_props: Var[dict[str, Any]] = None
+    """Props for Transition component."""
+
+    close_button_props: Var[dict[str, Any]] = None
+    """Props for CloseButton component."""
+
+    portal_props: Var[dict[str, Any]] = None
+    """Props for Portal component."""
+
+    remove_scroll_props: Var[dict[str, Any]] = None
+    """Props for react-remove-scroll."""
+
+    scroll_area_component: Var[Any] = None
+    """Custom scroll area component."""
+
+    # Events
+    on_close: EventHandler[rx.event.no_args_event_spec] = None
+    """Called when overlay should close."""
+
+    on_enter_transition_end: EventHandler[rx.event.no_args_event_spec] = None
+    """Called when enter transition finishes."""
+
+    on_exit_transition_end: EventHandler[rx.event.no_args_event_spec] = None
+    """Called when exit transition finishes."""
+
+    _rename_props = {
+        "close_on_click_outside": "closeOnClickOutside",
+        "close_on_escape": "closeOnEscape",
+        "keep_mounted": "keepMounted",
+        "lock_scroll": "lockScroll",
+        "trap_focus": "trapFocus",
+        "return_focus": "returnFocus",
+        "within_portal": "withinPortal",
+        "with_overlay": "withOverlay",
+        "with_close_button": "withCloseButton",
+        "overlay_props": "overlayProps",
+        "transition_props": "transitionProps",
+        "close_button_props": "closeButtonProps",
+        "portal_props": "portalProps",
+        "remove_scroll_props": "removeScrollProps",
+        "scroll_area_component": "scrollAreaComponent",
+        "on_close": "onClose",
+        "on_enter_transition_end": "onEnterTransitionEnd",
+        "on_exit_transition_end": "onExitTransitionEnd",
+        "z_index": "zIndex",
+    }
+
+
+class MantineInputComponentBase(MantineLayoutComponentBase):
     """Comprehensive base class for all Mantine input-like components.
 
     This base class includes all common properties shared across Mantine input
@@ -210,10 +412,10 @@ class MantineInputComponentBase(MantineComponentBase):
     """Input visual variant: default (bordered), filled (background),
     unstyled (no styles)."""
 
-    size: Var[Literal["xs", "sm", "md", "lg", "xl"]] = None
+    size: Var[MantineSize] = None
     """Input size affecting height, padding, and font size."""
 
-    radius: Var[Literal["xs", "sm", "md", "lg", "xl"]] = None
+    radius: Var[MantineNumberSize] = None
     """Border radius size."""
 
     pointer: Var[bool]
@@ -293,40 +495,6 @@ class MantineInputComponentBase(MantineComponentBase):
 
     right_section_pointer_events: Var[str] = None
     """CSS pointer-events for right section (none, auto, all)."""
-
-    # ========================================================================
-    # Mantine Style Props - Width and margin utilities
-    # ========================================================================
-
-    w: Var[str | int] = None
-    """Width (e.g., '100%', '400px', '20rem')."""
-
-    maw: Var[str | int] = None
-    """Maximum width."""
-
-    miw: Var[str | int] = None
-    """Minimum width."""
-
-    m: Var[str | int] = None
-    """Margin (all sides)."""
-
-    mt: Var[str | int] = None
-    """Margin top."""
-
-    mb: Var[str | int] = None
-    """Margin bottom."""
-
-    ml: Var[str | int] = None
-    """Margin left."""
-
-    mr: Var[str | int] = None
-    """Margin right."""
-
-    mx: Var[str | int] = None
-    """Margin horizontal (left and right)."""
-
-    my: Var[str | int] = None
-    """Margin vertical (top and bottom)."""
 
     # ========================================================================
     # Event Handlers - Standard input events

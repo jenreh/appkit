@@ -51,9 +51,11 @@ useEffect(() => {
         if (!submitBtn) return;
 
         // Check if command palette is open by looking for the palette element
-        // Use getBoundingClientRect to check actual visibility (works with absolute positioned elements)
+        // Use getBoundingClientRect to check actual visibility (works with
+        // absolute positioned elements)
         const paletteEl = document.getElementById('command-palette');
-        const paletteOpen = paletteEl !== null && paletteEl.getBoundingClientRect().height > 0;
+        const paletteOpen = paletteEl !== null
+                            && paletteEl.getBoundingClientRect().height > 0;
 
         // Command palette navigation when open
         if (paletteOpen) {

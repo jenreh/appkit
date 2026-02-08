@@ -28,8 +28,8 @@ def nav_link_examples() -> rx.Component:
             rx.link("← Back to Home", href="/"),
             # Basic NavLink (enhanced to match docs)
             rx.grid(
-                rx.card(
-                    rx.vstack(
+                mn.card(
+                    mn.stack(
                         rx.heading("Basic NavLink", size="4"),
                         # With left icon
                         mn.nav_link(
@@ -85,11 +85,15 @@ def nav_link_examples() -> rx.Component:
                         ),
                         spacing="3",
                     ),
-                    padding="4",
+                    with_border=True,
+                    shadow="sm",
+                    padding="lg",
+                    radius="md",
+                    w="100%",
                 ),
                 # Right section and nested children
-                rx.card(
-                    rx.vstack(
+                mn.card(
+                    mn.stack(
                         rx.heading("Right section & Nested links", size="4"),
                         mn.nav_link(
                             mn.nav_link(label="Documents"),
@@ -99,7 +103,11 @@ def nav_link_examples() -> rx.Component:
                         ),
                         spacing="3",
                     ),
-                    padding="4",
+                    with_border=True,
+                    shadow="sm",
+                    padding="lg",
+                    radius="md",
+                    w="100%",
                 ),
                 columns="2",
                 spacing="4",

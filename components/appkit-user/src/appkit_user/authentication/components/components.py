@@ -65,7 +65,9 @@ _SESSION_MONITOR_JS = """
         const timeSinceProlong = now - lastProlong;
 
         // 1. Prolong session if active in last 60s AND enough time passed
-        if (idle < monitorIntervalMs && timeSinceProlong > prolongIntervalMs && prolongBtn) {{
+        if (idle < monitorIntervalMs
+            && timeSinceProlong > prolongIntervalMs
+            && prolongBtn) {{
             prolongBtn.click();
             lastProlong = now;
         }}

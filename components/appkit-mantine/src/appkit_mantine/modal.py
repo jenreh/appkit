@@ -39,7 +39,7 @@ Example:
                 on_close=State.close_modal,
                 centered=True,
             ),
-            mn.button.button(
+            mn.button(
                 "Open Modal",
                 on_click=State.open_modal,
             ),
@@ -55,14 +55,14 @@ import reflex as rx
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
-from appkit_mantine.base import MantineComponentBase
+from appkit_mantine.base import MantineComponentBase, MantineOverlayComponentBase
 
 # ============================================================================
 # Modal Component
 # ============================================================================
 
 
-class Modal(MantineComponentBase):
+class Modal(MantineOverlayComponentBase):
     """Mantine Modal component - accessible overlay dialog.
 
     Based on: https://mantine.dev/core/modal/
@@ -83,55 +83,22 @@ class Modal(MantineComponentBase):
 
     tag = "Modal"
 
-    # Core props
-    opened: Var[bool]  # Controls modal visibility (required)
-    # Called when modal closes (required)
-    on_close: EventHandler[rx.event.no_args_event_spec]
-
-    # Content
-    title: Var[str]  # Modal title (h2 element)
-
     # Layout
-    centered: Var[bool] = False  # Center modal vertically
-    full_screen: Var[bool] = False  # Fullscreen modal
-    size: Var[str | int] = "md"  # Modal width: xs, sm, md, lg, xl, or CSS value
-    padding: Var[str | int] = "md"  # Content padding
-    x_offset: Var[str | int] = "5vw"  # Horizontal offset
-    y_offset: Var[str | int] = "5dvh"  # Vertical offset
+    centered: Var[bool] = None
+    """Center modal vertically."""
 
-    # Visual
-    radius: Var[str | int]  # Border radius
-    shadow: Var[str] = "xl"  # Box shadow
-    with_overlay: Var[bool] = True  # Show overlay
-    with_close_button: Var[bool] = True  # Show close button
+    full_screen: Var[bool] = None
+    """Fullscreen modal."""
 
-    # Overlay configuration
-    overlay_props: Var[dict[str, Any]]  # Props for Overlay component
+    x_offset: Var[str | int] = None
+    """Horizontal offset."""
 
-    # Transition configuration
-    transition_props: Var[dict[str, Any]]  # Transition animation props
+    y_offset: Var[str | int] = None
+    """Vertical offset."""
 
-    # Behavior
-    close_on_click_outside: Var[bool] = True  # Close on overlay click
-    close_on_escape: Var[bool] = True  # Close on Escape key
-    keep_mounted: Var[bool] = False  # Keep in DOM when closed
-    lock_scroll: Var[bool] = True  # Lock body scroll when open
-    return_focus: Var[bool] = True  # Return focus on close
-    trap_focus: Var[bool] = True  # Trap focus inside modal
-
-    # Advanced
-    close_button_props: Var[dict[str, Any]]  # Close button customization
-    id: Var[str]  # Element ID
-    portal_props: Var[dict[str, Any]]  # Portal component props
-    remove_scroll_props: Var[dict[str, Any]]  # react-remove-scroll props
-    scroll_area_component: Var[Any]  # Custom scroll component
-    stack_id: Var[str]  # ID for Modal.Stack
-    within_portal: Var[bool] = True  # Render in portal
-    z_index: Var[int | str] = 200  # CSS z-index
-
-    # Lifecycle events
-    on_enter_transition_end: EventHandler[rx.event.no_args_event_spec]
-    on_exit_transition_end: EventHandler[rx.event.no_args_event_spec]
+    # Stack
+    stack_id: Var[str]
+    """ID for Modal.Stack."""
 
 
 # ============================================================================
@@ -139,7 +106,7 @@ class Modal(MantineComponentBase):
 # ============================================================================
 
 
-class ModalRoot(MantineComponentBase):
+class ModalRoot(MantineOverlayComponentBase):
     """Modal.Root - Context provider for compound Modal components.
 
     Use with other Modal.* components for full control over modal rendering.
@@ -164,34 +131,13 @@ class ModalRoot(MantineComponentBase):
 
     tag = "Modal.Root"
 
-    # Core props (same as Modal)
-    opened: Var[bool]
-    on_close: EventHandler[rx.event.no_args_event_spec]
-
     # Behavior
-    centered: Var[bool] = False
-    full_screen: Var[bool] = False
-    close_on_click_outside: Var[bool] = True
-    close_on_escape: Var[bool] = True
-    trap_focus: Var[bool] = True
-    return_focus: Var[bool] = True
-    lock_scroll: Var[bool] = True
-    keep_mounted: Var[bool] = False
-    within_portal: Var[bool] = True
-    z_index: Var[int | str] = 200
-    x_offset: Var[str | int] = "5vw"
-    y_offset: Var[str | int] = "5dvh"
+    centered: Var[bool] = None
+    full_screen: Var[bool] = None
+    x_offset: Var[str | int] = None
+    y_offset: Var[str | int] = None
 
-    # Advanced
-    remove_scroll_props: Var[dict[str, Any]]
-    portal_props: Var[dict[str, Any]]
-    id: Var[str]
     stack_id: Var[str]
-    transition_props: Var[dict[str, Any]]
-
-    # Lifecycle
-    on_enter_transition_end: EventHandler[rx.event.no_args_event_spec]
-    on_exit_transition_end: EventHandler[rx.event.no_args_event_spec]
 
 
 class ModalOverlay(MantineComponentBase):

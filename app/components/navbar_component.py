@@ -144,7 +144,10 @@ def sidebar_item(label: str, icon: str, url: str) -> rx.Component:
 
 
 def sidebar_sub_item(
-    label: str, icon: str, url: str, svg: str | None = None
+    label: str,
+    icon: str,  # noqa: ARG001
+    url: str,
+    svg: str | None = None,  # noqa: ARG001
 ) -> rx.Component:
     active = (rx.State.router.page.path == url.lower()) | (
         (rx.State.router.page.path == "/") & label == "Overview"

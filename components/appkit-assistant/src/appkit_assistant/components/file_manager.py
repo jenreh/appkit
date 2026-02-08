@@ -54,7 +54,7 @@ def vector_store_item(store_info: VectorStoreInfo) -> rx.Component:
                 flex="1",
             ),
             rx.tooltip(
-                mn.button.button(
+                mn.button(
                     rx.icon("trash", size=13, stroke_width=1.5),
                     variant="subtle",
                     size="compact-xs",
@@ -203,7 +203,7 @@ def cleanup_progress_modal() -> rx.Component:
             mn.modal.header(
                 rx.hstack(
                     rx.icon(
-                        rx.cond(is_error, "alert-circle", "trash-2"),
+                        rx.cond(is_error, "circle-alert", "trash-2"),
                         size=20,
                         color=rx.cond(
                             is_error,
@@ -304,7 +304,7 @@ def cleanup_progress_modal() -> rx.Component:
                     ),
                     # Footer
                     rx.flex(
-                        mn.button.button(
+                        mn.button(
                             "Schließen",
                             variant="light",
                             disabled=is_running,
@@ -328,7 +328,7 @@ def cleanup_progress_modal() -> rx.Component:
 
 def cleanup_button() -> rx.Component:
     """Render the cleanup button."""
-    return mn.button.button(
+    return mn.button(
         "Vector Stores aufräumen",
         left_section=rx.icon("trash-2", size=14),
         variant="light",
