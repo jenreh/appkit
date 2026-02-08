@@ -99,12 +99,7 @@ def navbar_items() -> rx.Component:
         ),
         sub_heading("Data Display"),
         mn.stack(
-            sidebar_sub_item(label="Accordion", icon="", url="/accordion"),
-            sidebar_sub_item(label="Avatar", icon="", url="/avatar"),
-            sidebar_sub_item(label="Card", icon="", url="/card"),
-            sidebar_sub_item(label="Image", icon="", url="/image"),
-            sidebar_sub_item(label="Indicator", icon="", url="/indicator"),
-            sidebar_sub_item(label="Timeline", icon="", url="/timeline"),
+            sidebar_sub_item(label="Data Display", icon="", url="/data-display"),
             gap="0",
             w="100%",
         ),

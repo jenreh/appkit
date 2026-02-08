@@ -35,12 +35,7 @@ from app.pages.examples.auto_scroll_examples import auto_scroll_examples  # noqa
 from app.pages.examples.button_examples import button_examples  # noqa: F401
 from app.pages.examples.combobox_examples import combobox_examples  # noqa: F401
 from app.pages.examples.data_display_examples import (
-    accordion_examples,  # noqa: F401
-    avatar_examples,  # noqa: F401
-    card_examples,  # noqa: F401
-    image_examples,  # noqa: F401
-    indicator_examples,  # noqa: F401
-    timeline_examples,  # noqa: F401
+    data_display_examples,  # noqa: F401
 )
 from app.pages.examples.feedback_examples import feedback_examples  # noqa: F401
 from app.pages.examples.input_examples import input_examples_page  # noqa: F401
@@ -116,12 +111,7 @@ def index() -> rx.Component:
                     ),
                     mn.text("Data Display:", fw="bold", size="md"),
                     mn.list_(
-                        mn.list_.item(rx.link("Accordion", href="/accordion")),
-                        mn.list_.item(rx.link("Avatar", href="/avatar")),
-                        mn.list_.item(rx.link("Card", href="/card")),
-                        mn.list_.item(rx.link("Image", href="/image")),
-                        mn.list_.item(rx.link("Indicator", href="/indicator")),
-                        mn.list_.item(rx.link("Timeline", href="/timeline")),
+                        mn.list_.item(rx.link("Data Display", href="/data-display")),
                         type="unordered",
                         list_style_type="disc",
                     ),
