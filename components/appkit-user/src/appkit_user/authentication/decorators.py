@@ -19,7 +19,7 @@ def is_authenticated[F: Callable[..., Any]](func: F) -> F:
         login_state = await self.get_state(LoginState)
         if not await login_state.is_authenticated:
             logger.debug("User not authenticated, redirecting to login.")
-            return await self.redir()
+            return await login_state.redir()
         return await func(self, *args, **kwargs)
 
     @wraps(func)
