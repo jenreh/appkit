@@ -333,6 +333,8 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         for prompt, creator_name in result:
             prompt_dict = prompt.dict()
             prompt_dict["creator_name"] = creator_name or "Unbekannt"
+            # Ensure mcp_server_ids is included as a list
+            prompt_dict["mcp_server_ids"] = list(prompt.mcp_server_ids)
             prompts.append(prompt_dict)
 
         return prompts
@@ -403,6 +405,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         description: str,
         prompt_text: str,
         is_shared: bool = False,
+        mcp_server_ids: list[int] | None = None,
     ) -> UserPrompt:
         """Create the first version of a new prompt."""
         prompt = UserPrompt(
@@ -413,6 +416,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
             version=1,
             is_latest=True,
             is_shared=is_shared,
+            mcp_server_ids=mcp_server_ids or [],
             created_at=datetime.now(UTC),
         )
         session.add(prompt)
@@ -428,6 +432,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         description: str | None = None,
         prompt_text: str | None = None,
         is_shared: bool | None = None,
+        mcp_server_ids: list[int] | None = None,
     ) -> UserPrompt:
         """Create a new version for an existing prompt.
 
@@ -453,6 +458,11 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
             prompt_text if prompt_text is not None else current_latest.prompt_text
         )
         new_shared = is_shared if is_shared is not None else current_latest.is_shared
+        new_mcp_servers = (
+            mcp_server_ids
+            if mcp_server_ids is not None
+            else list(current_latest.mcp_server_ids)
+        )
 
         # 4. Create new version
         new_version = UserPrompt(
@@ -463,6 +473,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
             version=current_latest.version + 1,
             is_latest=True,
             is_shared=new_shared,
+            mcp_server_ids=new_mcp_servers,
             created_at=datetime.now(UTC),
         )
         session.add(new_version)
@@ -521,7 +532,8 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         Returns user's own prompts and shared prompts from others.
         Filters by handle.startswith(filter_text) if provided.
 
-        Returns list of dicts with handle, description, prompt_text, is_own.
+        Returns list of dicts with handle, description, prompt_text, mcp_server_ids,
+        is_own.
         """
         # Query own prompts
         own_stmt = select(UserPrompt).where(
@@ -554,6 +566,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
                 "handle": p.handle,
                 "description": p.description,
                 "prompt_text": p.prompt_text,
+                "mcp_server_ids": list(p.mcp_server_ids),
                 "is_own": True,
             }
             for p in own_prompts
@@ -564,6 +577,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
                 "handle": p.handle,
                 "description": p.description,
                 "prompt_text": p.prompt_text,
+                "mcp_server_ids": list(p.mcp_server_ids),
                 "is_own": False,
             }
             for p in shared_prompts

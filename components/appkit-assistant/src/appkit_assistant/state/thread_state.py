@@ -511,6 +511,7 @@ class ThreadState(rx.State):
                         icon="",
                         is_editable=True,
                         user_id=user_id,
+                        mcp_server_ids=list(p.mcp_server_ids),
                     )
                     for p in own_prompts
                 ] + [
@@ -521,6 +522,7 @@ class ThreadState(rx.State):
                         icon="share",
                         is_editable=False,
                         user_id=p.get("user_id", 0),
+                        mcp_server_ids=p.get("mcp_server_ids", []),
                     )
                     for p in shared_prompts
                 ]
@@ -595,6 +597,9 @@ class ThreadState(rx.State):
     def select_command(self, command_id: str) -> None:
         """Select a command from the palette and insert it into the prompt.
 
+        Also activates any MCP servers associated with the prompt (filtered by
+        user's available servers).
+
         Args:
             command_id: The ID of the command to select.
         """
@@ -615,6 +620,33 @@ class ThreadState(rx.State):
 
         # Insert the command label followed by a space
         self.prompt = before_slash + command.label + " " + after_command
+
+        # Activate MCP servers associated with the prompt
+        if command.mcp_server_ids:
+            # Build set of available server IDs for fast lookup (int comparison)
+            available_ids = {s.id for s in self.available_mcp_servers}
+            # Filter to only available servers
+            valid_server_ids = [
+                sid for sid in command.mcp_server_ids if sid in available_ids
+            ]
+            if valid_server_ids:
+                # Find server objects and add to selection
+                servers_to_add = [
+                    server
+                    for server in self.available_mcp_servers
+                    if server.id in valid_server_ids
+                ]
+                # Merge with existing selection (avoid duplicates)
+                existing_ids = {s.id for s in self.selected_mcp_servers}
+                for server in servers_to_add:
+                    if server.id not in existing_ids:
+                        self.selected_mcp_servers.append(server)
+                        existing_ids.add(server.id)
+                # Also update temp selection for consistency with tools modal
+                for sid in valid_server_ids:
+                    if sid not in self.temp_selected_mcp_servers:
+                        self.temp_selected_mcp_servers.append(sid)
+                        self.server_selection_state[sid] = True
 
         # Hide palette
         self._hide_command_palette()

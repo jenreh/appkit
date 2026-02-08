@@ -3,7 +3,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
-from sqlalchemy import Index
+from sqlalchemy import Index, Integer
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 from sqlmodel import Column, DateTime, Field
 
@@ -199,6 +200,11 @@ class UserPrompt(rx.Model, table=True):
     version: int = Field(nullable=False)
     is_latest: bool = Field(default=False, nullable=False)
     is_shared: bool = Field(default=False, nullable=False)
+
+    # Associated MCP server IDs (stored as integer array)
+    mcp_server_ids: list[int] = Field(
+        default=[], sa_column=Column(ARRAY(Integer), nullable=False)
+    )
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

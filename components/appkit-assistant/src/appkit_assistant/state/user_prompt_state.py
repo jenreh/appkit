@@ -5,7 +5,11 @@ from typing import Any, Final
 import reflex as rx
 from reflex.state import State
 
-from appkit_assistant.backend.database.repositories import user_prompt_repo
+from appkit_assistant.backend.database.models import MCPServer
+from appkit_assistant.backend.database.repositories import (
+    mcp_server_repo,
+    user_prompt_repo,
+)
 from appkit_assistant.backend.services.user_prompt_service import validate_handle
 from appkit_assistant.state.thread_state import ThreadState
 from appkit_commons.database.session import get_asyncdb_session
@@ -45,6 +49,12 @@ class UserPromptState(State):
     modal_versions: list[dict[str, str | int]] = []
     modal_prompt_map: dict[str, str] = {}  # version_id_str -> prompt_text
     modal_selected_version_id: int = 0
+
+    # Modal MCP server selection
+    modal_available_mcp_servers: list[MCPServer] = []
+    modal_selected_mcp_server_ids: list[str] = []  # Strings for UI multiselect
+    # Map version_id_str -> mcp_server_ids for version switching
+    modal_mcp_server_map: dict[str, list[str]] = {}
 
     @rx.var
     def modal_title(self) -> str:
@@ -88,6 +98,10 @@ class UserPromptState(State):
         self.modal_handle_error = ""
         self.modal_description_error = ""
         self.modal_prompt_error = ""
+        # Clear MCP server state
+        self.modal_available_mcp_servers = []
+        self.modal_selected_mcp_server_ids = []
+        self.modal_mcp_server_map = {}
 
     @rx.var
     def modal_selected_version_str(self) -> str:
@@ -106,6 +120,50 @@ class UserPromptState(State):
             self.modal_prompt = self.modal_prompt_map[value]
             self.modal_char_count = len(self.modal_prompt)
             self.modal_textarea_key += 1
+        # Switch MCP servers to match the selected version
+        if value in self.modal_mcp_server_map:
+            # Filter to only show servers that are still available
+            available_ids = {str(s.id) for s in self.modal_available_mcp_servers}
+            self.modal_selected_mcp_server_ids = [
+                sid for sid in self.modal_mcp_server_map[value] if sid in available_ids
+            ]
+
+    @rx.event
+    def set_modal_selected_mcp_servers(self, value: Any) -> None:
+        """Handle MCP server multiselect change."""
+        if value is None:
+            self.modal_selected_mcp_server_ids = []
+        elif isinstance(value, list):
+            self.modal_selected_mcp_server_ids = [str(v) for v in value]
+        else:
+            self.modal_selected_mcp_server_ids = []
+
+    @rx.var
+    def modal_mcp_server_options(self) -> list[dict[str, str]]:
+        """Return MCP server options for multiselect."""
+        return [
+            {"value": str(server.id), "label": server.name}
+            for server in self.modal_available_mcp_servers
+        ]
+
+    async def _load_modal_available_mcp_servers(self) -> None:
+        """Load available MCP servers for the current user.
+
+        Filters by user roles similar to ThreadState.load_mcp_servers().
+        """
+        user_session: UserSession = await self.get_state(UserSession)
+        user = await user_session.authenticated_user
+        user_roles: list[str] = user.roles if user else []
+
+        async with get_asyncdb_session() as session:
+            servers = await mcp_server_repo.find_all_active_ordered_by_name(session)
+            # Filter servers by user roles (same logic as ThreadState)
+            filtered_servers = [
+                MCPServer(**s.model_dump())
+                for s in servers
+                if not s.required_role or s.required_role in user_roles
+            ]
+            self.modal_available_mcp_servers = filtered_servers
 
     @rx.event
     async def open_edit_modal(self, handle: str) -> None:
@@ -117,6 +175,10 @@ class UserPromptState(State):
         try:
             user_session: UserSession = await self.get_state(UserSession)
             user_id = user_session.user_id
+
+            # Load available MCP servers first
+            await self._load_modal_available_mcp_servers()
+            available_ids = {s.id for s in self.modal_available_mcp_servers}
 
             async with get_asyncdb_session() as session:
                 # Load all versions for version selector
@@ -140,6 +202,12 @@ class UserPromptState(State):
                     str(v.id): v.prompt_text for v in versions_list
                 }
 
+                # Map DB ID to MCP server IDs (convert ints to strings for UI)
+                self.modal_mcp_server_map = {
+                    str(v.id): [str(sid) for sid in v.mcp_server_ids]
+                    for v in versions_list
+                }
+
                 # Get latest version
                 latest = next(
                     (v for v in versions_list if v.is_latest),
@@ -152,6 +220,13 @@ class UserPromptState(State):
                     self.modal_prompt = latest.prompt_text
                     self.modal_is_shared = latest.is_shared
                     self.modal_char_count = len(latest.prompt_text)
+                    # Filter MCP servers to only those available to current user
+                    # Convert int IDs from DB to strings for UI
+                    self.modal_selected_mcp_server_ids = [
+                        str(sid)
+                        for sid in latest.mcp_server_ids
+                        if sid in available_ids
+                    ]
                     self.modal_open = True
                 else:
                     self.modal_error = "Prompt nicht gefunden"
@@ -160,10 +235,12 @@ class UserPromptState(State):
             self.modal_error = f"Fehler beim Laden: {e!s}"
 
     @rx.event
-    def open_new_modal(self) -> None:
+    async def open_new_modal(self) -> None:
         """Open modal to create a new prompt."""
         self._reset_modal()
         self.modal_is_new = True
+        # Load available MCP servers
+        await self._load_modal_available_mcp_servers()
         self.modal_open = True
 
     @rx.event
@@ -230,6 +307,8 @@ class UserPromptState(State):
         handle = self.modal_handle.strip().lower()
         description = self.modal_description.strip()
         prompt_text = self.modal_prompt.strip()
+        # Convert UI strings to ints for DB
+        mcp_server_ids = [int(sid) for sid in self.modal_selected_mcp_server_ids if sid]
 
         # Validation
         is_handle_valid, handle_error = validate_handle(handle)
@@ -272,6 +351,7 @@ class UserPromptState(State):
                         description=description,
                         prompt_text=prompt_text,
                         is_shared=self.modal_is_shared,
+                        mcp_server_ids=mcp_server_ids,
                     )
                 else:
                     # Update existing (create new version)
@@ -301,6 +381,7 @@ class UserPromptState(State):
                         description=description,
                         prompt_text=prompt_text,
                         is_shared=self.modal_is_shared,
+                        mcp_server_ids=mcp_server_ids,
                     )
 
             self._reset_modal()

@@ -147,3 +147,4 @@ class CommandDefinition(BaseModel):
     icon: str = ""  # Optional icon name
     is_editable: bool = False  # True only for user's own prompts
     user_id: int = 0  # Owner user ID for prompts
+    mcp_server_ids: list[int] = []  # MCP servers to auto-select
