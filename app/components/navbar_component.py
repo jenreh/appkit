@@ -26,17 +26,6 @@ box_shadow_right_dark = "inset -5px -5px 15px -5px rgba(0.9, 0.9, 0.9, 0.1)"
 sidebar_width = "375px"
 
 
-sub_heading_styles = {
-    "text_transform": "uppercase",
-    "letter_spacing": "1px",
-    "font-weight": "bold",
-    "font-size": "0.8rem",
-    "padding": "0.35em",
-    "margin_top": "1em",
-    "color": rx.color("gray", 10),
-}
-
-
 def admin_sidebar_item(
     label: str, icon: str, url: str, svg: str | None = None
 ) -> rx.Component:
@@ -45,21 +34,31 @@ def admin_sidebar_item(
     )
 
     return rx.link(
-        rx.hstack(
-            rx.box(width="16px"),
+        mn.group(
+            mn.box(w="16px"),
             rx.cond(
                 svg,
                 rx.image(svg, height="16px", width="16px", fill="var(--gray-9)"),
                 rx.icon(icon, size=15, color="var(--gray-9)"),
             ),
-            rx.text(label, size="2", weight="regular"),
-            color=rx.cond(
-                active,
-                accent_text_color,
-                text_color,
+            mn.text(
+                label,
+                size="sm",
+                fw="regular",
+                style={
+                    "color": rx.cond(
+                        active,
+                        accent_text_color,
+                        text_color,
+                    ),
+                },
             ),
-            background_color=rx.cond(active, accent_bg_color, "transparent"),
             style={
+                "background_color": rx.cond(
+                    active,
+                    accent_bg_color,
+                    "transparent",
+                ),
                 "_hover": {
                     "background_color": rx.cond(
                         active,
@@ -78,11 +77,11 @@ def admin_sidebar_item(
                     "1",
                     "0.95",
                 ),
+                "border_radius": border_radius,
             },
             align="center",
-            border_radius=border_radius,
             width="100%",
-            padding="3px",
+            p="3px",
         ),
         on_click=[
             LoadingState.set_is_loading(True),
@@ -99,16 +98,28 @@ def sidebar_item(label: str, icon: str, url: str) -> rx.Component:
     )
 
     return rx.link(
-        rx.hstack(
-            rx.cond(icon == "", rx.spacer(), rx.icon(icon, size=17)),
-            rx.text(label, size="3", weight="regular"),
-            color=rx.cond(
-                active,
-                accent_text_color,
-                text_color,
+        mn.group(
+            rx.cond(
+                icon == "", rx.spacer(), rx.icon(icon, size=17, margin_right="6px")
             ),
-            background_color=rx.cond(active, accent_bg_color, "transparent"),
+            mn.text(
+                label,
+                size="md",
+                fw="regular",
+                style={
+                    "color": rx.cond(
+                        active,
+                        accent_text_color,
+                        text_color,
+                    ),
+                },
+            ),
             style={
+                "background_color": rx.cond(
+                    active,
+                    accent_bg_color,
+                    "transparent",
+                ),
                 "_hover": {
                     "background_color": rx.cond(
                         active,
@@ -127,12 +138,12 @@ def sidebar_item(label: str, icon: str, url: str) -> rx.Component:
                     "1",
                     "0.95",
                 ),
+                "border_radius": border_radius,
             },
             align="center",
-            border_radius=border_radius,
-            width="100%",
-            spacing="2",
-            padding="0.35em",
+            w="100%",
+            gap="3px",
+            p="0.35em",
         ),
         on_click=[
             LoadingState.set_is_loading(True),
@@ -155,15 +166,23 @@ def sidebar_sub_item(
 
     return rx.link(
         rx.box(
-            rx.hstack(
-                rx.text(label, size="2", weight="regular"),
-                color=rx.cond(
-                    active,
-                    accent_text_color,
-                    text_color,
+            mn.group(
+                mn.text(
+                    label,
+                    size="sm",
+                    fw="regular",
                 ),
-                background_color=rx.cond(active, accent_bg_color, "transparent"),
                 style={
+                    "color": rx.cond(
+                        active,
+                        accent_text_color,
+                        text_color,
+                    ),
+                    "background_color": rx.cond(
+                        active,
+                        accent_bg_color,
+                        "transparent",
+                    ),
                     "_hover": {
                         "background_color": rx.cond(
                             active,
@@ -186,8 +205,8 @@ def sidebar_sub_item(
                 align="center",
                 border_radius=border_radius,
                 width="90%",
-                padding="3px 6px",
-                margin_left="15px",
+                p="3px 9px",
+                ml="6px",
             ),
             border_left=f"1px solid {rx.color('gray', 7)}",
             padding="3px",
@@ -199,7 +218,7 @@ def sidebar_sub_item(
         href=url,
         width="100%",
         padding="0",
-        margin="0 0 0 12px",
+        margin="0 0 0 13px",
     )
 
 
@@ -214,15 +233,19 @@ def sidebar_icon_button(
 
     return rx.link(
         rx.tooltip(
-            rx.hstack(
+            mn.group(
                 rx.icon(icon, size=17),
-                color=rx.cond(
-                    active,
-                    accent_text_color,
-                    text_color,
-                ),
-                background_color=rx.cond(active, accent_bg_color, "transparent"),
                 style={
+                    "color": rx.cond(
+                        active,
+                        accent_text_color,
+                        text_color,
+                    ),
+                    "background_color": rx.cond(
+                        active,
+                        accent_bg_color,
+                        "transparent",
+                    ),
                     "_hover": {
                         "background_color": rx.cond(
                             active,
@@ -241,8 +264,10 @@ def sidebar_icon_button(
                         "1",
                         "0.95",
                     ),
+                    "border_radius": border_radius,
                 },
-                padding="0.35em",
+                p="0.35em",
+                br=border_radius,
             ),
             content=label,
         ),
@@ -257,18 +282,19 @@ def sidebar_icon_button(
 def logout_button() -> rx.Component:
     return rx.link(
         rx.tooltip(
-            rx.hstack(
+            mn.group(
                 rx.icon("log-out", size=18),
-                color=text_color,
                 style={
+                    "color": text_color,
                     "_hover": {
                         "background_color": gray_bg_color,
                         "color": text_color,
                         "opacity": "1",
                     },
                     "opacity": "0.95",
+                    "border_radius": border_radius,
                 },
-                padding="0.35em",
+                p="0.35em",
             ),
             content="Abmelden",
         ),
@@ -282,7 +308,7 @@ def logout_button() -> rx.Component:
 
 
 def navbar_default_header() -> rx.Component:
-    return rx.hstack(
+    return mn.group(
         rx.color_mode_cond(
             rx.image("/img/logo.svg", height="56px", margin_top="1.25em"),
             rx.image("/img/logo_dark.svg", height="56px", margin_top="1.25em"),
@@ -290,14 +316,14 @@ def navbar_default_header() -> rx.Component:
         rx.spacer(),
         align="center",
         width="100%",
-        padding="0.35em",
-        margin_bottom="1em",
+        p="0.35em",
+        mb="1em",
     )
 
 
 def navbar_default_footer(version: str) -> rx.Component:
-    return rx.vstack(
-        rx.hstack(
+    return mn.stack(
+        mn.group(
             sidebar_icon_button(label="Profil", icon="user", url="/profile"),
             rx.color_mode.button(style={"opacity": "0.8", "scale": "0.95"}),
             rx.spacer(),
@@ -305,19 +331,19 @@ def navbar_default_footer(version: str) -> rx.Component:
             wrap="nowrap",
             justify="center",
             align="center",
-            width="100%",
+            w="100%",
         ),
-        rx.text(
+        mn.text(
             f"Version {version}",
-            size="1",
-            width="100%",
-            margin_left="3px",
+            size="xs",
+            w="100%",
+            ml="3px",
             color=rx.color("gray", 7),
         ),
         justify="start",
         align="start",
         width="100%",
-        padding="0.35em",
+        p="0.35em",
     )
 
 
@@ -341,9 +367,9 @@ def navbar(
                 LoadingState.is_loading, "rainbow-gradient-bar", "default-bar"
             ),
         ),
-        rx.vstack(
+        mn.stack(
             navbar_header,
-            rx.vstack(
+            mn.stack(
                 sidebar_item(
                     label="Assistent",
                     icon="bot-message-square",
@@ -355,12 +381,12 @@ def navbar(
                     url="/image-gallery",
                 ),
                 align="start",
-                width="100%",
-                spacing="1",
+                w="100%",
+                gap="2px",
             ),
             mn.scroll_area.stateful(
                 navbar_items,
-                width="100%",
+                w="100%",
                 type="hover",
                 scrollbars="y",
                 scrollbar_size="6px",
@@ -371,20 +397,20 @@ def navbar(
                 min_height="0",
                 height="100%",
             ),
-            rx.vstack(
+            mn.stack(
                 requires_admin(
                     navbar_admin_items,
                 ),
                 align="start",
-                width="100%",
-                spacing="0",
+                w="100%",
+                gap="0",
             ),
             navbar_footer,
             justify="end",
             align="end",
-            width="18em",
-            height="100dvh",
-            padding="1em",
+            w="18em",
+            h="100dvh",
+            p="1em",
         ),
         max_width=sidebar_width,
         width="100%",

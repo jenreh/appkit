@@ -8,6 +8,7 @@ import reflex as rx
 from fastapi import FastAPI
 from starlette.types import ASGIApp
 
+import appkit_mantine as mn
 from appkit_assistant.backend.services.file_cleanup_service import (
     start_scheduler,
     stop_scheduler,
@@ -41,12 +42,7 @@ from app.pages.examples.data_display_examples import (
     indicator_examples,  # noqa: F401
     timeline_examples,  # noqa: F401
 )
-from app.pages.examples.feedback_examples import (
-    alert_examples,  # noqa: F401
-    notification_examples,  # noqa: F401
-    progress_examples,  # noqa: F401
-    skeleton_examples,  # noqa: F401
-)
+from app.pages.examples.feedback_examples import feedback_examples  # noqa: F401
 from app.pages.examples.input_examples import input_examples_page  # noqa: F401
 from app.pages.examples.markdown_preview_examples import (
     markdown_preview_examples,  # noqa: F401
@@ -85,79 +81,98 @@ create_profile_page(app_navbar())
     with_header=False,
 )
 def index() -> rx.Component:
-    return rx.container(
-        rx.vstack(
-            rx.heading("Welcome to appkit!", size="9"),
-            rx.text(
+    return mn.container(
+        mn.stack(
+            mn.title("Welcome to appkit!", order=1, size="xl"),
+            mn.text(
                 "A component library for ",
                 rx.link("Reflex.dev", href="https://reflex.dev/", is_external=True),
                 " based on ",
                 rx.link("Mantine UI", href="https://mantine.dev/", is_external=True),
-                margin_bottom="24px",
+                mb="lg",
             ),
-            rx.text.strong("AI Tools:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("Image Generator", href="/image-gallery")),
-                rx.list.item(rx.link("Assistant", href="/assistant")),
+            mn.simple_grid(
+                # Left column
+                mn.stack(
+                    mn.text("AI Tools:", fw="bold", size="md"),
+                    mn.list_(
+                        mn.list_.item(rx.link("Assistant", href="/assistant")),
+                        mn.list_.item(
+                            rx.link("Image Generator", href="/image-gallery")
+                        ),
+                        list_style_type="disc",
+                        type="unordered",
+                    ),
+                    mn.text("Inputs:", fw="bold", size="md"),
+                    mn.list_(
+                        mn.list_.item(rx.link("Buttons & Icons", href="/buttons")),
+                        mn.list_.item(rx.link("Input Components", href="/inputs")),
+                        mn.list_.item(rx.link("Comboboxes", href="/comboboxes")),
+                        mn.list_.item(
+                            rx.link("Rich Text Editor (Tiptap)", href="/tiptap")
+                        ),
+                        list_style_type="disc",
+                        type="unordered",
+                    ),
+                    mn.text("Data Display:", fw="bold", size="md"),
+                    mn.list_(
+                        mn.list_.item(rx.link("Accordion", href="/accordion")),
+                        mn.list_.item(rx.link("Avatar", href="/avatar")),
+                        mn.list_.item(rx.link("Card", href="/card")),
+                        mn.list_.item(rx.link("Image", href="/image")),
+                        mn.list_.item(rx.link("Indicator", href="/indicator")),
+                        mn.list_.item(rx.link("Timeline", href="/timeline")),
+                        type="unordered",
+                        list_style_type="disc",
+                    ),
+                ),
+                # Right column
+                mn.stack(
+                    mn.text("Navigation:", fw="bold", size="md"),
+                    mn.list_(
+                        mn.list_.item(rx.link("Breadcrumbs", href="/breadcrumbs")),
+                        mn.list_.item(rx.link("Pagination", href="/pagination")),
+                        mn.list_.item(rx.link("Stepper", href="/stepper")),
+                        mn.list_.item(rx.link("Tabs", href="/tabs")),
+                        type="unordered",
+                        list_style_type="disc",
+                    ),
+                    mn.text("Overlay:", fw="bold", size="md"),
+                    mn.list_(
+                        mn.list_.item(rx.link("HoverCard", href="/hover-card")),
+                        mn.list_.item(rx.link("Tooltip", href="/tooltip")),
+                        type="unordered",
+                        list_style_type="disc",
+                    ),
+                    mn.text("Others:", fw="bold", size="md"),
+                    mn.list_(
+                        mn.list_.item(rx.link("Feedback Components", href="/feedback")),
+                        mn.list_.item(
+                            rx.link("Markdown Preview", href="/markdown-preview")
+                        ),
+                        mn.list_.item(rx.link("Modal", href="/modal")),
+                        mn.list_.item(
+                            rx.link("Navigation Progress", href="/nprogress")
+                        ),
+                        mn.list_.item(rx.link("Nav Link", href="/nav-link")),
+                        mn.list_.item(
+                            rx.link("Number Formatter", href="/number-formatter")
+                        ),
+                        mn.list_.item(rx.link("ScrollArea", href="/scroll-area")),
+                        mn.list_.item(rx.link("Table", href="/table")),
+                        type="unordered",
+                        list_style_type="disc",
+                    ),
+                ),
+                cols=2,
+                spacing="md",
             ),
-            rx.text.strong("Inputs:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("Input Components", href="/inputs")),
-                rx.list.item(rx.link("Password Input", href="/password")),
-                rx.list.item(rx.link("Date Input", href="/date")),
-                rx.list.item(rx.link("Select", href="/select")),
-                rx.list.item(rx.link("Rich Select", href="/rich_select")),
-                rx.list.item(rx.link("MultiSelect", href="/multi-select")),
-                rx.list.item(rx.link("Autocomplete", href="/autocomplete")),
-                rx.list.item(rx.link("Rich Text Editor (Tiptap)", href="/tiptap")),
-            ),
-            rx.text.strong("Buttons:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("Action Icon (Group demo)", href="/action-icon")),
-                rx.list.item(rx.link("Button", href="/button")),
-            ),
-            rx.text.strong("Data Display:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("Accordion", href="/accordion")),
-                rx.list.item(rx.link("Avatar", href="/avatar")),
-                rx.list.item(rx.link("Card", href="/card")),
-                rx.list.item(rx.link("Image", href="/image")),
-                rx.list.item(rx.link("Indicator", href="/indicator")),
-                rx.list.item(rx.link("Timeline", href="/timeline")),
-            ),
-            rx.text.strong("Feedback:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("Alert", href="/alert")),
-                rx.list.item(rx.link("Notification", href="/notification")),
-                rx.list.item(rx.link("Progress", href="/progress")),
-                rx.list.item(rx.link("Skeleton", href="/skeleton")),
-            ),
-            rx.text.strong("Navigation:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("Breadcrumbs", href="/breadcrumbs")),
-                rx.list.item(rx.link("Pagination", href="/pagination")),
-                rx.list.item(rx.link("Stepper", href="/stepper")),
-                rx.list.item(rx.link("Tabs", href="/tabs")),
-            ),
-            rx.text.strong("Overlay:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("HoverCard", href="/hover-card")),
-                rx.list.item(rx.link("Tooltip", href="/tooltip")),
-            ),
-            rx.text.strong("Others:", size="3"),
-            rx.list.unordered(
-                rx.list.item(rx.link("Markdown Preview", href="/markdown-preview")),
-                rx.list.item(rx.link("Modal", href="/modal")),
-                rx.list.item(rx.link("Navigation Progress", href="/nprogress")),
-                rx.list.item(rx.link("Nav Link", href="/nav-link")),
-                rx.list.item(rx.link("Number Formatter", href="/number-formatter")),
-                rx.list.item(rx.link("ScrollArea", href="/scroll-area")),
-                rx.list.item(rx.link("Table", href="/table")),
-            ),
-            spacing="2",
-            justify="center",
-            margin_top="0",
+            spacing="md",
+            mt="0",
+            w="100%",
         ),
+        size="lg",
+        w="100%",
     )
 
 
