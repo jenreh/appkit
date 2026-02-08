@@ -49,7 +49,7 @@ def gallery_header() -> rx.Component:
 def image_generator_page() -> rx.Component:
     """Main image gallery page component."""
     return rx.box(
-        header("Bildgenerator", indent=True, header_items=gallery_header()),
+        header("Bildgenerator", header_items=gallery_header()),
         rx.scroll_area(
             image_grid(),
             height="calc(100vh - 60px)",

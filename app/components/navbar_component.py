@@ -23,7 +23,7 @@ border_radius = "var(--radius-2)"
 box_shadow_right_light = "inset -5px -5px 15px -5px rgba(0, 0, 0, 0.1)"
 box_shadow_right_dark = "inset -5px -5px 15px -5px rgba(0.9, 0.9, 0.9, 0.1)"
 
-sidebar_width = "375px"
+sidebar_width = "320px"
 
 
 def admin_sidebar_item(
@@ -371,13 +371,14 @@ def navbar(
     if navbar_footer is None:
         navbar_footer = navbar_default_footer(version=version)
 
-    return rx.flex(
-        rx.box(
-            class_name=rx.cond(
-                LoadingState.is_loading, "rainbow-gradient-bar", "default-bar"
-            ),
-        ),
+    # Outer box reserves space in document flow for fixed sidebar
+    return rx.box(
         mn.stack(
+            rx.box(
+                class_name=rx.cond(
+                    LoadingState.is_loading, "rainbow-gradient-bar", "default-bar"
+                ),
+            ),
             navbar_header,
             mn.stack(
                 sidebar_item(
@@ -402,7 +403,6 @@ def navbar(
                 scrollbar_size="6px",
                 show_controls=False,
                 persist_key="navbar_scroll_area",
-                # Allow the scroll area to grow and take available space
                 flex="1",
                 min_height="0",
                 height="100%",
@@ -418,25 +418,25 @@ def navbar(
             navbar_footer,
             justify="end",
             align="end",
-            w="18em",
+            w=sidebar_width,
             h="100dvh",
             p="1em",
             gap="6px",
+            position="fixed",
+            top="0",
+            left="0",
+            z_index="1000",
+            style={
+                "background": rx.color("gray", 2),
+                "border_right": border,
+                "box_shadow": rx.color_mode_cond(
+                    light=box_shadow_right_light,
+                    dark=box_shadow_right_dark,
+                ),
+            },
         ),
-        max_width=sidebar_width,
-        width="100%",
+        min_width=sidebar_width,
+        width=sidebar_width,
         height="100vh",
-        position="sticky",
-        justify="end",
-        top="0px",
-        left="0px",
-        flex="1",
-        spacing="0",
-        bg=rx.color("gray", 2),
-        border_right=border,
-        box_shadow=rx.color_mode_cond(
-            light=box_shadow_right_light,
-            dark=box_shadow_right_dark,
-        ),
         **kwargs,
     )

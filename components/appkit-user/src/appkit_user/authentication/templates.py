@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 import reflex as rx
 
+import appkit_mantine as mn
 from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.components import default_fallback, session_monitor
 from appkit_user.authentication.states import LoginState, UserSession
@@ -97,6 +98,32 @@ def default_layout(
     return decorator
 
 
+def _render_layout(
+    content: rx.Component,
+    navbar_component: rx.Component,
+    with_header: bool,
+) -> rx.Component:
+    """Shared layout renderer using Mantine Flex and Stack."""
+    return mn.flex(
+        navbar_component,
+        mn.stack(
+            content,
+            w="100%",
+            m=rx.cond(with_header, "48px 0 0 0", "0"),
+            p=rx.cond(with_header, "0", "24px"),
+            flex="1",
+            min_w="0",
+            h="100vh",
+            style={"overflowY": "auto", "overflowX": "hidden"},
+        ),
+        w="100%",
+        h="100vh",
+        align="flex-start",
+        pos="relative",
+        style={"overflow": "hidden"},
+    )
+
+
 def navbar_layout(
     route: str | None = None,
     title: str | None = None,
@@ -124,23 +151,7 @@ def navbar_layout(
             content: Callable[[], rx.Component],
             navbar_component: rx.Component,
         ) -> rx.Component:
-            return rx.hstack(
-                navbar_component,
-                rx.flex(
-                    rx.vstack(
-                        content(),
-                        width="100%",
-                        padding_top="2.5em",
-                    ),
-                    width="100%",
-                    max_width="100%",
-                    padding_top="0",
-                    padding_x=rx.cond(with_header, "0", ["auto", "auto", "2em"]),
-                ),
-                width="100%",
-                spacing="0",
-                position="relative",
-            )
+            return _render_layout(content(), navbar_component, with_header)
 
         @rx.page(
             route=route,
@@ -215,23 +226,7 @@ def authenticated(
             content: Callable[[], rx.Component],
             navbar_component: rx.Component,
         ) -> rx.Component:
-            return rx.hstack(
-                navbar_component,
-                rx.flex(
-                    rx.vstack(
-                        content(),
-                        width="100%",
-                        padding_top="2.5em",
-                    ),
-                    width="100%",
-                    max_width="100%",
-                    padding_top=rx.cond(with_header, "0", ["1em", "1em", "2em"]),
-                    padding_x=rx.cond(with_header, "0", ["auto", "auto", "2em"]),
-                ),
-                width="100%",
-                spacing="0",
-                position="relative",
-            )
+            return _render_layout(content(), navbar_component, with_header)
 
         @rx.page(
             route=route,

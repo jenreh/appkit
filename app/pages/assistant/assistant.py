@@ -146,54 +146,46 @@ def assistant_page() -> rx.Component:
         "margin_bottom": "18px",
     }
 
-    return rx.fragment(
+    return requires_role(
+        header("Assistent"),
         mermaid_zoom_script(),  # Enable image/diagram zooming
-        requires_role(
+        rx.flex(
             rx.vstack(
-                header("Assistent", indent=True),
-                rx.flex(
-                    rx.vstack(
-                        Assistant.thread_list(
-                            width="100%",
-                            margin_top="6px",
-                            **assistant_styles,  # type: ignore
-                        ),
-                        flex_shrink=0,
-                        width="248px",
-                        padding="0px 12px",
-                        border_right=f"1px solid {rx.color('gray', 5)}",
-                        background_color=rx.color("gray", 1),
-                    ),
-                    rx.vstack(
-                        rx.center(
-                            Assistant.thread(
-                                welcome_message=(
-                                    "👋 Hallo, wie kann ich Dir heute helfen?"
-                                ),
-                                with_attachments=True,
-                                with_scroll_to_bottom=False,
-                                with_thread_list=True,
-                                with_tools=True,
-                                # styling
-                                padding="12px",
-                                border_radius="10px",
-                                direction="column",
-                                width="100%",
-                                **assistant_styles,
-                            ),
-                            width="100%",
-                        ),
+                Assistant.thread_list(
+                    width="100%",
+                    margin_top="6px",
+                    **assistant_styles,  # type: ignore
+                ),
+                flex_shrink=0,
+                width="248px",
+                padding="0px 12px",
+                border_right=f"1px solid {rx.color('gray', 5)}",
+                background_color=rx.color("gray", 1),
+            ),
+            rx.vstack(
+                rx.center(
+                    Assistant.thread(
+                        welcome_message=("👋 Hallo, wie kann ich Dir heute helfen?"),
+                        with_attachments=True,
+                        with_scroll_to_bottom=False,
+                        with_thread_list=True,
+                        with_tools=True,
+                        # styling
+                        padding="12px",
+                        border_radius="10px",
+                        direction="column",
                         width="100%",
-                        flex_shrink=1,
+                        **assistant_styles,
                     ),
-                    display="column",
                     width="100%",
                 ),
-                margin_top="11px",
                 width="100%",
-                spacing="0",
+                flex_shrink=1,
             ),
-            role=ASSISTANT_USER_ROLE.name,
-            fallback=default_fallback(),
+            display="column",
+            width="100%",
+            height="calc(100vh - 76px)",
         ),
+        role=ASSISTANT_USER_ROLE.name,
+        fallback=default_fallback(),
     )

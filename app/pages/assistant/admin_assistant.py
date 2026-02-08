@@ -62,33 +62,38 @@ def admin_assistant_page() -> rx.Component:
     return requires_admin(
         rx.vstack(
             header("Assistant Administration"),
-            rx.tabs(
-                rx.tabs.list(
-                    rx.tabs.trigger("MCP Server", value="mcp"),
-                    rx.tabs.trigger("System Prompt", value="system_prompt"),
-                    rx.tabs.trigger("Dateimanager", value="file_manager"),
-                    margin_bottom="21px",
-                ),
-                rx.tabs.content(
-                    mcp_servers_table(
-                        role_labels=ROLE_LABELS, available_roles=AVAILABLE_ROLES
+            rx.vstack(
+                rx.tabs(
+                    rx.tabs.list(
+                        rx.tabs.trigger("MCP Server", value="mcp"),
+                        rx.tabs.trigger("System Prompt", value="system_prompt"),
+                        rx.tabs.trigger("Dateimanager", value="file_manager"),
+                        margin_bottom="21px",
                     ),
-                    value="mcp",
+                    rx.tabs.content(
+                        mcp_servers_table(
+                            role_labels=ROLE_LABELS, available_roles=AVAILABLE_ROLES
+                        ),
+                        value="mcp",
+                    ),
+                    rx.tabs.content(
+                        system_prompt_editor(),
+                        value="system_prompt",
+                    ),
+                    rx.tabs.content(
+                        file_manager(),
+                        value="file_manager",
+                    ),
+                    value=AdminAssistantState.active_tab,
+                    on_change=AdminAssistantState.on_tab_change,
+                    width="100%",
                 ),
-                rx.tabs.content(
-                    system_prompt_editor(),
-                    value="system_prompt",
-                ),
-                rx.tabs.content(
-                    file_manager(),
-                    value="file_manager",
-                ),
-                value=AdminAssistantState.active_tab,
-                on_change=AdminAssistantState.on_tab_change,
                 width="100%",
+                max_width="1200px",
+                margin_x="auto",
+                spacing="6",
             ),
             width="100%",
-            max_width="1200px",
             spacing="6",
         ),
     )

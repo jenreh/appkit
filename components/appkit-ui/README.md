@@ -133,9 +133,6 @@ from appkit_ui.components.header import header
 
 # Basic header
 header("Application Title")
-
-# Indented header (for sidebar layouts)
-header("Dashboard", indent=True)
 ```
 
 #### Styles and Themes
@@ -412,7 +409,7 @@ import appkit_user as user
 
 def dashboard():
     return rx.vstack(
-        ui.header("Dashboard", indent=True),
+        ui.header("Dashboard"),
         rx.hstack(
             # Sidebar navigation
             mn.sidebar(),

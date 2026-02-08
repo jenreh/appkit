@@ -23,9 +23,12 @@ def users_page() -> rx.Component:
     return requires_admin(
         rx.vstack(
             header("Benutzer"),
-            users_table(additional_components=additional_components),
-            width="100%",
-            max_width="1200px",
+            rx.vstack(
+                users_table(additional_components=additional_components),
+                max_width="1200px",
+                width="100%",
+            ),
             spacing="6",
-        ),
+            width="100%",
+        )
     )
