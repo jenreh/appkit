@@ -54,11 +54,11 @@ def vector_store_item(store_info: VectorStoreInfo) -> rx.Component:
                 flex="1",
             ),
             rx.tooltip(
-                rx.button(
+                mn.button.button(
                     rx.icon("trash", size=13, stroke_width=1.5),
-                    variant="ghost",
-                    size="1",
-                    color_scheme="gray",
+                    variant="subtle",
+                    size="compact-xs",
+                    color="gray",
                     loading=is_deleting,
                     on_click=FileManagerState.delete_vector_store(
                         store_info.store_id
@@ -197,9 +197,10 @@ def cleanup_progress_modal() -> rx.Component:
         "Unbekannter Status",
     )
 
-    return rx.dialog.root(
-        rx.dialog.content(
-            rx.dialog.title(
+    return mn.modal.root(
+        mn.modal.overlay(),
+        mn.modal.content(
+            mn.modal.header(
                 rx.hstack(
                     rx.icon(
                         rx.cond(is_error, "alert-circle", "trash-2"),
@@ -214,12 +215,13 @@ def cleanup_progress_modal() -> rx.Component:
                             ),
                         ),
                     ),
-                    rx.text("Bereinigung"),
+                    mn.modal.title("Bereinigung"),
                     spacing="2",
                     align="center",
                 ),
+                mn.modal.close_button(),
             ),
-            rx.dialog.description(
+            mn.modal.body(
                 rx.vstack(
                     # Status message
                     rx.hstack(
@@ -300,37 +302,38 @@ def cleanup_progress_modal() -> rx.Component:
                         spacing="1",
                         width="100%",
                     ),
+                    # Footer
+                    rx.flex(
+                        mn.button.button(
+                            "Schließen",
+                            variant="light",
+                            disabled=is_running,
+                            on_click=FileManagerState.close_cleanup_modal,
+                        ),
+                        justify="end",
+                        spacing="2",
+                        margin_top="16px",
+                    ),
                     spacing="3",
                     width="100%",
-                    padding_y="2",
                 ),
             ),
-            rx.flex(
-                rx.button(
-                    "Schließen",
-                    variant="soft",
-                    disabled=is_running,
-                    on_click=FileManagerState.close_cleanup_modal,
-                ),
-                justify="end",
-                spacing="2",
-                margin_top="16px",
-            ),
-            max_width="400px",
+            size="400px",
         ),
-        open=FileManagerState.cleanup_modal_open,
-        on_open_change=FileManagerState.set_cleanup_modal_open,
+        opened=FileManagerState.cleanup_modal_open,
+        on_close=FileManagerState.close_cleanup_modal,
+        centered=True,
     )
 
 
 def cleanup_button() -> rx.Component:
     """Render the cleanup button."""
-    return rx.button(
-        rx.icon("trash-2", size=14),
-        rx.text("Vector Stores aufräumen"),
-        variant="soft",
-        color_scheme="red",
-        size="2",
+    return mn.button.button(
+        "Vector Stores aufräumen",
+        left_section=rx.icon("trash-2", size=14),
+        variant="light",
+        color="red",
+        size="sm",
         disabled=FileManagerState.cleanup_running,
         loading=FileManagerState.cleanup_running,
         on_click=[
