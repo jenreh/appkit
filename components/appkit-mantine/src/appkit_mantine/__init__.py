@@ -39,6 +39,26 @@ from appkit_mantine.drawer import drawer
 from appkit_mantine.modal import modal
 from appkit_mantine.text_input import text_input
 from appkit_mantine.switch import switch
+from appkit_mantine.layout import (
+    center,
+    container,
+    flex,
+    group,
+    stack,
+    simple_grid,
+    grid,
+    grid_col,
+    space,
+    Center,
+    Container,
+    Flex,
+    Group,
+    Stack,
+    SimpleGrid,
+    Grid,
+    GridCol,
+    Space,
+)
 
 __all__ = [
     "MANTINE_LIBARY",
@@ -51,8 +71,14 @@ __all__ = [
     "ToolbarControlGroup",
     "action_icon",
     "button",
+    "center",
+    "container",
     "drawer",
+    "flex",
     "form",
+    "grid",
+    "grid_col",
+    "group",
     "markdown_preview",
     "mermaid_zoom_script",
     "modal",
@@ -61,6 +87,9 @@ __all__ = [
     "number_formatter",
     "rich_text_editor",
     "scroll_area",
+    "simple_grid",
+    "space",
+    "stack",
     "table",
     "text_input",
 ]
