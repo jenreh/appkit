@@ -34,54 +34,57 @@ def admin_sidebar_item(
     )
 
     return rx.link(
-        mn.group(
-            mn.box(w="16px"),
-            rx.cond(
-                svg,
-                rx.image(svg, height="16px", width="16px", fill="var(--gray-9)"),
-                rx.icon(icon, size=15, color="var(--gray-9)"),
-            ),
-            mn.text(
-                label,
-                size="sm",
-                fw="regular",
-                style={
-                    "color": rx.cond(
-                        active,
-                        accent_text_color,
-                        text_color,
+        mn.box(
+            mn.group(
+                rx.cond(
+                    svg,
+                    rx.image(svg, height="16px", width="16px", fill="var(--gray-9)"),
+                    rx.icon(
+                        icon,
+                        size=15,
+                        color=rx.cond(
+                            active,
+                            accent_text_color,
+                            text_color,
+                        ),
                     ),
-                },
-            ),
-            style={
-                "background_color": rx.cond(
-                    active,
-                    accent_bg_color,
-                    "transparent",
                 ),
-                "_hover": {
+                mn.text(
+                    label,
+                    size="sm",
+                ),
+                style={
                     "background_color": rx.cond(
                         active,
                         accent_bg_color,
-                        gray_bg_color,
+                        "transparent",
                     ),
-                    "color": rx.cond(
+                    "_hover": {
+                        "background_color": rx.cond(
+                            active,
+                            accent_bg_color,
+                            gray_bg_color,
+                        ),
+                        "color": rx.cond(
+                            active,
+                            accent_text_color,
+                            text_color,
+                        ),
+                        "opacity": "1",
+                    },
+                    "opacity": rx.cond(
                         active,
-                        accent_text_color,
-                        text_color,
+                        "1",
+                        "0.95",
                     ),
-                    "opacity": "1",
+                    "border_radius": border_radius,
                 },
-                "opacity": rx.cond(
-                    active,
-                    "1",
-                    "0.95",
-                ),
-                "border_radius": border_radius,
-            },
-            align="center",
-            width="100%",
-            p="3px",
+                align="center",
+                width="100%",
+                p="3px 9px",
+            ),
+            padding="3px 9px",
+            ml="15px",
         ),
         on_click=[
             LoadingState.set_is_loading(True),
@@ -89,6 +92,12 @@ def admin_sidebar_item(
         underline="none",
         href=url,
         width="100%",
+        margin="0",
+        color=rx.cond(
+            active,
+            accent_text_color,
+            text_color,
+        ),
     )
 
 
@@ -338,7 +347,8 @@ def navbar_default_footer(version: str) -> rx.Component:
             size="xs",
             w="100%",
             ml="3px",
-            color=rx.color("gray", 7),
+            c="gray",
+            # color=rx.color("gray", 7),
         ),
         justify="start",
         align="start",
@@ -411,10 +421,11 @@ def navbar(
             w="18em",
             h="100dvh",
             p="1em",
+            gap="6px",
         ),
         max_width=sidebar_width,
         width="100%",
-        height="100%",
+        height="100vh",
         position="sticky",
         justify="end",
         top="0px",

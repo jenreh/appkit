@@ -9,7 +9,6 @@ from appkit_user.authentication.components.components import requires_role
 
 from app.components.navbar_component import (
     admin_sidebar_item,
-    border_radius,
     navbar,
     sidebar_sub_item,
 )
@@ -60,13 +59,12 @@ def navbar_header() -> rx.Component:
 def navbar_admin_items() -> rx.Component:
     return mn.stack(
         mn.group(
-            rx.icon("settings", size=18),
-            mn.text("Administration"),
+            rx.icon("settings", size=17, margin_right="6px"),
+            mn.text("Administration", size="md", fw="regular"),
             align="center",
-            br=border_radius,
             w="100%",
-            gap="sm",
-            p="sm",
+            gap="3px",
+            p="0.35em",
         ),
         admin_sidebar_item(
             label="Benutzer",
@@ -82,7 +80,7 @@ def navbar_admin_items() -> rx.Component:
             role=ASSISTANT_ADMIN_ROLE.name,
         ),
         w="95%",
-        gap="2px",
+        gap="0px",
     )
 
 
