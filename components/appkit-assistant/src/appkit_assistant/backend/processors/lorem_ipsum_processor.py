@@ -55,6 +55,7 @@ class LoremIpsumProcessor(ProcessorBase):
 
     def __init__(self, models: dict[str, AIModel] = LOREM_MODELS) -> None:
         """Initialize the Lorem Ipsum processor."""
+        super().__init__(processor_name="lorem_ipsum")
         self.models = models
         logger.debug("Lorem Ipsum processor initialized")
 
@@ -84,6 +85,8 @@ class LoremIpsumProcessor(ProcessorBase):
         if model_id not in self.models:
             raise ValueError(f"Model {model_id} not supported by Lorem Ipsum processor")
 
+        self._reset_statistics(model_id)
+
         # Simulate thinking process
         yield Chunk(
             type=ChunkType.THINKING,
@@ -93,6 +96,7 @@ class LoremIpsumProcessor(ProcessorBase):
         await asyncio.sleep(0.5)
 
         num_paragraphs = random.randint(4, 8)  # noqa: S311
+        word_count = 0
         for i in range(num_paragraphs):
             if cancellation_token and cancellation_token.is_set():
                 break
@@ -102,6 +106,7 @@ class LoremIpsumProcessor(ProcessorBase):
                 if cancellation_token and cancellation_token.is_set():
                     break
                 content = word + " "
+                word_count += 1
                 await asyncio.sleep(0.01)
                 yield Chunk(
                     type=ChunkType.TEXT,
@@ -127,6 +132,16 @@ class LoremIpsumProcessor(ProcessorBase):
             type=ChunkType.THINKING,
             text="So, generated enough Lorem Ipsum for you!",
             chunk_metadata={"source": "lorem_ipsum", "model": model_id},
+        )
+
+        # Set fake usage
+        self._update_statistics(input_tokens=10, output_tokens=word_count * 2)
+
+        yield Chunk(
+            type=ChunkType.COMPLETION,
+            text="",
+            chunk_metadata={"status": "response_complete"},
+            statistics=self._get_statistics(),
         )
 
     def get_supported_models(self) -> dict[str, AIModel]:

@@ -71,6 +71,9 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
         perplexity_payload = self._build_perplexity_payload(model, payload)
 
         try:
+            # Initialize statistics
+            self._reset_statistics(model_id)
+
             chat_messages = self._convert_messages_to_openai_format(messages)
             session = await self.client.chat.completions.create(
                 model=model.model,
@@ -144,6 +147,13 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
             if hasattr(event, "citations") and event.citations:
                 citations = event.citations
 
+            # Capture usage stats (usually in the last chunk)
+            if hasattr(event, "usage") and event.usage:
+                self._update_statistics(
+                    input_tokens=event.usage.prompt_tokens,
+                    output_tokens=event.usage.completion_tokens,
+                )
+
             if event.choices and event.choices[0].delta:
                 content = event.choices[0].delta.content
                 if content:
@@ -154,6 +164,14 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
         # After streaming completes, yield citation annotations
         async for chunk in self._yield_citations(citations):
             yield chunk
+
+        # Yield completion chunk with statistics
+        stats = self._get_statistics()
+        logger.debug("Completion statistics: %s", stats)
+        yield self._chunk_factory.completion(
+            status="response_complete",
+            statistics=stats,
+        )
 
     async def _process_non_streaming_response(
         self, session: Any, model: PerplexityAIModel
@@ -173,11 +191,26 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
         if hasattr(session, "citations") and session.citations:
             citations = session.citations
 
+        # Capture usage stats from non-streaming response
+        if session.usage:
+            self._update_statistics(
+                input_tokens=session.usage.prompt_tokens,
+                output_tokens=session.usage.completion_tokens,
+            )
+
         if content:
             yield self._create_chunk(content, model.model, message_id=session.id)
 
         async for chunk in self._yield_citations(citations):
             yield chunk
+
+        # Yield completion chunk with statistics
+        stats = self._get_statistics()
+        logger.debug("Completion statistics: %s", stats)
+        yield self._chunk_factory.completion(
+            status="response_complete",
+            statistics=stats,
+        )
 
     async def _yield_citations(
         self, citations: list[str]

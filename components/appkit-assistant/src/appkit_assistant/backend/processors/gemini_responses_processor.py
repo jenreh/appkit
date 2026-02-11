@@ -147,6 +147,9 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self.current_user_id = user_id
         self.clear_pending_auth_servers()
 
+        # Initialize statistics
+        self._reset_statistics(model.model)
+
         # Prepare configuration
         config = self._create_generation_config(model, payload)
 
@@ -183,6 +186,14 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 model.model, contents, config, mcp_sessions, cancellation_token
             ):
                 yield chunk
+
+            # Yield final completion chunk with statistics
+            stats = self._get_statistics()
+            logger.debug("Completion statistics: %s", stats)
+            yield self.chunk_factory.completion(
+                status="response_complete",
+                statistics=stats,
+            )
 
             # Handle any pending auth
             async for auth_chunk in self.yield_pending_auth_chunks():
@@ -322,10 +333,19 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             collected_parts: list[types.Part] = []
             streamed_text = ""
 
+            # Track tools used in this round
+            tools_used_in_round: list[tuple[str, str | None]] = []
+
             async for chunk in stream:
                 if cancellation_token and cancellation_token.is_set():
                     logger.info("Processing cancelled by user")
                     return
+
+                if chunk.usage_metadata:
+                    self._update_statistics(
+                        input_tokens=chunk.usage_metadata.prompt_token_count,
+                        output_tokens=chunk.usage_metadata.candidates_token_count,
+                    )
 
                 if not chunk.candidates or not chunk.candidates[0].content:
                     continue
@@ -666,6 +686,13 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
     def _handle_chunk(self, chunk: Any) -> Chunk | None:
         """Handle a single chunk from Gemini stream."""
+        # Update statistics if usage metadata is present in the chunk
+        if hasattr(chunk, "usage_metadata") and chunk.usage_metadata:
+            self._update_statistics(
+                input_tokens=chunk.usage_metadata.prompt_token_count,
+                output_tokens=chunk.usage_metadata.candidates_token_count,
+            )
+
         if (
             not chunk.candidates
             or not chunk.candidates[0].content

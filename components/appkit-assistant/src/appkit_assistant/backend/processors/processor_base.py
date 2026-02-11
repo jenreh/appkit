@@ -4,6 +4,7 @@ Base processor interface for AI processing services.
 
 import abc
 import asyncio
+import contextvars
 import logging
 from collections.abc import AsyncGenerator
 
@@ -12,11 +13,17 @@ from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     Message,
+    ProcessingStatistics,
 )
 from appkit_commons.configuration.configuration import ReflexConfig
 from appkit_commons.registry import service_registry
 
 logger = logging.getLogger(__name__)
+
+# Context variable for request-scoped statistics
+statistics_ctx: contextvars.ContextVar[ProcessingStatistics | None] = (
+    contextvars.ContextVar("statistics", default=None)
+)
 
 # OAuth callback path - must match registered redirect URIs
 MCP_OAUTH_CALLBACK_PATH = "/assistant/mcp/callback"
@@ -38,6 +45,10 @@ def mcp_oauth_redirect_uri() -> str:
 
 class ProcessorBase(abc.ABC):
     """Base processor interface for AI processing services."""
+
+    def __init__(self, processor_name: str | None = None) -> None:
+        """Initialize the processor."""
+        self._processor_name = processor_name or self.__class__.__name__
 
     @abc.abstractmethod
     async def process(
@@ -71,3 +82,42 @@ class ProcessorBase(abc.ABC):
         Returns:
             Dictionary mapping model IDs to AIModel objects.
         """
+
+    def _reset_statistics(self, model_id: str) -> None:
+        """Reset statistics for a new request."""
+        stats = ProcessingStatistics(
+            model=model_id,
+            processor=self._processor_name,
+        )
+        statistics_ctx.set(stats)
+
+    def _get_statistics(self) -> ProcessingStatistics | None:
+        """Get the current statistics object."""
+        return statistics_ctx.get()
+
+    def _update_statistics(
+        self,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        tool_use: tuple[str, str | None] | None = None,
+    ) -> None:
+        """Update processing statistics.
+
+        Args:
+            input_tokens: Number of input tokens to set.
+            output_tokens: Number of output tokens to set.
+            tool_use: Tuple of (tool_name, server_label) to increment usage.
+        """
+        stats = statistics_ctx.get()
+        if not stats:
+            return
+
+        if input_tokens is not None:
+            stats.input_tokens = input_tokens
+        if output_tokens is not None:
+            stats.output_tokens = output_tokens
+
+        if tool_use:
+            tool_name, server_label = tool_use
+            key = f"{server_label}.{tool_name}" if server_label else tool_name
+            stats.tool_uses[key] = stats.tool_uses.get(key, 0) + 1

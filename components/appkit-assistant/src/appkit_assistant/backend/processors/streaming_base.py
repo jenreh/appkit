@@ -57,6 +57,7 @@ class StreamingProcessorBase(ProcessorBase, ABC):
             models: Dictionary of supported AI models
             processor_name: Name for chunk metadata (e.g., "claude_responses")
         """
+        super().__init__(processor_name=processor_name)
         self.models = models
         self._chunk_factory = ChunkFactory(processor_name)
         self._auth_detector = AuthErrorDetector()

@@ -9,6 +9,14 @@ class DeleteDialog(rx.ComponentState):
     def toggle(self) -> None:
         self.is_open = not self.is_open
 
+    # Map legacy Radix variant names to Mantine equivalents
+    _VARIANT_MAP: dict[str, str] = {
+        "ghost": "subtle",
+        "soft": "light",
+        "surface": "default",
+        "classic": "filled",
+    }
+
     @classmethod
     def get_component(
         cls,
@@ -20,6 +28,12 @@ class DeleteDialog(rx.ComponentState):
         action_loading: bool = False,
         **kwargs,
     ) -> rx.Component:
+        # Map legacy variant names to Mantine equivalents
+        if "variant" in kwargs:
+            kwargs["variant"] = cls._VARIANT_MAP.get(
+                kwargs["variant"], kwargs["variant"]
+            )
+
         # Defaults
         kwargs.setdefault("color", "red")
 

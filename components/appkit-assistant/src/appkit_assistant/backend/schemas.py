@@ -24,12 +24,23 @@ class ChunkType(StrEnum):
     LIFECYCLE = "lifecycle"
 
 
+class ProcessingStatistics(BaseModel):
+    """Statistics about the processing request."""
+
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    tool_uses: dict[str, int] = {}
+    model: str | None = None
+    processor: str | None = None
+
+
 class Chunk(BaseModel):
     """Model for text chunks."""
 
     type: ChunkType
     text: str
     chunk_metadata: dict[str, str | None] = {}
+    statistics: ProcessingStatistics | None = None
 
 
 class ThreadStatus(StrEnum):

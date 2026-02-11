@@ -59,20 +59,30 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
         model = self.models[model_id]
 
         try:
+            # Initialize statistics
+            self._reset_statistics(model_id)
+
             chat_messages = self._convert_messages_to_openai_format(messages)
-            session = await self.client.chat.completions.create(
-                model=model.model,
-                messages=chat_messages[:-1],
-                stream=model.stream,
-                temperature=model.temperature,
-                extra_body=payload,
-            )
+
+            # Request usage stats for streaming
+            request_kwargs = {
+                "model": model.model,
+                "messages": chat_messages,
+                "stream": model.stream,
+                "temperature": model.temperature,
+                "extra_body": payload,
+            }
+            if model.stream:
+                request_kwargs["stream_options"] = {"include_usage": True}
+
+            session = await self.client.chat.completions.create(**request_kwargs)
 
             if isinstance(session, AsyncStream):
                 async for event in session:
                     if cancellation_token and cancellation_token.is_set():
                         logger.info("Processing cancelled by user")
-                        break
+                        break  # OpenAI stream cancellation via break is fine
+
                     if event.choices and event.choices[0].delta:
                         content = event.choices[0].delta.content
                         if content:
@@ -82,12 +92,38 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
                                 stream=True,
                                 message_id=event.id,
                             )
+
+                    # Capture usage stats from stream (usually in the last chunk)
+                    if hasattr(event, "usage") and event.usage:
+                        self._update_statistics(
+                            input_tokens=event.usage.prompt_tokens,
+                            output_tokens=event.usage.completion_tokens,
+                        )
             else:
                 content = session.choices[0].message.content
+                # Update statistics from response usage
+                if session.usage:
+                    self._update_statistics(
+                        input_tokens=session.usage.prompt_tokens,
+                        output_tokens=session.usage.completion_tokens,
+                    )
                 if content:
+                    # Final chunk for non-streaming should check for statistics if needed,
+                    # but typically we use `completion` chunk at end of stream.
+                    # However here we are yielding TEXT.
                     yield self._create_chunk(
                         content, model.model, message_id=session.id
                     )
+
+            # Yield final completion chunk with statistics
+            stats = self._get_statistics()
+            logger.debug("Completion statistics: %s", stats)
+            yield Chunk(
+                type=ChunkType.COMPLETION,
+                text="Response generation completed",
+                chunk_metadata={"status": "response_complete"},
+                statistics=stats,
+            )
         except Exception as e:
             raise e
 

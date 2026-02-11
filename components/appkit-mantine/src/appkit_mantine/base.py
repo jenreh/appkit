@@ -88,7 +88,32 @@ class MantineComponentBase(rx.Component):
     library = f"{MANTINE_LIBARY}@{MANTINE_VERSION}"
 
     def _get_custom_code(self) -> str:
-        return """import '@mantine/core/styles.css';"""
+        return """import '@mantine/core/styles.css';
+
+// Fix: Mantine shared portal node is a block-level div appended to <body>
+// that participates in document flow, breaking page layout even when
+// modals/drawers are closed. Remove it from flow with position: fixed.
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.setAttribute('data-mantine-portal-fix', 'true');
+  style.textContent = `
+    div[data-portal="true"] {
+      position: fixed !important;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+      overflow: visible;
+      pointer-events: none;
+    }
+    div[data-portal="true"] > * {
+      pointer-events: auto;
+    }
+  `;
+  if (!document.querySelector('style[data-mantine-portal-fix]')) {
+    document.head.appendChild(style);
+  }
+}"""
 
     @staticmethod
     def _get_app_wrap_components() -> dict[tuple[int, str], rx.Component]:

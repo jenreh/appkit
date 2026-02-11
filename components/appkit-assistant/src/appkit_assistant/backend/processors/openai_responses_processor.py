@@ -130,6 +130,9 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             )
 
             try:
+                # Initialize statistics
+                self._reset_statistics(model.model)
+
                 if hasattr(session, "__aiter__"):  # Streaming
                     async for event in session:
                         if cancellation_token and cancellation_token.is_set():
@@ -286,9 +289,13 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
     def _handle_search_events(self, event_type: str, event: Any) -> Chunk | None:
         """Handle file_search and web_search specific events."""
         if "file_search_call" in event_type:
+            if event_type == "response.file_search_call.completed":
+                self._update_statistics(tool_use=("file_search", None))
             return self._handle_file_search_event(event_type, event)
 
         if "web_search_call" in event_type:
+            if event_type == "response.web_search_call.completed":
+                self._update_statistics(tool_use=("web_search", None))
             return self._handle_web_search_event(event_type, event)
 
         return None
@@ -347,7 +354,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         if event_type == "response.in_progress":
             return self.chunk_factory.lifecycle("in_progress", {"stage": "in_progress"})
         if event_type == "response.done":
-            return self.chunk_factory.completion(status="done")
+            return self.chunk_factory.lifecycle("done", {"stage": "done"})
         return None
 
     def _handle_text_events(self, event_type: str, event: Any) -> Chunk | None:
@@ -664,13 +671,35 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         # - response.output_text.done: already received via delta events
         return None
 
-    def _handle_completion_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: ARG002
+    def _handle_completion_events(self, event_type: str, event: Any) -> Chunk | None:
         """Handle completion-related events."""
-        return (
-            self.chunk_factory.completion(status="response_complete")
-            if event_type == "response.completed"
-            else None
-        )
+        if event_type == "response.completed":
+            # Extract usage from response object
+            # Responses API: event.response.usage.{input_tokens, output_tokens}
+            response = getattr(event, "response", None)
+            if response:
+                usage = getattr(response, "usage", None)
+                if usage:
+                    self._update_statistics(
+                        input_tokens=getattr(usage, "input_tokens", 0),
+                        output_tokens=getattr(usage, "output_tokens", 0),
+                    )
+
+            # Aggregate MCP tool usage
+            for tool_name in self._tool_name_map.values():
+                if "." in tool_name:
+                    parts = tool_name.split(".", 1)
+                    self._update_statistics(tool_use=(parts[1], parts[0]))
+                else:
+                    self._update_statistics(tool_use=(tool_name, None))
+
+            stats = self._get_statistics()
+            logger.debug("Completion statistics: %s", stats)
+            return self.chunk_factory.completion(
+                status="response_complete",
+                statistics=stats,
+            )
+        return None
 
     def _handle_image_events(self, event_type: str, event: Any) -> Chunk | None:
         """Handle image-related events."""

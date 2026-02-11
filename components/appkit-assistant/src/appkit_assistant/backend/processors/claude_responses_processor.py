@@ -114,6 +114,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self._uploaded_file_ids = []
         self._tool_name_map.clear()  # Clear tool tracking for new request
         self._mcp_warnings = []  # Clear warnings for new request
+        self._reset_statistics(model_id)
 
         try:
             # Upload files if provided
@@ -195,9 +196,27 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             f"stop_reason: {stop_reason}", {"stop_reason": stop_reason}
         )
 
-    def _handle_message_stop(self, _: Any) -> Chunk | None:
+    def _handle_message_stop(self, event: Any) -> Chunk | None:
         """Handle message_stop event."""
-        return self.chunk_factory.completion(status="response_complete")
+        message = getattr(event, "message", None)
+        if message:
+            usage = getattr(message, "usage", None)
+            if usage:
+                self._update_statistics(
+                    input_tokens=getattr(usage, "input_tokens", 0),
+                    output_tokens=getattr(usage, "output_tokens", 0),
+                )
+
+        # Aggregate tool usage
+        for _tool_id, (tool_name, server_name) in self._tool_name_map.items():
+            self._update_statistics(tool_use=(tool_name, server_name))
+
+        stats = self._get_statistics()
+        logger.debug("Completion statistics: %s", stats)
+        return self.chunk_factory.completion(
+            status="response_complete",
+            statistics=stats,
+        )
 
     def _handle_content_block_start(self, event: Any) -> Chunk | None:
         """Handle content_block_start event."""

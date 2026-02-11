@@ -6,7 +6,7 @@ across all AI processors.
 
 from typing import Any
 
-from appkit_assistant.backend.schemas import Chunk, ChunkType
+from appkit_assistant.backend.schemas import Chunk, ChunkType, ProcessingStatistics
 
 
 class ChunkFactory:
@@ -198,20 +198,28 @@ class ChunkFactory:
             metadata.update(extra)
         return self.create(ChunkType.LIFECYCLE, stage, metadata)
 
-    def completion(self, status: str = "response_complete") -> Chunk:
+    def completion(
+        self,
+        status: str = "response_complete",
+        statistics: ProcessingStatistics | None = None,
+    ) -> Chunk:
         """Create a COMPLETION chunk.
 
         Args:
             status: The completion status
+            statistics: Optional processing statistics
 
         Returns:
             A COMPLETION Chunk
         """
-        return self.create(
+        chunk = self.create(
             ChunkType.COMPLETION,
             "Response generation completed",
             {"status": status},
         )
+        if statistics:
+            chunk.statistics = statistics
+        return chunk
 
     def error(self, message: str, error_type: str = "unknown") -> Chunk:
         """Create an ERROR chunk.
