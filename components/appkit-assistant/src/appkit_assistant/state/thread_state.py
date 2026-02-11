@@ -419,6 +419,22 @@ class ThreadState(rx.State):
                 self.thinking_items = []
                 self.prompt = ""
 
+                # Restore MCP servers that were selected for this thread
+                if full_thread.mcp_server_ids:
+                    self.selected_mcp_servers = [
+                        server
+                        for server in self.available_mcp_servers
+                        if server.id in full_thread.mcp_server_ids
+                    ]
+                    self.temp_selected_mcp_servers = list(full_thread.mcp_server_ids)
+                    self.server_selection_state = dict.fromkeys(
+                        full_thread.mcp_server_ids, True
+                    )
+                else:
+                    self.selected_mcp_servers = []
+                    self.temp_selected_mcp_servers = []
+                    self.server_selection_state = {}
+
                 # Update active state in ThreadListState
                 threadlist_state: ThreadListState = await self.get_state(
                     ThreadListState
@@ -561,13 +577,12 @@ class ThreadState(rx.State):
             or cmd.label.lower().startswith(f"/{search_term}")
         ]
 
-        if self.filtered_commands:
-            self.show_command_palette = True
-            self.command_search_prefix = text_after_slash
-            self.command_trigger_position = slash_pos
-            self.selected_command_index = 0
-        else:
-            self._hide_command_palette()
+        # Always show palette when "/" is typed, even if no commands match
+        # This allows users to create new prompts via "Neuer Prompt..." button
+        self.show_command_palette = True
+        self.command_search_prefix = text_after_slash
+        self.command_trigger_position = slash_pos
+        self.selected_command_index = 0
 
     def _hide_command_palette(self) -> None:
         """Hide the command palette and reset state."""
@@ -751,9 +766,12 @@ class ThreadState(rx.State):
         self._thread.ai_model = ModelManager().get_default_model()
         self._thread.active = True
         self._thread.prompt = ""
+        self._thread.mcp_server_ids = []
         self.prompt = ""
         self.messages = []
         self.selected_mcp_servers = []
+        self.temp_selected_mcp_servers = []
+        self.server_selection_state = {}
         self.thinking_items = []
         self.image_chunks = []
         self.show_thinking = False
@@ -1035,6 +1053,10 @@ class ThreadState(rx.State):
             # Save thread to DB if new and has files to enable file uploads
             if is_new_thread and file_paths and user_id:
                 self._thread.state = ThreadStatus.ACTIVE
+                # Persist selected MCP servers to thread
+                self._thread.mcp_server_ids = [
+                    s.id for s in self.selected_mcp_servers if s.id
+                ]
                 await self._thread_service.save_thread(self._thread, user_id)
                 logger.debug(
                     "Saved new thread %s to DB before file upload",
@@ -1348,6 +1370,10 @@ class ThreadState(rx.State):
             # serializer warnings
             self._thread.messages = list(self.messages)  # noqa: E501
             self._thread.ai_model = self.selected_model
+            # Persist selected MCP servers to thread
+            self._thread.mcp_server_ids = [
+                s.id for s in self.selected_mcp_servers if s.id
+            ]
 
             if self.with_thread_list:
                 user_session: UserSession = await self.get_state(UserSession)
@@ -1379,6 +1405,10 @@ class ThreadState(rx.State):
             # Convert Reflex proxy list to standard list to avoid Pydantic serializer
             # warnings
             self._thread.messages = list(self.messages)  # noqa: E501
+            # Persist selected MCP servers to thread
+            self._thread.mcp_server_ids = [
+                s.id for s in self.selected_mcp_servers if s.id
+            ]
             if self.with_thread_list:
                 user_session: UserSession = await self.get_state(UserSession)
                 user_id = user_session.user.user_id if user_session.user else None

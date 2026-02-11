@@ -101,6 +101,9 @@ class AssistantThread(rx.Model, table=True):
     ai_model: str = Field(default="", nullable=False)
     active: bool = Field(default=False, nullable=False)
     messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
+    mcp_server_ids: list[int] = Field(
+        default=[], sa_column=Column(ARRAY(Integer), nullable=False)
+    )
     vector_store_id: str | None = Field(default=None, nullable=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

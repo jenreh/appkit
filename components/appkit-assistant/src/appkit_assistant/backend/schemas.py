@@ -139,6 +139,7 @@ class ThreadModel(BaseModel):
     prompt: str | None = ""
     messages: list[Message] = []
     ai_model: str = ""
+    mcp_server_ids: list[int] = []
 
 
 class MCPAuthType(StrEnum):

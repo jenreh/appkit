@@ -83,6 +83,7 @@ class ThreadService:
                 ai_model=thread_entity.ai_model,
                 active=thread_entity.active,
                 messages=[Message(**m) for m in thread_entity.messages],
+                mcp_server_ids=thread_entity.mcp_server_ids or [],
             )
 
     async def save_thread(self, thread: ThreadModel, user_id: str | int) -> None:
@@ -116,6 +117,7 @@ class ThreadService:
                     existing.ai_model = thread.ai_model
                     existing.active = thread.active
                     existing.messages = messages_dict
+                    existing.mcp_server_ids = thread.mcp_server_ids
                     # updated_at handled by DB/SQLModel defaults,
                     # explicit save triggers it
                     await thread_repo.save(session, existing)
@@ -128,6 +130,7 @@ class ThreadService:
                         ai_model=thread.ai_model,
                         active=thread.active,
                         messages=messages_dict,
+                        mcp_server_ids=thread.mcp_server_ids,
                     )
                     await thread_repo.save(session, new_thread)
 
