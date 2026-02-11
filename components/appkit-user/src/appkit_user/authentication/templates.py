@@ -199,7 +199,7 @@ def authenticated(
     title: str | None = None,
     description: str | None = None,
     navbar: rx.Component | None = None,
-    with_header: bool = False,
+    with_header: bool = True,
     admin_only: bool = False,
     meta: list[dict] | None = None,
     script_tags: list[rx.Component] | None = None,

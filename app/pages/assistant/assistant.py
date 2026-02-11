@@ -133,7 +133,6 @@ initialize_model_manager()
     title="Assistant",
     description="A demo page for the Assistant UI.",
     navbar=app_navbar(),
-    with_header=True,
     on_load=[
         ThreadState.set_suggestions(suggestions),
         ThreadState.initialize(),
@@ -183,8 +182,7 @@ def assistant_page() -> rx.Component:
                 flex_shrink=1,
             ),
             display="column",
-            width="100%",
-            height="calc(100vh - 76px)",
+            **assistant_styles,
         ),
         role=ASSISTANT_USER_ROLE.name,
         fallback=default_fallback(),

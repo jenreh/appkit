@@ -2,6 +2,7 @@
 
 import reflex as rx
 
+import appkit_mantine as mn
 from appkit_assistant.components import file_manager, mcp_servers_table
 from appkit_assistant.components.system_prompt_editor import system_prompt_editor
 from appkit_assistant.roles import (
@@ -60,40 +61,37 @@ class AdminAssistantState(rx.State):
 def admin_assistant_page() -> rx.Component:
     """Consolidated admin page for managing assistant configuration."""
     return requires_admin(
-        rx.vstack(
+        mn.stack(
             header("Assistant Administration"),
-            rx.vstack(
-                rx.tabs(
-                    rx.tabs.list(
-                        rx.tabs.trigger("MCP Server", value="mcp"),
-                        rx.tabs.trigger("System Prompt", value="system_prompt"),
-                        rx.tabs.trigger("Dateimanager", value="file_manager"),
-                        margin_bottom="21px",
-                    ),
-                    rx.tabs.content(
-                        mcp_servers_table(
-                            role_labels=ROLE_LABELS, available_roles=AVAILABLE_ROLES
-                        ),
-                        value="mcp",
-                    ),
-                    rx.tabs.content(
-                        system_prompt_editor(),
-                        value="system_prompt",
-                    ),
-                    rx.tabs.content(
-                        file_manager(),
-                        value="file_manager",
-                    ),
-                    value=AdminAssistantState.active_tab,
-                    on_change=AdminAssistantState.on_tab_change,
-                    width="100%",
+            mn.tabs(
+                mn.tabs.list(
+                    mn.tabs.tab("MCP Server", value="mcp"),
+                    mn.tabs.tab("System Prompt", value="system_prompt"),
+                    mn.tabs.tab("Dateimanager", value="file_manager"),
+                    margin_bottom="1rem",
                 ),
-                width="100%",
-                max_width="1200px",
-                margin_x="auto",
-                spacing="6",
+                mn.tabs.panel(
+                    mcp_servers_table(
+                        role_labels=ROLE_LABELS, available_roles=AVAILABLE_ROLES
+                    ),
+                    value="mcp",
+                ),
+                mn.tabs.panel(
+                    system_prompt_editor(),
+                    value="system_prompt",
+                ),
+                mn.tabs.panel(
+                    file_manager(),
+                    value="file_manager",
+                ),
+                default_value="mcp",
+                on_change=AdminAssistantState.on_tab_change,
+                w="100%",
+                maw="1200px",
+                mx="auto",
+                gap="lg",
             ),
-            width="100%",
-            spacing="6",
+            w="100%",
+            p="2rem",
         ),
     )

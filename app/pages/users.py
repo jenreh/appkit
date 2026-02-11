@@ -30,5 +30,6 @@ def users_page() -> rx.Component:
             ),
             spacing="6",
             width="100%",
+            padding="2rem",
         )
     )
