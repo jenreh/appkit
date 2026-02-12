@@ -2,9 +2,9 @@ import asyncio
 import logging
 import secrets
 import string
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Final
+from typing import Any, Final
 
 import reflex as rx
 from reflex.event import EventSpec
@@ -52,6 +52,56 @@ class UserSession(rx.State):
     user_id: int = 0
     user: User | None = None
 
+    async def _execute_db_operation(
+        self, operation: Callable[[AsyncSession], Any]
+    ) -> Any:
+        """Execute a database operation with retry logic for transient errors.
+
+        Args:
+            operation: An async function that takes a DB session and returns a result.
+
+        Returns:
+            The result of the operation.
+
+        Raises:
+            Exception: If the operation fails after all retries.
+        """
+        max_retries = 3
+        retry_delay = 0.5
+        last_exception = None
+
+        for attempt in range(max_retries):
+            try:
+                async with get_asyncdb_session() as session:
+                    return await operation(session)
+            except Exception as e:
+                last_exception = e
+                # Only retry on operational errors (like connection closed),
+                # but simpler to retry on any error for now given we see "SSL closed".
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2**attempt)
+                    logger.warning(
+                        "Database op failed for user=%s (%d/%d): %s. Retry in %.1fs...",
+                        self.user_id,
+                        attempt + 1,
+                        max_retries,
+                        str(e),
+                        wait_time,
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error(
+                        "Database op failed for user=%s after %d attempts: %s",
+                        self.user_id,
+                        max_retries,
+                        str(e),
+                    )
+
+        if last_exception:
+            raise last_exception
+
+        return None
+
     async def _find_valid_session(self, db: AsyncSession):
         """Find valid session by user_id+token or token alone (fallback)."""
         if self.user_id > 0:
@@ -65,11 +115,12 @@ class UserSession(rx.State):
     async def _create_session(self, db: AsyncSession, user_entity: UserEntity) -> None:
         """Create a new authenticated session for the user."""
         self.auth_token = _generate_auth_token()
+        expires_at = datetime.now(UTC) + SESSION_TIMEOUT
         await session_repo.save(
             db,
             user_entity.id,
             self.auth_token,
-            datetime.now(UTC) + SESSION_TIMEOUT,
+            expires_at.replace(tzinfo=None),
         )
         self.user_id = user_entity.id
         self.user = User(**user_entity.to_dict())
@@ -83,17 +134,25 @@ class UserSession(rx.State):
         Returns:
             The User instance if authenticated, None otherwise.
         """
-        async with get_asyncdb_session() as db:
+
+        async def _check(db: AsyncSession) -> User | None:
             user_session = await self._find_valid_session(db)
 
             if user_session is None or user_session.is_expired():
                 return None
 
             if user_session.user:
-                self.user = User(**user_session.user.to_dict())
-                self.user_id = self.user.user_id
+                return User(**user_session.user.to_dict())
+            return None
 
-        return self.user
+        try:
+            user = await self._execute_db_operation(_check)
+            if user:
+                self.user = user
+                self.user_id = user.user_id
+            return user
+        except Exception:
+            return None
 
     @rx.var(cache=True, interval=AUTH_TOKEN_REFRESH_DELTA)
     async def is_authenticated(self) -> bool:
@@ -114,32 +173,16 @@ class UserSession(rx.State):
         """
         logger.debug("Terminating session for user_id=%s", self.user_id)
 
-        max_retries = 3
-        retry_delay = 0.5  # seconds
+        async def _terminate(session: AsyncSession):
+            await session_repo.delete_by_user_and_session_id(
+                session, self.user_id, self.auth_token
+            )
 
-        for attempt in range(max_retries):
-            try:
-                async with get_asyncdb_session() as session:
-                    await session_repo.delete_by_user_and_session_id(
-                        session, self.user_id, self.auth_token
-                    )
-                break  # Success, exit retry loop
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    logger.warning(
-                        "Session termination failed (attempt %d/%d): %s. Retrying...",
-                        attempt + 1,
-                        max_retries,
-                        str(e),
-                    )
-                    await asyncio.sleep(retry_delay)
-                else:
-                    logger.error(
-                        "Failed to terminate session after %d attempts: %s",
-                        max_retries,
-                        str(e),
-                    )
-                    # Continue cleanup even if DB delete fails
+        try:
+            await self._execute_db_operation(_terminate)
+        except Exception as e:
+            # Continue cleanup even if DB delete fails
+            logger.debug("Ignored error during session termination: %s", e)
 
         self.reset()
         return rx.clear_session_storage()
@@ -159,27 +202,25 @@ class UserSession(rx.State):
         if self.user_id <= 0 or not self.auth_token:
             return
 
-        try:
-            async with get_asyncdb_session() as session:
-                user_session = await session_repo.find_by_user_and_session_id(
-                    session, self.user_id, self.auth_token
-                )
-                if user_session and not user_session.is_expired():
-                    new_expires_at = datetime.now(UTC) + SESSION_TIMEOUT
-                    user_session.expires_at = new_expires_at
-                    await session.commit()
-                    logger.debug(
-                        "Session prolonged for user_id=%s, new expiry=%s",
-                        self.user_id,
-                        new_expires_at,
-                    )
-        except Exception as e:
-            logger.warning(
-                "Failed to prolong session for user_id=%s: %s. "
-                "Session will expire at scheduled time.",
-                self.user_id,
-                str(e),
+        async def _prolong(session: AsyncSession):
+            user_session = await session_repo.find_by_user_and_session_id(
+                session, self.user_id, self.auth_token
             )
+            if user_session and not user_session.is_expired():
+                new_expires_at = datetime.now(UTC) + SESSION_TIMEOUT
+                # Store naive UTC to fix DB timezone mismatch on TIMESTAMP columns
+                user_session.expires_at = new_expires_at.replace(tzinfo=None)
+                await session.commit()
+                logger.debug(
+                    "Session prolonged for user_id=%s, new expiry=%s",
+                    self.user_id,
+                    new_expires_at,
+                )
+
+        try:
+            await self._execute_db_operation(_prolong)
+        except Exception as e:
+            logger.debug("Failed to prolong session (already logged): %s", e)
 
     @rx.event
     async def clear_session_storage_token(self) -> EventSpec:
@@ -425,23 +466,36 @@ class LoginState(UserSession):
         self._last_auth_check = datetime.now(UTC)
         logger.debug("Auth check for user_id=%s", self.user_id)
 
-        async with get_asyncdb_session() as db:
+        async def _check(db: AsyncSession) -> User | None:
             user_session = await self._find_valid_session(db)
 
             if user_session is None or user_session.is_expired():
+                return None
+
+            if user_session.user:
+                return User(**user_session.user.to_dict())
+            return None
+
+        try:
+            user = await self._execute_db_operation(_check)
+
+            if user:
+                self.user = user
+                self.user_id = user.user_id
+
+                # Sync with parent state
+                user_session_state = await self.get_state(UserSession)
+                user_session_state.user_id = self.user_id
+                user_session_state.user = self.user
+            else:
                 logger.debug("Session expired for user_id=%s", self.user_id)
                 self._last_auth_check = None
                 await self.terminate_session()
                 return await self.redir()
 
-            if user_session.user:
-                self.user = User(**user_session.user.to_dict())
-                self.user_id = self.user.user_id
-
-        # Sync with parent state
-        user_session_state = await self.get_state(UserSession)
-        user_session_state.user_id = self.user_id
-        user_session_state.user = self.user
+        except Exception as e:
+            logger.error("Auth check failed: %s", e)
+            return None
 
         return None
 
