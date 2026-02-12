@@ -92,6 +92,7 @@ def create_profile_page(
     navbar: rx.Component,
     route: str = "/profile",
     title: str = "Profil",
+    **kwargs,
 ) -> Callable:
     """Create the profile page with authentication.
 
@@ -294,7 +295,7 @@ def create_profile_page(
                 ),
                 class_name="w-full gap-4 flex-col md:flex-row",
             ),
-            class_name="w-full gap-6 max-w-[800px]",
+            **kwargs,
         )
 
     return _profile_page

@@ -60,7 +60,11 @@ from app.pages.users import users_page  # noqa: F401
 
 logging.basicConfig(level=logging.DEBUG)
 create_login_page(header="AppKit")
-create_profile_page(app_navbar())
+create_profile_page(
+    app_navbar(),
+    class_name="w-full gap-6 max-w-[800px]",
+    padding="2rem",
+)
 
 
 @navbar_layout(

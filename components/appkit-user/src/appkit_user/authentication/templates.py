@@ -120,6 +120,7 @@ def _render_layout(
         h="100vh",
         align="flex-start",
         pos="relative",
+        p="0",
         style={"overflow": "hidden"},
     )
 
