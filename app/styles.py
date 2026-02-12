@@ -16,8 +16,6 @@ content_max_width = "1280px"
 gray_bg_color = rx.color("gray", 3)
 max_width = "1480px"
 sidebar_bg = rx.color("gray", 2)
-
-sidebar_width = ["100%", "100%", "100%", "375px", "450px"]
 text_color = rx.color("gray", 11)
 
 markdown_style = {

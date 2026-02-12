@@ -4,6 +4,7 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_assistant.state.thread_list_state import ThreadListState
+from appkit_ui.components.header import SIDEBAR_WIDTH
 from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.states import LoginState
@@ -23,7 +24,7 @@ border_radius = "var(--radius-2)"
 box_shadow_right_light = "inset -5px -5px 15px -5px rgba(0, 0, 0, 0.1)"
 box_shadow_right_dark = "inset -5px -5px 15px -5px rgba(0.9, 0.9, 0.9, 0.1)"
 
-sidebar_width = "320px"
+sidebar_width = SIDEBAR_WIDTH
 
 
 def admin_sidebar_item(

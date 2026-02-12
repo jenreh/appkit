@@ -69,23 +69,12 @@
         position: fixed;
         top: 0;
         left: 0;
-        width: 18em;
+        width: 100%;
         height: 4px;
         overflow: hidden;
         z-index: 1000;
     }
 
-    .rainbow-gradient-bar-100 {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 4px;
-        overflow: hidden;
-        z-index: 100ß0;
-    }
-
-    .rainbow-gradient-bar-100::before,
     .rainbow-gradient-bar::before {
         content: '';
         position: absolute;
@@ -122,16 +111,6 @@
         height: 4px;
         overflow: hidden;
         z-index: 1000;
-    }
-
-    .default-bar-100 {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 4px;
-        overflow: hidden;
-        z-index: 10ß00;
     }
 
     /* Cursor wait style */

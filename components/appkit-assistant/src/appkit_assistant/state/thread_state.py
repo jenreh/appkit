@@ -377,33 +377,23 @@ class ThreadState(rx.State):
         """
         async with self:
             user_session: UserSession = await self.get_state(UserSession)
-            is_authenticated = await user_session.is_authenticated
-            user_id = user_session.user.user_id if user_session.user else None
+            if not (await user_session.is_authenticated) or not user_session.user:
+                return
+
+            user_id = user_session.user.user_id
 
             # Set loading state in ThreadListState
             threadlist_state: ThreadListState = await self.get_state(ThreadListState)
             threadlist_state.loading_thread_id = thread_id
         yield
 
-        if not is_authenticated or not user_id:
-            async with self:
-                threadlist_state: ThreadListState = await self.get_state(
-                    ThreadListState
-                )
-                threadlist_state.loading_thread_id = ""
-            yield
-            return
-
         try:
             full_thread = await self._thread_service.load_thread(thread_id, user_id)
 
-            if not full_thread:  # it was not found
+            if not full_thread:
                 logger.warning("Thread %s not found in database", thread_id)
                 async with self:
-                    threadlist_state: ThreadListState = await self.get_state(
-                        ThreadListState
-                    )
-                    threadlist_state.loading_thread_id = ""
+                    await self._stop_loading_state()
                 yield
                 return
 
@@ -420,20 +410,7 @@ class ThreadState(rx.State):
                 self.prompt = ""
 
                 # Restore MCP servers that were selected for this thread
-                if full_thread.mcp_server_ids:
-                    self.selected_mcp_servers = [
-                        server
-                        for server in self.available_mcp_servers
-                        if server.id in full_thread.mcp_server_ids
-                    ]
-                    self.temp_selected_mcp_servers = list(full_thread.mcp_server_ids)
-                    self.server_selection_state = dict.fromkeys(
-                        full_thread.mcp_server_ids, True
-                    )
-                else:
-                    self.selected_mcp_servers = []
-                    self.temp_selected_mcp_servers = []
-                    self.server_selection_state = {}
+                self._restore_mcp_selection(full_thread.mcp_server_ids)
 
                 # Update active state in ThreadListState
                 threadlist_state: ThreadListState = await self.get_state(
@@ -454,10 +431,7 @@ class ThreadState(rx.State):
         except Exception as e:
             logger.error("Error loading thread %s: %s", thread_id, e)
             async with self:
-                threadlist_state: ThreadListState = await self.get_state(
-                    ThreadListState
-                )
-                threadlist_state.loading_thread_id = ""
+                await self._stop_loading_state()
             yield
 
     # -------------------------------------------------------------------------
@@ -483,9 +457,28 @@ class ThreadState(rx.State):
 
     @rx.event
     def set_selected_model(self, model_id: str) -> None:
-        """Set the selected model."""
+        """Set the selected model and deactivate unsupported tools.
+
+        Automatically deactivates web search, MCP servers (tools), and file
+        uploads if the selected model doesn't support them.
+        """
         self.selected_model = model_id
         self._thread.ai_model = model_id
+
+        # Get the model to check capabilities
+        model = ModelManager().get_model(model_id)
+        if not model:
+            return
+
+        # Deactivate features if not supported
+        if not model.supports_search:
+            self.web_search_enabled = False
+
+        if not model.supports_tools:
+            self._restore_mcp_selection([])
+
+        if not model.supports_attachments:
+            self._clear_uploaded_files()
 
     @rx.event
     def set_with_thread_list(self, with_thread_list: bool) -> None:
@@ -769,9 +762,9 @@ class ThreadState(rx.State):
         self._thread.mcp_server_ids = []
         self.prompt = ""
         self.messages = []
-        self.selected_mcp_servers = []
-        self.temp_selected_mcp_servers = []
-        self.server_selection_state = {}
+
+        self._restore_mcp_selection([])
+
         self.thinking_items = []
         self.image_chunks = []
         self.show_thinking = False
@@ -1052,16 +1045,7 @@ class ThreadState(rx.State):
 
             # Save thread to DB if new and has files to enable file uploads
             if is_new_thread and file_paths and user_id:
-                self._thread.state = ThreadStatus.ACTIVE
-                # Persist selected MCP servers to thread
-                self._thread.mcp_server_ids = [
-                    s.id for s in self.selected_mcp_servers if s.id
-                ]
-                await self._thread_service.save_thread(self._thread, user_id)
-                logger.debug(
-                    "Saved new thread %s to DB before file upload",
-                    self._thread.thread_id,
-                )
+                await self._save_new_active_thread(user_id)
 
             # Initialize ResponseAccumulator logic
             accumulator = ResponseAccumulator()
@@ -1077,11 +1061,10 @@ class ThreadState(rx.State):
         first_response_received = False
         try:
             # Build payload with thread_uuid for file upload support
-            payload = {"thread_uuid": self._thread.thread_id}
-
-            # Pass web search state to processor via payload
-            if self.web_search_enabled:
-                payload["web_search_enabled"] = True
+            payload = {
+                "thread_uuid": self._thread.thread_id,
+                **({"web_search_enabled": True} if self.web_search_enabled else {}),
+            }
 
             async for chunk in processor.process(
                 self.messages,
@@ -1455,6 +1438,32 @@ class ThreadState(rx.State):
             "Auth required for server %s, showing auth card",
             self.pending_auth_server_name,
         )
+
+    def _restore_mcp_selection(self, server_ids: list[int]) -> None:
+        """Restore MCP selection state from a list of server IDs."""
+        if not server_ids:
+            self.selected_mcp_servers = []
+            self.temp_selected_mcp_servers = []
+            self.server_selection_state = {}
+            return
+
+        self.selected_mcp_servers = [
+            server for server in self.available_mcp_servers if server.id in server_ids
+        ]
+        self.temp_selected_mcp_servers = list(server_ids)
+        self.server_selection_state = dict.fromkeys(server_ids, True)
+
+    async def _stop_loading_state(self) -> None:
+        """Clear the loading state in ThreadListState."""
+        threadlist_state: ThreadListState = await self.get_state(ThreadListState)
+        threadlist_state.loading_thread_id = ""
+
+    async def _save_new_active_thread(self, user_id: str) -> None:
+        """Save a new thread as active to the database."""
+        self._thread.state = ThreadStatus.ACTIVE
+        self._thread.mcp_server_ids = [s.id for s in self.selected_mcp_servers if s.id]
+        await self._thread_service.save_thread(self._thread, user_id)
+        logger.debug("Saved new thread %s to DB", self._thread.thread_id)
 
     # -------------------------------------------------------------------------
     # Thread persistence (internal)
