@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
@@ -81,6 +81,18 @@ class UserSessionRepository(BaseRepository[UserSessionEntity, AsyncSession]):
         if existing_session:
             await session.delete(existing_session)
             await session.flush()
+
+    async def delete_expired(self, session: AsyncSession) -> int:
+        """Delete all expired sessions.
+
+        Returns:
+             int: The number of deleted sessions.
+        """
+        now = datetime.now(UTC).replace(tzinfo=None)
+        stmt = delete(UserSessionEntity).where(UserSessionEntity.expires_at < now)
+        result = await session.execute(stmt)
+        await session.flush()
+        return result.rowcount
 
 
 session_repo = UserSessionRepository()

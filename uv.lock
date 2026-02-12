@@ -244,6 +244,7 @@ source = { editable = "components/appkit-user" }
 dependencies = [
     { name = "appkit-commons" },
     { name = "appkit-ui" },
+    { name = "apscheduler" },
     { name = "greenlet" },
     { name = "requests-oauthlib" },
     { name = "urllib3" },
@@ -253,6 +254,7 @@ dependencies = [
 requires-dist = [
     { name = "appkit-commons", editable = "components/appkit-commons" },
     { name = "appkit-ui", editable = "components/appkit-ui" },
+    { name = "apscheduler", specifier = ">=3.11.2" },
     { name = "greenlet", specifier = ">=3.3.1" },
     { name = "requests-oauthlib", specifier = ">=2.0.0" },
     { name = "urllib3", specifier = ">=2.6.3" },

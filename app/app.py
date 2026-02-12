@@ -10,12 +10,18 @@ from starlette.types import ASGIApp
 
 import appkit_mantine as mn
 from appkit_assistant.backend.services.file_cleanup_service import (
-    start_scheduler,
-    stop_scheduler,
+    start_scheduler as start_file_scheduler,
+)
+from appkit_assistant.backend.services.file_cleanup_service import (
+    stop_scheduler as stop_file_scheduler,
 )
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
 from appkit_imagecreator.backend.image_api import router as image_api_router
+from appkit_user.authentication.backend.services.session_cleanup_service import (
+    start_session_scheduler,
+    stop_session_scheduler,
+)
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
     github_oauth_callback_page,
@@ -186,10 +192,12 @@ base_style = {
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """Handle application lifespan events (startup and shutdown)."""
     # Startup
-    start_scheduler()
+    start_file_scheduler()
+    start_session_scheduler()
     yield
     # Shutdown
-    stop_scheduler()
+    stop_file_scheduler()
+    stop_session_scheduler()
 
 
 # Create FastAPI app for custom API routes
