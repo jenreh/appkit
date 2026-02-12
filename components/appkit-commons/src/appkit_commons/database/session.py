@@ -37,6 +37,7 @@ def _get_engine_kwargs() -> dict[str, Any]:
             "max_overflow": db_config.max_overflow,
             "echo": db_config.echo,
             "pool_pre_ping": True,
+            "pool_recycle": db_config.pool_recycle,
         }
 
     return {}

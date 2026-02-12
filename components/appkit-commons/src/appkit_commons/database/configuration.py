@@ -1,3 +1,4 @@
+from typing import Literal
 from urllib.parse import quote
 
 from pydantic import SecretStr, computed_field
@@ -18,10 +19,13 @@ class DatabaseConfig(BaseConfig):
     encryption_key: SecretStr = SecretStr("")
     pool_size: int = 10
     max_overflow: int = 30
+    pool_recycle: int = 1800  # seconds, recycle connections to prevent stale SSL
     echo: bool = False
     testing: bool = False
     # SSL mode: disable, allow, prefer, require, verify-ca, verify-full
-    ssl_mode: str = "disable"
+    ssl_mode: Literal[
+        "disable", "allow", "prefer", "require", "verify-ca", "verify-full"
+    ] = "disable"
 
     @computed_field(repr=False)  # type: ignore
     @property

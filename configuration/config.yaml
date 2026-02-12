@@ -22,6 +22,7 @@ app:
     encryption_key: secret:mn-db-encryption-key
     pool_size: 10 # change only when needed
     max_overflow: 30 # change only when needed
+    pool_recycle: 1800 # seconds; recycle connections to prevent stale SSL
     echo: False # Set to True to enable SQL logging
 
   authentication:

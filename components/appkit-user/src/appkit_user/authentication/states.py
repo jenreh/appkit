@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import secrets
 import string
@@ -106,12 +107,39 @@ class UserSession(rx.State):
 
     @rx.event
     async def terminate_session(self) -> None:
-        """Terminate the current session and clear storage."""
+        """Terminate the current session and clear storage.
+
+        Includes retry logic to handle transient database connection errors
+        that may occur due to stale SSL connections in the pool.
+        """
         logger.debug("Terminating session for user_id=%s", self.user_id)
-        async with get_asyncdb_session() as session:
-            await session_repo.delete_by_user_and_session_id(
-                session, self.user_id, self.auth_token
-            )
+
+        max_retries = 3
+        retry_delay = 0.5  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                async with get_asyncdb_session() as session:
+                    await session_repo.delete_by_user_and_session_id(
+                        session, self.user_id, self.auth_token
+                    )
+                break  # Success, exit retry loop
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        "Session termination failed (attempt %d/%d): %s. Retrying...",
+                        attempt + 1,
+                        max_retries,
+                        str(e),
+                    )
+                    await asyncio.sleep(retry_delay)
+                else:
+                    logger.error(
+                        "Failed to terminate session after %d attempts: %s",
+                        max_retries,
+                        str(e),
+                    )
+                    # Continue cleanup even if DB delete fails
 
         self.reset()
         return rx.clear_session_storage()
@@ -125,23 +153,33 @@ class UserSession(rx.State):
 
         **IMPORTANT**: This should NEVER be called from check_auth(),
         authenticated_user, is_authenticated, or any automatic mechanism.
+
+        Includes error handling for transient database connection issues.
         """
         if self.user_id <= 0 or not self.auth_token:
             return
 
-        async with get_asyncdb_session() as session:
-            user_session = await session_repo.find_by_user_and_session_id(
-                session, self.user_id, self.auth_token
-            )
-            if user_session and not user_session.is_expired():
-                new_expires_at = datetime.now(UTC) + SESSION_TIMEOUT
-                user_session.expires_at = new_expires_at
-                await session.commit()
-                logger.debug(
-                    "Session prolonged for user_id=%s, new expiry=%s",
-                    self.user_id,
-                    new_expires_at,
+        try:
+            async with get_asyncdb_session() as session:
+                user_session = await session_repo.find_by_user_and_session_id(
+                    session, self.user_id, self.auth_token
                 )
+                if user_session and not user_session.is_expired():
+                    new_expires_at = datetime.now(UTC) + SESSION_TIMEOUT
+                    user_session.expires_at = new_expires_at
+                    await session.commit()
+                    logger.debug(
+                        "Session prolonged for user_id=%s, new expiry=%s",
+                        self.user_id,
+                        new_expires_at,
+                    )
+        except Exception as e:
+            logger.warning(
+                "Failed to prolong session for user_id=%s: %s. "
+                "Session will expire at scheduled time.",
+                self.user_id,
+                str(e),
+            )
 
     @rx.event
     async def clear_session_storage_token(self) -> EventSpec:
