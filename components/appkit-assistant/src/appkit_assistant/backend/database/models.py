@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
-from sqlalchemy import Index, Integer
+from sqlalchemy import Index, Integer, String
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 from sqlmodel import Column, DateTime, Field
@@ -103,6 +103,9 @@ class AssistantThread(rx.Model, table=True):
     messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
     mcp_server_ids: list[int] = Field(
         default=[], sa_column=Column(ARRAY(Integer), nullable=False)
+    )
+    skill_openai_ids: list[str] = Field(
+        default=[], sa_column=Column(ARRAY(String), nullable=False)
     )
     vector_store_id: str | None = Field(default=None, nullable=True)
     created_at: datetime = Field(

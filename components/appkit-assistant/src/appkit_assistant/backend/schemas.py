@@ -141,6 +141,7 @@ class ThreadModel(BaseModel):
     messages: list[Message] = []
     ai_model: str = ""
     mcp_server_ids: list[int] = []
+    skill_openai_ids: list[str] = []
 
 
 class MCPAuthType(StrEnum):

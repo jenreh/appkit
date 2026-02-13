@@ -23,10 +23,12 @@ import reflex as rx
 
 from appkit_assistant.backend.database.models import (
     MCPServer,
+    Skill,
     ThreadStatus,
 )
 from appkit_assistant.backend.database.repositories import (
     mcp_server_repo,
+    skill_repo,
     user_prompt_repo,
 )
 from appkit_assistant.backend.model_manager import ModelManager
@@ -106,6 +108,13 @@ class ThreadState(rx.State):
     available_mcp_servers: list[MCPServer] = []
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
+
+    # Skills selection state
+    selected_skills: list[Skill] = []
+    available_skills_for_selection: list[Skill] = []
+    temp_selected_skill_ids: list[str] = []
+    skill_selection_state: dict[str, bool] = {}
+    modal_active_tab: str = "tools"
 
     # Web Search state
     web_search_enabled: bool = False
@@ -192,6 +201,14 @@ class ThreadState(rx.State):
             return False
         model = ModelManager().get_model(self.selected_model)
         return model.supports_search if model else False
+
+    @rx.var
+    def selected_model_supports_skills(self) -> bool:
+        """Check if the currently selected model supports skills."""
+        if not self.selected_model:
+            return False
+        model = ModelManager().get_model(self.selected_model)
+        return model.supports_skills if model else False
 
     @rx.var
     def get_unique_reasoning_sessions(self) -> list[str]:
@@ -412,6 +429,9 @@ class ThreadState(rx.State):
                 # Restore MCP servers that were selected for this thread
                 self._restore_mcp_selection(full_thread.mcp_server_ids)
 
+                # Restore skills that were selected for this thread
+                self._restore_skill_selection(full_thread.skill_openai_ids or [])
+
                 # Update active state in ThreadListState
                 threadlist_state: ThreadListState = await self.get_state(
                     ThreadListState
@@ -479,6 +499,9 @@ class ThreadState(rx.State):
 
         if not model.supports_attachments:
             self._clear_uploaded_files()
+
+        # Reset modal tab to "tools" when model changes
+        self.modal_active_tab = "tools"
 
     @rx.event
     def set_with_thread_list(self, with_thread_list: bool) -> None:
@@ -746,6 +769,58 @@ class ThreadState(rx.State):
     def is_mcp_server_selected(self, server_id: int) -> bool:
         """Check if an MCP server is selected."""
         return server_id in self.temp_selected_mcp_servers
+
+    # -------------------------------------------------------------------------
+    # Skills selection
+    # -------------------------------------------------------------------------
+
+    @rx.event
+    async def load_available_skills_for_user(self) -> None:
+        """Load active skills filtered by user roles."""
+        user_session = await self.get_state(UserSession)
+        user = await user_session.authenticated_user
+        user_roles: list[str] = user.roles if user else []
+
+        async with get_asyncdb_session() as session:
+            skills = await skill_repo.find_all_active_ordered_by_name(session)
+            filtered = [
+                Skill(**s.model_dump())
+                for s in skills
+                if not s.required_role or s.required_role in user_roles
+            ]
+            self.available_skills_for_selection = filtered
+
+    @rx.event
+    def set_modal_active_tab(self, tab: str | list[str]) -> None:
+        """Set the active tab in the tools modal."""
+        if isinstance(tab, list):
+            self.modal_active_tab = tab[0] if tab else "tools"
+        else:
+            self.modal_active_tab = tab
+
+    @rx.event
+    def toggle_skill_selection(self, openai_id: str, selected: bool) -> None:
+        """Toggle skill selection in the modal."""
+        self.skill_selection_state[openai_id] = selected
+        if selected and openai_id not in self.temp_selected_skill_ids:
+            self.temp_selected_skill_ids.append(openai_id)
+        elif not selected and openai_id in self.temp_selected_skill_ids:
+            self.temp_selected_skill_ids.remove(openai_id)
+
+    @rx.event
+    def apply_skill_selection(self) -> None:
+        """Apply the temporary skill selection."""
+        self.selected_skills = [
+            skill
+            for skill in self.available_skills_for_selection
+            if skill.openai_id in self.temp_selected_skill_ids
+        ]
+
+    @rx.event
+    def deselect_all_skills(self) -> None:
+        """Deselect all skills in the modal."""
+        self.skill_selection_state = {}
+        self.temp_selected_skill_ids = []
 
     # -------------------------------------------------------------------------
     # Clear/reset
@@ -1061,9 +1136,11 @@ class ThreadState(rx.State):
         first_response_received = False
         try:
             # Build payload with thread_uuid for file upload support
+            skill_ids = [s.openai_id for s in self.selected_skills]
             payload = {
                 "thread_uuid": self._thread.thread_id,
                 **({"web_search_enabled": True} if self.web_search_enabled else {}),
+                **({"skill_openai_ids": skill_ids} if skill_ids else {}),
             }
 
             async for chunk in processor.process(
@@ -1357,6 +1434,8 @@ class ThreadState(rx.State):
             self._thread.mcp_server_ids = [
                 s.id for s in self.selected_mcp_servers if s.id
             ]
+            # Persist selected skills to thread
+            self._thread.skill_openai_ids = [s.openai_id for s in self.selected_skills]
 
             if self.with_thread_list:
                 user_session: UserSession = await self.get_state(UserSession)
@@ -1452,6 +1531,22 @@ class ThreadState(rx.State):
         ]
         self.temp_selected_mcp_servers = list(server_ids)
         self.server_selection_state = dict.fromkeys(server_ids, True)
+
+    def _restore_skill_selection(self, skill_ids: list[str]) -> None:
+        """Restore skill selection state from a list of openai IDs."""
+        if not skill_ids:
+            self.selected_skills = []
+            self.temp_selected_skill_ids = []
+            self.skill_selection_state = {}
+            return
+
+        self.selected_skills = [
+            skill
+            for skill in self.available_skills_for_selection
+            if skill.openai_id in skill_ids
+        ]
+        self.temp_selected_skill_ids = list(skill_ids)
+        self.skill_selection_state = dict.fromkeys(skill_ids, True)
 
     async def _stop_loading_state(self) -> None:
         """Clear the loading state in ThreadListState."""

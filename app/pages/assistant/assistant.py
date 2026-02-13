@@ -82,6 +82,11 @@ def initialize_model_manager() -> list[AIModel]:
         GPT_5_2.id: GPT_5_2,
     }
 
+    if not config.openai_is_azure:
+        GPT_5_1.supports_skills = True
+        GPT_5_2.supports_skills = True
+        GPT_5_2.supports_skills = True
+
     model_manager.register_processor(
         "openai",
         OpenAIResponsesProcessor(
