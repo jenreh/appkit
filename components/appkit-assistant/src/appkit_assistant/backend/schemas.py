@@ -113,6 +113,7 @@ class AIModel(BaseModel):
     supports_tools: bool = False
     supports_attachments: bool = False
     supports_search: bool = False
+    supports_skills: bool = False
     keywords: list[str] = []
     disabled: bool = False
     requires_role: str | None = None
