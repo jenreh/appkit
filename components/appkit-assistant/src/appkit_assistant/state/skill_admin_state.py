@@ -24,6 +24,15 @@ class SkillAdminState(rx.State):
     syncing: bool = False
     available_roles: list[dict[str, str]] = []
     role_labels: dict[str, str] = {}
+    search_filter: str = ""
+
+    @rx.var
+    def filtered_skills(self) -> list[Skill]:
+        """Return skills filtered by search_filter (contains in name)."""
+        if not self.search_filter:
+            return self.skills
+        term = self.search_filter.lower()
+        return [s for s in self.skills if term in s.name.lower()]
 
     # Upload / create modal state
     create_modal_open: bool = False

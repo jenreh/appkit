@@ -82,6 +82,15 @@ def skills_table(
                 size="sm",
                 on_click=SkillAdminState.open_create_modal,
             ),
+            mn.text_input(
+                placeholder="Skills filtern...",
+                left_section=rx.icon("search", size=16),
+                left_section_pointer_events="none",
+                value=SkillAdminState.search_filter,
+                on_change=SkillAdminState.set_search_filter,
+                size="sm",
+                w="18rem",
+            ),
             rx.spacer(),
             mn.button(
                 "Synchronisieren",
@@ -93,6 +102,8 @@ def skills_table(
             ),
             width="100%",
             margin_bottom="md",
+            gap="12px",
+            align="center",
         ),
         create_skill_modal(),
         mn.table(
@@ -107,7 +118,12 @@ def skills_table(
                     mn.table.th(mn.text("", size="sm")),
                 ),
             ),
-            mn.table.tbody(rx.foreach(SkillAdminState.skills, _skill_table_row)),
+            mn.table.tbody(
+                rx.foreach(
+                    SkillAdminState.filtered_skills,
+                    _skill_table_row,
+                )
+            ),
             striped=False,
             highlight_on_hover=True,
             w="100%",
