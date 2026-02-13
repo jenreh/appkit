@@ -22,7 +22,6 @@ from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_assistant.state.thread_state import ThreadState
 from appkit_assistant.components.mcp_server_table import mcp_servers_table
 from appkit_assistant.components.skill_table import skills_table
-from appkit_assistant.components.user_skill_selector import user_skill_selector
 
 __all__ = [
     "AIModel",
@@ -46,5 +45,4 @@ __all__ = [
     "file_manager",
     "mcp_servers_table",
     "skills_table",
-    "user_skill_selector",
 ]

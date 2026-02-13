@@ -8,9 +8,7 @@ import reflex as rx
 
 from appkit_assistant.backend.database.models import Skill
 from appkit_assistant.backend.database.repositories import skill_repo
-from appkit_assistant.backend.services.skill_service import (
-    get_skill_service,
-)
+from appkit_assistant.backend.services.skill_service import get_skill_service
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
@@ -19,12 +17,20 @@ logger = logging.getLogger(__name__)
 class SkillAdminState(rx.State):
     """State for the admin skill management page."""
 
+    # Data State
     skills: list[Skill] = []
-    loading: bool = False
-    syncing: bool = False
     available_roles: list[dict[str, str]] = []
     role_labels: dict[str, str] = {}
+
+    # UI State
+    loading: bool = False
+    syncing: bool = False
     search_filter: str = ""
+    create_modal_open: bool = False
+    uploading: bool = False
+
+    # Helpers
+    updating_role_skill_id: int | None = None
 
     @rx.event
     def set_search_filter(self, value: str) -> None:
@@ -39,16 +45,22 @@ class SkillAdminState(rx.State):
         term = self.search_filter.lower()
         return [s for s in self.skills if term in s.name.lower()]
 
-    # Upload / create modal state
-    create_modal_open: bool = False
-    uploading: bool = False
+    @rx.var
+    def skill_count(self) -> int:
+        """Number of skills."""
+        return len(self.skills)
 
-    def open_create_modal(self) -> AsyncGenerator[Any, Any]:
+    @rx.var
+    def has_skills(self) -> bool:
+        """Whether any skills exist."""
+        return len(self.skills) > 0
+
+    async def open_create_modal(self) -> AsyncGenerator[Any, Any]:
         """Open the create skill modal."""
         yield rx.clear_selected_files("skill_zip_upload")
         self.create_modal_open = True
 
-    def close_create_modal(self) -> AsyncGenerator[Any, Any]:
+    async def close_create_modal(self) -> AsyncGenerator[Any, Any]:
         """Close the create skill modal."""
         yield rx.clear_selected_files("skill_zip_upload")
         self.create_modal_open = False
@@ -68,6 +80,7 @@ class SkillAdminState(rx.State):
         try:
             async with get_asyncdb_session() as session:
                 items = await skill_repo.find_all_ordered_by_name(session)
+                # Convert DB models to Pydantic models for State
                 self.skills = [Skill(**s.model_dump()) for s in items]
             logger.debug("Loaded %d skills", len(self.skills))
         except Exception as e:
@@ -76,9 +89,7 @@ class SkillAdminState(rx.State):
         finally:
             self.loading = False
 
-    async def load_skills_with_toast(
-        self,
-    ) -> AsyncGenerator[Any, Any]:
+    async def load_skills_with_toast(self) -> AsyncGenerator[Any, Any]:
         """Load skills and show error toast on failure."""
         try:
             await self.load_skills()
@@ -110,25 +121,28 @@ class SkillAdminState(rx.State):
         finally:
             self.syncing = False
 
+    def _validate_upload(self, files: list[rx.UploadFile]) -> tuple[bool, str | None]:
+        """Validate the uploaded file."""
+        if not files:
+            return False, "Bitte eine ZIP-Datei auswählen."
+
+        filename = files[0].filename or "skill.zip"
+        if not filename.endswith(".zip"):
+            return False, "Nur ZIP-Dateien sind erlaubt."
+
+        return True, None
+
     async def handle_upload(
         self, files: list[rx.UploadFile]
     ) -> AsyncGenerator[Any, Any]:
         """Handle zip file upload to create a new skill."""
-        if not files:
-            yield rx.toast.error(
-                "Bitte eine ZIP-Datei auswählen.",
-                position="top-right",
-            )
+        is_valid, error = self._validate_upload(files)
+        if not is_valid:
+            yield rx.toast.error(error, position="top-right")
             return
 
         upload_file = files[0]
         filename = upload_file.filename or "skill.zip"
-        if not filename.endswith(".zip"):
-            yield rx.toast.error(
-                "Nur ZIP-Dateien sind erlaubt.",
-                position="top-right",
-            )
-            return
 
         self.uploading = True
         yield
@@ -149,7 +163,7 @@ class SkillAdminState(rx.State):
                 f"Skill '{result['name']}' wurde erstellt.",
                 position="top-right",
             )
-            # Close modal and clear files
+            # Close modal and cleanup
             self.create_modal_open = False
             yield rx.clear_selected_files("skill_zip_upload")
 
@@ -161,8 +175,6 @@ class SkillAdminState(rx.State):
             )
         finally:
             self.uploading = False
-
-    updating_role_skill_id: int | None = None
 
     async def update_skill_role(
         self, skill_id: int, role: str
@@ -178,10 +190,8 @@ class SkillAdminState(rx.State):
 
             await self.load_skills()
 
-            role_label = (
-                self.role_labels.get(target_role, target_role)
-                if target_role
-                else "keine Rolle"
+            role_label = self.role_labels.get(
+                target_role or "", target_role or "keine Rolle"
             )
             yield rx.toast.info(
                 f"Rolle auf '{role_label}' geändert.",
@@ -218,23 +228,28 @@ class SkillAdminState(rx.State):
         self, skill_id: int, active: bool
     ) -> AsyncGenerator[Any, Any]:
         """Toggle the active status of a skill (optimistic)."""
-        original = list(self.skills)
-        for i, s in enumerate(self.skills):
-            if s.id == skill_id:
-                self.skills[i].active = active
-                break
+        original_skills = self.skills
+
+        # Optimistic update: create new list with updated item
+        # Using model_copy (Pydantic V2 / SQLModel)
+        self.skills = [
+            s.model_copy(update={"active": active}) if s.id == skill_id else s
+            for s in self.skills
+        ]
         yield
 
         try:
             async with get_asyncdb_session() as session:
                 skill = await skill_repo.find_by_id(session, skill_id)
                 if not skill:
-                    self.skills = original
+                    # Revert if not found
+                    self.skills = original_skills
                     yield rx.toast.error(
                         "Skill nicht gefunden.",
                         position="top-right",
                     )
                     return
+
                 skill.active = active
                 await skill_repo.save(session, skill)
 
@@ -244,19 +259,10 @@ class SkillAdminState(rx.State):
                 position="top-right",
             )
         except Exception as e:
-            self.skills = original
+            # Revert on error
+            self.skills = original_skills
             logger.error("Failed to toggle skill %d: %s", skill_id, e)
             yield rx.toast.error(
                 "Fehler beim Ändern des Skill-Status.",
                 position="top-right",
             )
-
-    @rx.var
-    def skill_count(self) -> int:
-        """Number of skills."""
-        return len(self.skills)
-
-    @rx.var
-    def has_skills(self) -> bool:
-        """Whether any skills exist."""
-        return len(self.skills) > 0
