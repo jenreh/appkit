@@ -31,6 +31,12 @@ ASSISTANT_FILE_UPLOAD_ROLE: Final[Role] = Role(
     name="file_upload", label="Datei-Upload", group=ASSISTANT_GROUP
 )
 
+SKILL_ADMIN_ROLE: Final[Role] = Role(
+    name="skill-admin",
+    label="Skill Administration",
+    group=ASSISTANT_GROUP,
+)
+
 ASSISTANT_ROLES: Final[list[Role]] = [
     ASSISTANT_USER_ROLE,
     ASSISTANT_BASIC_MODELS_ROLE,
@@ -39,4 +45,5 @@ ASSISTANT_ROLES: Final[list[Role]] = [
     ASSISTANT_WEB_SEARCH_ROLE,
     ASSISTANT_FILE_UPLOAD_ROLE,
     ASSISTANT_ADMIN_ROLE,
+    SKILL_ADMIN_ROLE,
 ]

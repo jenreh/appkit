@@ -168,7 +168,7 @@ class OAuthService:
         if "#EXT#" not in user_principal_name:
             return user_principal_name
 
-        user_part = user_principal_name.split("#EXT#")[0]
+        user_part = user_principal_name.split("#EXT#", maxsplit=1)[0]
         last_underscore_index = user_part.rfind("_")
 
         if last_underscore_index == -1:

@@ -12,8 +12,10 @@ from appkit_assistant.backend.database.models import (
     AssistantFileUpload,
     AssistantThread,
     MCPServer,
+    Skill,
     SystemPrompt,
     UserPrompt,
+    UserSkillSelection,
 )
 from appkit_commons.database.base_repository import BaseRepository
 from appkit_user.authentication.backend.entities import UserEntity
@@ -586,9 +588,121 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         return result
 
 
+class SkillRepository(BaseRepository[Skill, AsyncSession]):
+    """Repository for OpenAI skill database operations."""
+
+    @property
+    def model_class(self) -> type[Skill]:
+        return Skill
+
+    async def update_required_role(
+        self, session: AsyncSession, skill_id: int, required_role: str | None
+    ) -> bool:
+        """Update the required role for a skill."""
+        skill = await session.get(Skill, skill_id)
+        if not skill:
+            return False
+
+        skill.required_role = required_role
+        session.add(skill)
+        await session.flush()
+        await session.refresh(skill)
+        return True
+
+    async def find_all_ordered_by_name(self, session: AsyncSession) -> list[Skill]:
+        """Retrieve all skills ordered by name."""
+        stmt = select(Skill).order_by(Skill.name)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_active_ordered_by_name(
+        self, session: AsyncSession
+    ) -> list[Skill]:
+        """Retrieve all active skills ordered by name."""
+        stmt = (
+            select(Skill)
+            .where(Skill.active == True)  # noqa: E712
+            .order_by(Skill.name)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_by_openai_id(
+        self, session: AsyncSession, openai_id: str
+    ) -> Skill | None:
+        """Find a skill by its OpenAI ID."""
+        stmt = select(Skill).where(Skill.openai_id == openai_id)
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+
+class UserSkillRepository(BaseRepository[UserSkillSelection, AsyncSession]):
+    """Repository for user skill selection operations."""
+
+    @property
+    def model_class(self) -> type[UserSkillSelection]:
+        return UserSkillSelection
+
+    async def find_by_user_id(
+        self, session: AsyncSession, user_id: int
+    ) -> list[UserSkillSelection]:
+        """Retrieve all skill selections for a user."""
+        stmt = select(UserSkillSelection).where(UserSkillSelection.user_id == user_id)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def upsert(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        skill_openai_id: str,
+        enabled: bool,
+    ) -> UserSkillSelection:
+        """Insert or update a user skill selection."""
+        stmt = select(UserSkillSelection).where(
+            UserSkillSelection.user_id == user_id,
+            UserSkillSelection.skill_openai_id == skill_openai_id,
+        )
+        result = await session.execute(stmt)
+        existing = result.scalars().first()
+
+        if existing:
+            existing.enabled = enabled
+            session.add(existing)
+            await session.flush()
+            await session.refresh(existing)
+            return existing
+
+        selection = UserSkillSelection(
+            user_id=user_id,
+            skill_openai_id=skill_openai_id,
+            enabled=enabled,
+        )
+        session.add(selection)
+        await session.flush()
+        await session.refresh(selection)
+        return selection
+
+    async def delete_by_skill_openai_id(
+        self, session: AsyncSession, skill_openai_id: str
+    ) -> int:
+        """Delete all user selections for a skill (cascade cleanup)."""
+        stmt = select(UserSkillSelection).where(
+            UserSkillSelection.skill_openai_id == skill_openai_id
+        )
+        result = await session.execute(stmt)
+        selections = list(result.scalars().all())
+        for s in selections:
+            await session.delete(s)
+        await session.flush()
+        return len(selections)
+
+
 # Export instances
 mcp_server_repo = MCPServerRepository()
 system_prompt_repo = SystemPromptRepository()
 thread_repo = ThreadRepository()
 file_upload_repo = FileUploadRepository()
 user_prompt_repo = UserPromptRepository()
+skill_repo = SkillRepository()
+user_skill_repo = UserSkillRepository()

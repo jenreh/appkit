@@ -3,7 +3,7 @@ import logging
 from typing import Literal
 
 import httpx
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from appkit_imagecreator.backend.models import (
     GeneratedImageData,
@@ -55,6 +55,7 @@ class OpenAIImageGenerator(ImageGenerator):
         api_key: str,
         base_url: str | None = None,
         supports_edit: bool = True,
+        is_azure: bool = False,
     ) -> None:
         super().__init__(
             model=model,
@@ -63,11 +64,14 @@ class OpenAIImageGenerator(ImageGenerator):
         )
         self.base_url = base_url
 
-        self.client = AsyncAzureOpenAI(
-            api_version="2025-04-01-preview",
-            azure_endpoint=base_url,
-            api_key=api_key,
-        )
+        if is_azure and base_url:
+            self.client = AsyncAzureOpenAI(
+                api_version="2025-04-01-preview",
+                azure_endpoint=base_url,
+                api_key=api_key,
+            )
+        else:
+            self.client = AsyncOpenAI(api_key=api_key)
 
     # Parameters not supported by each endpoint
     _GENERATE_UNSUPPORTED = {"input_fidelity"}

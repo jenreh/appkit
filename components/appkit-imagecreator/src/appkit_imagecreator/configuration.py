@@ -12,6 +12,7 @@ class ImageGeneratorConfig(BaseConfig):
     openai_api_key: SecretStr
     """required for OpenAI images models (GPT-Image-1)"""
     openai_base_url: str | None = None
+    openai_is_azure: bool = False
     """optional, for OpenAI-compatible endpoints, e.g. Azure OpenAI"""
     tmp_dir: str = "./uploaded_files"
     """temp directory for storing generated images, default Reflex.dev upload dir"""

@@ -213,3 +213,45 @@ class UserPrompt(rx.Model, table=True):
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True)),
     )
+
+
+class Skill(rx.Model, table=True):
+    """Model for OpenAI skill management.
+
+    Stores metadata synced from the OpenAI Skills API alongside
+    local administration state (active toggle, role restriction).
+    """
+
+    __tablename__ = "assistant_skills"
+
+    id: int | None = Field(default=None, primary_key=True)
+    openai_id: str = Field(unique=True, max_length=255, nullable=False)
+    name: str = Field(max_length=100, nullable=False)
+    description: str = Field(default="", max_length=500, nullable=True)
+    default_version: str = Field(default="1", max_length=20, nullable=False)
+    latest_version: str = Field(default="1", max_length=20, nullable=False)
+    active: bool = Field(default=True, nullable=False)
+    required_role: str | None = Field(default=None, nullable=True)
+    last_synced: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+
+
+class UserSkillSelection(rx.Model, table=True):
+    """Model for user-specific skill enable/disable preferences."""
+
+    __tablename__ = "assistant_user_skill_selections"
+    __table_args__ = (
+        Index(
+            "ix_user_skill_unique",
+            "user_id",
+            "skill_openai_id",
+            unique=True,
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, nullable=False)
+    skill_openai_id: str = Field(max_length=255, nullable=False, index=True)
+    enabled: bool = Field(default=False, nullable=False)
