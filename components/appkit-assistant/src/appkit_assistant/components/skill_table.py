@@ -28,22 +28,35 @@ def _skill_table_row(skill: Skill) -> rx.Component:
             max_width="300px",
         ),
         mn.table.td(
-            mn.text(skill.default_version, size="sm"),
-        ),
-        mn.table.td(
-            mn.text(skill.latest_version, size="sm"),
-        ),
-        mn.table.td(
-            mn.select(
-                value=skill.required_role,
-                data=SkillAdminState.available_roles,
-                placeholder="Keine Rolle",
-                size="xs",
-                clearable=True,
-                check_icon_position="right",
-                on_change=lambda val: SkillAdminState.update_skill_role(skill.id, val),
-                w="160px",
+            mn.group(
+                mn.select(
+                    value=skill.required_role,
+                    data=SkillAdminState.available_roles,
+                    placeholder="Keine Rolle",
+                    size="xs",
+                    clearable=True,
+                    check_icon_position="right",
+                    on_change=lambda val: SkillAdminState.update_skill_role(
+                        skill.id, val
+                    ),
+                    w="160px",
+                ),
+                mn.box(
+                    rx.cond(
+                        SkillAdminState.updating_role_skill_id == skill.id,
+                        rx.spinner(size="1"),
+                    ),
+                    width="16px",
+                    display="flex",
+                    align_items="center",
+                    justify_content="center",
+                    flex_shrink="0",
+                ),
+                align="center",
+                gap="xs",
+                wrap="nowrap",
             ),
+            width="220px",
         ),
         mn.table.td(
             mn.switch(
@@ -111,8 +124,6 @@ def skills_table(
                 mn.table.tr(
                     mn.table.th(mn.text("Name", size="sm", fw="700")),
                     mn.table.th(mn.text("Beschreibung", size="sm", fw="700")),
-                    mn.table.th(mn.text("Default", size="sm", fw="700")),
-                    mn.table.th(mn.text("Latest", size="sm", fw="700")),
                     mn.table.th(mn.text("Rolle", size="sm", fw="700")),
                     mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
                     mn.table.th(mn.text("", size="sm")),

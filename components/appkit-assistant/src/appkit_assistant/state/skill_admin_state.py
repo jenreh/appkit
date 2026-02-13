@@ -26,6 +26,11 @@ class SkillAdminState(rx.State):
     role_labels: dict[str, str] = {}
     search_filter: str = ""
 
+    @rx.event
+    def set_search_filter(self, value: str) -> None:
+        """Set the search filter value."""
+        self.search_filter = value
+
     @rx.var
     def filtered_skills(self) -> list[Skill]:
         """Return skills filtered by search_filter (contains in name)."""
@@ -131,10 +136,12 @@ class SkillAdminState(rx.State):
         try:
             file_bytes = await upload_file.read()
             service = get_skill_service()
-            result = await service.create_skill(file_bytes, filename)
 
-            # Sync the newly created skill into the DB
             async with get_asyncdb_session() as session:
+                result = await service.create_or_update_skill(
+                    session, file_bytes, filename
+                )
+                # Sync the newly created skill into the DB
                 await service.sync_skill(session, result["id"])
 
             await self.load_skills()
@@ -155,26 +162,21 @@ class SkillAdminState(rx.State):
         finally:
             self.uploading = False
 
+    updating_role_skill_id: int | None = None
+
     async def update_skill_role(
         self, skill_id: int, role: str
     ) -> AsyncGenerator[Any, Any]:
         """Update the required role for a skill."""
         target_role = None if role in ["None", ""] else role
-
-        # Optimistic update
-        original_skills = list(self.skills)
-        for i, skill in enumerate(self.skills):
-            if skill.id == skill_id:
-                # Update attributes directly on the model instance copy
-                updated_data = skill.model_dump()
-                updated_data["required_role"] = target_role
-                self.skills[i] = Skill(**updated_data)
-                break
+        self.updating_role_skill_id = skill_id
         yield
 
         try:
             async with get_asyncdb_session() as session:
                 await skill_repo.update_required_role(session, skill_id, target_role)
+
+            await self.load_skills()
 
             role_label = (
                 self.role_labels.get(target_role, target_role)
@@ -187,11 +189,12 @@ class SkillAdminState(rx.State):
             )
         except Exception as e:
             logger.error("Failed to update skill role: %s", e)
-            self.skills = original_skills  # Revert
             yield rx.toast.error(
                 "Fehler beim Ändern der Rolle.",
                 position="top-right",
             )
+        finally:
+            self.updating_role_skill_id = None
 
     async def delete_skill(self, skill_id: int) -> AsyncGenerator[Any, Any]:
         """Delete a skill from OpenAI and the database."""
@@ -245,33 +248,6 @@ class SkillAdminState(rx.State):
             logger.error("Failed to toggle skill %d: %s", skill_id, e)
             yield rx.toast.error(
                 "Fehler beim Ändern des Skill-Status.",
-                position="top-right",
-            )
-
-    async def update_skill_role(
-        self, skill_id: int, role: str
-    ) -> AsyncGenerator[Any, Any]:
-        """Update the required role for a skill."""
-        try:
-            async with get_asyncdb_session() as session:
-                skill = await skill_repo.find_by_id(session, skill_id)
-                if not skill:
-                    yield rx.toast.error(
-                        "Skill nicht gefunden.",
-                        position="top-right",
-                    )
-                    return
-                skill.required_role = role or None
-                await skill_repo.save(session, skill)
-            await self.load_skills()
-            yield rx.toast.info(
-                "Rolle aktualisiert.",
-                position="top-right",
-            )
-        except Exception as e:
-            logger.error("Failed to update skill role %d: %s", skill_id, e)
-            yield rx.toast.error(
-                "Fehler beim Aktualisieren der Rolle.",
                 position="top-right",
             )
 

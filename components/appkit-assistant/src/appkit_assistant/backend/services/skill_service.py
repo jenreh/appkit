@@ -65,6 +65,94 @@ class SkillService:
             "latest_version": skill.latest_version,
         }
 
+    async def update_skill(
+        self, openai_id: str, file_bytes: bytes, filename: str
+    ) -> dict:
+        """Update an existing skill by creating a new version.
+
+        The OpenAI skills.update() only changes the default_version,
+        so to push new content we create a fresh skill and delete the
+        old one.
+
+        Returns a dict with the new skill metadata.
+        """
+        # Create new version with updated content
+        result = await self.create_skill(file_bytes, filename)
+        logger.info(
+            "Created new version of skill '%s' (%s -> %s)",
+            result["name"],
+            openai_id,
+            result["id"],
+        )
+        # Delete the old skill
+        try:
+            await self.delete_remote_skill(openai_id)
+        except Exception as e:
+            logger.warning("Could not delete old skill %s: %s", openai_id, e)
+        return result
+
+    async def create_or_update_skill(
+        self,
+        session: AsyncSession,
+        file_bytes: bytes,
+        filename: str,
+    ) -> dict:
+        """Create or update a skill on OpenAI.
+
+        Checks remote skills by name first. If a skill with the
+        same name already exists, creates a new version and deletes
+        the old one. The local version counter is incremented so
+        the DB reflects the upload history.
+
+        Returns a dict with the skill metadata (versions adjusted).
+        """
+        remote_skills = await self.list_remote_skills()
+
+        # Build name→id map from existing remote skills
+        name_to_id: dict[str, str] = {s["name"]: s["id"] for s in remote_skills}
+
+        # Create the skill (always creates a new one on OpenAI)
+        result = await self.create_skill(file_bytes, filename)
+        skill_name = result["name"]
+
+        if skill_name in name_to_id:
+            old_id = name_to_id[skill_name]
+
+            # Look up existing DB record to get current version
+            existing = await skill_repo.find_by_openai_id(session, old_id)
+            old_latest = int(existing.latest_version) if existing else 1
+
+            new_version = str(old_latest + 1)
+            result["latest_version"] = new_version
+            result["default_version"] = new_version
+
+            logger.info(
+                "Skill '%s' already existed (%s v%d), "
+                "replacing with new version (%s v%s)",
+                skill_name,
+                old_id,
+                old_latest,
+                result["id"],
+                new_version,
+            )
+
+            # Delete the old remote skill
+            try:
+                await self.delete_remote_skill(old_id)
+            except Exception as e:
+                logger.warning(
+                    "Could not delete old skill %s: %s",
+                    old_id,
+                    e,
+                )
+
+            # Remove old local record so upsert creates a fresh one
+            if existing:
+                await user_skill_repo.delete_by_skill_openai_id(session, old_id)
+                await skill_repo.delete_by_id(session, existing.id)
+
+        return result
+
     async def retrieve_skill(self, openai_id: str) -> dict:
         """Retrieve a single skill from the OpenAI API."""
         client = self._get_client()
@@ -152,10 +240,13 @@ class SkillService:
     # ------------------------------------------------------------------
 
     async def _upsert_skill(self, session: AsyncSession, remote: dict) -> Skill:
-        """Insert or update a local Skill from remote data."""
-        existing = await skill_repo.find_by_openai_id(session, remote["id"])
+        """Insert or update a local Skill from remote data.
+
+        OpenAI is the leading source — matches by openai_id only.
+        """
         now = datetime.now(UTC)
 
+        existing = await skill_repo.find_by_openai_id(session, remote["id"])
         if existing:
             existing.name = remote["name"]
             existing.description = remote["description"]
