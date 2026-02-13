@@ -11,17 +11,17 @@ dependencies = [
     "appkit-mantine",
     "appkit-ui",
     "appkit-user",
-    "psycopg>=3.3.2",
-    "psycopg-binary>=3.3.2",
+    "psycopg==3.3.2",
+    "psycopg-binary==3.3.2",
     "reflex>=0.8.26",
 ]
 
 [dependency-groups]
 dev = [
     "pytest==9.0.2",
-    "ruff==0.14.14",
-    "bump-my-version>=1.2.6",
-    "detect-secrets>=1.5.0",
+    "ruff==0.15.1",
+    "bump-my-version==1.2.6",
+    "detect-secrets==1.5.0",
 ]
 
 [tool.setuptools.packages.find]
