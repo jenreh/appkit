@@ -1,8 +1,8 @@
 """Table component for displaying MCP servers."""
 
 import reflex as rx
-from reflex.components.radix.themes.components.table import TableRow
 
+import appkit_mantine as mn
 from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.components.mcp_server_dialogs import (
     add_mcp_server_button,
@@ -12,101 +12,119 @@ from appkit_assistant.components.mcp_server_dialogs import (
 from appkit_assistant.state.mcp_server_state import MCPServerState
 
 
-def mcp_server_table_row(server: MCPServer) -> TableRow:
+def mcp_server_table_row(server: MCPServer) -> rx.Component:
     """Show an MCP server in a table row."""
-    return rx.table.row(
-        rx.table.cell(
-            server.name,
-            white_space="nowrap",
+    # Note: Skill table uses update_skill_role inline. MCP uses update dialog.
+    return mn.table.tr(
+        mn.table.td(
+            mn.text(server.name, size="sm", fw="500", style={"whiteSpace": "nowrap"}),
+            min_width="160px",
         ),
-        rx.table.cell(
-            rx.text(
+        mn.table.td(
+            mn.text(
                 server.description,
                 title=server.description,
-                style={
-                    "display": "block",
-                    "overflow": "hidden",
-                    "text_overflow": "ellipsis",
-                    "white_space": "nowrap",
-                },
+                size="sm",
+                c="dimmed",
+                line_clamp=2,
             ),
-            white_space="nowrap",
-            style={
-                "max_width": "0",
-                "width": "100%",
-            },
         ),
-        rx.table.cell(
+        mn.table.td(
             rx.cond(
                 server.required_role,
-                rx.text(
+                mn.text(
                     MCPServerState.role_labels.get(
                         server.required_role, server.required_role
                     ),
-                    size="2",
+                    size="sm",
                 ),
-                rx.text("-", size="2", color="gray"),
+                mn.text("-", size="sm", c="dimmed"),
             ),
-            white_space="nowrap",
+            width="1%",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
-            rx.switch(
-                checked=server.active,
-                on_change=lambda checked: MCPServerState.toggle_server_active(
-                    server.id, checked
+        mn.table.td(
+            mn.group(
+                mn.switch(
+                    checked=server.active,
+                    on_change=lambda checked: MCPServerState.toggle_server_active(
+                        server.id, checked
+                    ),
+                    size="sm",
                 ),
+                mn.box(
+                    rx.cond(
+                        MCPServerState.updating_active_server_id == server.id,
+                        rx.spinner(size="1"),
+                    ),
+                    width="16px",
+                    display="flex",
+                    align_items="center",
+                    justify_content="center",
+                    flex_shrink="0",
+                ),
+                align="center",
+                gap="xs",
+                wrap="nowrap",
             ),
-            white_space="nowrap",
+            width="1%",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
-            rx.hstack(
+        mn.table.td(
+            mn.group(
                 update_mcp_server_dialog(server),
                 delete_mcp_server_dialog(server),
-                spacing="2",
-                align_items="center",
+                align="center",
+                gap="xs",
+                wrap="nowrap",
             ),
-            white_space="nowrap",
+            width="1%",
+            style={"whiteSpace": "nowrap"},
         ),
-        justify="center",
-        vertical_align="middle",
-        style={"_hover": {"bg": rx.color("gray", 2)}},
     )
 
 
 def mcp_servers_table(
     role_labels: dict[str, str] | None = None,
     available_roles: list[dict[str, str]] | None = None,
-) -> rx.Fragment:
-    # Set default empty values if not provided
+) -> rx.Component:
+    """Admin table for managing MCP servers."""
     if role_labels is None:
         role_labels = {}
     if available_roles is None:
         available_roles = []
 
-    return rx.fragment(
+    return mn.stack(
         rx.flex(
             add_mcp_server_button(),
             rx.spacer(),
+            width="100%",
+            margin_bottom="md",
+            gap="12px",
+            align="center",
         ),
-        rx.table.root(
-            rx.table.header(
-                rx.table.row(
-                    rx.table.column_header_cell("Name", width="20%"),
-                    rx.table.column_header_cell(
-                        "Beschreibung", width="calc(80% - 350px)"
-                    ),
-                    rx.table.column_header_cell("Rolle", width="120px"),
-                    rx.table.column_header_cell("Aktiv", width="90px"),
-                    rx.table.column_header_cell("", width="140px"),
+        mn.table(
+            mn.table.thead(
+                mn.table.tr(
+                    mn.table.th(mn.text("Name", size="sm", fw="700")),
+                    mn.table.th(mn.text("Beschreibung", size="sm", fw="700")),
+                    mn.table.th(mn.text("Rolle", size="sm", fw="700")),
+                    mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
+                    mn.table.th(mn.text("", size="sm")),
                 ),
             ),
-            rx.table.body(rx.foreach(MCPServerState.servers, mcp_server_table_row)),
-            size="3",
-            width="100%",
-            table_layout="fixed",
-            on_mount=[
-                MCPServerState.set_available_roles(available_roles, role_labels),
-                MCPServerState.load_servers_with_toast,
-            ],
+            mn.table.tbody(rx.foreach(MCPServerState.servers, mcp_server_table_row)),
+            striped=False,
+            highlight_on_hover=True,
+            highlight_on_hover_color=rx.color_mode_cond(
+                light="gray.0",
+                dark="dark.8",
+            ),
+            w="100%",
         ),
+        w="100%",
+        on_mount=[
+            MCPServerState.set_available_roles(available_roles, role_labels),
+            MCPServerState.load_servers_with_toast,
+        ],
     )

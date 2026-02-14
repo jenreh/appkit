@@ -40,8 +40,10 @@ app:
 
   assistant:
     perplexity_api_key: secret:mn-perplexity-api-key
-    #openai_base_url: secret:mn-openai-api-endpoint
     openai_api_key: secret:mn-openai-api-key
+    #openai_api_key: secret:mn-azure-openai-api-key
+    #openai_base_url: secret:mn-openai-api-endpoint
+    #openai_is_azure: true
     openai_is_azure: false
     claude_api_key: secret:mn-claude-api-key
     claude_base_url: secret:mn-claude-api-endpoint
@@ -58,6 +60,8 @@ app:
     blackforestlabs_base_url: https://asy-nm-x-dia-openai.services.ai.azure.com/providers/blackforestlabs/v1/
     google_api_key: secret:mn-google-api-key
     openai_api_key: secret:mn-openai-api-key
+    #openai_api_key: secret:mn-azure-openai-api-key
     #openai_base_url: secret:mn-openai-api-endpoint
+    #openai_is_azure: true
     openai_is_azure: false
     tmp_dir: ./uploaded_files

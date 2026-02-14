@@ -592,15 +592,10 @@ def add_mcp_server_button() -> rx.Component:
     ValidationState.initialize()
     return rx.dialog.root(
         rx.dialog.trigger(
-            rx.button(
-                rx.icon("plus"),
-                rx.text(
-                    "Neuen MCP Server anlegen",
-                    display=["none", "none", "block"],
-                    size="2",
-                ),
-                size="2",
-                variant="solid",
+            mn.button(
+                "Neuen MCP Server anlegen",
+                left_section=rx.icon("plus", size=16),
+                size="sm",
                 on_click=[ValidationState.initialize(server=None)],
                 margin_bottom="15px",
             ),

@@ -184,14 +184,14 @@ def user_form_fields(user: User | None = None) -> rx.Component:
 def add_user_button(
     label: str = "Benutzer hinzufügen",
     icon: str = "plus",
-    icon_size: int = 19,
+    icon_size: int = 16,
     **kwargs,
 ) -> rx.Component:
     return rx.dialog.root(
         rx.dialog.trigger(
-            rx.button(
-                rx.icon(icon, size=icon_size),
-                rx.text(label, display=["none", "none", "block"]),
+            mn.button(
+                label,
+                left_section=rx.icon(icon, size=icon_size),
                 **kwargs,
             ),
         ),
@@ -220,7 +220,7 @@ def add_user_button(
 def update_user_button(
     user: User,
     icon: str = "square-pen",
-    icon_size: int = 19,
+    icon_size: int = 16,
     **kwargs,
 ) -> rx.Component:
     return rx.dialog.root(
@@ -262,7 +262,6 @@ def delete_user_button(user: User, **kwargs) -> rx.Component:
         content=rx.cond(user.email, user.email, "Unbekannter Benutzer"),
         on_click=lambda: UserState.delete_user(user.user_id),
         icon_button=True,
-        variant="ghost",
         color_scheme="red",
         **kwargs,
     )
@@ -290,49 +289,56 @@ def users_table_row(
 
     return mn.table.tr(
         mn.table.td(
-            rx.cond(user.name, user.name, ""),
-            class_name="whitespace-nowrap",
+            mn.text(user.name, size="sm", fw="500", style={"whiteSpace": "nowrap"}),
         ),
         mn.table.td(
-            rx.cond(user.email, user.email, ""),
-            class_name="whitespace-nowrap",
+            mn.text(user.email, size="sm", c="dimmed", style={"whiteSpace": "nowrap"}),
         ),
         mn.table.td(
-            rx.cond(
-                user.is_active,
-                rx.icon("user-check", color="green", size=21),
-                rx.icon("user-x", color="crimson", size=21),
+            rx.center(
+                rx.cond(
+                    user.is_active,
+                    rx.icon("check", color="green", size=18),
+                    rx.icon("x", color="red", size=18),
+                )
             ),
-            class_name="text-center",
+            width="1%",
         ),
         mn.table.td(
-            rx.cond(
-                user.is_verified,
-                rx.icon("user-check", color="green", size=21),
-                rx.icon("user-x", color="crimson", size=21),
+            rx.center(
+                rx.cond(
+                    user.is_verified,
+                    rx.icon("check", color="green", size=18),
+                    rx.icon("x", color="red", size=18),
+                )
             ),
-            class_name="text-center",
+            width="1%",
         ),
         mn.table.td(
-            rx.cond(
-                user.is_admin,
-                rx.icon("user-check", color="green", size=21),
-                rx.icon("user-x", color="crimson", size=21),
+            rx.center(
+                rx.cond(
+                    user.is_admin,
+                    rx.icon("check", color="green", size=18),
+                    rx.icon("x", color="red", size=18),
+                )
             ),
-            class_name="text-center",
+            width="1%",
         ),
         mn.table.td(
-            rx.hstack(
+            mn.group(
                 *rendered_additional_components,
-                update_user_button(user=user, variant="ghost", margin="0"),
+                update_user_button(user=user, variant="ghost"),
                 delete_user_button(
                     user=user,
+                    variant="ghost",
                 ),
-                class_name="whitespace-nowrap",
+                gap="xs",
+                wrap="nowrap",
+                align="center",
             ),
+            width="1%",
+            style={"whiteSpace": "nowrap"},
         ),
-        class_name="justify-center items-center",
-        # style={"_hover": {"bg": rx.color("gray", 2)}},
     )
 
 
@@ -342,10 +348,13 @@ def loading() -> rx.Component:
         mn.table.td(
             rx.hstack(
                 rx.spinner(size="3"),
-                rx.text("Lade Benutzer...", size="3"),
+                mn.text("Lade Benutzer...", size="sm"),
+                align="center",
+                justify="center",
+                spacing="3",
             ),
             col_span=6,
-            class_name="text-center justify-center",
+            style={"textAlign": "center"},
         ),
     )
 
@@ -370,35 +379,53 @@ def users_table(additional_components: list | None = None) -> rx.Component:
             additional_components=additional_components,
         )
 
-    return rx.fragment(
+    return mn.stack(
         rx.flex(
             add_user_button(),
             rx.spacer(),
+            width="100%",
+            margin_bottom="md",
+            gap="12px",
+            align="center",
         ),
         mn.table(
             mn.table.thead(
                 mn.table.tr(
-                    mn.table.th("Name"),
-                    mn.table.th("Email", width="auto"),
-                    mn.table.th("Aktiv", width="90px"),
-                    mn.table.th("Verifiziert", width="90px"),
-                    mn.table.th("Admin", width="90px"),
-                    mn.table.th("", width="110px"),
+                    mn.table.th(mn.text("Name", size="sm", fw="700")),
+                    mn.table.th(mn.text("Email", size="sm", fw="700")),
+                    mn.table.th(
+                        mn.text("Aktiv", size="sm", fw="700"),
+                        style={"textAlign": "center"},
+                    ),
+                    mn.table.th(
+                        mn.text("Verifiziert", size="sm", fw="700"),
+                        style={"textAlign": "center"},
+                    ),
+                    mn.table.th(
+                        mn.text("Admin", size="sm", fw="700"),
+                        style={"textAlign": "center"},
+                    ),
+                    mn.table.th(mn.text("", size="sm")),
                 ),
             ),
-            rx.cond(
-                UserState.is_loading,
-                mn.table.tbody(loading()),
-                mn.table.tbody(
+            mn.table.tbody(
+                rx.cond(
+                    UserState.is_loading,
+                    loading(),
                     rx.foreach(
                         UserState.users,
                         render_user_row,
-                    )
-                ),
+                    ),
+                )
             ),
+            striped=False,
             highlight_on_hover=True,
-            sticky_header=True,
-            class_name="w-full",
-            on_mount=UserState.load_users,
+            highlight_on_hover_color=rx.color_mode_cond(
+                light="gray.0",
+                dark="dark.8",
+            ),
+            w="100%",
         ),
+        w="100%",
+        on_mount=UserState.load_users,
     )

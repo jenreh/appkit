@@ -23,6 +23,7 @@ class MCPServerState(rx.State):
     servers: list[MCPServer] = []
     current_server: MCPServer | None = None
     loading: bool = False
+    updating_active_server_id: int | None = None
     available_roles: list[dict[str, str]] = []
     role_labels: dict[str, str] = {}
 
@@ -264,12 +265,21 @@ class MCPServerState(rx.State):
         self, server_id: int, active: bool
     ) -> AsyncGenerator[Any, Any]:
         """Toggle the active status of an MCP server."""
+        # Set updating state
+        self.updating_active_server_id = server_id
+
         # Optimistic update: update UI immediately for better UX
         original_servers = list(self.servers)
         for i, s in enumerate(self.servers):
             if s.id == server_id:
-                self.servers[i].active = active
+                # Create a copy to trigger reactivity if needed
+                new_server = s.model_copy(update={"active": active})
+                self.servers[i] = new_server
                 break
+
+        # Trigger list update (Reflex needs list reference change or explicit modification)
+        self.servers = list(self.servers)
+
         # Yield immediately to flush state update to frontend
         yield
 
@@ -279,6 +289,7 @@ class MCPServerState(rx.State):
                 if not server:
                     # Revert optimistic update
                     self.servers = original_servers
+                    self.updating_active_server_id = None
                     yield rx.toast.error(
                         "MCP Server nicht gefunden.",
                         position="top-right",
@@ -290,6 +301,10 @@ class MCPServerState(rx.State):
                 server_name = server.name
 
             status_text = "aktiviert" if active else "deaktiviert"
+
+            # Clear updating state
+            self.updating_active_server_id = None
+
             yield rx.toast.info(
                 f"MCP Server {server_name} wurde {status_text}.",
                 position="top-right",
@@ -299,6 +314,7 @@ class MCPServerState(rx.State):
         except Exception as e:
             # Revert optimistic update on error
             self.servers = original_servers
+            self.updating_active_server_id = None
             logger.error("Failed to toggle MCP server %d: %s", server_id, e)
             yield rx.toast.error(
                 "Fehler beim Ändern des MCP Server Status.",
