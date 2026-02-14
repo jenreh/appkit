@@ -97,7 +97,7 @@ class MessageActionsBar:
         return rx.hstack(
             rx.tooltip(
                 mn.action_icon(
-                    rx.icon("copy", size=14),
+                    rx.icon("copy", size=13),
                     on_click=ThreadState.copy_message(message.text),
                     variant="subtle",
                     size="sm",
@@ -107,7 +107,7 @@ class MessageActionsBar:
             ),
             rx.tooltip(
                 mn.action_icon(
-                    rx.icon("download", size=14),
+                    rx.icon("download", size=13),
                     on_click=ThreadState.download_message(message.text, message.id),
                     variant="subtle",
                     size="sm",
@@ -135,7 +135,7 @@ class MessageActionsBar:
                         rx.cond(
                             ThreadState.processing,
                             rx.spinner(size="1"),
-                            rx.icon("refresh-cw", size=14),
+                            rx.icon("refresh-cw", size=13),
                         ),
                         on_click=ThreadState.retry_message(message.id),
                         variant="subtle",
@@ -370,12 +370,12 @@ class MessageComponent:
                     rx.spacer(),
                     rx.tooltip(
                         mn.action_icon(
-                            rx.icon("pencil", size=14),
+                            rx.icon("pencil", size=13),
                             on_click=ThreadState.set_editing_mode(
                                 message.id, message.text
                             ),
                             variant="subtle",
-                            size="12px",
+                            size="sm",
                             color="gray",
                         ),
                         content="Bearbeiten",
@@ -394,7 +394,7 @@ class MessageComponent:
                     ),
                     rx.tooltip(
                         mn.action_icon(
-                            rx.icon("copy", size=14),
+                            rx.icon("copy", size=13),
                             on_click=ThreadState.copy_message(message.text),
                             variant="subtle",
                             size="sm",
