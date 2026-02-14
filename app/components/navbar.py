@@ -89,8 +89,9 @@ def navbar_items() -> rx.Component:
         sub_heading("Components"),
         mn.stack(
             sidebar_sub_item(label="Buttons & Icons", icon="", url="/buttons"),
-            sidebar_sub_item(label="Inputs", icon="", url="/inputs"),
             sidebar_sub_item(label="Comboboxes", icon="", url="/comboboxes"),
+            sidebar_sub_item(label="Date & Time", icon="", url="/examples/date"),
+            sidebar_sub_item(label="Inputs", icon="", url="/inputs"),
             sidebar_sub_item(label="Rich Text Editor (Tiptap)", icon="", url="/tiptap"),
             gap="0",
             w="100%",

@@ -1,5 +1,6 @@
 import reflex as rx
 
+import appkit_mantine as mn
 from appkit_ui.components.header import header
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.templates import authenticated
@@ -21,14 +22,13 @@ def users_page() -> rx.Component:
     additional_components = []
 
     return requires_admin(
-        rx.vstack(
+        mn.stack(
             header("Benutzer"),
-            rx.vstack(
+            mn.stack(
                 users_table(additional_components=additional_components),
                 max_width="1200px",
                 width="100%",
             ),
-            spacing="6",
             width="100%",
             padding="2rem",
         )
