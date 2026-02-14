@@ -158,6 +158,10 @@ def skills_table(
             ),
             striped=False,
             highlight_on_hover=True,
+            highlight_on_hover_color=rx.color_mode_cond(
+                light="gray.0",
+                dark="dark.8",
+            ),
             w="100%",
         ),
         w="100%",
