@@ -14,12 +14,17 @@ class FileUploadConfig(BaseConfig):
 
 
 class AssistantConfig(BaseConfig):
-    perplexity_api_key: SecretStr | None = None
+    azure_api_key: SecretStr | None = None
+    azure_ai_projects_endpoint: str | None = None
+    openai_is_azure: bool = False
+
     openai_base_url: str | None = None
     openai_api_key: SecretStr | None = None
-    openai_is_azure: bool = False
+
     claude_base_url: str | None = None
     claude_api_key: SecretStr | None = None
+
     google_api_key: SecretStr | None = None
-    azure_ai_projects_endpoint: str | None = None
+    perplexity_api_key: SecretStr | None = None
+
     file_upload: FileUploadConfig = FileUploadConfig()

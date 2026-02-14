@@ -76,24 +76,33 @@ def initialize_model_manager() -> list[AIModel]:
             ),
         )
 
+    GPT_5_1.text = "GPT 5.1 (Azure)" if config.openai_is_azure else "GPT 5.1"
+    GPT_5_MINI.text = "GPT 5 Mini (Azure)" if config.openai_is_azure else "GPT 5 Mini"
+
     models = {
         GPT_5_1.id: GPT_5_1,
         GPT_5_MINI.id: GPT_5_MINI,
-        GPT_5_2.id: GPT_5_2,
     }
 
-    if not config.openai_is_azure:
-        GPT_5_2.supports_skills = True
-
     model_manager.register_processor(
-        "openai",
+        "azure",
         OpenAIResponsesProcessor(
-            api_key=config.openai_api_key.get_secret_value()
-            if config.openai_api_key
+            api_key=config.azure_api_key.get_secret_value()
+            if config.azure_api_key
             else None,
             base_url=config.openai_base_url,
             models=models,
-            is_azure=config.openai_is_azure,
+            is_azure=True,
+        ),
+    )
+
+    GPT_5_2.supports_skills = True  # Enable skills for GPT-5.2
+    model_manager.register_processor(
+        "openai",
+        OpenAIResponsesProcessor(
+            api_key=config.openai_api_key.get_secret_value(),
+            models={GPT_5_2.id: GPT_5_2},
+            is_azure=False,
         ),
     )
 
