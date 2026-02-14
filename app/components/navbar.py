@@ -105,6 +105,7 @@ def navbar_items() -> rx.Component:
         ),
         sub_heading("Others"),
         mn.stack(
+            sidebar_sub_item(label="Charts", icon="", url="/charts"),
             sidebar_sub_item(label="Data Display", icon="", url="/data-display"),
             sidebar_sub_item(label="Feedback", icon="", url="/feedback"),
             sidebar_sub_item(label="Overlay", icon="", url="/overlay"),
