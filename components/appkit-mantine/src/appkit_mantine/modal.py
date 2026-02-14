@@ -31,7 +31,7 @@ Example:
 
 
     def my_page():
-        return rx.vstack(
+        return mn.stack(
             mn.modal(
                 rx.text("Modal content goes here"),
                 title="My Modal",
