@@ -11,6 +11,7 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_user.authentication.templates import navbar_layout
 
+from app.components.examples import example_box
 from app.components.navbar import app_navbar
 
 
@@ -47,12 +48,10 @@ class ChatStreamState(rx.State):
 
     @rx.event
     def update_scroll_position(self, position: dict) -> None:
-        # position is expected as {'x': number, 'y': number}
+        """Update scroll tracking."""
         self.scroll_position = position
         y = position.get("y", 0)
-        # at top when y == 0
         self.at_top = y == 0
-        # clear at_bottom when user scrolls (onBottomReached will set it)
         if y != 0:
             self.at_bottom = False
 
@@ -72,10 +71,9 @@ class DataStreamState(rx.State):
 
     @rx.event
     def update_scroll_position(self, position: dict) -> None:
-        # position is expected as {'x': number, 'y': number}
+        """Update scroll tracking."""
         self.scroll_position = position
         y = position.get("y", 0)
-        # at top when y == 0
         self.at_top = y == 0
 
     @rx.event
@@ -98,209 +96,189 @@ class DataStreamState(rx.State):
 
 def auto_scroll_example() -> rx.Component:
     """Basic AutoScroll example - auto-scrolls to bottom."""
-    return rx.card(
-        rx.vstack(
-            rx.heading("AutoScroll Basic Example", size="4"),
-            rx.text(
+    return example_box(
+        "AutoScroll Basic Example",
+        mn.stack(
+            mn.text(
                 "Content automatically scrolls to bottom when new messages arrive. "
                 "Try clicking 'Add Message' to see it in action.",
-                size="2",
-                color="gray",
+                size="sm",
+                c="dimmed",
             ),
-            rx.divider(),
-            mn.scroll_area.autoscroll(
-                rx.foreach(
-                    ChatStreamState.messages,
-                    lambda msg: rx.box(
-                        rx.text(msg, size="2"),
-                        padding="3",
-                        border_bottom="1px solid",
-                        border_color=rx.color("gray", 4),
+            mn.divider(),
+            mn.paper(
+                mn.scroll_area.autoscroll(
+                    mn.stack(
+                        rx.foreach(
+                            ChatStreamState.messages,
+                            lambda msg: mn.paper(
+                                mn.text(msg, size="sm"),
+                                p="xs",
+                                with_border=True,
+                            ),
+                        ),
+                        gap="xs",
                     ),
+                    h=250,
+                    w="100%",
                 ),
-                height="250px",
-                width="100%",
-                border="1px solid",
-                border_color=rx.color("gray", 4),
-                border_radius="md",
+                with_border=True,
+                p="xs",
             ),
-            rx.divider(),
-            rx.hstack(
-                rx.button(
+            mn.divider(),
+            mn.group(
+                mn.button(
                     "Add Message",
                     on_click=ChatStreamState.add_message("New message added"),
-                    size="2",
+                    variant="default",
                 ),
-                rx.button(
+                mn.button(
                     "Stream Response",
                     on_click=ChatStreamState.stream_response,
-                    size="2",
-                    color_scheme="blue",
                 ),
-                spacing="3",
             ),
-            spacing="3",
-            width="100%",
         ),
-        padding="4",
-        border_radius="md",
-        width="100%",
     )
 
 
 def auto_scroll_with_controls_example() -> rx.Component:
     """AutoScroll example 2."""
-    return rx.card(
-        rx.vstack(
-            rx.heading("AutoScroll Example 2", size="4"),
-            rx.text(
-                f"At bottom: {DataStreamState.at_bottom}, ",
-                f"at top: {DataStreamState.at_top}",
-                size="2",
-                color="gray",
-            ),
-            rx.text(
-                f"Position: x={DataStreamState.scroll_position['x']}, "
-                f"y={DataStreamState.scroll_position['y']}",
-                size="2",
-            ),
-            rx.divider(),
-            mn.scroll_area.autoscroll(
-                rx.foreach(
-                    DataStreamState.log_lines,
-                    lambda line: rx.box(
-                        rx.text(line, size="2", font_family="monospace"),
-                        padding="2",
-                        border_bottom="1px solid",
-                        border_color=rx.color("gray", 3),
-                    ),
+    return example_box(
+        "AutoScroll Example 2",
+        mn.stack(
+            mn.group(
+                mn.text(
+                    f"At bottom: {DataStreamState.at_bottom}, "
+                    f"at top: {DataStreamState.at_top}",
+                    size="sm",
+                    c="dimmed",
                 ),
-                height="300px",
-                width="100%",
-                border="1px solid",
-                border_color=rx.color("gray", 4),
-                border_radius="md",
-                on_scroll_position_change=DataStreamState.update_scroll_position,
+                mn.text(
+                    f"Pos: x={DataStreamState.scroll_position['x']}, "
+                    f"y={DataStreamState.scroll_position['y']}",
+                    size="xs",
+                    c="dimmed",
+                ),
+                justify="space-between",
             ),
-            rx.divider(),
-            rx.hstack(
-                rx.button(
+            mn.divider(),
+            mn.paper(
+                mn.scroll_area.autoscroll(
+                    mn.stack(
+                        rx.foreach(
+                            DataStreamState.log_lines,
+                            lambda line: mn.text(line, size="xs", ff="monospace"),
+                        ),
+                        gap=0,
+                    ),
+                    h=300,
+                    w="100%",
+                    on_scroll_position_change=DataStreamState.update_scroll_position,
+                ),
+                with_border=True,
+                p="xs",
+            ),
+            mn.divider(),
+            mn.group(
+                mn.button(
                     "Add Log",
                     on_click=DataStreamState.add_log("INFO", "Manual log entry"),
-                    size="2",
+                    variant="default",
                 ),
-                rx.button(
+                mn.button(
                     "Simulate Processing",
                     on_click=DataStreamState.simulate_processing,
-                    size="2",
-                    color_scheme="blue",
                 ),
-                spacing="3",
             ),
-            spacing="3",
-            width="100%",
         ),
-        padding="4",
-        border_radius="md",
-        width="100%",
     )
 
 
 def stateful_autoscroll_example() -> rx.Component:
-    """ScrollAreaWithState with autoscroll enabled.
-
-    Combines state tracking with autoscroll.
-    """
-    return rx.card(
-        rx.vstack(
-            rx.heading("ScrollArea.Stateful with AutoScroll", size="5"),
-            rx.text(
+    """ScrollAreaWithState with autoscroll enabled."""
+    return example_box(
+        "ScrollArea.Stateful with AutoScroll",
+        mn.stack(
+            mn.text(
                 "Combines state-based scroll tracking, top/bottom buttons, "
                 "and autoscroll behavior.",
-                size="2",
-                color="gray",
+                size="sm",
+                c="dimmed",
             ),
-            rx.hstack(
-                rx.button(
+            mn.group(
+                mn.button(
                     "Add Message",
                     on_click=ChatStreamState.add_message("User: New message here!"),
-                    size="2",
+                    variant="default",
                 ),
-                rx.button(
+                mn.button(
                     "Stream Response",
                     on_click=ChatStreamState.stream_response,
-                    size="2",
-                    color_scheme="blue",
                 ),
-                spacing="3",
             ),
-            mn.scroll_area.stateful(
-                rx.vstack(
-                    rx.foreach(
-                        ChatStreamState.messages,
-                        lambda msg, idx: rx.card(
-                            rx.text(msg, size="2"),
-                            padding="2",
-                            background_color=rx.cond(
-                                msg.contains("User:"),
-                                rx.color("blue", 2),
-                                rx.color("gray", 2),
+            mn.paper(
+                mn.scroll_area.stateful(
+                    mn.stack(
+                        rx.foreach(
+                            ChatStreamState.messages,
+                            lambda msg, idx: mn.card(
+                                mn.text(msg, size="sm"),
+                                p="xs",
+                                bg=rx.cond(
+                                    msg.contains("User:"),
+                                    "var(--mantine-color-blue-1)",
+                                    "var(--mantine-color-gray-1)",
+                                ),
+                                key=f"msg-{idx}",
                             ),
-                            key=f"msg-{idx}",
                         ),
+                        gap="xs",
                     ),
-                    spacing="2",
-                    width="100%",
+                    autoscroll=True,
+                    persist_key="stateful-autoscroll-demo",
+                    h=300,
+                    show_controls=True,
+                    controls="both",
+                    scrollbars="y",
+                    type="hover",
                 ),
-                autoscroll=True,  # ✨ New feature!
-                persist_key="stateful-autoscroll-demo",
-                height="300px",
-                show_controls=True,
-                controls="both",
-                scrollbars="y",
-                type="hover",
+                with_border=True,
+                p="xs",
             ),
-            rx.callout(
+            mn.alert(
                 "✨ New: autoscroll=True enables auto-scroll while "
-                "preserving state tracking, scroll persistence "
-                "(try refreshing!), and navigation buttons.",
-                icon="info",
-                color_scheme="blue",
-                size="1",
+                "preserving state tracking, scroll persistence, "
+                "and navigation buttons.",
+                icon=rx.icon("info"),
+                variant="light",
+                color="blue",
             ),
-            spacing="3",
-            width="100%",
         ),
-        padding="4",
-        border_radius="md",
-        width="100%",
     )
 
 
 @navbar_layout(
-    route="/auto-scroll",
+    route="/examples/auto-scroll",
     title="AutoScroll Examples",
+    description="AutoScroll Component Examples",
     navbar=app_navbar(),
     with_header=False,
 )
 def auto_scroll_examples() -> rx.Component:
     """Main auto-scroll examples page."""
-    return rx.container(
-        rx.color_mode.button(position="top-right"),
-        rx.vstack(
-            rx.heading("AutoScroll Components", size="8"),
-            rx.text(
+    return mn.container(
+        mn.stack(
+            mn.title("AutoScroll Components", order=1),
+            mn.text(
                 "Demonstration of AutoScroll and AutoScrollWithControls components",
-                size="3",
-                color="gray",
+                size="md",
+                c="dimmed",
             ),
-            rx.link("← Back to Home", href="/", size="3"),
-            rx.divider(),
+            mn.divider(),
             auto_scroll_example(),
             auto_scroll_with_controls_example(),
             stateful_autoscroll_example(),
-            spacing="6",
-            width="100%",
+            gap="xl",
         ),
-        size="2",
+        size="lg",
     )

@@ -4,6 +4,7 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_assistant.components import file_manager, mcp_servers_table
+from appkit_assistant.components.skill_table import skills_table
 from appkit_assistant.components.system_prompt_editor import system_prompt_editor
 from appkit_assistant.roles import (
     ASSISTANT_USER_ROLE,
@@ -11,11 +12,14 @@ from appkit_assistant.roles import (
 from appkit_assistant.state.file_manager_state import FileManagerState
 from appkit_assistant.state.system_prompt_state import SystemPromptState
 from appkit_ui.components.header import header
-from appkit_user.authentication.components.components import requires_admin
+from appkit_user.authentication.components.components import (
+    requires_admin,
+    requires_role,
+)
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
-from app.roles import MCP_ADVANCED_ROLE, MCP_BASIC_ROLE
+from app.roles import MCP_ADVANCED_ROLE, MCP_BASIC_ROLE, SKILL_ADMIN_ROLE
 
 # Mapping from role name to display label
 ROLE_LABELS: dict[str, str] = {
@@ -66,6 +70,7 @@ def admin_assistant_page() -> rx.Component:
             mn.tabs(
                 mn.tabs.list(
                     mn.tabs.tab("MCP Server", value="mcp"),
+                    mn.tabs.tab("Skills", value="skills"),
                     mn.tabs.tab("System Prompt", value="system_prompt"),
                     mn.tabs.tab("Dateimanager", value="file_manager"),
                     margin_bottom="1rem",
@@ -75,6 +80,16 @@ def admin_assistant_page() -> rx.Component:
                         role_labels=ROLE_LABELS, available_roles=AVAILABLE_ROLES
                     ),
                     value="mcp",
+                ),
+                mn.tabs.panel(
+                    requires_role(
+                        skills_table(
+                            role_labels=ROLE_LABELS,
+                            available_roles=AVAILABLE_ROLES,
+                        ),
+                        role=SKILL_ADMIN_ROLE.name,
+                    ),
+                    value="skills",
                 ),
                 mn.tabs.panel(
                     system_prompt_editor(),

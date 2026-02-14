@@ -39,10 +39,12 @@ from app.pages.assistant.assistant import assistant_page  # noqa: F401
 # from app.pages.assitant.assistant import assistant_page  # noqa: F401
 from app.pages.examples.auto_scroll_examples import auto_scroll_examples  # noqa: F401
 from app.pages.examples.button_examples import button_examples  # noqa: F401
+from app.pages.examples.charts_examples import charts_examples  # noqa: F401
 from app.pages.examples.combobox_examples import combobox_examples  # noqa: F401
 from app.pages.examples.data_display_examples import (
     data_display_examples,  # noqa: F401
 )
+from app.pages.examples.date_examples import date_examples_page  # noqa: F401
 from app.pages.examples.feedback_examples import feedback_examples  # noqa: F401
 from app.pages.examples.input_examples import input_examples_page  # noqa: F401
 from app.pages.examples.markdown_preview_examples import (

@@ -23,8 +23,24 @@ class MCPServerState(rx.State):
     servers: list[MCPServer] = []
     current_server: MCPServer | None = None
     loading: bool = False
+    updating_active_server_id: int | None = None
+    updating_role_server_id: int | None = None
+    search_filter: str = ""
     available_roles: list[dict[str, str]] = []
     role_labels: dict[str, str] = {}
+
+    def set_search_filter(self, value: str) -> None:
+        """Set the search filter."""
+        self.search_filter = value
+
+    @rx.var
+    def filtered_servers(self) -> list[MCPServer]:
+        """Get filtered servers based on search criteria."""
+        if not self.search_filter:
+            return self.servers
+
+        search = self.search_filter.lower()
+        return [server for server in self.servers if search in server.name.lower()]
 
     def set_available_roles(
         self,
@@ -264,12 +280,22 @@ class MCPServerState(rx.State):
         self, server_id: int, active: bool
     ) -> AsyncGenerator[Any, Any]:
         """Toggle the active status of an MCP server."""
+        # Set updating state
+        self.updating_active_server_id = server_id
+
         # Optimistic update: update UI immediately for better UX
         original_servers = list(self.servers)
         for i, s in enumerate(self.servers):
             if s.id == server_id:
-                self.servers[i].active = active
+                # Create a copy to trigger reactivity if needed
+                new_server = s.model_copy(update={"active": active})
+                self.servers[i] = new_server
                 break
+
+        # Trigger list update (Reflex needs list reference change or explicit
+        # modification)
+        self.servers = list(self.servers)
+
         # Yield immediately to flush state update to frontend
         yield
 
@@ -279,6 +305,7 @@ class MCPServerState(rx.State):
                 if not server:
                     # Revert optimistic update
                     self.servers = original_servers
+                    self.updating_active_server_id = None
                     yield rx.toast.error(
                         "MCP Server nicht gefunden.",
                         position="top-right",
@@ -290,6 +317,10 @@ class MCPServerState(rx.State):
                 server_name = server.name
 
             status_text = "aktiviert" if active else "deaktiviert"
+
+            # Clear updating state
+            self.updating_active_server_id = None
+
             yield rx.toast.info(
                 f"MCP Server {server_name} wurde {status_text}.",
                 position="top-right",
@@ -299,9 +330,62 @@ class MCPServerState(rx.State):
         except Exception as e:
             # Revert optimistic update on error
             self.servers = original_servers
+            self.updating_active_server_id = None
             logger.error("Failed to toggle MCP server %d: %s", server_id, e)
             yield rx.toast.error(
                 "Fehler beim Ändern des MCP Server Status.",
+                position="top-right",
+            )
+
+    async def update_server_role(
+        self, server_id: int, new_role: str | None
+    ) -> AsyncGenerator[Any, Any]:
+        """Update the required role for an MCP server."""
+        self.updating_role_server_id = server_id
+        yield
+
+        # Optimistic update
+        # We need to find the server in the list and update it
+        original_servers = []
+        for s in self.servers:
+            original_servers.append(s.model_copy())
+            if s.id == server_id:
+                s.required_role = new_role
+
+        # Trigger update
+        self.servers = list(self.servers)
+        yield
+
+        try:
+            async with get_asyncdb_session() as session:
+                server = await mcp_server_repo.find_by_id(session, server_id)
+                if not server:
+                    # Revert
+                    self.servers = original_servers
+                    self.updating_role_server_id = None
+                    yield rx.toast.error(
+                        "MCP Server nicht gefunden.",
+                        position="top-right",
+                    )
+                    return
+
+                server.required_role = new_role
+                await mcp_server_repo.save(session, server)
+                server_name = server.name
+
+            self.updating_role_server_id = None
+            yield rx.toast.info(
+                f"Rolle für {server_name} aktualisiert.",
+                position="top-right",
+            )
+
+        except Exception as e:
+            # Revert
+            self.servers = original_servers
+            self.updating_role_server_id = None
+            logger.error("Failed to update role for server %d: %s", server_id, e)
+            yield rx.toast.error(
+                "Fehler beim Ändern der Rolle.",
                 position="top-right",
             )
 

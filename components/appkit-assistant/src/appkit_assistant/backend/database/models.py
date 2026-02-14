@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
-from sqlalchemy import Index, Integer
+from sqlalchemy import Index, Integer, String
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 from sqlmodel import Column, DateTime, Field
@@ -103,6 +103,9 @@ class AssistantThread(rx.Model, table=True):
     messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
     mcp_server_ids: list[int] = Field(
         default=[], sa_column=Column(ARRAY(Integer), nullable=False)
+    )
+    skill_openai_ids: list[str] = Field(
+        default=[], sa_column=Column(ARRAY(String), nullable=False)
     )
     vector_store_id: str | None = Field(default=None, nullable=True)
     created_at: datetime = Field(
@@ -213,3 +216,45 @@ class UserPrompt(rx.Model, table=True):
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True)),
     )
+
+
+class Skill(rx.Model, table=True):
+    """Model for OpenAI skill management.
+
+    Stores metadata synced from the OpenAI Skills API alongside
+    local administration state (active toggle, role restriction).
+    """
+
+    __tablename__ = "assistant_skills"
+
+    id: int | None = Field(default=None, primary_key=True)
+    openai_id: str = Field(unique=True, max_length=255, nullable=False)
+    name: str = Field(max_length=100, nullable=False)
+    description: str = Field(default="", max_length=500, nullable=True)
+    default_version: str = Field(default="1", max_length=20, nullable=False)
+    latest_version: str = Field(default="1", max_length=20, nullable=False)
+    active: bool = Field(default=True, nullable=False)
+    required_role: str | None = Field(default=None, nullable=True)
+    last_synced: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+
+
+class UserSkillSelection(rx.Model, table=True):
+    """Model for user-specific skill enable/disable preferences."""
+
+    __tablename__ = "assistant_user_skill_selections"
+    __table_args__ = (
+        Index(
+            "ix_user_skill_unique",
+            "user_id",
+            "skill_openai_id",
+            unique=True,
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, nullable=False)
+    skill_openai_id: str = Field(max_length=255, nullable=False, index=True)
+    enabled: bool = Field(default=False, nullable=False)

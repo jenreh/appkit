@@ -350,9 +350,9 @@ class MyInputState(rx.State):
         self.value = val
 
 def my_input_page() -> rx.Component:
-    return rx.container(
-        rx.heading("MyInput Examples"),
-        mn.my_input(
+    return mn.stack(
+        mn.title("MyInput Examples"),
+        mn.input(
             label="Example",
             value=MyInputState.value,
             on_change=MyInputState.set_value,
@@ -375,7 +375,7 @@ Verify inheritance didn't break existing props:
 
 ```python
 # All inherited props should work
-mn.my_input(
+mn.input(
     label="Test",  # From MantineInputComponentBase
     required=True,  # From MantineInputComponentBase
     left_section=rx.icon("search"),  # From MantineInputComponentBase

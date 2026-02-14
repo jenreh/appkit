@@ -65,7 +65,8 @@ from appkit_ui.components import (
 ### Dependencies
 
 Automatically installed by Reflex:
-- `@mantine/core@8.3.3` - Mantine UI library
+
+- `@mantine/core@8.3.14` - Mantine UI library
 - `react-textarea-autosize` - For autosize feature (used internally by Mantine)
 
 ---
@@ -318,7 +319,7 @@ class ContactState(rx.State):
 
 def contact_form():
     return mantine_provider(
-        rx.vstack(
+        mn.stack(
             rx.heading("Contact Us", size="6"),
 
             mantine_textarea(
@@ -346,15 +347,15 @@ def contact_form():
                 variant="filled",
             ),
 
-            rx.button(
+            mn.button(
                 "Submit",
                 on_click=ContactState.submit_form,
-                size="3",
+                size="md",
             ),
 
-            spacing="4",
-            width="100%",
-            max_width="600px",
+            gap="sm",
+            w="100%",
+            maw="600px",
         ),
         default_color_scheme="light",
     )
@@ -631,11 +632,13 @@ mantine_textarea(
 | Use Case | Single-line text | Multi-line text |
 
 **When to use Textarea:**
+
 - Comments, feedback, descriptions
 - Long-form text entry
 - When you need more than one line
 
 **When to use Input:**
+
 - Names, emails, phone numbers
 - Single-line values
 - Masked inputs (with IMask)

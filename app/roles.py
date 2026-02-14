@@ -8,6 +8,7 @@ from appkit_assistant.roles import (
     ASSISTANT_PERPLEXITY_MODEL_ROLE,
     ASSISTANT_USER_ROLE,
     ASSISTANT_WEB_SEARCH_ROLE,
+    SKILL_ADMIN_ROLE,
 )
 from appkit_commons.roles import Role
 
@@ -50,4 +51,5 @@ ALL_ROLES: list[Role] = [
     MCP_BASIC_ROLE,
     MCP_ADVANCED_ROLE,
     IMAGE_GENERATOR_ROLE,
+    SKILL_ADMIN_ROLE,
 ]

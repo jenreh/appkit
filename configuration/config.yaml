@@ -21,7 +21,7 @@ app:
     name: secret:mn-db-name
     encryption_key: secret:mn-db-encryption-key
     pool_size: 10 # change only when needed
-    max_overflow: 30 # change only when needed
+    max_overflow: 20 # change only when needed
     pool_recycle: 1800 # seconds; recycle connections to prevent stale SSL
     echo: False # Set to True to enable SQL logging
 
@@ -39,13 +39,14 @@ app:
         redirect_url: https://localhost:8080/oauth/github/callback
 
   assistant:
-    perplexity_api_key: secret:mn-perplexity-api-key
-    openai_base_url: secret:mn-openai-api-endpoint
+    azure_api_key: secret:mn-azure-api-key
     openai_api_key: secret:mn-openai-api-key
+    openai_base_url: secret:mn-openai-api-endpoint
     openai_is_azure: true
     claude_api_key: secret:mn-claude-api-key
     claude_base_url: secret:mn-claude-api-endpoint
     google_api_key: secret:mn-google-api-key
+    perplexity_api_key: secret:mn-perplexity-api-key
 
     file_upload:
       vector_store_expiration_days: 2
@@ -57,6 +58,7 @@ app:
     blackforestlabs_api_key: secret:mn-blackforestlabs-api-key
     blackforestlabs_base_url: https://asy-nm-x-dia-openai.services.ai.azure.com/providers/blackforestlabs/v1/
     google_api_key: secret:mn-google-api-key
-    openai_api_key: secret:mn-openai-api-key
+    openai_api_key: secret:mn-azure-api-key
     openai_base_url: secret:mn-openai-api-endpoint
+    openai_is_azure: true
     tmp_dir: ./uploaded_files

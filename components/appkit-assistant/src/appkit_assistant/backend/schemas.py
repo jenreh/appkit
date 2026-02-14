@@ -113,6 +113,7 @@ class AIModel(BaseModel):
     supports_tools: bool = False
     supports_attachments: bool = False
     supports_search: bool = False
+    supports_skills: bool = False
     keywords: list[str] = []
     disabled: bool = False
     requires_role: str | None = None
@@ -140,6 +141,7 @@ class ThreadModel(BaseModel):
     messages: list[Message] = []
     ai_model: str = ""
     mcp_server_ids: list[int] = []
+    skill_openai_ids: list[str] = []
 
 
 class MCPAuthType(StrEnum):

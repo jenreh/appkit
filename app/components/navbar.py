@@ -37,22 +37,21 @@ def sub_heading(label: str) -> rx.Component:
 
 def navbar_header() -> rx.Component:
     return mn.stack(
-        mn.group(
+        rx.color_mode_cond(
             rx.image(
-                "/img/logo.svg",
-                class_name="h-[54px]",
-                margin_top="1.2em",
-                margin_left="0px",
+                "/img/appkit_logo.svg",
+                class_name="h-[60px]",
+                margin="1em 0 1em -9px",
             ),
-            mn.title("AppKit", order=1, mt="xl", ml="sm"),
-            rx.spacer(),
-            align="center",
-            justify="start",
-            w="100%",
-            p="sm",
-            mb="0",
-            mt="-sm",
+            rx.image(
+                "/img/appkit_logo_dark.svg",
+                class_name="h-[60px]",
+                margin="1em 0 1em -9px",
+            ),
         ),
+        align="start",
+        justify="start",
+        w="95%",
     )
 
 
@@ -88,36 +87,34 @@ def navbar_items() -> rx.Component:
     return mn.stack(
         sub_heading("Components"),
         mn.stack(
-            sidebar_sub_item(label="Buttons & Icons", icon="", url="/buttons"),
-            sidebar_sub_item(label="Inputs", icon="", url="/inputs"),
-            sidebar_sub_item(label="Comboboxes", icon="", url="/comboboxes"),
-            sidebar_sub_item(label="Rich Text Editor (Tiptap)", icon="", url="/tiptap"),
+            sidebar_sub_item(label="Buttons & Icons", url="/buttons"),
+            sidebar_sub_item(label="Comboboxes", url="/comboboxes"),
+            sidebar_sub_item(label="Date & Time", url="/examples/date"),
+            sidebar_sub_item(label="Inputs", url="/inputs"),
+            sidebar_sub_item(label="Rich Text Editor (Tiptap)", url="/tiptap"),
             gap="0",
             w="100%",
         ),
         sub_heading("Navigation"),
         mn.stack(
-            sidebar_sub_item(label="Navigation", icon="", url="/navigation"),
-            sidebar_sub_item(label="Navigation Progress", icon="", url="/nprogress"),
-            sidebar_sub_item(label="Nav Link", icon="", url="/nav-link"),
+            sidebar_sub_item(label="Navigation", url="/navigation"),
+            sidebar_sub_item(label="Navigation Progress", url="/nprogress"),
+            sidebar_sub_item(label="Nav Link", url="/nav-link"),
             gap="0",
             w="100%",
         ),
         sub_heading("Others"),
         mn.stack(
-            sidebar_sub_item(label="Data Display", icon="", url="/data-display"),
-            sidebar_sub_item(label="Feedback", icon="", url="/feedback"),
-            sidebar_sub_item(label="Overlay", icon="", url="/overlay"),
-            sidebar_sub_item(
-                label="Markdown Preview", icon="", url="/markdown-preview"
-            ),
-            sidebar_sub_item(label="Modal", icon="", url="/modal"),
-            sidebar_sub_item(
-                label="Number Formatter", icon="", url="/number-formatter"
-            ),
-            sidebar_sub_item(label="ScrollArea", icon="", url="/scroll-area"),
-            sidebar_sub_item(label="Auto Scroll", icon="", url="/auto-scroll"),
-            sidebar_sub_item(label="Table", icon="", url="/table"),
+            sidebar_sub_item(label="Charts", url="/charts"),
+            sidebar_sub_item(label="Data Display", url="/data-display"),
+            sidebar_sub_item(label="Feedback", url="/feedback"),
+            sidebar_sub_item(label="Overlay", url="/overlay"),
+            sidebar_sub_item(label="Markdown Preview", url="/markdown-preview"),
+            sidebar_sub_item(label="Modal", url="/modal"),
+            sidebar_sub_item(label="Number Formatter", url="/number-formatter"),
+            sidebar_sub_item(label="ScrollArea", url="/scroll-area"),
+            sidebar_sub_item(label="Auto Scroll", url="/auto-scroll"),
+            sidebar_sub_item(label="Table", url="/table"),
             gap="0",
             w="100%",
         ),

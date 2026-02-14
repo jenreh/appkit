@@ -276,12 +276,35 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             self._handle_item_events,
             self._handle_search_events,  # Handle file/web search specifically
             self._handle_mcp_events,
+            self._handle_shell_events,
             self._handle_content_events,
             self._handle_completion_events,
             self._handle_image_events,
         ):
             if result := handler(event_type, event):
                 return result
+
+        # Events that are handled internally or safe to ignore (no chunk produced)
+        if event_type in {
+            "response.output_item.added",
+            "response.output_item.done",
+            "response.content_part.added",
+            "response.content_part.done",
+            "response.output_text.done",
+            # Shell events handled in _handle_shell_events but return None
+            "response.shell_call_command.delta",
+            "response.shell_call_output_content.delta",
+            "response.shell_call.in_progress",
+            "response.shell_call.completed",
+            # web_search and file_search events handled in _handle_search_events but return None
+            "response.web_search_call.in_progress",
+            # MCP events handled in _handle_mcp_events but return None
+            "response.mcp_call.in_progress",
+            "response.mcp_call.completed",
+            "response.mcp_list_tools.in_progress",
+            "response.mcp_list_tools.completed",
+        }:
+            return None
 
         logger.debug("Unhandled event type: %s", event_type)
         return None
@@ -426,6 +449,23 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 reasoning_session=self.current_reasoning_session,
             )
 
+        if item.type == "shell_call":
+            tool_name = getattr(item, "name", "shell")
+            tool_id = getattr(item, "id", "unknown_id")
+            self._tool_name_map[tool_id] = f"shell.{tool_name}"
+            logger.debug(
+                "Shell call started: %s (id=%s)",
+                tool_name,
+                tool_id,
+            )
+            return self.chunk_factory.tool_call(
+                f"Benutze Shell: {tool_name}",
+                tool_name=tool_name,
+                tool_id=tool_id,
+                status="starting",
+                reasoning_session=self.current_reasoning_session,
+            )
+
         if item.type == "function_call":
             tool_name = getattr(item, "name", "function")
             tool_id = getattr(item, "call_id", "unknown_id")
@@ -458,6 +498,9 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         """Handle when an item is completed."""
         if item.type == "mcp_call":
             return self._handle_mcp_call_done(item)
+
+        if item.type == "shell_call":
+            return self._handle_shell_call_done(item)
 
         if item.type == "function_call":
             tool_id = getattr(item, "call_id", "unknown_id")
@@ -664,6 +707,90 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
         return None
 
+    def _handle_shell_call_done(self, item: Any) -> Chunk | None:
+        """Handle shell call completion."""
+        tool_id = getattr(item, "id", "unknown_id")
+        tool_name = getattr(item, "name", "shell")
+        error = getattr(item, "error", None)
+        output = getattr(item, "output", None)
+
+        if error:
+            error_text = self._extract_error_text(error)
+            return self.chunk_factory.tool_result(
+                f"Shell-Fehler bei {tool_name}: {error_text}",
+                tool_id=tool_id,
+                status="error",
+                is_error=True,
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        output_text = str(output) if output else "Shell erfolgreich aufgerufen"
+        return self.chunk_factory.tool_result(
+            output_text,
+            tool_id=tool_id,
+            status="completed",
+            reasoning_session=self.current_reasoning_session,
+        )
+
+    def _handle_shell_events(self, event_type: str, event: Any) -> Chunk | None:
+        """Handle shell-specific streaming events."""
+        if event_type == "response.shell_call_arguments.delta":
+            tool_id = getattr(event, "item_id", "unknown_id")
+            arguments_delta = getattr(event, "delta", "")
+            tool_name = self._tool_name_map.get(tool_id, "shell")
+            return self.chunk_factory.tool_call(
+                arguments_delta,
+                tool_name=tool_name,
+                tool_id=tool_id,
+                status="arguments_streaming",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if event_type == "response.shell_call_arguments.done":
+            tool_id = getattr(event, "item_id", "unknown_id")
+            arguments = getattr(event, "arguments", "")
+            tool_name = self._tool_name_map.get(tool_id, "shell")
+            return self.chunk_factory.tool_call(
+                f"Parameter: {arguments}",
+                tool_name=tool_name,
+                tool_id=tool_id,
+                status="arguments_complete",
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if event_type == "response.shell_call.failed":
+            tool_id = getattr(event, "item_id", "unknown_id")
+            tool_name = self._tool_name_map.get(tool_id, tool_id)
+            return self.chunk_factory.tool_result(
+                f"Shell-Ausführung fehlgeschlagen: {tool_name}",
+                tool_id=tool_id,
+                status="failed",
+                is_error=True,
+                reasoning_session=self.current_reasoning_session,
+            )
+
+        if event_type in {
+            "response.shell_call.in_progress",
+            "response.shell_call.completed",
+        }:
+            tool_id = getattr(event, "item_id", "unknown_id")
+            logger.debug("Shell event %s: %s", event_type, tool_id)
+            return None
+
+        # For now, we don't yield intermediate output chunks for shell calls,
+        # as the output is typically returned in the final "done" event.
+        if event_type in {
+            "response.shell_call_command.delta",
+            "response.shell_call_output_content.delta",
+        }:
+            logger.debug(
+                "Received shell event %s, delta: %s",
+                event_type,
+                getattr(event, "delta", ""),
+            )
+
+        return None
+
     def _handle_content_events(self, event_type: str, event: Any) -> Chunk | None:  # noqa: ARG002
         """Handle content-related events (no-op for streaming events)."""
         # These events are handled elsewhere or don't need chunks:
@@ -754,10 +881,34 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             messages, mcp_prompt=mcp_prompt
         )
 
+        # Configure skills as shell tool if provided
+        skill_openai_ids: list[str] = (
+            payload.get("skill_openai_ids", []) if payload else []
+        )
+        if skill_openai_ids:
+            shell_tool: dict[str, Any] = {
+                "type": "shell",
+                "environment": {
+                    "type": "container_auto",
+                    "skills": [
+                        {
+                            "type": "skill_reference",
+                            "skill_id": sid,
+                        }
+                        for sid in skill_openai_ids
+                    ],
+                },
+            }
+            tools.append(shell_tool)
+            logger.debug(
+                "Added shell tool with %d skill(s)",
+                len(skill_openai_ids),
+            )
+
         # Filter out internal payload keys that shouldn't go to OpenAI
         filtered_payload = {}
         if payload:
-            internal_keys = {"thread_uuid"}
+            internal_keys = {"thread_uuid", "skill_openai_ids"}
             filtered_payload = {
                 k: v for k, v in payload.items() if k not in internal_keys
             }

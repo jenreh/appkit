@@ -108,6 +108,16 @@ class Image(MantineLayoutComponentBase):
     h: Var[str | int]
 
 
+class Paper(MantineLayoutComponentBase):
+    """Mantine Paper component."""
+
+    tag = "Paper"
+
+    shadow: Var[str]
+    radius: Var[str | int]
+    with_border: Var[bool]
+
+
 class Indicator(MantineLayoutComponentBase):
     """Mantine Indicator component."""
 
@@ -214,4 +224,5 @@ card = CardNamespace()
 image = Image.create
 indicator = Indicator.create
 number_formatter = NumberFormatter.create
+paper = Paper.create
 timeline = TimelineNamespace()

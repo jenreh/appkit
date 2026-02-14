@@ -21,6 +21,7 @@ from appkit_assistant.backend.schemas import (
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_assistant.state.thread_state import ThreadState
 from appkit_assistant.components.mcp_server_table import mcp_servers_table
+from appkit_assistant.components.skill_table import skills_table
 
 __all__ = [
     "AIModel",
@@ -43,4 +44,5 @@ __all__ = [
     "composer",
     "file_manager",
     "mcp_servers_table",
+    "skills_table",
 ]

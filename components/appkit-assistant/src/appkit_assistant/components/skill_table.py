@@ -1,51 +1,49 @@
-"""Table component for displaying MCP servers."""
+"""Table component for displaying and managing OpenAI skills."""
 
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.database.models import MCPServer
-from appkit_assistant.components.mcp_server_dialogs import (
-    add_mcp_server_button,
-    delete_mcp_server_dialog,
-    update_mcp_server_dialog,
+from appkit_assistant.backend.database.models import Skill
+from appkit_assistant.components.skill_dialogs import (
+    create_skill_modal,
+    delete_skill_dialog,
 )
-from appkit_assistant.state.mcp_server_state import MCPServerState
+from appkit_assistant.state.skill_admin_state import SkillAdminState
 
 
-def mcp_server_table_row(server: MCPServer) -> rx.Component:
-    """Show an MCP server in a table row."""
-    # Note: Skill table uses update_skill_role inline. MCP uses update dialog.
+def _skill_table_row(skill: Skill) -> rx.Component:
+    """Render a single skill row."""
     return mn.table.tr(
         mn.table.td(
-            mn.text(server.name, size="sm", fw="500", style={"whiteSpace": "nowrap"}),
-            min_width="160px",
+            mn.text(skill.name, size="sm", fw="500", style={"whiteSpace": "nowrap"}),
+            min_width="200px",
         ),
         mn.table.td(
             mn.text(
-                server.description,
-                title=server.description,
+                skill.description,
                 size="sm",
                 c="dimmed",
                 line_clamp=2,
+                title=skill.description,
             ),
         ),
         mn.table.td(
             mn.group(
                 mn.select(
-                    value=server.required_role,
-                    data=MCPServerState.available_roles,
+                    value=skill.required_role,
+                    data=SkillAdminState.available_roles,
                     placeholder="nicht eingeschränkt",
                     size="xs",
                     clearable=True,
                     check_icon_position="right",
-                    on_change=lambda val: MCPServerState.update_server_role(
-                        server.id, val
+                    on_change=lambda val: SkillAdminState.update_skill_role(
+                        skill.id, val
                     ),
                     w="160px",
                 ),
                 mn.box(
                     rx.cond(
-                        MCPServerState.updating_role_server_id == server.id,
+                        SkillAdminState.updating_role_skill_id == skill.id,
                         rx.spinner(size="1"),
                     ),
                     width="16px",
@@ -64,15 +62,15 @@ def mcp_server_table_row(server: MCPServer) -> rx.Component:
         mn.table.td(
             mn.group(
                 mn.switch(
-                    checked=server.active,
-                    on_change=lambda checked: MCPServerState.toggle_server_active(
-                        server.id, checked
+                    checked=skill.active,
+                    on_change=lambda checked: SkillAdminState.toggle_skill_active(
+                        skill.id, checked
                     ),
                     size="sm",
                 ),
                 mn.box(
                     rx.cond(
-                        MCPServerState.updating_active_server_id == server.id,
+                        SkillAdminState.updating_active_skill_id == skill.id,
                         rx.spinner(size="1"),
                     ),
                     width="16px",
@@ -89,12 +87,10 @@ def mcp_server_table_row(server: MCPServer) -> rx.Component:
             style={"whiteSpace": "nowrap"},
         ),
         mn.table.td(
-            mn.group(
-                update_mcp_server_dialog(server),
-                delete_mcp_server_dialog(server),
-                align="center",
-                gap="xs",
-                wrap="nowrap",
+            rx.hstack(
+                delete_skill_dialog(skill),
+                spacing="2",
+                align_items="center",
             ),
             width="1%",
             style={"whiteSpace": "nowrap"},
@@ -102,11 +98,11 @@ def mcp_server_table_row(server: MCPServer) -> rx.Component:
     )
 
 
-def mcp_servers_table(
+def skills_table(
     role_labels: dict[str, str] | None = None,
     available_roles: list[dict[str, str]] | None = None,
 ) -> rx.Component:
-    """Admin table for managing MCP servers."""
+    """Admin table for managing OpenAI skills."""
     if role_labels is None:
         role_labels = {}
     if available_roles is None:
@@ -114,22 +110,36 @@ def mcp_servers_table(
 
     return mn.stack(
         rx.flex(
-            add_mcp_server_button(),
+            mn.button(
+                "Neuen Skill anlegen",
+                left_section=rx.icon("plus", size=16),
+                size="sm",
+                on_click=SkillAdminState.open_create_modal,
+            ),
             mn.text_input(
-                placeholder="Server filtern...",
+                placeholder="Skills filtern...",
                 left_section=rx.icon("search", size=16),
                 left_section_pointer_events="none",
-                value=MCPServerState.search_filter,
-                on_change=MCPServerState.set_search_filter,
+                value=SkillAdminState.search_filter,
+                on_change=SkillAdminState.set_search_filter,
                 size="sm",
                 w="18rem",
             ),
             rx.spacer(),
+            mn.button(
+                "Synchronisieren",
+                left_section=rx.icon("refresh-cw", size=16),
+                size="sm",
+                variant="outline",
+                on_click=SkillAdminState.sync_skills,
+                loading=SkillAdminState.syncing,
+            ),
             width="100%",
             margin_bottom="md",
             gap="12px",
             align="center",
         ),
+        create_skill_modal(),
         mn.table(
             mn.table.thead(
                 mn.table.tr(
@@ -141,7 +151,10 @@ def mcp_servers_table(
                 ),
             ),
             mn.table.tbody(
-                rx.foreach(MCPServerState.filtered_servers, mcp_server_table_row)
+                rx.foreach(
+                    SkillAdminState.filtered_skills,
+                    _skill_table_row,
+                )
             ),
             striped=False,
             highlight_on_hover=True,
@@ -152,8 +165,8 @@ def mcp_servers_table(
             w="100%",
         ),
         w="100%",
-        on_mount=[
-            MCPServerState.set_available_roles(available_roles, role_labels),
-            MCPServerState.load_servers_with_toast,
+        on_mount=lambda: [
+            SkillAdminState.set_available_roles(available_roles, role_labels),
+            SkillAdminState.load_skills_with_toast(),
         ],
     )

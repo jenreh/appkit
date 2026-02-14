@@ -31,7 +31,7 @@ def _get_engine_kwargs() -> dict[str, Any]:
     """Get engine configuration kwargs."""
     db_config = _get_db_config()
 
-    if db_config.type == "postgres":
+    if db_config.type == "postgresql":
         return {
             "pool_size": db_config.pool_size,
             "max_overflow": db_config.max_overflow,
@@ -55,14 +55,14 @@ def _get_engine_kwargs() -> dict[str, Any]:
 def get_async_session_manager() -> AsyncSessionManager:
     db_config = _get_db_config()
     engine_kwargs = _get_engine_kwargs()
-    return AsyncSessionManager(db_config.url, **engine_kwargs)
+    return AsyncSessionManager(db_config.url, engine_kwargs)
 
 
 @lru_cache(maxsize=1)
 def get_session_manager() -> SessionManager:
     db_config = _get_db_config()
     engine_kwargs = _get_engine_kwargs()
-    return SessionManager(db_config.url, **engine_kwargs)
+    return SessionManager(db_config.url, engine_kwargs)
 
 
 @contextlib.asynccontextmanager

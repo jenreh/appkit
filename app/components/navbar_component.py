@@ -102,16 +102,18 @@ def admin_sidebar_item(
     )
 
 
-def sidebar_item(label: str, icon: str, url: str) -> rx.Component:
+def sidebar_item(label: str, url: str, icon: str | None = None) -> rx.Component:
     active = (rx.State.router.page.path == url.lower()) | (
         (rx.State.router.page.path == "/") & label == "Overview"
     )
 
+    icon_component = (
+        rx.spacer() if not icon else rx.icon(icon, size=17, margin_right="6px")
+    )
+
     return rx.link(
         mn.group(
-            rx.cond(
-                icon == "", rx.spacer(), rx.icon(icon, size=17, margin_right="6px")
-            ),
+            icon_component,
             mn.text(
                 label,
                 size="md",
@@ -166,8 +168,8 @@ def sidebar_item(label: str, icon: str, url: str) -> rx.Component:
 
 def sidebar_sub_item(
     label: str,
-    icon: str,  # noqa: ARG001
     url: str,
+    icon: str | None = None,  # noqa: ARG001
     svg: str | None = None,  # noqa: ARG001
 ) -> rx.Component:
     active = (rx.State.router.page.path == url.lower()) | (

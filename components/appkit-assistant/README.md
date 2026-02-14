@@ -74,7 +74,7 @@ assistant_config = AssistantConfig(
 )
 ```
 
-2. Register processors with the ModelManager:
+1. Register processors with the ModelManager:
 
 ```python
 from appkit_assistant.backend.model_manager import ModelManager
@@ -86,7 +86,7 @@ manager.register_processor("openai", OpenAIChatCompletionProcessor(assistant_con
 manager.register_processor("perplexity", PerplexityProcessor(assistant_config))
 ```
 
-3. Use the assistant component in your Reflex app:
+1. Use the assistant component in your Reflex app:
 
 ```python
 import reflex as rx
@@ -179,7 +179,7 @@ import reflex as rx
 from appkit_assistant.components import ThreadList, composer
 
 def custom_assistant():
-    return rx.vstack(
+    return mn.stack(
         ThreadList(),
         composer(),
         spacing="4"
@@ -270,7 +270,6 @@ manager.register_processor("lorem", LoremIpsumProcessor())
 - `MessageComponent` - Individual message display
 - `mcp_servers_table` - MCP server management table
 - `system_prompt_editor` - Admin interface for system prompts
-
 
 ### State Management
 

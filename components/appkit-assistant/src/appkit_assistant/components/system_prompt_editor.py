@@ -13,7 +13,7 @@ def system_prompt_editor() -> rx.Component:
     - key prop forces re-render when selecting a different version
     - This gives us both smooth editing AND the ability to update from select
     """
-    return rx.vstack(
+    return mn.stack(
         mn.markdown_preview(
             source=(
                 """
@@ -35,7 +35,7 @@ automatisch einfügen kann."""
             width="100%",
             key=SystemPromptState.textarea_key,
         ),
-        rx.hstack(
+        mn.group(
             mn.select(
                 placeholder="Aktuell",
                 data=SystemPromptState.versions,
@@ -57,7 +57,7 @@ automatisch einfügen kann."""
                 | (SystemPromptState.selected_version_id == 0),
             ),
             rx.spacer(),
-            rx.button(
+            mn.button(
                 "Neue Version speichern",
                 on_click=SystemPromptState.save_current,
                 disabled=SystemPromptState.is_loading
@@ -68,11 +68,12 @@ automatisch einfügen kann."""
                 loading=SystemPromptState.is_loading,
             ),
             align="center",
-            width="100%",
-            spacing="4",
+            w="100%",
+            gap="sm",
+            wrap="nowrap",
         ),
-        width="100%",
-        max_width="960px",
-        padding="6",
-        spacing="5",
+        w="100%",
+        maw="960px",
+        p="18px",
+        gap="sm",
     )

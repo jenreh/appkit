@@ -13,7 +13,7 @@ from __future__ import annotations
 import contextlib
 import json
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
@@ -631,145 +631,6 @@ def tags_input_content() -> rx.Component:
     )
 
 
-def date_input_content() -> rx.Component:
-    """Content for Date Input tab."""
-    # Calculated values
-    today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-    max_date = (datetime.now(tz=UTC) + timedelta(days=30)).strftime("%Y-%m-%d")
-
-    min_age_years = 18
-    max_age_years = 120
-    max_birth_date = (
-        datetime.now(tz=UTC) - timedelta(days=min_age_years * 365)
-    ).strftime("%Y-%m-%d")
-    min_birth_date = (
-        datetime.now(tz=UTC) - timedelta(days=max_age_years * 365)
-    ).strftime("%Y-%m-%d")
-    default_date = "2025-12-31"
-
-    return mn.stack(
-        mn.simple_grid(
-            example_box(
-                "Basic Usage",
-                mn.stack(
-                    mn.date_input(
-                        label="Select a date",
-                        description="Choose any date",
-                        placeholder="Pick a date",
-                        value=InputExamplesState.selected_date,
-                        on_change=InputExamplesState.set_selected_date,
-                    ),
-                    rx.cond(
-                        InputExamplesState.selected_date != "",
-                        mn.text(
-                            f"Selected: {InputExamplesState.selected_date}",
-                            size="sm",
-                            c="dimmed",
-                        ),
-                    ),
-                    gap="md",
-                ),
-            ),
-            example_box(
-                "Formatted",
-                mn.stack(
-                    mn.date_input(
-                        label="Appointment",
-                        description="Format: YYYY MMM DD",
-                        value_format="YYYY MMM DD",
-                        value=InputExamplesState.appointment_date,
-                        on_change=InputExamplesState.set_appointment_date,
-                    ),
-                    rx.cond(
-                        InputExamplesState.appointment_date != "",
-                        mn.text(
-                            f"Value: {InputExamplesState.appointment_date}",
-                            size="sm",
-                            c="dimmed",
-                        ),
-                    ),
-                    gap="md",
-                ),
-            ),
-            example_box(
-                "Constraints",
-                mn.stack(
-                    mn.date_input(
-                        label="Booking (Next 30 days)",
-                        min_date=today,
-                        max_date=max_date,
-                        value=InputExamplesState.booking_date,
-                        on_change=InputExamplesState.set_booking_date,
-                    ),
-                    gap="md",
-                ),
-            ),
-            example_box(
-                "Clearable",
-                mn.stack(
-                    mn.date_input(
-                        label="Event date",
-                        clearable=True,
-                        value=InputExamplesState.event_date,
-                        on_change=InputExamplesState.set_event_date,
-                    ),
-                    gap="md",
-                ),
-            ),
-            example_box(
-                "Validation (Age 18+)",
-                mn.stack(
-                    mn.date_input(
-                        label="Birth date",
-                        description="Must be 18+",
-                        value=InputExamplesState.birth_date,
-                        on_change=InputExamplesState.set_birth_date,
-                        on_blur=InputExamplesState.validate_birth_date,
-                        error=InputExamplesState.birth_date_error,
-                        max_date=max_birth_date,
-                        min_date=min_birth_date,
-                    ),
-                    gap="md",
-                ),
-            ),
-            example_box(
-                "Disabled",
-                mn.stack(
-                    mn.date_input(
-                        label="Fixed deadline",
-                        default_value=default_date,
-                        disabled=True,
-                    ),
-                    gap="md",
-                ),
-            ),
-            cols=2,
-            spacing="md",
-            w="100%",
-        ),
-        example_box(
-            "Date Range Form",
-            mn.stack(
-                mn.date_input(
-                    label="Start date",
-                    value=InputExamplesState.start_date,
-                    on_change=InputExamplesState.set_start_date,
-                    error=InputExamplesState.start_date_error,
-                ),
-                mn.date_input(
-                    label="End date",
-                    value=InputExamplesState.end_date,
-                    on_change=InputExamplesState.set_end_date,
-                    error=InputExamplesState.end_date_error,
-                ),
-                rx.button("Book", on_click=InputExamplesState.submit_date_form),
-                gap="md",
-            ),
-        ),
-        w="100%",
-    )
-
-
 def password_input_content() -> rx.Component:
     """Content for Password Input tab."""
     return mn.stack(
@@ -1002,7 +863,6 @@ def input_examples_page() -> rx.Component:
                     mn.tabs.tab("PasswordInput", value="password"),
                     mn.tabs.tab("Textarea", value="textarea"),
                     mn.tabs.tab("NumberInput", value="number"),
-                    mn.tabs.tab("DateInput", value="date"),
                     mn.tabs.tab("JsonInput", value="json"),
                     mn.tabs.tab("TagsInput", value="tags"),
                     mn.tabs.tab("Sliders & Switch", value="slider_switch"),
@@ -1025,11 +885,6 @@ def input_examples_page() -> rx.Component:
                 mn.tabs.panel(
                     number_input_content(),
                     value="number",
-                    py="md",
-                ),
-                mn.tabs.panel(
-                    date_input_content(),
-                    value="date",
                     py="md",
                 ),
                 mn.tabs.panel(

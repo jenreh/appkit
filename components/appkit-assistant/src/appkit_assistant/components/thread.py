@@ -212,6 +212,7 @@ class Assistant:
                 on_mount=[
                     ThreadState.set_with_thread_list(with_thread_list),
                     ThreadState.load_mcp_servers,
+                    ThreadState.load_available_skills_for_user,
                 ],
             ),
             # Prompt edit modal for editing from command palette

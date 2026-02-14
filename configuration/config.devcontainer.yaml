@@ -13,7 +13,7 @@ app:
   database:
     host: db
     port: 5432
-    echo: True
+    echo: False
     name: appkit-db
 
   authentication:
