@@ -32,7 +32,7 @@ def _skill_table_row(skill: Skill) -> rx.Component:
                 mn.select(
                     value=skill.required_role,
                     data=SkillAdminState.available_roles,
-                    placeholder="Keine Rolle",
+                    placeholder="nicht eingeschränkt",
                     size="xs",
                     clearable=True,
                     check_icon_position="right",

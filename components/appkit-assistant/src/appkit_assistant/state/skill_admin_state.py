@@ -192,7 +192,7 @@ class SkillAdminState(rx.State):
             await self.load_skills()
 
             role_label = self.role_labels.get(
-                target_role or "", target_role or "keine Rolle"
+                target_role or "", target_role or "nicht eingeschränkt"
             )
             yield rx.toast.info(
                 f"Rolle auf '{role_label}' geändert.",

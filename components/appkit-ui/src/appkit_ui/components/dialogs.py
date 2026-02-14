@@ -68,14 +68,21 @@ def delete_dialog(
     )
 
 
-def dialog_header(icon: str, title: str, description: str) -> rx.Component:
+def dialog_header(
+    title: str,
+    description: str,
+    icon: str = "",
+) -> rx.Component:
     """Reusable dialog header component."""
     return rx.hstack(
-        rx.badge(
-            rx.icon(tag=icon, size=34),
-            color_scheme="grass",
-            radius="full",
-            padding="0.65rem",
+        rx.cond(
+            icon != "",
+            rx.badge(
+                rx.icon(tag=icon, size=18),
+                color_scheme="grass",
+                radius="full",
+                padding="0.65rem",
+            ),
         ),
         rx.vstack(
             rx.dialog.title(

@@ -30,15 +30,33 @@ def mcp_server_table_row(server: MCPServer) -> rx.Component:
             ),
         ),
         mn.table.td(
-            rx.cond(
-                server.required_role,
-                mn.text(
-                    MCPServerState.role_labels.get(
-                        server.required_role, server.required_role
+            mn.group(
+                mn.select(
+                    value=server.required_role,
+                    data=MCPServerState.available_roles,
+                    placeholder="nicht eingeschränkt",
+                    size="xs",
+                    clearable=True,
+                    check_icon_position="right",
+                    on_change=lambda val: MCPServerState.update_server_role(
+                        server.id, val
                     ),
-                    size="sm",
+                    w="160px",
                 ),
-                mn.text("-", size="sm", c="dimmed"),
+                mn.box(
+                    rx.cond(
+                        MCPServerState.updating_role_server_id == server.id,
+                        rx.spinner(size="1"),
+                    ),
+                    width="16px",
+                    display="flex",
+                    align_items="center",
+                    justify_content="center",
+                    flex_shrink="0",
+                ),
+                align="center",
+                gap="xs",
+                wrap="nowrap",
             ),
             width="1%",
             style={"whiteSpace": "nowrap"},
@@ -97,6 +115,15 @@ def mcp_servers_table(
     return mn.stack(
         rx.flex(
             add_mcp_server_button(),
+            mn.text_input(
+                placeholder="Server filtern...",
+                left_section=rx.icon("search", size=16),
+                left_section_pointer_events="none",
+                value=MCPServerState.search_filter,
+                on_change=MCPServerState.set_search_filter,
+                size="sm",
+                w="18rem",
+            ),
             rx.spacer(),
             width="100%",
             margin_bottom="md",
@@ -113,7 +140,9 @@ def mcp_servers_table(
                     mn.table.th(mn.text("", size="sm")),
                 ),
             ),
-            mn.table.tbody(rx.foreach(MCPServerState.servers, mcp_server_table_row)),
+            mn.table.tbody(
+                rx.foreach(MCPServerState.filtered_servers, mcp_server_table_row)
+            ),
             striped=False,
             highlight_on_hover=True,
             highlight_on_hover_color=rx.color_mode_cond(

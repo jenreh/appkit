@@ -197,7 +197,6 @@ def add_user_button(
         ),
         rx.dialog.content(
             dialog_header(
-                icon="users",
                 title="Benutzer hinzufügen",
                 description="Bitte füllen Sie das Formular mit den Benutzerdaten aus.",
             ),
@@ -233,7 +232,6 @@ def update_user_button(
         ),
         rx.dialog.content(
             dialog_header(
-                icon="users",
                 title="Benutzer bearbeiten",
                 description="Aktualisieren Sie die Benutzerdaten",
             ),

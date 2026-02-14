@@ -34,7 +34,6 @@ from appkit_user.user_management.pages import (  # noqa: F401
 
 from app.components.navbar import app_navbar
 from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
-from app.pages.assistant.admin_skills import admin_skills_page  # noqa: F401
 from app.pages.assistant.assistant import assistant_page  # noqa: F401
 
 # from app.pages.assitant.assistant import assistant_page  # noqa: F401

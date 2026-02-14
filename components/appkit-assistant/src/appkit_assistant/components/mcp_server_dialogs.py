@@ -597,7 +597,6 @@ def add_mcp_server_button() -> rx.Component:
                 left_section=rx.icon("plus", size=16),
                 size="sm",
                 on_click=[ValidationState.initialize(server=None)],
-                margin_bottom="15px",
             ),
         ),
         rx.dialog.content(
