@@ -302,7 +302,7 @@ def users_table_row(
                     rx.icon("x", color="red", size=18),
                 )
             ),
-            width="1%",
+            width="72px",
         ),
         mn.table.td(
             rx.center(
@@ -312,7 +312,7 @@ def users_table_row(
                     rx.icon("x", color="red", size=18),
                 )
             ),
-            width="1%",
+            width="72px",
         ),
         mn.table.td(
             rx.center(
@@ -322,7 +322,7 @@ def users_table_row(
                     rx.icon("x", color="red", size=18),
                 )
             ),
-            width="1%",
+            width="72px",
         ),
         mn.table.td(
             mn.group(
