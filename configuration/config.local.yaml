@@ -9,7 +9,7 @@ app:
   logging: logging.yaml
 
   database:
-    echo: True
+    echo: False
 
   authentication:
     server_url: http://localhost:8080
