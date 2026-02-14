@@ -31,7 +31,7 @@ def _get_engine_kwargs() -> dict[str, Any]:
     """Get engine configuration kwargs."""
     db_config = _get_db_config()
 
-    if db_config.type == "postgres":
+    if db_config.type == "postgresql":
         return {
             "pool_size": db_config.pool_size,
             "max_overflow": db_config.max_overflow,
