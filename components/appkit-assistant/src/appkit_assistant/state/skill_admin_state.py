@@ -31,6 +31,7 @@ class SkillAdminState(rx.State):
 
     # Helpers
     updating_role_skill_id: int | None = None
+    updating_active_skill_id: int | None = None
 
     @rx.event
     def set_search_filter(self, value: str) -> None:
@@ -228,7 +229,9 @@ class SkillAdminState(rx.State):
         self, skill_id: int, active: bool
     ) -> AsyncGenerator[Any, Any]:
         """Toggle the active status of a skill (optimistic)."""
+        self.updating_active_skill_id = skill_id
         original_skills = self.skills
+        yield
 
         # Optimistic update: create new list with updated item
         # Using model_copy (Pydantic V2 / SQLModel)
@@ -266,3 +269,5 @@ class SkillAdminState(rx.State):
                 "Fehler beim Ändern des Skill-Status.",
                 position="top-right",
             )
+        finally:
+            self.updating_active_skill_id = None

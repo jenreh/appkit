@@ -16,6 +16,7 @@ def _skill_table_row(skill: Skill) -> rx.Component:
     return mn.table.tr(
         mn.table.td(
             mn.text(skill.name, size="sm", fw="500", style={"whiteSpace": "nowrap"}),
+            min_width="200px",
         ),
         mn.table.td(
             mn.text(
@@ -25,7 +26,6 @@ def _skill_table_row(skill: Skill) -> rx.Component:
                 line_clamp=2,
                 title=skill.description,
             ),
-            max_width="300px",
         ),
         mn.table.td(
             mn.group(
@@ -56,16 +56,35 @@ def _skill_table_row(skill: Skill) -> rx.Component:
                 gap="xs",
                 wrap="nowrap",
             ),
-            width="220px",
+            width="1%",
+            style={"whiteSpace": "nowrap"},
         ),
         mn.table.td(
-            mn.switch(
-                checked=skill.active,
-                on_change=lambda checked: (
-                    SkillAdminState.toggle_skill_active(skill.id, checked)
+            mn.group(
+                mn.switch(
+                    checked=skill.active,
+                    on_change=lambda checked: SkillAdminState.toggle_skill_active(
+                        skill.id, checked
+                    ),
+                    size="sm",
                 ),
-                size="sm",
+                mn.box(
+                    rx.cond(
+                        SkillAdminState.updating_active_skill_id == skill.id,
+                        rx.spinner(size="1"),
+                    ),
+                    width="16px",
+                    display="flex",
+                    align_items="center",
+                    justify_content="center",
+                    flex_shrink="0",
+                ),
+                align="center",
+                gap="xs",
+                wrap="nowrap",
             ),
+            width="1%",
+            style={"whiteSpace": "nowrap"},
         ),
         mn.table.td(
             rx.hstack(
@@ -73,6 +92,8 @@ def _skill_table_row(skill: Skill) -> rx.Component:
                 spacing="2",
                 align_items="center",
             ),
+            width="1%",
+            style={"whiteSpace": "nowrap"},
         ),
     )
 

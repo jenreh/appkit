@@ -97,5 +97,6 @@ def delete_skill_dialog(skill: Skill) -> rx.Component:
         content=skill.name,
         on_click=lambda: SkillAdminState.delete_skill(skill.id),
         icon_button=True,
-        variant="subtle",
+        variant="ghost",
+        color_scheme="red",
     )

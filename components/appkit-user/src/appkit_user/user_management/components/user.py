@@ -262,6 +262,8 @@ def delete_user_button(user: User, **kwargs) -> rx.Component:
         content=rx.cond(user.email, user.email, "Unbekannter Benutzer"),
         on_click=lambda: UserState.delete_user(user.user_id),
         icon_button=True,
+        variant="ghost",
+        color_scheme="red",
         **kwargs,
     )
 
@@ -322,8 +324,10 @@ def users_table_row(
         mn.table.td(
             rx.hstack(
                 *rendered_additional_components,
-                update_user_button(user=user, variant="surface"),
-                delete_user_button(user=user, variant="subtle"),
+                update_user_button(user=user, variant="ghost", margin="0"),
+                delete_user_button(
+                    user=user,
+                ),
                 class_name="whitespace-nowrap",
             ),
         ),

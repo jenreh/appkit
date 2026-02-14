@@ -284,6 +284,28 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             if result := handler(event_type, event):
                 return result
 
+        # Events that are handled internally or safe to ignore (no chunk produced)
+        if event_type in {
+            "response.output_item.added",
+            "response.output_item.done",
+            "response.content_part.added",
+            "response.content_part.done",
+            "response.output_text.done",
+            # Shell events handled in _handle_shell_events but return None
+            "response.shell_call_command.delta",
+            "response.shell_call_output_content.delta",
+            "response.shell_call.in_progress",
+            "response.shell_call.completed",
+            # web_search and file_search events handled in _handle_search_events but return None
+            "response.web_search_call.in_progress",
+            # MCP events handled in _handle_mcp_events but return None
+            "response.mcp_call.in_progress",
+            "response.mcp_call.completed",
+            "response.mcp_list_tools.in_progress",
+            "response.mcp_list_tools.completed",
+        }:
+            return None
+
         logger.debug("Unhandled event type: %s", event_type)
         return None
 
@@ -754,6 +776,18 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             tool_id = getattr(event, "item_id", "unknown_id")
             logger.debug("Shell event %s: %s", event_type, tool_id)
             return None
+
+        # For now, we don't yield intermediate output chunks for shell calls,
+        # as the output is typically returned in the final "done" event.
+        if event_type in {
+            "response.shell_call_command.delta",
+            "response.shell_call_output_content.delta",
+        }:
+            logger.debug(
+                "Received shell event %s, delta: %s",
+                event_type,
+                getattr(event, "delta", ""),
+            )
 
         return None
 

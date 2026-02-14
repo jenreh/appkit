@@ -641,8 +641,8 @@ def delete_mcp_server_dialog(server: MCPServer) -> rx.Component:
         content=server.name,
         on_click=lambda: MCPServerState.delete_server(server.id),
         icon_button=True,
-        size="2",
-        variant="subtle",
+        variant="ghost",
+        color_scheme="red",
     )
 
 
@@ -651,13 +651,13 @@ def update_mcp_server_dialog(server: MCPServer) -> rx.Component:
     return rx.dialog.root(
         rx.dialog.trigger(
             rx.icon_button(
-                rx.icon("square-pen", size=20),
-                size="2",
+                rx.icon("square-pen", size=19),
                 variant="ghost",
                 on_click=[
                     lambda: MCPServerState.get_server(server.id),
                     ValidationState.initialize(server),
                 ],
+                margin="0",
             ),
         ),
         rx.dialog.content(

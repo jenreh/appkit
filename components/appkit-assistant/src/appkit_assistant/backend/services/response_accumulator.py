@@ -97,19 +97,10 @@ class ResponseAccumulator:
 
     def process_chunk(self, chunk: Chunk) -> None:
         """Process a single chunk and update internal state."""
-        # Update message ID if provided in metadata
-        if (
-            self.messages
-            and self.messages[-1].type == MessageType.ASSISTANT
-            and "message_id" in chunk.chunk_metadata
-        ):
-            self.messages[-1].id = chunk.chunk_metadata["message_id"]
+        self._update_message_id(chunk)
 
         if chunk.type == ChunkType.TEXT:
-            if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
-                self.messages[-1].text += chunk.text
-                # Extract citations from metadata and add as annotations
-                self._extract_citations_to_annotations(chunk)
+            self._handle_text_chunk(chunk)
 
         elif chunk.type in (ChunkType.THINKING, ChunkType.THINKING_RESULT):
             self._handle_reasoning_chunk(chunk)
@@ -138,15 +129,39 @@ class ResponseAccumulator:
         elif chunk.type == ChunkType.ANNOTATION:
             self._handle_annotation_chunk(chunk)
 
+        elif chunk.type == ChunkType.LIFECYCLE:
+            # Just log lifecycle events for now
+            logger.debug("Lifecycle event: %s", chunk.text)
+
         elif chunk.type == ChunkType.ERROR:
-            # We append it to the message text if it's not a hard error,
-            # or creates a new message?
-            # Existing logic was appending a new message.
-            self.messages.append(Message(text=chunk.text, type=MessageType.ERROR))
-            self.error = chunk.text
+            self._handle_error_chunk(chunk)
 
         else:
             logger.warning("Unhandled chunk type: %s", chunk.type)
+
+    def _update_message_id(self, chunk: Chunk) -> None:
+        """Update message ID if provided in metadata."""
+        if (
+            self.messages
+            and self.messages[-1].type == MessageType.ASSISTANT
+            and "message_id" in chunk.chunk_metadata
+        ):
+            self.messages[-1].id = chunk.chunk_metadata["message_id"]
+
+    def _handle_text_chunk(self, chunk: Chunk) -> None:
+        """Handle text chunk."""
+        if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
+            self.messages[-1].text += chunk.text
+            # Extract citations from metadata and add as annotations
+            self._extract_citations_to_annotations(chunk)
+
+    def _handle_error_chunk(self, chunk: Chunk) -> None:
+        """Handle error chunk."""
+        # We append it to the message text if it's not a hard error,
+        # or creates a new message?
+        # Existing logic was appending a new message.
+        self.messages.append(Message(text=chunk.text, type=MessageType.ERROR))
+        self.error = chunk.text
 
     def _get_or_create_tool_session(self, chunk: Chunk) -> str:
         tool_id = chunk.chunk_metadata.get("tool_id")
