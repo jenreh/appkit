@@ -106,24 +106,23 @@ def auto_scroll_example() -> rx.Component:
                 c="dimmed",
             ),
             mn.divider(),
-            mn.paper(
-                mn.scroll_area.autoscroll(
-                    mn.stack(
-                        rx.foreach(
-                            ChatStreamState.messages,
-                            lambda msg: mn.paper(
-                                mn.text(msg, size="sm"),
-                                p="xs",
-                                with_border=True,
-                            ),
+            mn.scroll_area.autoscroll(
+                mn.stack(
+                    rx.foreach(
+                        ChatStreamState.messages,
+                        lambda msg: mn.paper(
+                            mn.text(msg, size="sm"),
+                            p="xs",
+                            with_border=True,
                         ),
-                        gap="xs",
                     ),
-                    h=250,
-                    w="100%",
+                    gap="xs",
                 ),
-                with_border=True,
-                p="xs",
+                height="250px",
+                width="100%",
+                border="1px solid",
+                border_color=rx.color("gray", 4),
+                border_radius="md",
             ),
             mn.divider(),
             mn.group(
@@ -162,21 +161,20 @@ def auto_scroll_with_controls_example() -> rx.Component:
                 justify="space-between",
             ),
             mn.divider(),
-            mn.paper(
-                mn.scroll_area.autoscroll(
-                    mn.stack(
-                        rx.foreach(
-                            DataStreamState.log_lines,
-                            lambda line: mn.text(line, size="xs", ff="monospace"),
-                        ),
-                        gap=0,
+            mn.scroll_area.autoscroll(
+                mn.stack(
+                    rx.foreach(
+                        DataStreamState.log_lines,
+                        lambda line: mn.text(line, size="xs", ff="monospace"),
                     ),
-                    h=300,
-                    w="100%",
-                    on_scroll_position_change=DataStreamState.update_scroll_position,
+                    gap=0,
                 ),
-                with_border=True,
-                p="xs",
+                height="300px",
+                width="100%",
+                border="1px solid",
+                border_color=rx.color("gray", 4),
+                border_radius="md",
+                on_scroll_position_change=DataStreamState.update_scroll_position,
             ),
             mn.divider(),
             mn.group(
@@ -216,7 +214,7 @@ def stateful_autoscroll_example() -> rx.Component:
                     on_click=ChatStreamState.stream_response,
                 ),
             ),
-            mn.paper(
+            mn.stack(
                 mn.scroll_area.stateful(
                     mn.stack(
                         rx.foreach(
@@ -236,14 +234,12 @@ def stateful_autoscroll_example() -> rx.Component:
                     ),
                     autoscroll=True,
                     persist_key="stateful-autoscroll-demo",
-                    h=300,
+                    height="300px",
                     show_controls=True,
                     controls="both",
                     scrollbars="y",
                     type="hover",
                 ),
-                with_border=True,
-                p="xs",
             ),
             mn.alert(
                 "✨ New: autoscroll=True enables auto-scroll while "
@@ -258,7 +254,7 @@ def stateful_autoscroll_example() -> rx.Component:
 
 
 @navbar_layout(
-    route="/examples/auto-scroll",
+    route="/auto-scroll",
     title="AutoScroll Examples",
     description="AutoScroll Component Examples",
     navbar=app_navbar(),
