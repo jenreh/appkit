@@ -6,12 +6,9 @@ The scheduler runs once daily at 3:00 AM.
 
 import logging
 
-from apscheduler.triggers.base import BaseTrigger
-from apscheduler.triggers.cron import CronTrigger
-
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
-from appkit_commons.scheduler import ScheduledService
+from appkit_commons.scheduler import CronTrigger, ScheduledService, Trigger
 from appkit_imagecreator.backend.repository import image_repo
 from appkit_imagecreator.configuration import ImageGeneratorConfig
 
@@ -29,7 +26,7 @@ class ImageCleanupService(ScheduledService):
         self.config = config or service_registry().get(ImageGeneratorConfig)
 
     @property
-    def trigger(self) -> BaseTrigger:
+    def trigger(self) -> Trigger:
         """Run daily at 3:07 AM UTC."""
         return CronTrigger(hour=3, minute=7)
 

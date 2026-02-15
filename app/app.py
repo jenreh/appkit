@@ -1,6 +1,5 @@
 """Welcome to Reflex! This file outlines the steps to create a basic app."""
 
-import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -12,7 +11,7 @@ import appkit_mantine as mn
 from appkit_assistant.backend.services.file_cleanup_service import FileCleanupService
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
-from appkit_commons.scheduler import scheduler
+from appkit_commons.scheduler import PGQueuerScheduler
 from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_imagecreator.backend.services.image_cleanup_service import (
     ImageCleanupService,
@@ -33,8 +32,6 @@ from appkit_user.user_management.pages import (  # noqa: F401
 from app.components.navbar import app_navbar
 from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
 from app.pages.assistant.assistant import assistant_page  # noqa: F401
-
-# from app.pages.assitant.assistant import assistant_page  # noqa: F401
 from app.pages.examples.auto_scroll_examples import auto_scroll_examples  # noqa: F401
 from app.pages.examples.button_examples import button_examples  # noqa: F401
 from app.pages.examples.charts_examples import charts_examples  # noqa: F401
@@ -64,7 +61,6 @@ from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
 from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
-logging.basicConfig(level=logging.DEBUG)
 create_login_page(header="AppKit")
 create_profile_page(
     app_navbar(),
@@ -191,24 +187,20 @@ base_style = {
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """Handle application lifespan events (startup and shutdown)."""
-    # Initialize configurations
 
-    # Register scheduled jobs
+    scheduler = PGQueuerScheduler()
     scheduler.add_service(FileCleanupService())
     scheduler.add_service(SessionCleanupService(interval_minutes=30))
     scheduler.add_service(ImageCleanupService())
-
-    # Start the central scheduler
-    scheduler.start()
+    await scheduler.start()
 
     yield
 
-    # Shutdown scheduler
-    scheduler.shutdown()
+    await scheduler.shutdown()
 
 
 # Create FastAPI app for custom API routes
-api_app = FastAPI(title="AppKit API", lifespan=lifespan)
+api_app = FastAPI(title="AppKit API")
 api_app.include_router(image_api_router)
 
 
@@ -223,3 +215,4 @@ app = rx.App(
     style=base_style,
     api_transformer=[api_app, add_https_middleware],
 )
+app.register_lifespan_task(lifespan)

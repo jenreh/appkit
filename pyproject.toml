@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "appkit-assistant",
-    "appkit-commons",
+    "appkit-commons[apscheduler,pgqueuer,azure]",
     "appkit-imagecreator",
     "appkit-mantine",
     "appkit-ui",
@@ -15,6 +15,17 @@ dependencies = [
     "psycopg-binary==3.3.2",
     "reflex>=0.8.26",
 ]
+
+# [project.optional-dependencies]
+# apscheduler = [
+#     "appkit-commons[apscheduler]",
+# ]
+# pgqueuer = [
+#     "appkit-commons[pgqueuer]",
+# ]
+# azure = [
+#     "appkit-commons[azure]",
+# ]
 
 [dependency-groups]
 dev = [

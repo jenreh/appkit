@@ -1,4 +1,4 @@
-"""File cleanup scheduler with APScheduler integration.
+"""File cleanup scheduler with PGQueuer integration.
 
 Provides scheduled cleanup of expired OpenAI vector stores and associated files.
 The scheduler runs as part of the FastAPI app lifecycle.
@@ -11,8 +11,6 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from apscheduler.triggers.base import BaseTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from openai import AsyncOpenAI, NotFoundError
 
 from appkit_assistant.backend.database.repositories import (
@@ -26,7 +24,11 @@ from appkit_assistant.backend.services.openai_client_service import (
 from appkit_assistant.configuration import AssistantConfig, FileUploadConfig
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
-from appkit_commons.scheduler import ScheduledService
+from appkit_commons.scheduler import (
+    IntervalTrigger,
+    ScheduledService,
+    Trigger,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +42,14 @@ class FileCleanupService(ScheduledService):
     job_id = "file_cleanup"
     name = "Clean up expired OpenAI files and vector stores"
 
-    def __init__(self, config: FileUploadConfig) -> None:
+    def __init__(self, config: FileUploadConfig | None = None) -> None:
         """Initialize the cleanup service."""
         if not config:
             config = get_file_upload_config()
         self.config = config
 
     @property
-    def trigger(self) -> BaseTrigger:
+    def trigger(self) -> Trigger:
         """Run periodically based on configured interval."""
         minutes = getattr(self.config, "cleanup_interval_minutes", 60)
         # Ensure at least 1 minute interval, check if disabled in execute()

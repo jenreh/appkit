@@ -152,7 +152,7 @@ class YamlConfigSettingsSource(InitSettingsSource):
         self.yaml_data = reader.read_and_merge_files(profiles=profiles)
         # Filter out YAML entries with no matching Pydantic field
         valid_yaml_data = {
-            k: v for k, v in self.yaml_data.items() if k in settings_cls.__fields__
+            k: v for k, v in self.yaml_data.items() if k in settings_cls.model_fields
         }
         super().__init__(settings_cls, valid_yaml_data)
 

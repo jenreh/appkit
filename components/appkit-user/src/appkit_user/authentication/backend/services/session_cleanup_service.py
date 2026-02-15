@@ -2,11 +2,12 @@
 
 import logging
 
-from apscheduler.triggers.base import BaseTrigger
-from apscheduler.triggers.interval import IntervalTrigger
-
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_commons.scheduler import ScheduledService
+from appkit_commons.scheduler import (
+    IntervalTrigger,
+    ScheduledService,
+    Trigger,
+)
 from appkit_user.authentication.backend.user_session_repository import session_repo
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class SessionCleanupService(ScheduledService):
         self.interval_minutes = interval_minutes
 
     @property
-    def trigger(self) -> BaseTrigger:
+    def trigger(self) -> Trigger:
         """Run periodically based on configured interval."""
         return IntervalTrigger(minutes=self.interval_minutes)
 

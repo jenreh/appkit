@@ -313,7 +313,7 @@ class RichTextEditor(NoSSRComponent):
                 msg = "EditorToolbarConfig cannot be a state Var"
                 raise ValueError(msg)
             # Extract individual props from config
-            config_dict = toolbar_config.dict()
+            config_dict = toolbar_config.model_dump()
             if config_dict.get("control_groups") is not None:
                 props["control_groups"] = config_dict["control_groups"]
             if config_dict.get("show_toolbar") is not None:

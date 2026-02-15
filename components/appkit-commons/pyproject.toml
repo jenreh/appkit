@@ -21,7 +21,6 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
-    "apscheduler>=3.11.2",
     "colorlog>=6.10.1",
     "cryptography>=46.0.5",
     "pydantic-settings>=2.12.0",
@@ -32,9 +31,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+apscheduler = [
+    "apscheduler[psycopg]>=4.0.0a5",
+]
+pgqueuer = [
+    "pgqueuer>=0.25.3",
+]
 azure = [
-    "azure-identity==1.25.2",
-    "azure-keyvault-secrets==4.10.0",
+    "azure-identity>=1.25.2",
+    "azure-keyvault-secrets>=4.10.0",
 ]
 
 [project.urls]
