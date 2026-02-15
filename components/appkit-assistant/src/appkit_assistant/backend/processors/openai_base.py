@@ -30,7 +30,7 @@ class BaseOpenAIProcessor(ProcessorBase, ABC):
         models: dict[str, AIModel],
         api_key: str | None = None,
         base_url: str | None = None,
-        is_azure: bool = False,
+        on_azure: bool = False,
         processor_name: str | None = None,
     ) -> None:
         """Initialize the base OpenAI processor.
@@ -39,17 +39,17 @@ class BaseOpenAIProcessor(ProcessorBase, ABC):
             models: Dictionary of supported AI models
             api_key: API key for OpenAI/Azure OpenAI
             base_url: Base URL for the API
-            is_azure: Whether to use Azure OpenAI
+            on_azure: Whether to use Azure OpenAI
             processor_name: Optional processor name
         """
         super().__init__(processor_name=processor_name)
         self.api_key = api_key
         self.base_url = base_url
         self.models = models
-        self.is_azure = is_azure
+        self.on_azure = on_azure
         self.client = None
 
-        if self.api_key and self.base_url and is_azure:
+        if self.api_key and self.base_url and self.on_azure:
             self.client = AsyncOpenAI(
                 api_key=self.api_key,
                 base_url=f"{self.base_url}/openai/v1",

@@ -46,7 +46,7 @@ class ImageGeneratorRegistry:
                 model=GPT_IMAGE_1_MINI,
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
-                is_azure=self.config.openai_is_azure,
+                on_azure=self.config.uses_azure,
             )
         )
         self.register(
@@ -54,7 +54,7 @@ class ImageGeneratorRegistry:
                 model=GPT_IMAGE_1_5,
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
-                is_azure=self.config.openai_is_azure,
+                on_azure=self.config.uses_azure,
             )
         )
         self.register(
@@ -74,25 +74,17 @@ class ImageGeneratorRegistry:
                 model=FLUX1_KONTEXT_PRO,
                 api_key=self.config.openai_api_key.get_secret_value(),
                 base_url=self.config.openai_base_url,
-                is_azure=self.config.openai_is_azure,
+                on_azure=self.config.uses_azure,
             )
         )
         self.register(
             BlackForestLabsImageGenerator(
                 api_key=self.config.blackforestlabs_api_key.get_secret_value(),
-                base_url=self.config.blackforestlabs_base_url,
+                base_url=f"{self.config.blackforestlabs_base_url}",
                 model=FLUX2_PRO,
+                on_azure=self.config.uses_azure,
             )
         )
-        # self.register(
-        #     BlackForestLabsImageGenerator(
-        #         api_key=self.config.blackforestlabs_api_key.get_secret_value(),
-        #         model="flux-2-pro",
-        #         label="Blackforest Labs FLUX.2-pro (org)",
-        #         id="bfl-flux-2-pro",
-        #         supports_size=True,
-        #     )
-        # )
 
     def register(self, generator: ImageGenerator) -> None:
         """Register a new generator in the registry."""

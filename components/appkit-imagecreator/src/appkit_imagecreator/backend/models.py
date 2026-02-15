@@ -56,6 +56,7 @@ class GeneratedImage(rx.Model, table=True):
     quality: str | None = Field(default=None, max_length=20, nullable=True)
     config: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
     is_uploaded: bool = Field(default=False, nullable=False, index=True)
+    is_deleted: bool = Field(default=False, nullable=False, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True)),
@@ -79,6 +80,7 @@ class GeneratedImageModel(BaseModel):
     quality: str | None = None
     config: dict[str, Any] | None = None
     is_uploaded: bool = False
+    is_deleted: bool = False
     created_at: datetime | None = None
 
     @computed_field  # type: ignore[prop-decorator]

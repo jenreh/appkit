@@ -36,18 +36,18 @@ class OpenAIClientService:
         self,
         api_key: str | None = None,
         base_url: str | None = None,
-        is_azure: bool = False,
+        on_azure: bool = False,
     ) -> None:
         """Initialize the OpenAI client service.
 
         Args:
             api_key: API key for OpenAI or Azure OpenAI.
             base_url: Base URL for the API (optional).
-            is_azure: Whether to use Azure OpenAI client configuration.
+            on_azure: Whether to use Azure OpenAI client configuration.
         """
         self._api_key = api_key
         self._base_url = base_url
-        self._is_azure = is_azure
+        self._on_azure = on_azure
 
     @classmethod
     def from_config(cls) -> "OpenAIClientService":
@@ -63,7 +63,7 @@ class OpenAIClientService:
         return cls(
             api_key=api_key,
             base_url=config.openai_base_url,
-            is_azure=config.openai_is_azure,
+            on_azure=config.uses_azure,
         )
 
     @property
@@ -81,7 +81,7 @@ class OpenAIClientService:
             logger.warning("OpenAI API key not configured")
             return None
 
-        if self._api_key and self._base_url and self._is_azure:
+        if self._api_key and self._base_url and self._on_azure:
             logger.debug("Creating Azure OpenAI client")
             return AsyncOpenAI(
                 api_key=self._api_key,

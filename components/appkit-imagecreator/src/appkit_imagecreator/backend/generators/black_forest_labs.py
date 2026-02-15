@@ -47,7 +47,7 @@ class BlackForestLabsImageGenerator(ImageGenerator):
     - Azure: Returns base64 images directly, no polling needed
     """
 
-    base_url: str
+    _base_url: str
 
     def __init__(
         self,
@@ -55,29 +55,26 @@ class BlackForestLabsImageGenerator(ImageGenerator):
         api_key: str,
         base_url: str = "https://api.bfl.ai/v1/",
         supports_edit: bool = True,
+        on_azure: bool = False,
     ) -> None:
         super().__init__(
             model=model,
             api_key=api_key,
             supports_edit=supports_edit,
         )
-        self.base_url = base_url
-
-    @property
-    def is_azure(self) -> bool:
-        """Check if using Azure endpoint based on URL."""
-        return "azure.com" in self.base_url.lower()
+        self._base_url = base_url
+        self._on_azure = on_azure
 
     def _get_api_params(self) -> tuple[str, dict[str, str]]:
         """Get API URL and headers based on provider (Azure vs Native)."""
-        if self.is_azure:
-            url = f"{self.base_url}{self.model.model}?api-version=preview"
+        if self._on_azure:
+            url = f"{self._base_url}/providers/blackforestlabs/v1/{self.model.model}?api-version=preview"  # noqa: E501
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.api_key}",
             }
         else:
-            url = f"{self.base_url}{self.model.model}"
+            url = f"{self._base_url}{self.model.model}"
             headers = {
                 "accept": "application/json",
                 "x-key": self.api_key,
@@ -100,7 +97,7 @@ class BlackForestLabsImageGenerator(ImageGenerator):
         payload["width"] = input_data.width
         payload["height"] = input_data.height
 
-        if self.is_azure:
+        if self._on_azure:
             # Azure specific model name adjustment: "flux-2-pro" -> "flux.2-pro"
             payload["model"] = self.model.model.replace("-", ".", 1)
 
@@ -135,7 +132,7 @@ class BlackForestLabsImageGenerator(ImageGenerator):
             response.raise_for_status()
             data = response.json()
 
-            if self.is_azure:
+            if self._on_azure:
                 return data
 
             # Native BFL requires polling
@@ -148,7 +145,7 @@ class BlackForestLabsImageGenerator(ImageGenerator):
         """Extract image data from response dictionary."""
         generated_images = []
 
-        if self.is_azure:
+        if self._on_azure:
             items = data.get("data", [])
             b64_json = items[0].get("b64_json") if items else None
             if not b64_json:

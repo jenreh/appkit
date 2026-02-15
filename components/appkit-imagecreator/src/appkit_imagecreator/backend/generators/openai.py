@@ -55,7 +55,7 @@ class OpenAIImageGenerator(ImageGenerator):
         api_key: str,
         base_url: str | None = None,
         supports_edit: bool = True,
-        is_azure: bool = False,
+        on_azure: bool = False,
     ) -> None:
         super().__init__(
             model=model,
@@ -63,8 +63,9 @@ class OpenAIImageGenerator(ImageGenerator):
             supports_edit=supports_edit,
         )
         self.base_url = base_url
+        self._on_azure = on_azure
 
-        if is_azure and base_url:
+        if on_azure and base_url:
             self.client = AsyncAzureOpenAI(
                 api_version="2025-04-01-preview",
                 azure_endpoint=base_url,

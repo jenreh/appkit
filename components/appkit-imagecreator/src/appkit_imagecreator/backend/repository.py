@@ -1,9 +1,9 @@
 """Repository for generated images database operations."""
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
@@ -23,12 +23,15 @@ class GeneratedImageRepository(BaseRepository[GeneratedImage, AsyncSession]):
     async def find_by_user(
         self, session: AsyncSession, user_id: int, limit: int = 100
     ) -> list[GeneratedImage]:
-        """Retrieve all generated images for a user (without blob data)."""
+        """Retrieve all generated images for a user (excluding deleted)."""
         # Defer loading of image_data to avoid fetching large blobs
         stmt = (
             select(GeneratedImage)
             .options(defer(GeneratedImage.image_data))
-            .where(GeneratedImage.user_id == user_id)
+            .where(
+                GeneratedImage.user_id == user_id,
+                ~GeneratedImage.is_deleted,
+            )
             .order_by(GeneratedImage.created_at.desc())
             .limit(limit)
         )
@@ -38,7 +41,7 @@ class GeneratedImageRepository(BaseRepository[GeneratedImage, AsyncSession]):
     async def find_today_by_user(
         self, session: AsyncSession, user_id: int, limit: int = 100
     ) -> list[GeneratedImage]:
-        """Retrieve today's generated images for a user (without blob data)."""
+        """Retrieve today's generated images for a user (excluding deleted)."""
         today_start = datetime.now(UTC).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
@@ -48,6 +51,7 @@ class GeneratedImageRepository(BaseRepository[GeneratedImage, AsyncSession]):
             .where(
                 GeneratedImage.user_id == user_id,
                 GeneratedImage.created_at >= today_start,
+                ~GeneratedImage.is_deleted,
             )
             .order_by(GeneratedImage.created_at.desc())
             .limit(limit)
@@ -69,7 +73,10 @@ class GeneratedImageRepository(BaseRepository[GeneratedImage, AsyncSession]):
     async def delete_by_id_and_user(
         self, session: AsyncSession, image_id: int, user_id: int
     ) -> bool:
-        """Delete a generated image by ID (only if owned by user)."""
+        """Mark a generated image as deleted by ID (only if owned by user).
+
+        Sets is_deleted flag while keeping the database record intact.
+        """
         stmt = select(GeneratedImage).where(
             GeneratedImage.id == image_id,
             GeneratedImage.user_id == user_id,
@@ -77,9 +84,10 @@ class GeneratedImageRepository(BaseRepository[GeneratedImage, AsyncSession]):
         result = await session.execute(stmt)
         image = result.scalars().first()
         if image:
-            await session.delete(image)
+            image.is_deleted = True
+            image.image_data = b""  # Clear image data to save space
             await session.flush()
-            logger.debug("Deleted generated image: %s", image_id)
+            logger.debug("Marked image as deleted: %s", image_id)
             return True
         logger.warning(
             "Generated image with ID %s not found for user %s",
@@ -89,12 +97,46 @@ class GeneratedImageRepository(BaseRepository[GeneratedImage, AsyncSession]):
         return False
 
     async def delete_all_by_user(self, session: AsyncSession, user_id: int) -> int:
-        """Delete all generated images for a user. Returns count of deleted images."""
-        stmt = delete(GeneratedImage).where(GeneratedImage.user_id == user_id)
+        """Mark all generated images for a user as deleted.
+
+        Sets is_deleted flag while keeping database records intact.
+        Returns count of images updated.
+        """
+        stmt = select(GeneratedImage).where(GeneratedImage.user_id == user_id)
         result = await session.execute(stmt)
+        images = list(result.scalars().all())
+        for image in images:
+            image.is_deleted = True
+            image.image_data = b""  # Clear image data to save space
         await session.flush()
-        count = result.rowcount
-        logger.debug("Deleted %d generated images for user %s", count, user_id)
+        count = len(images)
+        logger.debug(
+            "Marked %d generated images as deleted for user %s", count, user_id
+        )
+        return count
+
+    async def delete_by_older_than_days(self, session: AsyncSession, days: int) -> int:
+        """Mark all generated images older than x days as deleted.
+
+        Sets is_deleted flag for images created before the cutoff date.
+        Returns count of images updated.
+        """
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
+        stmt = select(GeneratedImage).where(
+            GeneratedImage.created_at < cutoff_date,
+        )
+        result = await session.execute(stmt)
+        images = list(result.scalars().all())
+        for image in images:
+            image.is_deleted = True
+            image.image_data = b""  # Clear image data to save space
+        await session.flush()
+        count = len(images)
+        logger.debug(
+            "Marked %d generated images older than %d days as deleted",
+            count,
+            days,
+        )
         return count
 
 

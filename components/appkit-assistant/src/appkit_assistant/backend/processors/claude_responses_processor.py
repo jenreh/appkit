@@ -13,7 +13,7 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Final
 
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, AsyncAnthropicFoundry
 
 from appkit_assistant.backend.database.models import (
     MCPServer,
@@ -36,7 +36,8 @@ from appkit_assistant.backend.services.system_prompt_builder import SystemPrompt
 logger = logging.getLogger(__name__)
 default_oauth_redirect_uri: Final[str] = mcp_oauth_redirect_uri()
 
-# Beta headers required for MCP and files API
+# Beta headers required for advanced features
+ADVANCED_TOOL_USE_BETA_HEADER: Final[str] = "advanced-tool-use-2025-11-20"
 MCP_BETA_HEADER: Final[str] = "mcp-client-2025-11-20"
 FILES_BETA_HEADER: Final[str] = "files-api-2025-04-14"
 
@@ -45,7 +46,10 @@ THINKING_BUDGET_TOKENS: Final[int] = 10000
 
 
 class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
-    """Claude processor using the Messages API with MCP tools and file uploads."""
+    """Claude processor using the Messages API with MCP tools and file uploads.
+
+    Supports both standard Anthropic API and Azure Foundry deployments.
+    """
 
     def __init__(
         self,
@@ -53,22 +57,18 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         api_key: str | None = None,
         base_url: str | None = None,
         oauth_redirect_uri: str = default_oauth_redirect_uri,
+        on_azure: bool = False,
     ) -> None:
         StreamingProcessorBase.__init__(self, models, "claude_responses")
         MCPCapabilities.__init__(self, oauth_redirect_uri, "claude_responses")
 
         self.api_key = api_key
         self.base_url = base_url
-        self.client: AsyncAnthropic | None = None
+        self._on_azure = on_azure
+        self.client: AsyncAnthropic | AsyncAnthropicFoundry | None = None
 
         if self.api_key:
-            if self.base_url:
-                self.client = AsyncAnthropic(
-                    api_key=self.api_key,
-                    base_url=self.base_url,
-                )
-            else:
-                self.client = AsyncAnthropic(api_key=self.api_key)
+            self.client = self._create_client()
         else:
             logger.warning("No Claude API key found. Processor will not work.")
 
@@ -85,6 +85,38 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self._tool_name_map: dict[str, tuple[str, str | None]] = {}
         # Warnings to display to the user (e.g. disabled tools)
         self._mcp_warnings: list[str] = []
+
+    def _create_client(self) -> AsyncAnthropic | AsyncAnthropicFoundry | None:
+        """Create Claude client based on configuration.
+
+        Args:
+            None
+
+        Returns:
+            AsyncAnthropic for standard API, AsyncAnthropicFoundry for Azure,
+            or None if API key is not available.
+        """
+        if not self.api_key:
+            return None
+
+        if self._on_azure:
+            # Use Azure Foundry client for Azure deployments
+            if self.base_url:
+                # Extract resource name from Azure URL if needed
+                # Format: https://{resource}.services.ai.azure.com/anthropic/
+                return AsyncAnthropicFoundry(
+                    api_key=self.api_key,
+                    base_url=f"{self.base_url}/anthropic",
+                )
+            return AsyncAnthropicFoundry(api_key=self.api_key)
+
+        # Use standard Anthropic API client
+        if self.base_url:
+            return AsyncAnthropic(
+                api_key=self.api_key,
+                base_url=self.base_url,
+            )
+        return AsyncAnthropic(api_key=self.api_key)
 
     def get_supported_models(self) -> dict[str, AIModel]:
         """Return supported models if API key is available."""
@@ -208,7 +240,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 )
 
         # Aggregate tool usage
-        for _tool_id, (tool_name, server_name) in self._tool_name_map.items():
+        for tool_name, server_name in self._tool_name_map.values():
             self._update_statistics(tool_use=(tool_name, server_name))
 
         stats = self._get_statistics()
@@ -538,7 +570,8 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         system_prompt = await self._system_prompt_builder.build(mcp_prompt)
 
         # Determine which beta features to enable
-        betas = []
+        # Advanced tool use is always enabled for better tool handling
+        betas = [ADVANCED_TOOL_USE_BETA_HEADER]
         if mcp_servers:
             betas.append(MCP_BETA_HEADER)
         if file_content_blocks:
@@ -582,14 +615,11 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             }
             params.update(filtered_payload)
 
-        # Create streaming request
-        if betas:
-            return self.client.beta.messages.stream(
-                betas=betas,
-                **params,
-            )
-
-        return self.client.messages.stream(**params)
+        # Create streaming request with beta headers
+        return self.client.beta.messages.stream(
+            betas=betas,
+            **params,
+        )
 
     def _parse_mcp_headers(
         self,

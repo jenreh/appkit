@@ -41,17 +41,17 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         models: dict[str, AIModel],
         api_key: str | None = None,
         base_url: str | None = None,
-        is_azure: bool = False,
+        on_azure: bool = False,
         oauth_redirect_uri: str = default_oauth_redirect_uri,
         file_upload_config: FileUploadConfig | None = None,
     ) -> None:
         StreamingProcessorBase.__init__(self, models, "openai_responses")
         MCPCapabilities.__init__(self, oauth_redirect_uri, "openai_responses")
 
-        self.api_key = api_key
-        self.base_url = base_url
-        self.is_azure = is_azure
-        self.client = self._create_client()
+        self._api_key = api_key
+        self._base_url = base_url
+        self._on_azure = on_azure
+        self._client = self._create_client()
 
         # Services
         self._system_prompt_builder = SystemPromptBuilder()
@@ -65,30 +65,30 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         self._available_mcp_servers: list[MCPServer] = []
 
         # Initialize file upload service if client is available
-        if self.client:
+        if self._client:
             self._file_upload_service = FileUploadService(
-                client=self.client,
+                client=self._client,
                 config=self._file_upload_config,
             )
 
     def get_supported_models(self) -> dict[str, AIModel]:
         """Return supported models if API key is available."""
-        return self.models if self.api_key else {}
+        return self.models if self._api_key else {}
 
     def _create_client(self) -> AsyncOpenAI | None:
         """Create OpenAI client based on configuration."""
-        if not self.api_key:
+        if not self._api_key:
             logger.warning("No API key found. Processor will not work.")
             return None
-        if self.base_url and self.is_azure:
+        if self._base_url and self._on_azure:
             return AsyncOpenAI(
-                api_key=self.api_key,
-                base_url=f"{self.base_url}/openai/v1",
+                api_key=self._api_key,
+                base_url=f"{self._base_url}/openai/v1",
                 default_query={"api-version": "preview"},
             )
-        if self.base_url:
-            return AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
-        return AsyncOpenAI(api_key=self.api_key)
+        if self._base_url:
+            return AsyncOpenAI(api_key=self._api_key, base_url=self._base_url)
+        return AsyncOpenAI(api_key=self._api_key)
 
     async def process(  # noqa: PLR0912
         self,
@@ -101,7 +101,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         cancellation_token: asyncio.Event | None = None,
     ) -> AsyncGenerator[Chunk, None]:
         """Process messages using simplified content accumulator pattern."""
-        if not self.client:
+        if not self._client:
             raise ValueError("OpenAI Client not initialized.")
 
         if model_id not in self.models:
@@ -923,7 +923,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             **filtered_payload,
         }
 
-        return await self.client.responses.create(**params)
+        return await self._client.responses.create(**params)
 
     async def _configure_mcp_tools(
         self,
