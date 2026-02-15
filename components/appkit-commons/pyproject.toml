@@ -21,6 +21,7 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
+    "apscheduler>=3.11.2",
     "colorlog>=6.10.1",
     "cryptography>=46.0.5",
     "pydantic-settings>=2.12.0",

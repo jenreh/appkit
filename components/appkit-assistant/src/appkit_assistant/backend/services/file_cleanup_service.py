@@ -11,7 +11,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from openai import AsyncOpenAI, NotFoundError
 
@@ -26,51 +26,70 @@ from appkit_assistant.backend.services.openai_client_service import (
 from appkit_assistant.configuration import AssistantConfig, FileUploadConfig
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
+from appkit_commons.scheduler import ScheduledService
 
 logger = logging.getLogger(__name__)
 
-# Global scheduler instance
-_scheduler: AsyncIOScheduler | None = None
-_cleanup_service: "FileCleanupService | None" = None
 
-
-class FileCleanupService:
+class FileCleanupService(ScheduledService):
     """Service for cleaning up expired files and vector stores.
 
     Delegates actual cleanup operations to FileUploadService.
     """
 
-    def __init__(
-        self,
-        client: AsyncOpenAI,
-        file_upload_service: FileUploadService,
-        config: FileUploadConfig,
-    ) -> None:
-        """Initialize the cleanup service.
+    job_id = "file_cleanup"
+    name = "Clean up expired OpenAI files and vector stores"
 
-        Args:
-            client: AsyncOpenAI client for checking vector store status.
-            file_upload_service: Service for file/vector store operations.
-            config: File upload configuration.
-        """
-        self._client = client
-        self._file_upload_service = file_upload_service
+    def __init__(self, config: FileUploadConfig) -> None:
+        """Initialize the cleanup service."""
+        if not config:
+            config = get_file_upload_config()
         self.config = config
 
+    @property
+    def trigger(self) -> BaseTrigger:
+        """Run periodically based on configured interval."""
+        minutes = getattr(self.config, "cleanup_interval_minutes", 60)
+        # Ensure at least 1 minute interval, check if disabled in execute()
+        return IntervalTrigger(minutes=max(minutes, 1))
+
+    async def execute(self) -> None:
+        """Execute the cleanup logic."""
+        if self.config.cleanup_interval_minutes <= 0:
+            logger.debug("File cleanup is disabled (interval <= 0)")
+            return
+
+        try:
+            # Lazily initialize dependencies
+            client_service = OpenAIClientService.from_config()
+            if not client_service.is_available:
+                logger.debug("OpenAI service not available, skipping cleanup")
+                return
+
+            client = client_service.create_client()
+            if not client:
+                logger.debug("Could not create OpenAI client, skipping cleanup")
+                return
+
+            file_upload_service = FileUploadService(client=client, config=self.config)
+
+            logger.info("Starting scheduled file cleanup")
+            final_stats: dict[str, Any] = {}
+
+            # Execute cleanup logic
+            async for progress in self.cleanup_expired_files(
+                client, file_upload_service
+            ):
+                final_stats = progress
+
+            logger.info("Scheduled cleanup completed: %s", final_stats)
+        except Exception as e:
+            logger.error("Scheduled cleanup failed: %s", e)
+
     async def cleanup_expired_files(
-        self,
+        self, client: AsyncOpenAI, file_upload_service: FileUploadService
     ) -> AsyncGenerator[dict[str, Any], None]:
-        """Clean up expired vector stores and their associated files.
-
-        This method:
-        1. Gets all unique vector store IDs from the database
-        2. Checks if each vector store still exists in OpenAI
-        3. For expired/deleted stores: delegates to FileUploadService
-        4. Clears vector_store_id from threads with expired stores
-
-        Yields:
-            Progress updates with current statistics and status.
-        """
+        """Clean up expired vector stores and their associated files."""
         stats = {
             "vector_stores_checked": 0,
             "vector_stores_expired": 0,
@@ -111,7 +130,7 @@ class FileCleanupService:
                 stats["vector_stores_checked"] += 1
                 yield stats.copy()
 
-                is_expired = await self._check_vector_store_expired(vs_id)
+                is_expired = await self._check_vector_store_expired(client, vs_id)
 
                 if is_expired:
                     stats["vector_stores_expired"] += 1
@@ -119,7 +138,7 @@ class FileCleanupService:
                     yield stats.copy()
 
                     # Delegate cleanup to FileUploadService
-                    result = await self._file_upload_service.delete_vector_store(vs_id)
+                    result = await file_upload_service.delete_vector_store(vs_id)
                     if result["deleted"]:
                         stats["vector_stores_deleted"] += 1
                     stats["files_found"] += result["files_found"]
@@ -142,7 +161,9 @@ class FileCleanupService:
             yield stats.copy()
             raise
 
-    async def _check_vector_store_expired(self, vector_store_id: str) -> bool:
+    async def _check_vector_store_expired(
+        self, client: AsyncOpenAI, vector_store_id: str
+    ) -> bool:
         """Check if a vector store has expired or been deleted.
 
         Args:
@@ -152,7 +173,7 @@ class FileCleanupService:
             True if the vector store is expired/deleted, False otherwise.
         """
         try:
-            vector_store = await self._client.vector_stores.retrieve(
+            vector_store = await client.vector_stores.retrieve(
                 vector_store_id=vector_store_id
             )
             # Check if the vector store has expired status
@@ -193,7 +214,7 @@ class FileCleanupService:
         return updated_count
 
 
-def _get_file_upload_config() -> FileUploadConfig:
+def get_file_upload_config() -> FileUploadConfig:
     """Get file upload configuration."""
     try:
         config: AssistantConfig | None = service_registry().get(AssistantConfig)
@@ -202,75 +223,6 @@ def _get_file_upload_config() -> FileUploadConfig:
     except Exception as e:
         logger.warning("Failed to get file upload config: %s", e)
     return FileUploadConfig()
-
-
-async def _run_cleanup_job() -> None:
-    """Scheduled job to run file cleanup."""
-    if not _cleanup_service:
-        logger.warning("Cleanup service not initialized, skipping cleanup job")
-        return
-
-    try:
-        logger.info("Starting scheduled file cleanup")
-        final_stats: dict[str, Any] = {}
-        async for progress in _cleanup_service.cleanup_expired_files():
-            final_stats = progress  # Keep updating to get final stats
-        logger.info("Scheduled cleanup completed: %s", final_stats)
-    except Exception as e:
-        logger.error("Scheduled cleanup failed: %s", e)
-
-
-def start_scheduler() -> None:
-    """Start the APScheduler for file cleanup."""
-    global _scheduler, _cleanup_service  # noqa: PLW0603
-
-    # Get configuration
-    config = _get_file_upload_config()
-
-    # Create OpenAI client via service
-    client_service = OpenAIClientService.from_config()
-    if not client_service.is_available:
-        logger.warning("OpenAI client not available, file cleanup scheduler disabled")
-        return
-
-    client = client_service.create_client()
-    if not client:
-        logger.warning("Failed to create OpenAI client, cleanup scheduler disabled")
-        return
-
-    # Create FileUploadService and FileCleanupService
-    file_upload_service = FileUploadService(client=client, config=config)
-    _cleanup_service = FileCleanupService(
-        client=client, file_upload_service=file_upload_service, config=config
-    )
-
-    # Create scheduler
-    _scheduler = AsyncIOScheduler()
-
-    # Add cleanup job
-    _scheduler.add_job(
-        _run_cleanup_job,
-        trigger=IntervalTrigger(minutes=config.cleanup_interval_minutes),
-        id="file_cleanup",
-        name="Clean up expired OpenAI files and vector stores",
-        replace_existing=True,
-    )
-
-    _scheduler.start()
-    logger.info(
-        "File cleanup scheduler started (interval: %d minutes)",
-        config.cleanup_interval_minutes,
-    )
-
-
-def stop_scheduler() -> None:
-    """Stop the APScheduler."""
-    global _scheduler  # noqa: PLW0603
-
-    if _scheduler:
-        _scheduler.shutdown(wait=False)
-        _scheduler = None
-        logger.info("File cleanup scheduler stopped")
 
 
 async def run_cleanup() -> AsyncGenerator[dict[str, Any], None]:
@@ -290,38 +242,29 @@ async def run_cleanup() -> AsyncGenerator[dict[str, Any], None]:
         - total_vector_stores: total count to process
         - error: error message (only if status is 'error')
     """
-    global _cleanup_service  # noqa: PLW0603
+    # Initialize dependencies
+    config = get_file_upload_config()
+    client_service = OpenAIClientService.from_config()
 
-    if not _cleanup_service:
-        # Try to initialize on-demand
-        config = _get_file_upload_config()
-        client_service = OpenAIClientService.from_config()
+    if not client_service.is_available:
+        logger.warning("OpenAI client not available for manual cleanup")
+        yield {"status": "error", "error": "OpenAI client not available"}
+        return
 
-        if not client_service.is_available:
-            logger.warning("OpenAI client not available for manual cleanup")
-            yield {
-                "status": "error",
-                "error": "OpenAI client not available",
-            }
-            return
+    client = client_service.create_client()
+    if not client:
+        logger.warning("Failed to create OpenAI client for manual cleanup")
+        yield {"status": "error", "error": "Failed to create OpenAI client"}
+        return
 
-        client = client_service.create_client()
-        if not client:
-            logger.warning("Failed to create OpenAI client for manual cleanup")
-            yield {
-                "status": "error",
-                "error": "Failed to create OpenAI client",
-            }
-            return
-
-        file_upload_service = FileUploadService(client=client, config=config)
-        _cleanup_service = FileCleanupService(
-            client=client, file_upload_service=file_upload_service, config=config
-        )
+    file_upload_service = FileUploadService(client=client, config=config)
+    cleanup_service = FileCleanupService(config=config)
 
     try:
         logger.info("Starting manual file cleanup")
-        async for stats in _cleanup_service.cleanup_expired_files():
+        async for stats in cleanup_service.cleanup_expired_files(
+            client, file_upload_service
+        ):
             yield stats
         logger.info("Manual cleanup completed")
     except Exception as e:

@@ -159,6 +159,7 @@ name = "appkit-commons"
 version = "1.3.0"
 source = { editable = "components/appkit-commons" }
 dependencies = [
+    { name = "apscheduler" },
     { name = "colorlog" },
     { name = "cryptography" },
     { name = "pydantic-settings" },
@@ -176,6 +177,7 @@ azure = [
 
 [package.metadata]
 requires-dist = [
+    { name = "apscheduler", specifier = ">=3.11.2" },
     { name = "azure-identity", marker = "extra == 'azure'", specifier = "==1.25.2" },
     { name = "azure-keyvault-secrets", marker = "extra == 'azure'", specifier = "==4.10.0" },
     { name = "colorlog", specifier = ">=6.10.1" },

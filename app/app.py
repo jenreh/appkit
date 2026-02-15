@@ -9,18 +9,16 @@ from fastapi import FastAPI
 from starlette.types import ASGIApp
 
 import appkit_mantine as mn
-from appkit_assistant.backend.services.file_cleanup_service import (
-    start_scheduler as start_file_scheduler,
-)
-from appkit_assistant.backend.services.file_cleanup_service import (
-    stop_scheduler as stop_file_scheduler,
-)
+from appkit_assistant.backend.services.file_cleanup_service import FileCleanupService
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
+from appkit_commons.scheduler import scheduler
 from appkit_imagecreator.backend.image_api import router as image_api_router
+from appkit_imagecreator.backend.services.image_cleanup_service import (
+    ImageCleanupService,
+)
 from appkit_user.authentication.backend.services.session_cleanup_service import (
-    start_session_scheduler,
-    stop_session_scheduler,
+    SessionCleanupService,
 )
 from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
@@ -193,13 +191,20 @@ base_style = {
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """Handle application lifespan events (startup and shutdown)."""
-    # Startup
-    start_file_scheduler()
-    start_session_scheduler()
+    # Initialize configurations
+
+    # Register scheduled jobs
+    scheduler.add_service(FileCleanupService())
+    scheduler.add_service(SessionCleanupService(interval_minutes=30))
+    scheduler.add_service(ImageCleanupService())
+
+    # Start the central scheduler
+    scheduler.start()
+
     yield
-    # Shutdown
-    stop_file_scheduler()
-    stop_session_scheduler()
+
+    # Shutdown scheduler
+    scheduler.shutdown()
 
 
 # Create FastAPI app for custom API routes

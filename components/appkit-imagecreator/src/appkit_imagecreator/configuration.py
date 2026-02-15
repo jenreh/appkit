@@ -16,6 +16,8 @@ class ImageGeneratorConfig(BaseConfig):
     """optional, for OpenAI-compatible endpoints, e.g. Azure OpenAI"""
     tmp_dir: str = "./uploaded_files"
     """temp directory for storing generated images, default Reflex.dev upload dir"""
+    cleanup_days_threshold: int = 60
+    """days threshold for automatic cleanup of old images"""
 
 
 prompt_list = [
