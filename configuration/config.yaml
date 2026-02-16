@@ -58,11 +58,5 @@ app:
       cleanup_interval_minutes: 60
 
   imagegenerator:
-    uses_azure: true
-    blackforestlabs_api_key: secret:mn-azure-api-key
-    blackforestlabs_base_url: secret:mn-azure-endpoint
-    openai_api_key: secret:mn-azure-api-key
-    openai_base_url: secret:mn-azure-endpoint
-
-    google_api_key: secret:mn-google-api-key
     tmp_dir: ./uploaded_files
+    cleanup_days_threshold: 60

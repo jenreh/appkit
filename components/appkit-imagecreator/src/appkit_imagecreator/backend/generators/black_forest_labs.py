@@ -15,29 +15,6 @@ from appkit_imagecreator.backend.models import (
 
 logger = logging.getLogger(__name__)
 
-FLUX1_KONTEXT_PRO = ImageModel(
-    id="azure-flux1-kontext-pro",
-    model="FLUX.1-Kontext-pro",
-    label="Blackforest Labs FLUX.1-Kontext-pro (Azure)",
-    config={
-        "moderation": "low",
-        "output_compression": 95,
-        "output_format": "jpeg",
-        "quality": "hd",
-        "background": "auto",
-    },
-)
-
-FLUX2_PRO = ImageModel(
-    id="azure-flux-2-pro",
-    model="flux-2-pro",
-    label="Blackforest Labs FLUX.2-pro (Azure)",
-    config={
-        "safety_tolerance": 6,
-        "output_format": "jpeg",
-    },
-)
-
 
 class BlackForestLabsImageGenerator(ImageGenerator):
     """Generator for the Black Forest Labs API (Flux models).

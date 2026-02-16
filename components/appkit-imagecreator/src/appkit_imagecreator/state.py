@@ -211,17 +211,30 @@ class ImageGalleryState(rx.State):
     @rx.event(background=True)
     async def initialize(self) -> AsyncGenerator[Any, Any]:
         """Initialize the image gallery - load images from database."""
-        # Ensure generators are loaded from the registry
+        # Always refresh generators from the registry
         async with self:
-            if not self.generators:
-                await generator_registry.initialize()
-                self.generators = generator_registry.list_generators()
-                if not self.generator and self.generators:
-                    self.generator = generator_registry.get_default_generator().model.id
-                yield
+            await generator_registry.initialize()
+            self._refresh_generators()
+            yield
 
         async for _ in self._load_images():
             yield
+
+    def _refresh_generators(self) -> None:
+        """Refresh generator list from registry and validate selection."""
+        self.generators = generator_registry.list_generators()
+        valid_ids = {g["id"] for g in self.generators}
+        if self.generator not in valid_ids:
+            if self.generators:
+                self.generator = generator_registry.get_default_generator().model.id
+            else:
+                self.generator = ""
+
+    @rx.event
+    async def refresh_generators(self) -> None:
+        """Reload generators from registry and update the list."""
+        await generator_registry.reload()
+        self._refresh_generators()
 
     async def _load_images(self) -> AsyncGenerator[Any, Any]:  # noqa: PLR0915
         """Load images from database (internal)."""

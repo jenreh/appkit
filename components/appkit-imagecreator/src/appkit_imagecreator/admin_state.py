@@ -15,6 +15,7 @@ from appkit_imagecreator.backend.generator_repository import (
     generator_model_repo,
 )
 from appkit_imagecreator.backend.models import ImageGeneratorModel
+from appkit_imagecreator.state import ImageGalleryState
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +287,7 @@ class ImageGeneratorAdminState(rx.State):
                 f"Bildgenerator {gen_label} wurde {status_text}.",
                 position="top-right",
             )
+            yield ImageGalleryState.refresh_generators
             logger.debug("Toggled generator %s active=%s", gen_label, active)
         except Exception as e:
             self.generators = original_generators
