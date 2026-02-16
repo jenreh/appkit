@@ -5,6 +5,7 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_assistant.roles import ASSISTANT_ADMIN_ROLE
 from appkit_commons.registry import service_registry
+from appkit_imagecreator.roles import IMAGE_GEN_ADMIN_ROLE
 from appkit_user.authentication.components.components import requires_role
 
 from app.components.navbar_component import (
@@ -78,10 +79,13 @@ def navbar_admin_items() -> rx.Component:
             ),
             role=ASSISTANT_ADMIN_ROLE.name,
         ),
-        admin_sidebar_item(
-            label="Bildgenerator",
-            icon="image",
-            url="/admin/image-generators",
+        requires_role(
+            admin_sidebar_item(
+                label="Bildgenerator",
+                icon="image",
+                url="/admin/image-generators",
+            ),
+            role=IMAGE_GEN_ADMIN_ROLE.name,
         ),
         w="95%",
         gap="0px",

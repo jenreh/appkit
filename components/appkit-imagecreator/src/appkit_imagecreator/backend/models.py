@@ -40,6 +40,7 @@ class ImageModel(BaseModel):
     model: str
     label: str
     config: dict[str, Any] | None = None
+    required_role: str | None = None
 
 
 class ImageGeneratorModel(rx.Model, table=True):
@@ -89,6 +90,7 @@ class ImageGeneratorModel(rx.Model, table=True):
             model=self.model,
             label=self.label,
             config=api_config or None,
+            required_role=self.required_role,
         )
 
 

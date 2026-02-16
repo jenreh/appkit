@@ -10,7 +10,7 @@ from appkit_user.authentication.components.components import requires_role
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
-from app.roles import IMAGE_GENERATOR_ROLE
+from app.roles import IMAGE_GEN_USER_ROLE
 
 
 @authenticated(
@@ -24,5 +24,5 @@ def image_gallery() -> rx.Component:
     """Image gallery page with role-based access control."""
     return requires_role(
         image_generator_page(),
-        role=IMAGE_GENERATOR_ROLE.name,
+        role=IMAGE_GEN_USER_ROLE.name,
     )

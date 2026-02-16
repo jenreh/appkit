@@ -111,10 +111,14 @@ class ImageGeneratorRegistry:
             raise ValueError(msg)
         return self._generators[generator_id]
 
-    def list_generators(self) -> list[dict[str, str]]:
+    def list_generators(self) -> list[dict[str, str | None]]:
         """List all available generators with their IDs and labels."""
         return [
-            {"id": gen.model.id, "label": gen.model.label}
+            {
+                "id": gen.model.id,
+                "label": gen.model.label,
+                "required_role": gen.model.required_role,
+            }
             for gen in self._generators.values()
         ]
 

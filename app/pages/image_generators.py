@@ -13,16 +13,21 @@ from appkit_user.authentication.components.components import (
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
-from app.roles import IMAGE_GENERATOR_ROLE
+from app.roles import IMAGE_GEN_AZURE_ROLE, IMAGE_GEN_GOOGLE_ROLE
 
 ROLE_LABELS: dict[str, str] = {
-    IMAGE_GENERATOR_ROLE.name: IMAGE_GENERATOR_ROLE.label,
+    IMAGE_GEN_AZURE_ROLE.name: IMAGE_GEN_AZURE_ROLE.label,
+    IMAGE_GEN_GOOGLE_ROLE.name: IMAGE_GEN_GOOGLE_ROLE.label,
 }
 
 AVAILABLE_ROLES = [
     {
-        "value": IMAGE_GENERATOR_ROLE.name,
-        "label": IMAGE_GENERATOR_ROLE.label,
+        "value": IMAGE_GEN_AZURE_ROLE.name,
+        "label": IMAGE_GEN_AZURE_ROLE.label,
+    },
+    {
+        "value": IMAGE_GEN_GOOGLE_ROLE.name,
+        "label": IMAGE_GEN_GOOGLE_ROLE.label,
     },
 ]
 

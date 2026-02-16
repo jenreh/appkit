@@ -19,7 +19,7 @@ from appkit_user.authentication.components.components import (
 from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
-from app.roles import MCP_ADVANCED_ROLE, MCP_BASIC_ROLE, SKILL_ADMIN_ROLE
+from app.roles import ASSISTANT_ADMIN_SKILL_ROLE, MCP_ADVANCED_ROLE, MCP_BASIC_ROLE
 
 # Mapping from role name to display label
 ROLE_LABELS: dict[str, str] = {
@@ -87,7 +87,7 @@ def admin_assistant_page() -> rx.Component:
                             role_labels=ROLE_LABELS,
                             available_roles=AVAILABLE_ROLES,
                         ),
-                        role=SKILL_ADMIN_ROLE.name,
+                        role=ASSISTANT_ADMIN_SKILL_ROLE.name,
                     ),
                     value="skills",
                 ),

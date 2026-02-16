@@ -3,7 +3,9 @@ import base64
 import logging
 
 import httpx
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
+from appkit_commons.configuration import get_secret
 from appkit_imagecreator.backend.models import (
     GeneratedImageData,
     GenerationInput,
@@ -67,7 +69,6 @@ class BlackForestLabsImageGenerator(ImageGenerator):
         payload.update(
             {
                 "prompt": prompt,
-                "seed": input_data.seed,
             }
         )
 
@@ -141,11 +142,76 @@ class BlackForestLabsImageGenerator(ImageGenerator):
             enhanced_prompt=prompt,
         )
 
+    async def _create_openai_client(self) -> AsyncOpenAI | AsyncAzureOpenAI | None:
+        """Create an OpenAI client for prompt enhancement."""
+        api_key = get_secret("mn-openai-api-key")
+
+        # Check for Azure configuration
+        azure_key = get_secret("mn-azure-api-key")
+        azure_endpoint = get_secret("mn-azure-endpoint")
+
+        if azure_key and azure_endpoint:
+            return AsyncAzureOpenAI(
+                api_version="2025-04-01-preview",
+                azure_endpoint=azure_endpoint,
+                api_key=azure_key,
+            )
+
+        # Fallback to standard OpenAI
+        if api_key:
+            return AsyncOpenAI(api_key=api_key)
+
+        return None
+
+    async def _enhance_prompt(self, prompt: str) -> str:
+        try:
+            client = await self._create_openai_client()
+            if not client:
+                logger.warning("No OpenAI client available for prompt enhancement")
+                return prompt
+
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",  # Using a standard model available on azure/openai
+                stream=False,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are an image generation assistant specialized in "
+                            "optimizing user prompts. Ensure content "
+                            "compliance rules are followed. Do not ask followup "
+                            "questions, just generate the optimized prompt."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            "Enhance this prompt for image generation or "
+                            f"image editing: {prompt}"
+                        ),
+                    },
+                ],
+            )
+
+            result = response.choices[0].message.content.strip()
+            if not result:
+                result = prompt
+
+            logger.debug("Enhanced prompt for image generation: %s", result)
+            return result
+        except Exception as e:
+            logger.error("Failed to enhance prompt: %s", e)
+            return prompt
+
     async def _perform_generation(
         self, input_data: GenerationInput
     ) -> ImageGeneratorResponse:
         """Generate image."""
         prompt = self._format_prompt(input_data.prompt, input_data.negative_prompt)
+
+        if input_data.enhance_prompt:
+            prompt = await self._enhance_prompt(prompt)
+
         payload = self._build_payload(input_data, prompt)
         return await self._execute(payload, prompt)
 

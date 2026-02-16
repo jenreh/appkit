@@ -131,6 +131,8 @@ class ImageGeneratorAdminState(rx.State):
         self, form_data: dict[str, Any]
     ) -> AsyncGenerator[Any, Any]:
         """Create a new generator model."""
+        self.loading = True
+        yield
         try:
             entity = ImageGeneratorModel(
                 model_id=form_data["model_id"],
@@ -163,6 +165,8 @@ class ImageGeneratorAdminState(rx.State):
                 "Fehler beim Hinzufügen des Bildgenerators.",
                 position="top-right",
             )
+        finally:
+            self.loading = False
 
     async def modify_generator(
         self, form_data: dict[str, Any]
@@ -171,6 +175,9 @@ class ImageGeneratorAdminState(rx.State):
         if not self.current_generator:
             yield rx.toast.error("Kein Generator ausgewählt.", position="top-right")
             return
+
+        self.loading = True
+        yield
         try:
             updated_label = ""
             async with get_asyncdb_session() as session:
@@ -214,6 +221,8 @@ class ImageGeneratorAdminState(rx.State):
                 "Fehler beim Aktualisieren des Bildgenerators.",
                 position="top-right",
             )
+        finally:
+            self.loading = False
 
     async def delete_generator(self, generator_id: int) -> AsyncGenerator[Any, Any]:
         """Delete a generator model."""

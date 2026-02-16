@@ -25,7 +25,6 @@ class ImageGeneratorValidationState(rx.State):
     base_url: str = ""
     extra_config: str = ""
     required_role: str = ""
-    is_edit: bool = False
 
     model_id_error: str = ""
     label_error: str = ""
@@ -36,7 +35,6 @@ class ImageGeneratorValidationState(rx.State):
     @rx.event
     def initialize(self, generator: ImageGeneratorModel | None = None) -> None:
         """Reset validation state for add or edit mode."""
-        self.is_edit = generator is not None
         if generator is None:
             self.model_id = ""
             self.model = ""
@@ -91,6 +89,7 @@ class ImageGeneratorValidationState(rx.State):
 
     def set_extra_config(self, value: str) -> None:
         self.extra_config = value
+        self.validate_extra_config()
 
     def set_required_role(self, value: str) -> None:
         self.required_role = value
@@ -150,7 +149,7 @@ class ImageGeneratorValidationState(rx.State):
 # --- Known processor types for convenience ---
 KNOWN_PROCESSORS = [
     {
-        "value": ("appkit_imagecreator.backend.generators.openai.OpenAIImageGenerator"),
+        "value": "appkit_imagecreator.backend.generators.openai.OpenAIImageGenerator",
         "label": "OpenAI Image Generator",
     },
     {
@@ -174,9 +173,7 @@ def _role_select() -> rx.Component:
     """Role selection dropdown for generator access control."""
     return mn.select(
         label="Erforderliche Rolle",
-        description=(
-            "Nur Benutzer mit dieser Rolle können diesen Generator verwenden."
-        ),
+        description="Nur Benutzer mit dieser Rolle können diesen Generator verwenden.",
         data=ImageGeneratorAdminState.available_roles,
         value=ImageGeneratorValidationState.required_role,
         on_change=ImageGeneratorValidationState.set_required_role,
@@ -219,17 +216,21 @@ def _modal_footer(
             submit_label,
             type="submit",
             disabled=ImageGeneratorValidationState.has_errors,
+            loading=ImageGeneratorAdminState.loading,
         ),
         direction="row",
         gap="9px",
         justify_content="end",
-        margin_top="12px",
+        padding="16px",
+        border_top="1px solid var(--mantine-color-default-border)",
+        background="var(--mantine-color-body)",
+        width="100%",
     )
 
 
 def image_generator_form_fields() -> rx.Component:
     """Reusable form fields for add/edit modals."""
-    return rx.flex(
+    return mn.flex(
         form_field(
             name="label",
             icon="tag",
@@ -237,11 +238,10 @@ def image_generator_form_fields() -> rx.Component:
             hint="Anzeige-Label in der UI",
             type="text",
             placeholder="OpenAI GPT-Image-1.5",
-            value=ImageGeneratorValidationState.label,
+            default_value=ImageGeneratorValidationState.label,
             required=True,
             max_length=100,
-            on_change=ImageGeneratorValidationState.set_label,
-            on_blur=ImageGeneratorValidationState.validate_label,
+            on_blur=ImageGeneratorValidationState.set_label,
             validation_error=ImageGeneratorValidationState.label_error,
         ),
         form_field(
@@ -251,11 +251,10 @@ def image_generator_form_fields() -> rx.Component:
             hint="Technische ID des Modells (z.B. gpt-image-1.5)",
             type="text",
             placeholder="gpt-image-1.5",
-            value=ImageGeneratorValidationState.model_id,
+            default_value=ImageGeneratorValidationState.model_id,
             required=True,
             max_length=100,
-            on_change=ImageGeneratorValidationState.set_model_id,
-            on_blur=ImageGeneratorValidationState.validate_model_id,
+            on_blur=ImageGeneratorValidationState.set_model_id,
             validation_error=ImageGeneratorValidationState.model_id_error,
         ),
         form_field(
@@ -267,7 +266,7 @@ def image_generator_form_fields() -> rx.Component:
             placeholder="gpt-image-1.5",
             value=ImageGeneratorValidationState.model,
             max_length=100,
-            on_change=ImageGeneratorValidationState.set_model,
+            on_blur=ImageGeneratorValidationState.set_model,
         ),
         _processor_type_field(),
         form_field(
@@ -277,19 +276,19 @@ def image_generator_form_fields() -> rx.Component:
             hint="Wird verschlüsselt gespeichert",
             type="password",
             placeholder="sk-...",
-            value=ImageGeneratorValidationState.api_key,
-            on_change=ImageGeneratorValidationState.set_api_key,
+            default_value=ImageGeneratorValidationState.api_key,
+            on_blur=ImageGeneratorValidationState.set_api_key,
             autocomplete="new-password",
         ),
         form_field(
             name="base_url",
             icon="link",
             label="Base-URL",
-            hint=("Optionale Basis-URL für den API-Endpunkt (z.B. Azure-Endpoint)"),
+            hint="Optionale Basis-URL für den API-Endpunkt (z.B. Azure-Endpoint)",
             type="text",
             placeholder="https://api.openai.com/v1",
-            value=ImageGeneratorValidationState.base_url,
-            on_change=ImageGeneratorValidationState.set_base_url,
+            default_value=ImageGeneratorValidationState.base_url,
+            on_blur=ImageGeneratorValidationState.set_base_url,
         ),
         mn.json_input(
             name="extra_config",
@@ -300,9 +299,8 @@ def image_generator_form_fields() -> rx.Component:
                 '"output_format": "jpeg"})'
             ),
             placeholder="{}",
-            value=ImageGeneratorValidationState.extra_config,
-            on_change=ImageGeneratorValidationState.set_extra_config,
-            on_blur=ImageGeneratorValidationState.validate_extra_config,
+            default_value=ImageGeneratorValidationState.extra_config,
+            on_blur=ImageGeneratorValidationState.set_extra_config,
             error=ImageGeneratorValidationState.extra_config_error,
             format_on_blur=True,
             autosize=True,
@@ -312,7 +310,8 @@ def image_generator_form_fields() -> rx.Component:
         ),
         _role_select(),
         direction="column",
-        spacing="1",
+        gap="9px",
+        padding="12px",
     )
 
 
@@ -329,53 +328,59 @@ def add_image_generator_button() -> rx.Component:
     )
 
 
-def add_image_generator_modal() -> rx.Component:
-    """Modal for adding a new image generator."""
+def _generator_modal(
+    title: str,
+    opened: bool | rx.Var[bool],
+    on_close: rx.EventHandler,
+    on_submit: rx.EventHandler,
+    submit_label: str,
+) -> rx.Component:
+    """Shared modal structure for add/edit generator."""
     return mn.modal(
         rx.form.root(
-            mn.scroll_area(
-                image_generator_form_fields(),
-                h="60vh",
-                w="100%",
+            rx.flex(
+                mn.scroll_area.autosize(
+                    image_generator_form_fields(),
+                    max_height="60vh",
+                    width="100%",
+                    type="always",
+                    offset_scrollbars=True,
+                ),
+                _modal_footer(submit_label, on_close),
+                direction="column",
             ),
-            _modal_footer(
-                "Bildgenerator anlegen",
-                ImageGeneratorAdminState.close_add_modal,
-            ),
-            on_submit=ImageGeneratorAdminState.add_generator,
+            on_submit=on_submit,
             reset_on_submit=False,
+            height="100%",
         ),
-        title="Neuen Bildgenerator anlegen",
-        opened=ImageGeneratorAdminState.add_modal_open,
-        on_close=ImageGeneratorAdminState.close_add_modal,
+        title=title,
+        opened=opened,
+        on_close=on_close,
         size="lg",
         centered=True,
         overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
 
+def add_image_generator_modal() -> rx.Component:
+    """Modal for adding a new image generator."""
+    return _generator_modal(
+        title="Neuen Bildgenerator anlegen",
+        opened=ImageGeneratorAdminState.add_modal_open,
+        on_close=ImageGeneratorAdminState.close_add_modal,
+        on_submit=ImageGeneratorAdminState.add_generator,
+        submit_label="Bildgenerator anlegen",
+    )
+
+
 def edit_image_generator_modal() -> rx.Component:
     """Modal for editing an existing image generator."""
-    return mn.modal(
-        rx.form.root(
-            mn.scroll_area(
-                image_generator_form_fields(),
-                h="60vh",
-                w="100%",
-            ),
-            _modal_footer(
-                "Bildgenerator aktualisieren",
-                ImageGeneratorAdminState.close_edit_modal,
-            ),
-            on_submit=ImageGeneratorAdminState.modify_generator,
-            reset_on_submit=False,
-        ),
+    return _generator_modal(
         title="Bildgenerator aktualisieren",
         opened=ImageGeneratorAdminState.edit_modal_open,
         on_close=ImageGeneratorAdminState.close_edit_modal,
-        size="lg",
-        centered=True,
-        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+        on_submit=ImageGeneratorAdminState.modify_generator,
+        submit_label="Bildgenerator aktualisieren",
     )
 
 
