@@ -1,103 +1,114 @@
+import importlib
 import logging
 from typing import Final
 
-from appkit_commons.configuration.configuration import ReflexConfig
-from appkit_commons.registry import service_registry
-from appkit_imagecreator.backend.generators.black_forest_labs import (
-    FLUX1_KONTEXT_PRO,
-    FLUX2_PRO,
-    BlackForestLabsImageGenerator,
+from appkit_commons.database.session import get_asyncdb_session
+from appkit_imagecreator.backend.generator_repository import (
+    generator_model_repo,
 )
-from appkit_imagecreator.backend.generators.nano_banana import (
-    NANO_BANANA,
-    NANO_BANANA_PRO,
-    NanoBananaImageGenerator,
+from appkit_imagecreator.backend.models import (
+    ImageGenerator,
+    ImageGeneratorModel,
 )
-from appkit_imagecreator.backend.generators.openai import (
-    GPT_IMAGE_1_5,
-    GPT_IMAGE_1_MINI,
-    OpenAIImageGenerator,
-)
-from appkit_imagecreator.backend.models import ImageGenerator
-from appkit_imagecreator.configuration import ImageGeneratorConfig
 
 logger = logging.getLogger(__name__)
 
 
 class ImageGeneratorRegistry:
-    """Registry of image generators.
+    """Registry of image generators backed by database configuration.
 
-    Maintains a collection of configured image generators that can be retrieved by ID.
+    Loads active generators from the database, instantiates them
+    via a plugin pattern using the stored processor_type class path,
+    and caches them in memory. Call reload() to refresh after changes.
     """
 
-    def __init__(self):
-        self.config = service_registry().get(ImageGeneratorConfig)
-        self.reflex_config = service_registry().get(ReflexConfig)
+    def __init__(self) -> None:
         self._generators: dict[str, ImageGenerator] = {}
-        self._initialize_default_generators()
+        self._loaded = False
 
-        logger.debug("reflex config: %s", self.reflex_config)
-        logger.debug("image generator config: %s", self.config)
+    async def initialize(self) -> None:
+        """Load active generators from the database."""
+        if self._loaded:
+            return
+        await self.reload()
 
-    def _initialize_default_generators(self) -> None:
-        """Initialize the registry with default generators."""
-        self.register(
-            OpenAIImageGenerator(
-                model=GPT_IMAGE_1_MINI,
-                api_key=self.config.openai_api_key.get_secret_value(),
-                base_url=self.config.openai_base_url,
-                on_azure=self.config.uses_azure,
+    async def reload(self) -> None:
+        """Re-query DB and re-instantiate all active generators."""
+        new_generators: dict[str, ImageGenerator] = {}
+        try:
+            async with get_asyncdb_session() as session:
+                models = await generator_model_repo.find_all_active(session)
+
+                for db_model in models:
+                    try:
+                        generator = self._instantiate_generator(db_model)
+                        new_generators[generator.model.id] = generator
+                        logger.debug(
+                            "Loaded generator: %s (%s)",
+                            db_model.label,
+                            db_model.processor_type,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to instantiate generator %s",
+                            db_model.label,
+                        )
+
+            self._generators = new_generators
+            self._loaded = True
+            logger.info(
+                "Loaded %d active generators from database",
+                len(self._generators),
             )
-        )
-        self.register(
-            OpenAIImageGenerator(
-                model=GPT_IMAGE_1_5,
-                api_key=self.config.openai_api_key.get_secret_value(),
-                base_url=self.config.openai_base_url,
-                on_azure=self.config.uses_azure,
-            )
-        )
-        self.register(
-            NanoBananaImageGenerator(
-                api_key=self.config.google_api_key.get_secret_value(),
-                model=NANO_BANANA,
-            )
-        )
-        self.register(
-            NanoBananaImageGenerator(
-                api_key=self.config.google_api_key.get_secret_value(),
-                model=NANO_BANANA_PRO,
-            )
-        )
-        self.register(
-            OpenAIImageGenerator(
-                model=FLUX1_KONTEXT_PRO,
-                api_key=self.config.openai_api_key.get_secret_value(),
-                base_url=self.config.openai_base_url,
-                on_azure=self.config.uses_azure,
-            )
-        )
-        self.register(
-            BlackForestLabsImageGenerator(
-                api_key=self.config.blackforestlabs_api_key.get_secret_value(),
-                base_url=f"{self.config.blackforestlabs_base_url}",
-                model=FLUX2_PRO,
-                on_azure=self.config.uses_azure,
-            )
-        )
+        except Exception:
+            logger.exception("Failed to load generators from database")
+
+    @staticmethod
+    def _resolve_processor_class(
+        processor_type: str,
+    ) -> type[ImageGenerator]:
+        """Dynamically import and return the generator class."""
+        module_path, class_name = processor_type.rsplit(".", 1)
+        module = importlib.import_module(module_path)
+        cls = getattr(module, class_name)
+        if not (isinstance(cls, type) and issubclass(cls, ImageGenerator)):
+            msg = f"Processor {processor_type} is not an ImageGenerator subclass"
+            raise TypeError(msg)
+        return cls
+
+    @staticmethod
+    def _instantiate_generator(
+        db_model: ImageGeneratorModel,
+    ) -> ImageGenerator:
+        """Create a generator instance from a DB model."""
+        cls = ImageGeneratorRegistry._resolve_processor_class(db_model.processor_type)
+        image_model = db_model.to_image_model()
+
+        # Build constructor kwargs from DB fields
+        kwargs: dict = {
+            "model": image_model,
+            "api_key": db_model.api_key,
+        }
+        if db_model.base_url:
+            kwargs["base_url"] = db_model.base_url
+
+        # Pass extra_config values as kwargs if the class accepts them
+        extra = db_model.extra_config or {}
+        for key in ("on_azure",):
+            if key in extra:
+                kwargs[key] = extra[key]
+
+        return cls(**kwargs)
 
     def register(self, generator: ImageGenerator) -> None:
-        """Register a new generator in the registry."""
+        """Register a generator in the in-memory cache."""
         self._generators[generator.model.id] = generator
 
-    def get(
-        self,
-        generator_id: str,
-    ) -> ImageGenerator:
+    def get(self, generator_id: str) -> ImageGenerator:
         """Get a generator by ID."""
         if generator_id not in self._generators:
-            raise ValueError(f"Unknown generator ID: {generator_id}")
-
+            msg = f"Unknown generator ID: {generator_id}"
+            raise ValueError(msg)
         return self._generators[generator_id]
 
     def list_generators(self) -> list[dict[str, str]]:
@@ -115,9 +126,9 @@ class ImageGeneratorRegistry:
         """Get the default generator."""
         if not self._generators:
             raise ValueError("No generators registered.")
-
         return next(iter(self._generators.values()))
 
 
-# Create a global instance of the registry
+# Global singleton — call await generator_registry.initialize()
+# at app startup to load generators from the database.
 generator_registry: Final = ImageGeneratorRegistry()

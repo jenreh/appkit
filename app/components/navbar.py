@@ -78,6 +78,11 @@ def navbar_admin_items() -> rx.Component:
             ),
             role=ASSISTANT_ADMIN_ROLE.name,
         ),
+        admin_sidebar_item(
+            label="Bildgenerator",
+            icon="image",
+            url="/admin/image-generators",
+        ),
         w="95%",
         gap="0px",
     )

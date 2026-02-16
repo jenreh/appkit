@@ -125,8 +125,8 @@ class ImageGalleryState(rx.State):
     enhance_prompt: bool = True
 
     # Model selection
-    generator: str = generator_registry.get_default_generator().model.id
-    generators: list[dict[str, str]] = generator_registry.list_generators()
+    generator: str = ""
+    generators: list[dict[str, str]] = []
 
     # Zoom modal state
     zoom_modal_open: bool = False
@@ -211,6 +211,15 @@ class ImageGalleryState(rx.State):
     @rx.event(background=True)
     async def initialize(self) -> AsyncGenerator[Any, Any]:
         """Initialize the image gallery - load images from database."""
+        # Ensure generators are loaded from the registry
+        async with self:
+            if not self.generators:
+                await generator_registry.initialize()
+                self.generators = generator_registry.list_generators()
+                if not self.generator and self.generators:
+                    self.generator = generator_registry.get_default_generator().model.id
+                yield
+
         async for _ in self._load_images():
             yield
 

@@ -12,6 +12,7 @@ from appkit_assistant.backend.services.file_cleanup_service import FileCleanupSe
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
 from appkit_commons.scheduler import PGQueuerScheduler
+from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_imagecreator.backend.services.image_cleanup_service import (
     ImageCleanupService,
@@ -59,6 +60,7 @@ from app.pages.examples.scroll_area_examples import scroll_area_examples  # noqa
 from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
 from app.pages.image_creator import image_gallery  # noqa: F401
+from app.pages.image_generators import image_generators_page  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
 create_login_page(header="AppKit")
@@ -187,6 +189,7 @@ base_style = {
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """Handle application lifespan events (startup and shutdown)."""
+    await generator_registry.initialize()
 
     scheduler = PGQueuerScheduler()
     scheduler.add_service(FileCleanupService())

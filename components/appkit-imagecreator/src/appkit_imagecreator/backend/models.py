@@ -2,17 +2,23 @@ import logging
 from abc import ABC
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, ClassVar, Final
 
 import reflex as rx
 from pydantic import BaseModel, computed_field
-from sqlalchemy import JSON, Column, DateTime, LargeBinary
+from sqlalchemy import JSON, Column, DateTime, LargeBinary, Unicode
+from sqlalchemy_utils import StringEncryptedType
+from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 from sqlmodel import Field
 
 from appkit_commons.configuration.configuration import ReflexConfig
+from appkit_commons.database.configuration import DatabaseConfig
 from appkit_commons.registry import service_registry
 
 logger = logging.getLogger(__name__)
+
+db_config: DatabaseConfig = service_registry().get(DatabaseConfig)
+SECRET_VALUE: Final = db_config.encryption_key.get_secret_value()
 
 
 def get_image_api_base_url() -> str:
@@ -28,10 +34,62 @@ def get_image_api_base_url() -> str:
 
 
 class ImageModel(BaseModel):
+    """Pydantic model for runtime image model representation."""
+
     id: str
     model: str
     label: str
     config: dict[str, Any] | None = None
+
+
+class ImageGeneratorModel(rx.Model, table=True):
+    """Database model for image generator configuration.
+
+    Stores generator metadata, credentials, and configuration
+    in the database for dynamic plugin-based instantiation.
+
+    Documentation: Mirrors MCPServer pattern for encrypted
+    credentials and role-based access control.
+    """
+
+    __tablename__ = "imagecreator_generator_models"
+
+    id: int | None = Field(default=None, primary_key=True)
+    model_id: str = Field(unique=True, max_length=100, nullable=False)
+    model: str = Field(max_length=100, nullable=False)
+    label: str = Field(max_length=100, nullable=False)
+    processor_type: str = Field(max_length=255, nullable=False)
+    api_key: str = Field(
+        default="",
+        nullable=False,
+        sa_type=StringEncryptedType(Unicode, SECRET_VALUE, FernetEngine),
+    )
+    base_url: str | None = Field(default=None, nullable=True)
+    extra_config: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    required_role: str | None = Field(default=None, nullable=True)
+    active: bool = Field(default=True, nullable=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+
+    # Keys in extra_config that control instantiation, not API parameters.
+    _NON_API_KEYS: ClassVar[frozenset[str]] = frozenset({"on_azure"})
+
+    def to_image_model(self) -> "ImageModel":
+        """Convert DB entity to runtime ImageModel.
+
+        Strips non-API keys (e.g. ``on_azure``) so only parameters
+        intended for the provider API end up in ``config``.
+        """
+        raw = self.extra_config or {}
+        api_config = {k: v for k, v in raw.items() if k not in self._NON_API_KEYS}
+        return ImageModel(
+            id=self.model_id,
+            model=self.model,
+            label=self.label,
+            config=api_config or None,
+        )
 
 
 class GeneratedImage(rx.Model, table=True):
