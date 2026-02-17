@@ -333,7 +333,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         result = await session.execute(stmt)
         prompts = []
         for prompt, creator_name in result:
-            prompt_dict = prompt.dict()
+            prompt_dict = prompt.model_dump()
             prompt_dict["creator_name"] = creator_name or "Unbekannt"
             # Ensure mcp_server_ids is included as a list
             prompt_dict["mcp_server_ids"] = list(prompt.mcp_server_ids)

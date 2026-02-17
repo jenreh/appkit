@@ -13,7 +13,6 @@ from appkit_assistant.backend.database.repositories import (
 )
 from appkit_assistant.backend.services.openai_client_service import (
     OpenAIClientService,
-    get_openai_client_service,
 )
 from appkit_assistant.configuration import AssistantConfig
 from appkit_commons.registry import service_registry
