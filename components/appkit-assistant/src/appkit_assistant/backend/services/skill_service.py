@@ -12,10 +12,8 @@ from appkit_assistant.backend.database.repositories import (
     user_skill_repo,
 )
 from appkit_assistant.backend.services.openai_client_service import (
-    OpenAIClientService,
+    get_openai_client_service,
 )
-from appkit_assistant.configuration import AssistantConfig
-from appkit_commons.registry import service_registry
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +22,8 @@ class SkillService:
     """Wraps OpenAI Skills API calls and local DB synchronisation."""
 
     def _get_client(self) -> AsyncOpenAI:
-        config = service_registry().get(AssistantConfig)
         """Return an authenticated AsyncOpenAI client or raise."""
-        client = OpenAIClientService(  # FIXME: this needs to intialized based on the configuration. The configuration currently lacks a param that defines if skills are supported on azure
-            api_key=config.openai_api_key.get_secret_value(),
-            on_azure=False,
-        ).create_client()
+        client = get_openai_client_service().create_client()
         if client is None:
             raise RuntimeError("OpenAI client not available - API key missing.")
         return client

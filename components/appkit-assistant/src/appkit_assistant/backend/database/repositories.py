@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from appkit_assistant.backend.database.models import (
+    AssistantAIModel,
     AssistantFileUpload,
     AssistantThread,
     MCPServer,
@@ -698,6 +699,83 @@ class UserSkillRepository(BaseRepository[UserSkillSelection, AsyncSession]):
         return len(selections)
 
 
+class AIModelRepository(BaseRepository[AssistantAIModel, AsyncSession]):
+    """Repository for AI model database operations."""
+
+    @property
+    def model_class(self) -> type[AssistantAIModel]:
+        return AssistantAIModel
+
+    async def find_all_ordered_by_text(
+        self, session: AsyncSession
+    ) -> list[AssistantAIModel]:
+        """Retrieve all AI models ordered by display text."""
+        stmt = select(AssistantAIModel).order_by(AssistantAIModel.text)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_active_ordered_by_text(
+        self, session: AsyncSession
+    ) -> list[AssistantAIModel]:
+        """Retrieve all active models ordered by text."""
+        stmt = (
+            select(AssistantAIModel)
+            .where(AssistantAIModel.active == True)  # noqa: E712
+            .order_by(AssistantAIModel.text)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_by_model_id(
+        self, session: AsyncSession, model_id: str
+    ) -> AssistantAIModel | None:
+        """Find a model by its unique model_id string."""
+        stmt = select(AssistantAIModel).where(AssistantAIModel.model_id == model_id)
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+    async def find_by_processor_type(
+        self, session: AsyncSession, processor_type: str
+    ) -> list[AssistantAIModel]:
+        """Find all active models for a given processor type."""
+        stmt = (
+            select(AssistantAIModel)
+            .where(
+                AssistantAIModel.processor_type == processor_type,
+                AssistantAIModel.active == True,  # noqa: E712
+            )
+            .order_by(AssistantAIModel.text)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def update_active(
+        self, session: AsyncSession, model_id: int, active: bool
+    ) -> AssistantAIModel | None:
+        """Update the active flag for a model."""
+        rec = await session.get(AssistantAIModel, model_id)
+        if not rec:
+            return None
+        rec.active = active
+        session.add(rec)
+        await session.flush()
+        await session.refresh(rec)
+        return rec
+
+    async def update_role(
+        self, session: AsyncSession, model_id: int, requires_role: str | None
+    ) -> AssistantAIModel | None:
+        """Update the required_role for a model."""
+        rec = await session.get(AssistantAIModel, model_id)
+        if not rec:
+            return None
+        rec.requires_role = requires_role
+        session.add(rec)
+        await session.flush()
+        await session.refresh(rec)
+        return rec
+
+
 # Export instances
 mcp_server_repo = MCPServerRepository()
 system_prompt_repo = SystemPromptRepository()
@@ -706,3 +784,4 @@ file_upload_repo = FileUploadRepository()
 user_prompt_repo = UserPromptRepository()
 skill_repo = SkillRepository()
 user_skill_repo = UserSkillRepository()
+ai_model_repo = AIModelRepository()

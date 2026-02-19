@@ -269,16 +269,16 @@ def image_generator_form_fields() -> rx.Component:
             on_blur=ImageGeneratorValidationState.set_model,
         ),
         _processor_type_field(),
-        form_field(
+        mn.password_input(
             name="api_key",
-            icon="key",
             label="API-Schlüssel",
-            hint="Wird verschlüsselt gespeichert",
-            type="password",
+            description="Schlüssel für dieses Modell",
             placeholder="sk-...",
             default_value=ImageGeneratorValidationState.api_key,
             on_blur=ImageGeneratorValidationState.set_api_key,
+            required=True,
             autocomplete="new-password",
+            w="100%",
         ),
         form_field(
             name="base_url",

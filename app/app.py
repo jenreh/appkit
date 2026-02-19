@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from starlette.types import ASGIApp
 
 import appkit_mantine as mn
+from appkit_assistant.backend.ai_model_registry import ai_model_registry
 from appkit_assistant.backend.services.file_cleanup_service import FileCleanupService
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
@@ -189,6 +190,7 @@ base_style = {
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """Handle application lifespan events (startup and shutdown)."""
+    await ai_model_registry.initialize()
     await generator_registry.initialize()
 
     scheduler = PGQueuerScheduler()

@@ -276,14 +276,16 @@ class ThreadState(rx.State):
         user = await user_session.authenticated_user
         current_user_id = str(user.user_id) if user else ""
 
-        # If already initialized and user hasn't changed, skip
+        # Always refresh the model list so role changes from the admin UI
+        # are reflected without requiring a full session reset.
+        self._setup_models(user)
+
+        # If already initialized and user hasn't changed, skip full reset
         if self._initialized and self._current_user_id == current_user_id:
             logger.debug(
                 "Thread state already initialized for user %s", current_user_id
             )
             return
-
-        self._setup_models(user)
 
         self._thread = self._thread_service.create_new_thread(
             current_model=self.selected_model,
@@ -307,7 +309,6 @@ class ThreadState(rx.State):
         """Setup available AI models based on user roles."""
         model_manager = ModelManager()
         all_models = model_manager.get_all_models()
-        self.selected_model = model_manager.get_default_model()
 
         user_roles = user.roles if user else []
         self.ai_models = [
@@ -316,10 +317,14 @@ class ThreadState(rx.State):
             if not m.requires_role or m.requires_role in user_roles
         ]
 
-        # Ensure selected model is available
+        # Ensure selected model is still available; keep current selection
+        # when possible so refreshes don't disrupt the user's choice.
         available_ids = {m.id for m in self.ai_models}
         if self.selected_model not in available_ids:
-            if self.ai_models:
+            default = model_manager.get_default_model()
+            if default in available_ids:
+                self.selected_model = default
+            elif self.ai_models:
                 self.selected_model = self.ai_models[0].id
             else:
                 logger.warning("No models available for user")

@@ -48,9 +48,13 @@ class ModelManager:
         # Extract and register all models supported by this processor
         supported_models = processor.get_supported_models()
         for model_id, model in supported_models.items():
-            if model_id not in self._models:
-                self._models[model_id] = model
-                self._model_to_processor[model_id] = processor_name
+            self._models[model_id] = model
+            self._model_to_processor[model_id] = processor_name
+
+            # Set the first registered model as default if no default is set
+            if self._default_model_id is None:
+                self._default_model_id = model_id
+                logger.debug("Set first model %s as default", model_id)
 
                 # Set the first registered model as default if no default is set
                 if self._default_model_id is None:
@@ -133,3 +137,14 @@ class ModelManager:
             logger.warning(
                 "Attempted to set unregistered model %s as default. Ignoring.", model_id
             )
+
+    def clear_all(self) -> None:
+        """Clear all registered processors and models.
+
+        Used by AIModelRegistry to fully reload from DB.
+        """
+        self._processors.clear()
+        self._models.clear()
+        self._model_to_processor.clear()
+        self._default_model_id = None
+        logger.debug("ModelManager cleared all processors and models")

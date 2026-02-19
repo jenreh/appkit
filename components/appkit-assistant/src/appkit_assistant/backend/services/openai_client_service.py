@@ -4,7 +4,6 @@ import logging
 
 from openai import AsyncOpenAI
 
-from appkit_assistant.configuration import AssistantConfig
 from appkit_commons.registry import service_registry
 
 logger = logging.getLogger(__name__)
@@ -51,20 +50,8 @@ class OpenAIClientService:
 
     @classmethod
     def from_config(cls) -> "OpenAIClientService":
-        """Create an OpenAIClientService from the AssistantConfig.
-
-        Returns:
-            Configured OpenAIClientService instance.
-        """
-        config = service_registry().get(AssistantConfig)
-        api_key = (
-            config.openai_api_key.get_secret_value() if config.openai_api_key else None
-        )
-        return cls(
-            api_key=api_key,
-            base_url=config.openai_base_url,
-            on_azure=config.uses_azure,
-        )
+        """Deprecated: use the service registry instance set by AIModelRegistry."""
+        return cls()
 
     @property
     def is_available(self) -> bool:
@@ -99,22 +86,15 @@ class OpenAIClientService:
 
 
 def get_openai_client_service() -> OpenAIClientService:
-    """Get or create the OpenAI client service from the registry.
+    """Return the OpenAIClientService registered by AIModelRegistry at startup.
 
-    This function ensures the service is registered and returns it.
-
-    Returns:
-        The configured OpenAIClientService.
+    Returns an unavailable (no-key) instance if the registry has not been
+    populated yet (e.g. no openai/openai_skills model in the DB).
     """
-    registry = service_registry()
-
-    # Check if already registered
     try:
-        return registry.get(OpenAIClientService)
+        return service_registry().get(OpenAIClientService)
     except KeyError:
-        pass
-
-    # Create and register the service
-    service = OpenAIClientService.from_config()
-    registry.register_as(OpenAIClientService, service)
-    return service
+        logger.warning(
+            "OpenAIClientService not registered – no openai DB model available"
+        )
+        return OpenAIClientService()
