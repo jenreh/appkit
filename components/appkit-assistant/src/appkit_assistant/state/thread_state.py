@@ -1140,8 +1140,10 @@ class ThreadState(rx.State):
             payload = {
                 "thread_uuid": self._thread.thread_id,
                 **({"web_search_enabled": True} if self.web_search_enabled else {}),
-                **({"skill_openai_ids": skill_ids} if skill_ids else {}),
             }
+
+            if skill_ids and self.selected_model_supports_skills:
+                payload["skill_openai_ids"] = skill_ids
 
             async for chunk in processor.process(
                 self.messages,
