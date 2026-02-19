@@ -455,7 +455,8 @@ class LoginState(UserSession):
     @staticmethod
     def _is_oauth_callback_path(path: str) -> bool:
         """Check if path is an OAuth callback route."""
-        return path.startswith("/oauth/") and path.endswith("/callback")
+        normalized = path.rstrip("/")
+        return normalized.startswith("/oauth/") and normalized.endswith("/callback")
 
     @rx.event
     async def check_auth(self) -> EventSpec | None:
