@@ -87,7 +87,7 @@ class IntervalTrigger(Trigger):
         if total_minutes % MINUTES_PER_HOUR == 0:
             hours = total_minutes // MINUTES_PER_HOUR
             if hours < HOURS_PER_DAY:
-                return f"0 */{hours} * * * *"
+                return f"0 */{hours} * * *"
             if hours % HOURS_PER_DAY == 0:
                 days = hours // HOURS_PER_DAY
                 return f"0 0 */{days} * *"
