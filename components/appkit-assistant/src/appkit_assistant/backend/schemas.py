@@ -116,6 +116,7 @@ class AIModel(BaseModel):
     supports_skills: bool = False
     keywords: list[str] = []
     requires_role: str | None = None
+    active: bool = True
 
 
 class Suggestion(BaseModel):

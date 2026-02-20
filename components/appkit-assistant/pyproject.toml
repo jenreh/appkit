@@ -4,7 +4,7 @@ dependencies = [
     "appkit-commons",
     "appkit-mantine",
     "appkit-ui",
-    "appkit_user",
+    "appkit-user",
     "google-genai>=1.63.0",
     "mcp>=1.26.0",
     "openai>=2.20.0",
@@ -42,9 +42,6 @@ Issues = "https://github.com/jenreh/appkit/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.uv.sources]
-appkit-commons = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/appkit_assistant"]

@@ -27,6 +27,7 @@ from appkit_assistant.backend.database.models import (
     ThreadStatus,
 )
 from appkit_assistant.backend.database.repositories import (
+    ai_model_repo,
     mcp_server_repo,
     skill_repo,
     user_prompt_repo,
@@ -47,6 +48,7 @@ from appkit_assistant.backend.schemas import (
 )
 from appkit_assistant.backend.services import file_manager
 from appkit_assistant.backend.services.response_accumulator import ResponseAccumulator
+from appkit_assistant.backend.services.skill_service import compute_api_key_hash
 from appkit_assistant.backend.services.thread_service import ThreadService
 from appkit_assistant.configuration import AssistantConfig
 from appkit_assistant.state.thread_list_state import ThreadListState
@@ -493,7 +495,7 @@ class ThreadState(rx.State):
         # Get the model to check capabilities
         model = ModelManager().get_model(model_id)
         if not model:
-            return
+            return None
 
         # Deactivate features if not supported
         if not model.supports_search:
@@ -505,8 +507,14 @@ class ThreadState(rx.State):
         if not model.supports_attachments:
             self._clear_uploaded_files()
 
+        if not model.supports_skills:
+            self._restore_skill_selection([])
+
         # Reset modal tab to "tools" when model changes
         self.modal_active_tab = "tools"
+
+        # Reload skills for the newly selected model
+        return ThreadState.load_available_skills_for_user  # type: ignore[return-value]
 
     @rx.event
     def set_with_thread_list(self, with_thread_list: bool) -> None:
@@ -781,13 +789,29 @@ class ThreadState(rx.State):
 
     @rx.event
     async def load_available_skills_for_user(self) -> None:
-        """Load active skills filtered by user roles."""
+        """Load active skills filtered by user roles and selected model."""
         user_session = await self.get_state(UserSession)
         user = await user_session.authenticated_user
         user_roles: list[str] = user.roles if user else []
 
         async with get_asyncdb_session() as session:
-            skills = await skill_repo.find_all_active_ordered_by_name(session)
+            # Resolve the selected model's API key hash
+            api_key_hash: str | None = None
+            if self.selected_model:
+                db_model = await ai_model_repo.find_by_model_id(
+                    session, self.selected_model
+                )
+                if db_model and db_model.api_key:
+                    api_key_hash = compute_api_key_hash(db_model.api_key)
+
+            # Load skills filtered by api_key_hash when available
+            if api_key_hash:
+                skills = await skill_repo.find_all_active_by_api_key_hash(
+                    session, api_key_hash
+                )
+            else:
+                skills = await skill_repo.find_all_active_ordered_by_name(session)
+
             filtered = [
                 Skill(**s.model_dump())
                 for s in skills

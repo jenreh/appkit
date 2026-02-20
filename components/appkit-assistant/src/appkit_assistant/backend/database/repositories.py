@@ -636,6 +636,31 @@ class SkillRepository(BaseRepository[Skill, AsyncSession]):
         result = await session.execute(stmt)
         return result.scalars().first()
 
+    async def find_all_by_api_key_hash(
+        self, session: AsyncSession, api_key_hash: str
+    ) -> list[Skill]:
+        """Retrieve all skills for a given API key hash, ordered by name."""
+        stmt = (
+            select(Skill).where(Skill.api_key_hash == api_key_hash).order_by(Skill.name)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_active_by_api_key_hash(
+        self, session: AsyncSession, api_key_hash: str
+    ) -> list[Skill]:
+        """Retrieve all active skills for a given API key hash."""
+        stmt = (
+            select(Skill)
+            .where(
+                Skill.api_key_hash == api_key_hash,
+                Skill.active == True,  # noqa: E712
+            )
+            .order_by(Skill.name)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
 
 class UserSkillRepository(BaseRepository[UserSkillSelection, AsyncSession]):
     """Repository for user skill selection operations."""
@@ -743,6 +768,21 @@ class AIModelRepository(BaseRepository[AssistantAIModel, AsyncSession]):
             .where(
                 AssistantAIModel.processor_type == processor_type,
                 AssistantAIModel.active == True,  # noqa: E712
+            )
+            .order_by(AssistantAIModel.text)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_skill_capable(
+        self, session: AsyncSession
+    ) -> list[AssistantAIModel]:
+        """Retrieve all OpenAI models that support skills, ordered by text."""
+        stmt = (
+            select(AssistantAIModel)
+            .where(
+                AssistantAIModel.supports_skills == True,  # noqa: E712
+                AssistantAIModel.processor_type == "openai",
             )
             .order_by(AssistantAIModel.text)
         )

@@ -5,6 +5,7 @@ All credentials (api_key, base_url, on_azure) come exclusively from the DB.
 """
 
 import logging
+from collections.abc import Callable
 
 from appkit_assistant.backend.database.models import AssistantAIModel
 from appkit_assistant.backend.database.repositories import ai_model_repo
@@ -22,6 +23,9 @@ from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 
 logger = logging.getLogger(__name__)
+
+# Callback type: (processor, processor_name) -> wrapped processor
+ProcessorDecorator = Callable[[ProcessorBase, str], ProcessorBase]
 
 
 def _create_processor(m: AssistantAIModel) -> ProcessorBase | None:
@@ -110,10 +114,27 @@ class AIModelRegistry:
     at startup, groups them by ``processor_type``, and registers the
     appropriate processor implementation with the ``ModelManager``.
 
+    Supports an optional ``processor_decorator`` hook that wraps each
+    processor (e.g. for usage tracking) when the DB model has
+    ``enable_tracking=True``.
+
     Call ``reload()`` after admin changes to apply updates at runtime.
+    Non-DB processors (registered externally) are preserved across reloads.
     """
 
     _loaded: bool = False
+    _processor_decorator: ProcessorDecorator | None = None
+
+    def __init__(self) -> None:
+        self._registered_model_ids: set[str] = set()
+
+    def set_processor_decorator(self, decorator: ProcessorDecorator) -> None:
+        """Set processor decorator applied to DB models with tracking enabled.
+
+        Args:
+            decorator: Callable (processor, name) -> wrapped processor.
+        """
+        self._processor_decorator = decorator
 
     async def initialize(self) -> None:
         """Load models from DB once on startup (no-op if already loaded)."""
@@ -123,9 +144,17 @@ class AIModelRegistry:
         self._loaded = True
 
     async def reload(self) -> None:
-        """Re-load all active models from DB and re-register processors."""
+        """Re-load all active models from DB and re-register processors.
+
+        Only unregisters processors that were previously registered by this
+        registry, preserving non-DB processors (Azure agents, KnowledgeAI, etc.).
+        """
         model_manager = ModelManager()
-        model_manager.clear_all()
+
+        # Targeted cleanup: only remove processors this registry owns
+        if self._registered_model_ids:
+            model_manager.unregister_processors(set(self._registered_model_ids))
+            self._registered_model_ids.clear()
 
         try:
             async with get_asyncdb_session() as session:
@@ -136,18 +165,27 @@ class AIModelRegistry:
         except Exception:
             logger.exception(
                 "AIModelRegistry: failed to load models from DB; "
-                "ModelManager will be empty"
+                "DB models will be unavailable"
             )
             return
 
         registered = 0
         for m in all_active:
-            if processor := _create_processor(m):
-                model_manager.register_processor(m.model_id, processor)
-                registered += 1
+            processor = _create_processor(m)
+            if processor is None:
+                continue
+
+            # Apply tracking decorator if enabled for this model
+            if m.enable_tracking and self._processor_decorator:
+                processor = self._processor_decorator(processor, m.model_id)
+
+            model_manager.register_processor(m.model_id, processor)
+            self._registered_model_ids.add(m.model_id)
+            registered += 1
 
         _register_openai_client_service(all_active)
 
+        # Set default to first non-lorem_ipsum DB model
         if default_model := next(
             (
                 m
@@ -160,9 +198,6 @@ class AIModelRegistry:
         ):
             model_manager.set_default_model(default_model.id)
         elif all_models := model_manager.get_all_models():
-            # If no "real" model exists, but we have *some* model
-            # (e.g. explicitly configured lorem_ipsum)
-            # then use that as default instead of failing silently.
             model_manager.set_default_model(all_models[0].id)
 
         logger.info(

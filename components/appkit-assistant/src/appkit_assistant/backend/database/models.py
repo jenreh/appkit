@@ -223,6 +223,8 @@ class Skill(rx.Model, table=True):
 
     Stores metadata synced from the OpenAI Skills API alongside
     local administration state (active toggle, role restriction).
+    The ``api_key_hash`` links the skill to the API key that was
+    used to create/sync it so that skills can be filtered by model.
     """
 
     __tablename__ = "assistant_skills"
@@ -235,6 +237,9 @@ class Skill(rx.Model, table=True):
     latest_version: str = Field(default="1", max_length=20, nullable=False)
     active: bool = Field(default=True, nullable=False)
     required_role: str | None = Field(default=None, nullable=True)
+    api_key_hash: str | None = Field(
+        default=None, max_length=64, nullable=True, index=True
+    )
     last_synced: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True)),
@@ -268,6 +273,7 @@ class AssistantAIModel(rx.Model, table=True):
     api_key: str | None = Field(default=None, nullable=True, sa_type=EncryptedString)
     base_url: str | None = Field(default=None, nullable=True, max_length=500)
     on_azure: bool = Field(default=False, nullable=False)
+    enable_tracking: bool = Field(default=True, nullable=False)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True)),
@@ -287,6 +293,7 @@ class AssistantAIModel(rx.Model, table=True):
             supports_search=self.supports_search,
             supports_skills=self.supports_skills,
             requires_role=self.requires_role,
+            active=self.active,
         )
 
 

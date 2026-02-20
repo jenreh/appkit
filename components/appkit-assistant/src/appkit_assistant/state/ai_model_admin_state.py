@@ -141,6 +141,8 @@ class AIModelAdminState(rx.State):
                 api_key=form_data.get("api_key") or None,
                 base_url=form_data.get("base_url") or None,
                 on_azure=form_data.get("on_azure") in (True, "true", "on", "1"),
+                enable_tracking=form_data.get("enable_tracking")
+                not in (False, "false", "off", "0"),
             )
             async with get_asyncdb_session() as session:
                 saved = await ai_model_repo.save(session, entity)
@@ -228,6 +230,12 @@ class AIModelAdminState(rx.State):
                         "true",
                         "on",
                         "1",
+                    )
+                    existing.enable_tracking = form_data.get("enable_tracking") not in (
+                        False,
+                        "false",
+                        "off",
+                        "0",
                     )
                     saved = await ai_model_repo.save(session, existing)
                     updated_text = saved.text

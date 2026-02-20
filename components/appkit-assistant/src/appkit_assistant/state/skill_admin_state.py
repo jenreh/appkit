@@ -6,9 +6,12 @@ from typing import Any
 
 import reflex as rx
 
-from appkit_assistant.backend.database.models import Skill
-from appkit_assistant.backend.database.repositories import skill_repo
-from appkit_assistant.backend.services.skill_service import get_skill_service
+from appkit_assistant.backend.database.models import AssistantAIModel, Skill
+from appkit_assistant.backend.database.repositories import ai_model_repo, skill_repo
+from appkit_assistant.backend.services.skill_service import (
+    compute_api_key_hash,
+    get_skill_service,
+)
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
@@ -21,6 +24,10 @@ class SkillAdminState(rx.State):
     skills: list[Skill] = []
     available_roles: list[dict[str, str]] = []
     role_labels: dict[str, str] = {}
+
+    # Model selection
+    skill_models: list[AssistantAIModel] = []
+    selected_model_id: str = ""
 
     # UI State
     loading: bool = False
@@ -75,12 +82,57 @@ class SkillAdminState(rx.State):
         self.available_roles = available_roles
         self.role_labels = role_labels
 
+    # ------------------------------------------------------------------
+    # Model selector helpers
+    # ------------------------------------------------------------------
+
+    @rx.var
+    def skill_model_options(self) -> list[dict[str, str]]:
+        """Return select options for skill-capable models."""
+        return [{"value": m.model_id, "label": m.text} for m in self.skill_models]
+
+    @rx.var
+    def has_skill_models(self) -> bool:
+        """Whether any skill-capable models exist."""
+        return len(self.skill_models) > 0
+
+    def _get_selected_model(self) -> AssistantAIModel | None:
+        """Return the AssistantAIModel matching selected_model_id."""
+        if not self.selected_model_id:
+            return None
+        return next(
+            (m for m in self.skill_models if m.model_id == self.selected_model_id),
+            None,
+        )
+
+    async def load_skill_models(self) -> None:
+        """Load all OpenAI models that support skills."""
+        async with get_asyncdb_session() as session:
+            models = await ai_model_repo.find_all_skill_capable(session)
+            session.expunge_all()
+        self.skill_models = [AssistantAIModel(**m.model_dump()) for m in models]
+
+        # Auto-select first model if nothing selected yet
+        if not self.selected_model_id and self.skill_models:
+            self.selected_model_id = self.skill_models[0].model_id
+
+    async def set_selected_model(self, model_id: str) -> AsyncGenerator[Any, Any]:
+        """Change the selected model and reload skills for that model."""
+        self.selected_model_id = model_id
+        yield
+        await self.load_skills()
+
     async def load_skills(self) -> None:
-        """Load all skills from the database."""
+        """Load skills from the database filtered by the selected model's API key."""
         self.loading = True
         try:
+            model = self._get_selected_model()
             async with get_asyncdb_session() as session:
-                items = await skill_repo.find_all_ordered_by_name(session)
+                if model and model.api_key:
+                    key_hash = compute_api_key_hash(model.api_key)
+                    items = await skill_repo.find_all_by_api_key_hash(session, key_hash)
+                else:
+                    items = await skill_repo.find_all_ordered_by_name(session)
                 # Convert DB models to Pydantic models for State
                 self.skills = [Skill(**s.model_dump()) for s in items]
             logger.debug("Loaded %d skills", len(self.skills))
@@ -101,13 +153,25 @@ class SkillAdminState(rx.State):
             )
 
     async def sync_skills(self) -> AsyncGenerator[Any, Any]:
-        """Sync all skills from the OpenAI API."""
+        """Sync all skills from the OpenAI API for the selected model."""
+        model = self._get_selected_model()
+        if not model or not model.api_key:
+            yield rx.toast.error(
+                "Bitte ein Modell mit gültigem API-Key auswählen.",
+                position="top-right",
+            )
+            return
+
         self.syncing = True
         yield
         try:
             service = get_skill_service()
             async with get_asyncdb_session() as session:
-                count = await service.sync_all_skills(session)
+                count = await service.sync_all_skills(
+                    session,
+                    api_key=model.api_key,
+                    base_url=model.base_url,
+                )
             await self.load_skills()
             yield rx.toast.info(
                 f"{count} Skills synchronisiert.",
@@ -137,6 +201,14 @@ class SkillAdminState(rx.State):
         self, files: list[rx.UploadFile]
     ) -> AsyncGenerator[Any, Any]:
         """Handle zip file upload to create a new skill."""
+        model = self._get_selected_model()
+        if not model or not model.api_key:
+            yield rx.toast.error(
+                "Bitte ein Modell mit gültigem API-Key auswählen.",
+                position="top-right",
+            )
+            return
+
         is_valid, error = self._validate_upload(files)
         if not is_valid:
             yield rx.toast.error(error, position="top-right")
@@ -154,10 +226,19 @@ class SkillAdminState(rx.State):
 
             async with get_asyncdb_session() as session:
                 result = await service.create_or_update_skill(
-                    session, file_bytes, filename
+                    session,
+                    file_bytes,
+                    filename,
+                    api_key=model.api_key,
+                    base_url=model.base_url,
                 )
                 # Sync the newly created skill into the DB
-                await service.sync_skill(session, result["id"])
+                await service.sync_skill(
+                    session,
+                    result["id"],
+                    api_key=model.api_key,
+                    base_url=model.base_url,
+                )
 
             await self.load_skills()
             yield rx.toast.info(
@@ -210,9 +291,15 @@ class SkillAdminState(rx.State):
     async def delete_skill(self, skill_id: int) -> AsyncGenerator[Any, Any]:
         """Delete a skill from OpenAI and the database."""
         try:
+            model = self._get_selected_model()
             service = get_skill_service()
             async with get_asyncdb_session() as session:
-                name = await service.delete_skill_full(session, skill_id)
+                name = await service.delete_skill_full(
+                    session,
+                    skill_id,
+                    api_key=model.api_key if model else None,
+                    base_url=model.base_url if model else None,
+                )
             await self.load_skills()
             yield rx.toast.info(
                 f"Skill '{name}' wurde gelöscht.",

@@ -138,6 +138,29 @@ class ModelManager:
                 "Attempted to set unregistered model %s as default. Ignoring.", model_id
             )
 
+    def unregister_processors(self, processor_names: set[str]) -> None:
+        """Remove specific processors and their models.
+
+        Args:
+            processor_names: Set of processor names to remove.
+        """
+        for name in processor_names:
+            processor = self._processors.pop(name, None)
+            if processor is None:
+                continue
+            for model_id in list(processor.get_supported_models()):
+                self._models.pop(model_id, None)
+                self._model_to_processor.pop(model_id, None)
+
+        # Reset default if it was removed
+        if (
+            self._default_model_id is not None
+            and self._default_model_id not in self._models
+        ):
+            self._default_model_id = None
+
+        logger.debug("Unregistered %d processors", len(processor_names))
+
     def clear_all(self) -> None:
         """Clear all registered processors and models.
 
