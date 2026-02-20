@@ -1,6 +1,6 @@
 """Add api_key_hash column to assistant_skills.
 
-Revision ID: b2c3d4e5f6g7
+Revision ID: c1d2e3f4g5h6
 Revises: f3g4h5i6j7k8
 Create Date: 2026-02-20
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "b2c3d4e5f6g7"
+revision = "c1d2e3f4g5h6"
 down_revision = "f3g4h5i6j7k8"
 branch_labels = None
 depends_on = None
