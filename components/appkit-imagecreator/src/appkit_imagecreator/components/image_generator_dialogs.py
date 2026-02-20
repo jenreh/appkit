@@ -264,7 +264,7 @@ def image_generator_form_fields() -> rx.Component:
             hint="API-Modellname (z.B. FLUX.1-Kontext-pro)",
             type="text",
             placeholder="gpt-image-1.5",
-            value=ImageGeneratorValidationState.model,
+            default_value=ImageGeneratorValidationState.model,
             max_length=100,
             on_blur=ImageGeneratorValidationState.set_model,
         ),
