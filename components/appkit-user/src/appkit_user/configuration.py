@@ -52,6 +52,54 @@ AnyOAuthSetting = Annotated[
 ]
 
 
+class EmailProvider(StrEnum):
+    RESEND = "resend"
+    AZURE = "azure"
+    MOCK = "mock"
+
+
+class EmailProviderConfig(BaseConfig):
+    """Base configuration for email providers."""
+
+    provider: EmailProvider
+    from_email: str
+    from_name: str = "AppKit"
+
+
+class ResendEmailConfig(EmailProviderConfig):
+    """Configuration for Resend email provider."""
+
+    provider: Literal[EmailProvider.RESEND] = EmailProvider.RESEND
+    api_key: str
+
+
+class AzureEmailConfig(EmailProviderConfig):
+    """Configuration for Azure Communication Services email provider."""
+
+    provider: Literal[EmailProvider.AZURE] = EmailProvider.AZURE
+    connection_string: str
+
+
+class MockEmailConfig(EmailProviderConfig):
+    """Configuration for Mock email provider (development/testing)."""
+
+    provider: Literal[EmailProvider.MOCK] = EmailProvider.MOCK
+    from_email: str = "noreply@localhost"
+
+
+AnyEmailProviderConfig = Annotated[
+    ResendEmailConfig | AzureEmailConfig | MockEmailConfig,
+    Field(discriminator="provider"),
+]
+
+
+class PasswordResetConfig(BaseConfig):
+    """Configuration for password reset feature."""
+
+    token_expiry_minutes: int = 60
+    max_requests_per_hour: int = 3
+
+
 class AuthenticationConfiguration(BaseSettings):
     """Configuration for OAuth providers."""
 
@@ -62,3 +110,9 @@ class AuthenticationConfiguration(BaseSettings):
     server_port: int
 
     oauth_providers: list[AnyOAuthSetting] = []
+
+    # Email provider configuration
+    email_provider: AnyEmailProviderConfig | None = None
+
+    # Password reset configuration
+    password_reset: PasswordResetConfig = PasswordResetConfig()
