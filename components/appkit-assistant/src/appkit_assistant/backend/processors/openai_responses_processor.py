@@ -299,7 +299,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             "response.shell_call_output_content.delta",
             "response.shell_call.in_progress",
             "response.shell_call.completed",
-            # web_search and file_search events handled in _handle_search_events but return None
+            # web_search and file_search events handled in _handle_search_events
+            # but return None
             "response.web_search_call.in_progress",
             # MCP events handled in _handle_mcp_events but return None
             "response.mcp_call.in_progress",

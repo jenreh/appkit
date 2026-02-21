@@ -11,6 +11,7 @@ from appkit_assistant.state.file_manager_state import (
     VectorStoreInfo,
 )
 from appkit_ui.components.dialogs import delete_dialog
+from appkit_ui.styles import sticky_header_style
 
 
 def vector_store_item(store_info: VectorStoreInfo) -> rx.Component:
@@ -536,15 +537,7 @@ def file_manager() -> rx.Component:
                                                                 mn.text("", size="sm"),
                                                                 width="50px",
                                                             ),
-                                                            style={
-                                                                "zIndex": "10",
-                                                                "position": "relative",
-                                                                "boxShadow": (
-                                                                    "0 4px 6px -1px rgba(0, 0, 0, 0.05), "
-                                                                    "0 2px 4px -1px rgba(0, 0, 0, 0.03)"
-                                                                ),
-                                                                "clipPath": "inset(0 0 -10px 0)",
-                                                            },
+                                                            style=sticky_header_style,
                                                         ),
                                                     ),
                                                     mn.table.tbody(
@@ -654,15 +647,7 @@ def file_manager() -> rx.Component:
                                                         mn.text("", size="sm"),
                                                         width="50px",
                                                     ),
-                                                    style={
-                                                        "zIndex": "10",
-                                                        "position": "relative",
-                                                        "boxShadow": (
-                                                            "0 4px 6px -1px rgba(0, 0, 0, 0.05), "
-                                                            "0 2px 4px -1px rgba(0, 0, 0, 0.03)"
-                                                        ),
-                                                        "clipPath": "inset(0 0 -10px 0)",
-                                                    },
+                                                    style=sticky_header_style,
                                                 ),
                                             ),
                                             mn.table.tbody(

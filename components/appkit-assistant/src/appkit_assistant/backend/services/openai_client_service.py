@@ -150,6 +150,6 @@ def get_openai_client_service() -> OpenAIClientService:
         return service_registry().get(OpenAIClientService)
     except KeyError:
         logger.warning(
-            "OpenAIClientService not registered – no openai DB model available"
+            "OpenAIClientService not registered - no openai DB model available"
         )
         return OpenAIClientService()

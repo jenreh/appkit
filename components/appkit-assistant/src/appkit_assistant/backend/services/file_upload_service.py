@@ -241,7 +241,7 @@ class FileUploadService:
 
         for attempt in range(max_retries):
             try:
-                file_content = path.read_bytes()
+                file_content = path.read_bytes()  # noqa: ASYNC240
                 vs_file = await self.client.files.create(
                     file=(path.name, file_content),
                     purpose="assistants",
@@ -522,11 +522,11 @@ class FileUploadService:
         path = Path(file_path)
 
         # Validate file exists
-        if not path.exists():
+        if not path.exists():  # noqa: ASYNC240
             raise FileUploadError(f"Datei nicht gefunden: {file_path}")
 
         # Validate file size
-        file_size = path.stat().st_size
+        file_size = path.stat().st_size  # noqa: ASYNC240
         if file_size > self._max_file_size_bytes:
             raise FileUploadError(
                 "Datei überschreitet die maximale Größe von "
@@ -605,7 +605,7 @@ class FileUploadService:
                 file_id = await self.upload_file(file_path, thread_db_id, user_id)
                 uploaded_file_ids.append(file_id)
                 filenames.append(filename)
-                file_sizes.append(path.stat().st_size)
+                file_sizes.append(path.stat().st_size)  #  # noqa: ASYNC240
 
             # Phase 2: Get or create vector store
             yield self._chunk_factory.create(

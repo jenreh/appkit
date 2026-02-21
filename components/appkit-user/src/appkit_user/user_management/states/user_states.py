@@ -10,28 +10,68 @@ from appkit_user.authentication.decorators import is_authenticated
 
 class UserState(rx.State):
     users: list[User] = []
-    selected_user: User | None
+    selected_user: User | None = None
     is_loading: bool = False
     available_roles: list[dict[str, str]] = []
     grouped_roles: dict[str, list[dict[str, str]]] = {}
     sorted_group_names: list[str] = []
 
+    add_modal_open: bool = False
+    edit_modal_open: bool = False
+    search_filter: str = ""
+
+    def set_search_filter(self, value: str) -> None:
+        """Update the search filter."""
+        self.search_filter = value
+
+    @rx.var
+    def filtered_users(self) -> list[User]:
+        """Return users filtered by search text."""
+        if not self.search_filter:
+            return self.users
+        search = self.search_filter.lower()
+        return [
+            u
+            for u in self.users
+            if search in u.name.lower() or search in u.email.lower()
+        ]
+
+    def open_add_modal(self) -> None:
+        """Open the add user modal."""
+        self.add_modal_open = True
+
+    def close_add_modal(self) -> None:
+        """Close the add user modal."""
+        self.add_modal_open = False
+
+    def open_edit_modal(self) -> None:
+        """Open the edit user modal."""
+        self.edit_modal_open = True
+
+    def close_edit_modal(self) -> None:
+        """Close the edit user modal."""
+        self.edit_modal_open = False
+        self.selected_user = None
+
+    async def select_user_and_open_edit(self, user_id: int) -> None:
+        """Select a user and open the edit modal."""
+        await self.select_user(user_id)
+        self.open_edit_modal()
+
     def set_available_roles(self, roles_list: list[Role]) -> None:
         """Set roles grouped by group in original order."""
-        # Handle both Role objects and dicts
-        roles_dicts = []
-        for role in roles_list:
-            if isinstance(role, dict):
-                roles_dicts.append(role)
-            else:
-                roles_dicts.append(
-                    {
-                        "name": role.name,
-                        "label": role.label,
-                        "description": role.description,
-                        "group": role.group or "default",
-                    }
-                )
+        # Normalize roles to dict structure
+        roles_dicts = [
+            role
+            if isinstance(role, dict)
+            else {
+                "name": role.name,
+                "label": role.label,
+                "description": role.description,
+                "group": role.group or "default",
+            }
+            for role in roles_list
+        ]
 
         # Group roles by group (preserving order)
         grouped = {}
@@ -48,11 +88,12 @@ class UserState(rx.State):
         self.sorted_group_names = group_order
 
     def _get_selected_roles(self, form_data: dict) -> list[str]:
-        roles = []
-        for key, value in form_data.items():
-            if key.startswith("role_") and value == "on":
-                roles.append(key.split("role_")[1])
-        return roles
+        """Extract selected roles from form data."""
+        return [
+            key.split("role_")[1]
+            for key, value in form_data.items()
+            if key.startswith("role_") and value == "on"
+        ]
 
     @is_authenticated
     async def load_users(self, limit: int = 200, offset: int = 0) -> None:
@@ -80,6 +121,7 @@ class UserState(rx.State):
             await user_repo.create_new_user(session, new_user)
 
         await self.load_users()
+        self.close_add_modal()
 
         return rx.toast.info(
             f"Benutzer {form_data['email']} angelegt.", position="top-right"
@@ -88,28 +130,15 @@ class UserState(rx.State):
     @is_authenticated
     async def update_user(self, form_data: dict) -> Toaster:
         if not self.selected_user:
-            return rx.toast.error(
-                "Kein Benutzer ausgewählt.",
-                position="top-right",
-            )
+            return rx.toast.error("Kein Benutzer ausgewählt.", position="top-right")
 
-        if form_data.get("is_active"):
-            form_data["is_active"] = True
-        else:
-            form_data["is_active"] = False
-
-        if form_data.get("is_admin"):
-            form_data["is_admin"] = True
-        else:
-            form_data["is_admin"] = False
-
-        if form_data.get("is_verified"):
-            form_data["is_verified"] = True
-        else:
-            form_data["is_verified"] = False
+        # Handle boolean fields (checkboxes)
+        for field in ["is_active", "is_admin", "is_verified"]:
+            form_data[field] = bool(form_data.get(field))
 
         form_data["roles"] = self._get_selected_roles(form_data)
 
+        # Create update object and set ID
         user = UserCreate(**form_data)
         user.user_id = self.selected_user.user_id
 
@@ -117,10 +146,10 @@ class UserState(rx.State):
             await user_repo.update_from_model(session, user)
 
         await self.load_users()
+        self.close_edit_modal()
 
         return rx.toast.info(
-            f"Benutzer {form_data['email']} wurde aktualisiert.",
-            position="top-right",
+            f"Benutzer {form_data['email']} wurde aktualisiert.", position="top-right"
         )
 
     @is_authenticated

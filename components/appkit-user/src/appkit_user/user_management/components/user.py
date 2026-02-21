@@ -3,10 +3,9 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_ui.components.dialogs import (
     delete_dialog,
-    dialog_buttons,
-    dialog_header,
 )
-from appkit_ui.components.form_inputs import form_field, hidden_field
+from appkit_ui.components.form_inputs import hidden_field
+from appkit_ui.styles import sticky_header_style
 from appkit_user.authentication.backend.models import User
 from appkit_user.user_management.states.user_states import UserState
 
@@ -19,18 +18,19 @@ def role_checkbox(
 
     return rx.cond(
         name,
-        rx.box(
-            rx.tooltip(
-                rx.checkbox(
-                    role.get("label"),
+        mn.box(
+            mn.tooltip(
+                mn.checkbox(
+                    label=role.get("label", ""),
                     name=f"role_{name}",
                     default_checked=(
                         user.roles.contains(name)
                         if is_edit_mode and user.roles is not None
                         else False
                     ),
+                    size="sm",
                 ),
-                content=role.get("description", ""),
+                label=role.get("description", ""),
             ),
             class_name="w-[30%] max-w-[30%] flex-grow",
         ),
@@ -48,100 +48,99 @@ def user_form_fields(user: User | None = None) -> rx.Component:
             name="user_id",
             default_value=user.user_id.to_string() if is_edit_mode else "",
         ),
-        form_field(
+        mn.text_input(
             name="name",
-            icon="user",
             label="Name",
-            type="text",
             default_value=user.name if is_edit_mode else "",
             required=True,
+            left_section=rx.icon("user", size=16),
         ),
-        form_field(
+        mn.text_input(
             name="email",
-            icon="mail",
             label="Email",
-            hint="Die E-Mail-Adresse des Benutzers, wird für die Anmeldung verwendet.",
-            type="email",
+            description="Die E-Mail-Adresse des Benutzers, wird für die Anmeldung verwendet.",  # noqa: E501
             default_value=user.email if is_edit_mode else "",
             required=True,
+            left_section=rx.icon("mail", size=16),
+            type="email",
+            # pattern matches what was in form_field
             pattern=r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$",
         ),
-        form_field(
+        mn.password_input(
             name="password",
-            icon="lock",
-            label="Initiales Passwort" if not is_edit_mode else "Passwort",
-            type="password",
-            hint="Leer lassen, um das aktuelle Passwort beizubehalten",
+            label="Passwort" if is_edit_mode else "Initiales Passwort",
+            description="Leer lassen, um das aktuelle Passwort beizubehalten",
             default_value="",
             required=False,
+            left_section=rx.icon("lock", size=16),
         ),
     ]
 
-    # Status switches (only for edit mode)
-    status_fields = []
-    if is_edit_mode:
-        status_fields = [
-            rx.vstack(
-                rx.flex(
-                    rx.box(
-                        rx.hstack(
-                            rx.switch(
-                                name="is_active",
-                                default_checked=(
-                                    user.is_active
-                                    if user.is_active is not None
-                                    else False
-                                ),
-                            ),
-                            rx.text("Aktiv", size="2"),
-                            spacing="2",
+    # Status switches (default active for new users)
+    # They should be visible in both Add and Edit modes
+    status_fields = [
+        mn.stack(
+            mn.divider(label="Status", size="xs", width="100%", my="xs"),
+            mn.flex(
+                mn.box(
+                    mn.switch(
+                        label="Aktiv",
+                        name="is_active",
+                        default_checked=(
+                            user.is_active
+                            if is_edit_mode and user.is_active is not None
+                            else True  # Default True for new users
                         ),
-                        class_name="w-[30%] max-w-[30%] flex-grow",
+                        size="sm",
                     ),
-                    rx.box(
-                        rx.hstack(
-                            rx.switch(
-                                name="is_verified",
-                                default_checked=(
-                                    user.is_verified
-                                    if user.is_verified is not None
-                                    else False
-                                ),
-                            ),
-                            rx.text("Verifiziert", size="2"),
-                            spacing="2",
-                        ),
-                        class_name="w-[30%] max-w-[30%] flex-grow",
-                    ),
-                    rx.box(
-                        rx.hstack(
-                            rx.switch(
-                                name="is_admin",
-                                default_checked=(
-                                    user.is_admin
-                                    if user.is_admin is not None
-                                    else False
-                                ),
-                            ),
-                            rx.text("Superuser", size="2"),
-                            spacing="2",
-                        ),
-                        class_name="w-[30%] max-w-[30%] flex-grow",
-                    ),
-                    class_name="w-full flex-wrap gap-2",
+                    class_name="w-[30%] max-w-[30%] flex-grow",
                 ),
-                spacing="1",
-                margin="4px 0",
-                width="100%",
+                mn.box(
+                    mn.switch(
+                        label="Verifiziert",
+                        name="is_verified",
+                        default_checked=(
+                            user.is_verified
+                            if is_edit_mode and user.is_verified is not None
+                            else True  # Default True for new users created by admin
+                        ),
+                        size="sm",
+                    ),
+                    class_name="w-[30%] max-w-[30%] flex-grow",
+                ),
+                mn.box(
+                    mn.switch(
+                        label="Superuser",
+                        name="is_admin",
+                        default_checked=(
+                            user.is_admin
+                            if is_edit_mode and user.is_admin is not None
+                            else False
+                        ),
+                        size="sm",
+                    ),
+                    class_name="w-[30%] max-w-[30%] flex-grow",
+                ),
+                class_name="w-full flex-wrap gap-2",
             ),
-        ]
+            align="stretch",
+            gap="xs",
+            my="4px",
+            w="100%",
+        ),
+    ]
 
     # Role fields (available for both add and edit modes)
     def render_role_group(group_name: str, roles: list[dict[str, str]]) -> rx.Component:
         """Render a group of roles with a headline."""
-        return rx.vstack(
-            rx.text(group_name, size="1", weight="bold", color="gray"),
-            rx.flex(
+        return mn.stack(
+            mn.divider(
+                label=group_name,
+                size="xs",
+                width="100%",
+                my="sm",
+            ),
+            mn.flex(
                 rx.foreach(
                     roles,
                     lambda role: role_checkbox(
@@ -150,14 +149,14 @@ def user_form_fields(user: User | None = None) -> rx.Component:
                 ),
                 class_name="w-full flex-wrap gap-2",
             ),
-            spacing="1",
-            margin="4px 0",
-            width="100%",
+            gap="xs",
+            my="4px",
+            w="100%",
         )
 
     role_fields = [
-        rx.vstack(
-            rx.text("Berechtigungen", size="2", weight="bold"),
+        mn.stack(
+            mn.text("Berechtigungen", size="sm", fw="bold"),
             rx.foreach(
                 UserState.sorted_group_names,
                 lambda group_name: render_role_group(
@@ -165,19 +164,105 @@ def user_form_fields(user: User | None = None) -> rx.Component:
                     UserState.grouped_roles[group_name],
                 ),
             ),
-            spacing="2",
-            margin="6px 0",
-            width="100%",
+            gap="xs",
+            my="6px",
+            w="100%",
         ),
     ]
 
     # Combine all fields
     all_fields = basic_fields + status_fields + role_fields
 
-    return rx.flex(
+    return mn.flex(
         *all_fields,
-        # class_name=rx.cond(is_edit_mode, "flex-col gap-3", "flex-col gap-0"),
-        class_name="flex-col gap-3" if is_edit_mode else "flex-col gap-2",
+        direction="column",
+        gap="md" if is_edit_mode else "sm",
+    )
+
+
+def _modal_footer(
+    submit_label: str,
+    on_cancel: rx.EventHandler,
+) -> rx.Component:
+    """Footer buttons for add/edit modals."""
+    return rx.flex(
+        mn.button(
+            "Abbrechen",
+            variant="subtle",
+            on_click=on_cancel,
+        ),
+        mn.button(
+            submit_label,
+            type="submit",
+            loading=UserState.is_loading,
+        ),
+        direction="row",
+        gap="9px",
+        justify_content="end",
+        padding="16px",
+        border_top="1px solid var(--mantine-color-default-border)",
+        background="var(--mantine-color-body)",
+        width="100%",
+    )
+
+
+def _user_modal(
+    title: str,
+    opened: bool | rx.Var,
+    on_close: rx.EventHandler,
+    on_submit: rx.EventHandler,
+    submit_label: str,
+    content: rx.Component,
+) -> rx.Component:
+    """Shared modal structure for add/edit user."""
+    return mn.modal(
+        rx.form.root(
+            rx.flex(
+                mn.scroll_area.autosize(
+                    content,
+                    max_height="60vh",
+                    width="100%",
+                    type="always",
+                    offset_scrollbars=True,
+                    padding="12px",
+                ),
+                _modal_footer(submit_label, on_close),
+                direction="column",
+            ),
+            on_submit=on_submit,
+            reset_on_submit=False,
+            height="100%",
+        ),
+        title=title,
+        opened=opened,
+        on_close=on_close,
+        size="lg",
+        centered=True,
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
+    )
+
+
+def add_user_modal() -> rx.Component:
+    """Modal for adding a new user."""
+    return _user_modal(
+        title="Benutzer hinzufügen",
+        opened=UserState.add_modal_open,
+        on_close=UserState.close_add_modal,
+        on_submit=UserState.create_user,
+        submit_label="Benutzer speichern",
+        content=user_form_fields(),
+    )
+
+
+def edit_user_modal() -> rx.Component:
+    """Modal for editing an existing user."""
+    return _user_modal(
+        title="Benutzer bearbeiten",
+        opened=UserState.edit_modal_open,
+        on_close=UserState.close_edit_modal,
+        on_submit=UserState.update_user,
+        submit_label="Benutzer aktualisieren",
+        content=user_form_fields(user=UserState.selected_user),
     )
 
 
@@ -187,32 +272,11 @@ def add_user_button(
     icon_size: int = 16,
     **kwargs,
 ) -> rx.Component:
-    return rx.dialog.root(
-        rx.dialog.trigger(
-            mn.button(
-                label,
-                left_section=rx.icon(icon, size=icon_size),
-                **kwargs,
-            ),
-        ),
-        rx.dialog.content(
-            dialog_header(
-                title="Benutzer hinzufügen",
-                description="Bitte füllen Sie das Formular mit den Benutzerdaten aus.",
-            ),
-            rx.flex(
-                rx.form.root(
-                    user_form_fields(),
-                    dialog_buttons(
-                        submit_text="Benutzer speichern",
-                    ),
-                    on_submit=UserState.create_user,
-                    reset_on_submit=False,
-                ),
-                class_name="w-full flex-col gap-4",
-            ),
-            class_name="dialog",
-        ),
+    return mn.button(
+        label,
+        left_section=rx.icon(icon, size=icon_size),
+        on_click=UserState.open_add_modal,
+        **kwargs,
     )
 
 
@@ -222,34 +286,10 @@ def update_user_button(
     icon_size: int = 16,
     **kwargs,
 ) -> rx.Component:
-    return rx.dialog.root(
-        rx.dialog.trigger(
-            rx.icon_button(
-                rx.icon(icon, size=icon_size),
-                on_click=lambda: UserState.select_user(user.user_id),
-                **kwargs,
-            ),
-        ),
-        rx.dialog.content(
-            dialog_header(
-                title="Benutzer bearbeiten",
-                description="Aktualisieren Sie die Benutzerdaten",
-            ),
-            rx.flex(
-                rx.form.root(
-                    user_form_fields(user=user),
-                    dialog_buttons(
-                        submit_text="Benutzer aktualisieren",
-                    ),
-                    on_submit=UserState.update_user,
-                    reset_on_submit=False,
-                ),
-                direction="column",
-                spacing="4",
-            ),
-            class_name="dialog",
-        ),
-        width="660px",
+    return rx.icon_button(
+        rx.icon(icon, size=icon_size),
+        on_click=lambda: UserState.select_user_and_open_edit(user.user_id),
+        **kwargs,
     )
 
 
@@ -378,8 +418,19 @@ def users_table(additional_components: list | None = None) -> rx.Component:
         )
 
     return mn.stack(
+        add_user_modal(),
+        edit_user_modal(),
         rx.flex(
             add_user_button(),
+            mn.text_input(
+                placeholder="Benutzer suchen...",
+                left_section=rx.icon("search", size=16),
+                left_section_pointer_events="none",
+                value=UserState.search_filter,
+                on_change=UserState.set_search_filter,
+                size="sm",
+                w="18rem",
+            ),
             rx.spacer(),
             width="100%",
             margin_bottom="md",
@@ -404,6 +455,7 @@ def users_table(additional_components: list | None = None) -> rx.Component:
                         style={"textAlign": "center"},
                     ),
                     mn.table.th(mn.text("", size="sm")),
+                    style=sticky_header_style,
                 ),
             ),
             mn.table.tbody(
@@ -411,11 +463,13 @@ def users_table(additional_components: list | None = None) -> rx.Component:
                     UserState.is_loading,
                     loading(),
                     rx.foreach(
-                        UserState.users,
+                        UserState.filtered_users,
                         render_user_row,
                     ),
                 )
             ),
+            sticky_header=True,
+            sticky_header_offset="0px",
             striped=False,
             highlight_on_hover=True,
             highlight_on_hover_color=rx.color_mode_cond(

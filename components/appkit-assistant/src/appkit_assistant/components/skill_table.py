@@ -9,6 +9,7 @@ from appkit_assistant.components.skill_dialogs import (
     delete_skill_dialog,
 )
 from appkit_assistant.state.skill_admin_state import SkillAdminState
+from appkit_ui.styles import sticky_header_style
 
 
 def _skill_table_row(skill: Skill) -> rx.Component:
@@ -158,15 +159,7 @@ def skills_table(
                     mn.table.th(mn.text("Rolle", size="sm", fw="700")),
                     mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
                     mn.table.th(mn.text("", size="sm")),
-                    style={
-                        "zIndex": "10",
-                        "position": "relative",
-                        "boxShadow": (
-                            "0 4px 6px -1px rgba(0, 0, 0, 0.05), "
-                            "0 2px 4px -1px rgba(0, 0, 0, 0.03)"
-                        ),
-                        "clipPath": "inset(0 0 -10px 0)",
-                    },
+                    style=sticky_header_style,
                 ),
             ),
             mn.table.tbody(

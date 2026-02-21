@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 AUTH_TYPE_API_KEY = "api_key"
 AUTH_TYPE_OAUTH = "oauth"
 
+# Validation constants
+MAX_NAME_LENGTH = 64
+MAX_DESCRIPTION_LENGTH = 200
+MAX_PROMPT_LENGTH = 2000
+MIN_NAME_LENGTH = 3
+
 
 class ValidationState(rx.State):
     """State for validating MCP server form inputs."""
@@ -142,8 +148,10 @@ class ValidationState(rx.State):
         """Validate the name field."""
         if not self.name or not self.name.strip():
             self.name_error = "Der Name darf nicht leer sein."
-        elif len(self.name) < 3:
-            self.name_error = "Der Name muss mindestens 3 Zeichen lang sein."
+        elif len(self.name) < MIN_NAME_LENGTH:
+            self.name_error = (
+                f"Der Name muss mindestens {MIN_NAME_LENGTH} Zeichen lang sein."
+            )
         else:
             self.name_error = ""
 
@@ -152,9 +160,10 @@ class ValidationState(rx.State):
         """Validate the description field."""
         if not self.description or not self.description.strip():
             self.description_error = "Die Beschreibung darf nicht leer sein."
-        elif len(self.description) > 200:
+        elif len(self.description) > MAX_DESCRIPTION_LENGTH:
             self.description_error = (
-                "Die Beschreibung darf maximal 200 Zeichen lang sein."
+                f"Die Beschreibung darf maximal {MAX_DESCRIPTION_LENGTH}"
+                " Zeichen lang sein."
             )
         else:
             self.description_error = ""
@@ -162,8 +171,10 @@ class ValidationState(rx.State):
     @rx.event
     def validate_prompt(self) -> None:
         """Validate the prompt field."""
-        if self.prompt and len(self.prompt) > 2000:  # noqa: PLR2004
-            self.prompt_error = "Die Anweisung darf maximal 2000 Zeichen lang sein."
+        if self.prompt and len(self.prompt) > MAX_PROMPT_LENGTH:
+            self.prompt_error = (
+                f"Die Anweisung darf maximal {MAX_PROMPT_LENGTH} Zeichen lang sein."
+            )
         else:
             self.prompt_error = ""
 
@@ -299,7 +310,7 @@ def json(obj: rx.Var, indent: int = 4) -> CustomVarOperationReturn[RETURN]:
 
 def _auth_type_selector() -> rx.Component:
     """Radio for selecting authentication type."""
-    return mn.radio_group(
+    return mn.radio.group(
         mn.group(
             mn.radio(value=AUTH_TYPE_API_KEY, label="HTTP Headers"),
             mn.radio(value=AUTH_TYPE_OAUTH, label="OAuth 2.0"),
@@ -520,7 +531,7 @@ def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
             placeholder="MCP-Server Name",
             default_value=server.name if is_edit_mode else "",
             required=True,
-            max_length=64,
+            max_length=MAX_NAME_LENGTH,
             on_change=ValidationState.set_name,
             on_blur=ValidationState.validate_name,
             validation_error=ValidationState.name_error,
@@ -535,7 +546,7 @@ def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
             ),
             type="text",
             placeholder="Beschreibung...",
-            max_length=200,
+            max_length=MAX_DESCRIPTION_LENGTH,
             default_value=server.description if is_edit_mode else "",
             required=True,
             on_change=ValidationState.set_description,
