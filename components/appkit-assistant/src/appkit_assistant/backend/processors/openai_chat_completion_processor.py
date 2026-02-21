@@ -4,7 +4,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 from openai import AsyncStream
-from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from appkit_assistant.backend.database.models import (
     MCPServer,
@@ -33,17 +33,33 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
         cancellation_token: asyncio.Event | None = None,
         **kwargs: Any,  # noqa: ARG002
     ) -> AsyncGenerator[Chunk, None]:
-        """Process messages using the Chat Completions API.
+        """Process messages using the Chat Completions API."""
+        self._validate_inputs(model_id, mcp_servers)
 
-        Args:
-            messages: List of messages to process
-            model_id: ID of the model to use
-            files: File attachments (not used in chat completions)
-            mcp_servers: MCP servers (will log warning if provided)
-            payload: Additional payload parameters
-            cancellation_token: Optional event to signal cancellation
-            **kwargs: Additional arguments
-        """
+        # Reset statistics for the new request
+        self._reset_statistics(model_id)
+
+        model = self.models[model_id]
+        request_kwargs = self._build_request_kwargs(messages, model, payload)
+
+        response = await self.client.chat.completions.create(**request_kwargs)
+
+        if isinstance(response, AsyncStream):
+            async for chunk in self._handle_stream_response(
+                response, model.model, cancellation_token
+            ):
+                yield chunk
+        else:
+            async for chunk in self._handle_sync_response(response, model.model):
+                yield chunk
+
+        # Yield final completion chunk with statistics
+        yield self._create_completion_chunk()
+
+    def _validate_inputs(
+        self, model_id: str, mcp_servers: list[MCPServer] | None
+    ) -> None:
+        """Validate input parameters."""
         if not self.client:
             raise ValueError("OpenAI Client not initialized.")
 
@@ -56,84 +72,84 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
                 "Use OpenAIResponsesProcessor for MCP functionality."
             )
 
-        model = self.models[model_id]
+    def _build_request_kwargs(
+        self,
+        messages: list[Message],
+        model: Any,
+        payload: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Build arguments for the OpenAI API request."""
+        chat_messages = self._convert_messages_to_openai_format(messages)
 
-        try:
-            # Initialize statistics
-            self._reset_statistics(model_id)
+        kwargs = {
+            "model": model.model,
+            "messages": chat_messages,
+            "stream": model.stream,
+            "temperature": model.temperature,
+            "extra_body": payload,
+        }
 
-            chat_messages = self._convert_messages_to_openai_format(messages)
+        if model.stream:
+            kwargs["stream_options"] = {"include_usage": True}
 
-            # Request usage stats for streaming
-            request_kwargs = {
-                "model": model.model,
-                "messages": chat_messages,
-                "stream": model.stream,
-                "temperature": model.temperature,
-                "extra_body": payload,
-            }
-            if model.stream:
-                request_kwargs["stream_options"] = {"include_usage": True}
+        return kwargs
 
-            session = await self.client.chat.completions.create(**request_kwargs)
+    async def _handle_stream_response(
+        self,
+        stream: AsyncStream,
+        model_name: str,
+        cancellation_token: asyncio.Event | None,
+    ) -> AsyncGenerator[Chunk, None]:
+        """Handle streaming response from OpenAI."""
+        async for event in stream:
+            if cancellation_token and cancellation_token.is_set():
+                logger.info("Processing cancelled by user")
+                break
 
-            if isinstance(session, AsyncStream):
-                async for event in session:
-                    if cancellation_token and cancellation_token.is_set():
-                        logger.info("Processing cancelled by user")
-                        break  # OpenAI stream cancellation via break is fine
+            if event.choices and event.choices[0].delta.content:
+                yield self._create_text_chunk(
+                    event.choices[0].delta.content,
+                    model_name,
+                    stream=True,
+                    message_id=event.id,
+                )
 
-                    if event.choices and event.choices[0].delta:
-                        content = event.choices[0].delta.content
-                        if content:
-                            yield self._create_chunk(
-                                content,
-                                model.model,
-                                stream=True,
-                                message_id=event.id,
-                            )
+            # Capture usage stats from stream (usually in the last chunk)
+            if hasattr(event, "usage") and event.usage:
+                self._update_statistics(
+                    input_tokens=event.usage.prompt_tokens,
+                    output_tokens=event.usage.completion_tokens,
+                )
 
-                    # Capture usage stats from stream (usually in the last chunk)
-                    if hasattr(event, "usage") and event.usage:
-                        self._update_statistics(
-                            input_tokens=event.usage.prompt_tokens,
-                            output_tokens=event.usage.completion_tokens,
-                        )
-            else:
-                content = session.choices[0].message.content
-                # Update statistics from response usage
-                if session.usage:
-                    self._update_statistics(
-                        input_tokens=session.usage.prompt_tokens,
-                        output_tokens=session.usage.completion_tokens,
-                    )
-                if content:
-                    # Final chunk for non-streaming should check for statistics if needed,
-                    # but typically we use `completion` chunk at end of stream.
-                    # However here we are yielding TEXT.
-                    yield self._create_chunk(
-                        content, model.model, message_id=session.id
-                    )
-
-            # Yield final completion chunk with statistics
-            stats = self._get_statistics()
-            logger.debug("Completion statistics: %s", stats)
-            yield Chunk(
-                type=ChunkType.COMPLETION,
-                text="Response generation completed",
-                chunk_metadata={"status": "response_complete"},
-                statistics=stats,
+    async def _handle_sync_response(
+        self,
+        response: ChatCompletion,
+        model_name: str,
+    ) -> AsyncGenerator[Chunk, None]:
+        """Handle synchronous response from OpenAI."""
+        if response.usage:
+            self._update_statistics(
+                input_tokens=response.usage.prompt_tokens,
+                output_tokens=response.usage.completion_tokens,
             )
-        except Exception as e:
-            raise e
 
-    def _create_chunk(
+        content = response.choices[0].message.content
+        if content:
+            yield self._create_text_chunk(
+                content,
+                model_name,
+                stream=False,
+                message_id=response.id,
+            )
+
+    def _create_text_chunk(
         self,
         content: str,
         model: str,
         stream: bool = False,
         message_id: str | None = None,
     ) -> Chunk:
+        """Create a text chunk."""
         metadata = {
             "source": "chat_completions",
             "streaming": str(stream),
@@ -148,17 +164,23 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
             chunk_metadata=metadata,
         )
 
+    def _create_completion_chunk(self) -> Chunk:
+        """Create the final completion chunk with statistics."""
+        stats = self._get_statistics()
+        logger.debug("Completion statistics: %s", stats)
+        return Chunk(
+            type=ChunkType.COMPLETION,
+            text="Response generation completed",
+            chunk_metadata={"status": "response_complete"},
+            statistics=stats,
+        )
+
     def _convert_messages_to_openai_format(
         self, messages: list[Message]
     ) -> list[ChatCompletionMessageParam]:
         """Convert internal messages to OpenAI chat completion format.
 
-        Notes:
-        - OpenAI Chat Completions requires that after any system messages,
-          user/tool messages must alternate with assistant messages. To
-          ensure this, merge consecutive user (human) or assistant messages
-          into a single message by concatenating their text with a blank
-          line separator.
+        Merges consecutive user/assistant messages as required by OpenAI.
         """
         formatted: list[ChatCompletionMessageParam] = []
         role_map = {
@@ -170,11 +192,13 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
         for msg in messages or []:
             if msg.type not in role_map:
                 continue
+
             role = role_map[msg.type]
             if formatted and role != "system" and formatted[-1]["role"] == role:
                 # Merge consecutive user/assistant messages
-                formatted[-1]["content"] = formatted[-1]["content"] + "\n\n" + msg.text
+                current_content = formatted[-1]["content"] or ""
+                formatted[-1]["content"] = f"{current_content}\n\n{msg.text}"
             else:
-                formatted.append({"role": role, "content": msg.text})
+                formatted.append({"role": role, "content": msg.text})  # type: ignore
 
         return formatted

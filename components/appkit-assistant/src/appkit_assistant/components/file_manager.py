@@ -1,7 +1,6 @@
 """File manager component for assistant administration."""
 
 import reflex as rx
-from reflex.components.radix.themes.components.table import TableRow
 
 import appkit_mantine as mn
 from appkit_assistant.state.file_manager_state import (
@@ -12,6 +11,7 @@ from appkit_assistant.state.file_manager_state import (
     VectorStoreInfo,
 )
 from appkit_ui.components.dialogs import delete_dialog
+from appkit_ui.styles import sticky_header_style
 
 
 def vector_store_item(store_info: VectorStoreInfo) -> rx.Component:
@@ -92,10 +92,10 @@ def vector_store_item(store_info: VectorStoreInfo) -> rx.Component:
     )
 
 
-def file_table_row(file_info: FileInfo) -> TableRow:
+def file_table_row(file_info: FileInfo) -> rx.Component:
     """Render a single file row in the table."""
-    return rx.table.row(
-        rx.table.cell(
+    return mn.table.tr(
+        mn.table.td(
             mn.group(
                 rx.icon("file-text", size=16, color=rx.color("gray", 11)),
                 mn.text(
@@ -115,15 +115,15 @@ def file_table_row(file_info: FileInfo) -> TableRow:
                 "width": "100%",
             },
         ),
-        rx.table.cell(
+        mn.table.td(
             mn.text(file_info.created_at, size="sm"),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
+        mn.table.td(
             mn.text(file_info.user_name, size="sm"),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
+        mn.table.td(
             mn.group(
                 mn.number_formatter(
                     value=file_info.formatted_size,
@@ -132,9 +132,9 @@ def file_table_row(file_info: FileInfo) -> TableRow:
                 ),
                 gap="xs",
             ),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
+        mn.table.td(
             rx.cond(
                 FileManagerState.deleting_file_id == file_info.id,
                 rx.spinner(size="1"),
@@ -147,9 +147,8 @@ def file_table_row(file_info: FileInfo) -> TableRow:
                     variant="surface",
                 ),
             ),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        vertical_align="middle",
         style={"_hover": {"bg": rx.color("gray", 2)}},
     )
 
@@ -216,7 +215,14 @@ def cleanup_progress_modal() -> rx.Component:
                         ),
                         margin_right="1rem",
                     ),
-                    mn.modal.title("Bereinigung"),
+                    mn.modal.title(
+                        rx.cond(
+                            FileManagerState.selected_file_model_name,
+                            f"Bereinigung - "
+                            f"{FileManagerState.selected_file_model_name}",
+                            "Bereinigung",
+                        ),
+                    ),
                     gap="2",
                     align="center",
                 ),
@@ -340,10 +346,10 @@ def cleanup_button() -> rx.Component:
     )
 
 
-def openai_file_table_row(file_info: OpenAIFileInfo) -> TableRow:
+def openai_file_table_row(file_info: OpenAIFileInfo) -> rx.Component:
     """Render a single OpenAI file row in the table."""
-    return rx.table.row(
-        rx.table.cell(
+    return mn.table.tr(
+        mn.table.td(
             mn.group(
                 rx.icon("file-text", size=16, color=rx.color("gray", 11)),
                 mn.text(
@@ -363,19 +369,19 @@ def openai_file_table_row(file_info: OpenAIFileInfo) -> TableRow:
                 "width": "100%",
             },
         ),
-        rx.table.cell(
+        mn.table.td(
             mn.text(file_info.purpose, size="sm"),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
+        mn.table.td(
             mn.text(file_info.created_at, size="sm"),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
+        mn.table.td(
             mn.text(file_info.expires_at, size="sm"),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
+        mn.table.td(
             mn.group(
                 mn.number_formatter(
                     value=file_info.formatted_size,
@@ -384,9 +390,9 @@ def openai_file_table_row(file_info: OpenAIFileInfo) -> TableRow:
                 ),
                 gap="xs",
             ),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        rx.table.cell(
+        mn.table.td(
             rx.cond(
                 FileManagerState.deleting_openai_file_id == file_info.openai_id,
                 rx.spinner(size="1"),
@@ -401,9 +407,8 @@ def openai_file_table_row(file_info: OpenAIFileInfo) -> TableRow:
                     variant="surface",
                 ),
             ),
-            white_space="nowrap",
+            style={"whiteSpace": "nowrap"},
         ),
-        vertical_align="middle",
         style={"_hover": {"bg": rx.color("gray", 2)}},
     )
 
@@ -413,7 +418,23 @@ def file_manager() -> rx.Component:
     return rx.fragment(
         cleanup_progress_modal(),
         mn.stack(
-            cleanup_button(),
+            # Top bar: model selector + cleanup button
+            rx.flex(
+                mn.select(
+                    data=FileManagerState.file_model_options,
+                    value=FileManagerState.selected_file_model_id,
+                    on_change=FileManagerState.set_selected_file_model,
+                    placeholder="Abonnement auswählen...",
+                    size="sm",
+                    w="16rem",
+                    disabled=~FileManagerState.has_file_models,
+                ),
+                rx.spacer(),
+                cleanup_button(),
+                width="100%",
+                gap="12px",
+                align="center",
+            ),
             mn.tabs(
                 mn.tabs.list(
                     mn.tabs.tab("Vector Store Dateien", value="vector_stores"),
@@ -477,38 +498,63 @@ def file_manager() -> rx.Component:
                                         rx.cond(
                                             FileManagerState.files.length() > 0,
                                             mn.scroll_area(
-                                                rx.table.root(
-                                                    rx.table.header(
-                                                        rx.table.row(
-                                                            rx.table.column_header_cell(
-                                                                "Dateiname",
+                                                mn.table(
+                                                    mn.table.thead(
+                                                        mn.table.tr(
+                                                            mn.table.th(
+                                                                mn.text(
+                                                                    "Dateiname",
+                                                                    size="sm",
+                                                                    fw="700",
+                                                                ),
                                                                 width="auto",
                                                             ),
-                                                            rx.table.column_header_cell(
-                                                                "Erstellt am",
+                                                            mn.table.th(
+                                                                mn.text(
+                                                                    "Erstellt am",
+                                                                    size="sm",
+                                                                    fw="700",
+                                                                ),
                                                                 width="140px",
                                                             ),
-                                                            rx.table.column_header_cell(
-                                                                "Benutzer",
+                                                            mn.table.th(
+                                                                mn.text(
+                                                                    "Benutzer",
+                                                                    size="sm",
+                                                                    fw="700",
+                                                                ),
                                                                 width="150px",
                                                             ),
-                                                            rx.table.column_header_cell(
-                                                                "Größe", width="100px"
+                                                            mn.table.th(
+                                                                mn.text(
+                                                                    "Größe",
+                                                                    size="sm",
+                                                                    fw="700",
+                                                                ),
+                                                                width="100px",
                                                             ),
-                                                            rx.table.column_header_cell(
-                                                                "", width="50px"
+                                                            mn.table.th(
+                                                                mn.text("", size="sm"),
+                                                                width="50px",
                                                             ),
+                                                            style=sticky_header_style,
                                                         ),
                                                     ),
-                                                    rx.table.body(
+                                                    mn.table.tbody(
                                                         rx.foreach(
                                                             FileManagerState.files,
                                                             file_table_row,
                                                         )
                                                     ),
-                                                    size="2",
-                                                    width="100%",
-                                                    table_layout="fixed",
+                                                    sticky_header=True,
+                                                    sticky_header_offset="0px",
+                                                    striped=False,
+                                                    highlight_on_hover=True,
+                                                    highlight_on_hover_color=rx.color_mode_cond(
+                                                        light="gray.0",
+                                                        dark="dark.8",
+                                                    ),
+                                                    w="100%",
                                                 ),
                                                 height="calc(100vh - 350px)",
                                                 width="100%",
@@ -555,44 +601,70 @@ def file_manager() -> rx.Component:
                                 rx.cond(
                                     FileManagerState.openai_files.length() > 0,
                                     mn.scroll_area(
-                                        rx.table.root(
-                                            rx.table.header(
-                                                rx.table.row(
-                                                    rx.table.column_header_cell(
-                                                        "Dateiname", width="auto"
+                                        mn.table(
+                                            mn.table.thead(
+                                                mn.table.tr(
+                                                    mn.table.th(
+                                                        mn.text(
+                                                            "Dateiname",
+                                                            size="sm",
+                                                            fw="700",
+                                                        ),
+                                                        width="auto",
                                                     ),
-                                                    rx.table.column_header_cell(
-                                                        "Zweck",
+                                                    mn.table.th(
+                                                        mn.text(
+                                                            "Zweck", size="sm", fw="700"
+                                                        ),
                                                         width="120px",
-                                                        white_space="nowrap",
+                                                        style={"whiteSpace": "nowrap"},
                                                     ),
-                                                    rx.table.column_header_cell(
-                                                        "Erstellt am",
+                                                    mn.table.th(
+                                                        mn.text(
+                                                            "Erstellt am",
+                                                            size="sm",
+                                                            fw="700",
+                                                        ),
                                                         width="140px",
-                                                        white_space="nowrap",
+                                                        style={"whiteSpace": "nowrap"},
                                                     ),
-                                                    rx.table.column_header_cell(
-                                                        "Läuft ab",
+                                                    mn.table.th(
+                                                        mn.text(
+                                                            "Läuft ab",
+                                                            size="sm",
+                                                            fw="700",
+                                                        ),
                                                         width="140px",
-                                                        white_space="nowrap",
+                                                        style={"whiteSpace": "nowrap"},
                                                     ),
-                                                    rx.table.column_header_cell(
-                                                        "Größe", width="100px"
+                                                    mn.table.th(
+                                                        mn.text(
+                                                            "Größe", size="sm", fw="700"
+                                                        ),
+                                                        width="100px",
                                                     ),
-                                                    rx.table.column_header_cell(
-                                                        "", width="50px"
+                                                    mn.table.th(
+                                                        mn.text("", size="sm"),
+                                                        width="50px",
                                                     ),
+                                                    style=sticky_header_style,
                                                 ),
                                             ),
-                                            rx.table.body(
+                                            mn.table.tbody(
                                                 rx.foreach(
                                                     FileManagerState.openai_files,
                                                     openai_file_table_row,
                                                 )
                                             ),
-                                            size="2",
-                                            width="100%",
-                                            table_layout="fixed",
+                                            sticky_header=True,
+                                            sticky_header_offset="0px",
+                                            striped=False,
+                                            highlight_on_hover=True,
+                                            highlight_on_hover_color=rx.color_mode_cond(
+                                                light="gray.0",
+                                                dark="dark.8",
+                                            ),
+                                            w="100%",
                                         ),
                                         height="calc(100vh - 350px)",
                                         width="100%",
@@ -619,5 +691,6 @@ def file_manager() -> rx.Component:
             gap="xs",
             w="100%",
             align="end",
+            on_mount=FileManagerState.load_file_models,
         ),
     )

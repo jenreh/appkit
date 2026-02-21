@@ -147,6 +147,7 @@ def admin_assistant_page() -> rx.Component:
                 mx="auto",
                 gap="lg",
             ),
+            mn.box(h="3rem"),
             w="100%",
             p="2rem",
         ),

@@ -479,7 +479,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             finally:
                 # Clean up local file after upload attempt
                 try:
-                    Path(file_path).unlink(missing_ok=True)
+                    Path(file_path).unlink(missing_ok=True)  #  noqa: ASYNC240
                 except Exception as e:
                     logger.warning("Failed to delete local file %s: %s", file_path, e)
 
@@ -500,7 +500,7 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         path = Path(file_path)
 
         # Read file content
-        file_data = path.read_bytes()
+        file_data = path.read_bytes()  # noqa: ASYNC240
 
         media_type = self._file_validator.get_media_type(file_path)
 

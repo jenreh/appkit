@@ -232,7 +232,8 @@ class ImageGalleryState(rx.State):
         valid_ids = {g["id"] for g in self.generators}
         if self.generator not in valid_ids:
             if self.generators:
-                # Try to use default if available to user, otherwise pick first available
+                # Try to use default if available to user, otherwise
+                # pick first available
                 try:
                     default_id = generator_registry.get_default_generator().model.id
                     if default_id in valid_ids:
@@ -248,7 +249,7 @@ class ImageGalleryState(rx.State):
     async def refresh_generators(self) -> None:
         """Reload generators from registry and update the list based on user roles."""
         # Ensure registry is up to date
-        if not generator_registry._loaded:
+        if not generator_registry._loaded:  # noqa: SLF001
             await generator_registry.initialize()
         else:
             await generator_registry.reload()

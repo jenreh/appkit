@@ -118,6 +118,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             files=files,
             payload=payload,
             user_id=user_id,
+            ai_model=model_id,
         ):
             # Extract vector_store_id from final chunk metadata
             if chunk.chunk_metadata and "vector_store_id" in chunk.chunk_metadata:
@@ -188,6 +189,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         files: list[str] | None,
         payload: dict[str, Any] | None,
         user_id: int | None,
+        ai_model: str = "",
     ) -> AsyncGenerator[Chunk, None]:
         """Process file uploads and yield progress chunks in real-time."""
         thread_uuid = payload.get("thread_uuid") if payload else None
@@ -254,6 +256,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 thread_db_id=thread_db_id,
                 thread_uuid=thread_uuid,
                 user_id=user_id,
+                ai_model=ai_model,
             ):
                 yield chunk
 
@@ -296,7 +299,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             "response.shell_call_output_content.delta",
             "response.shell_call.in_progress",
             "response.shell_call.completed",
-            # web_search and file_search events handled in _handle_search_events but return None
+            # web_search and file_search events handled in _handle_search_events
+            # but return None
             "response.web_search_call.in_progress",
             # MCP events handled in _handle_mcp_events but return None
             "response.mcp_call.in_progress",

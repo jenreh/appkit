@@ -29,6 +29,9 @@ class OpenAIClientService:
         # Check if service is available
         if service.is_available:
             ...
+
+        # Create a client for a specific AI model (subscription)
+        client = await OpenAIClientService.create_client_for_model("gpt-4o")
     """
 
     def __init__(
@@ -68,21 +71,73 @@ class OpenAIClientService:
             logger.warning("OpenAI API key not configured")
             return None
 
-        if self._api_key and self._base_url and self._on_azure:
-            logger.debug("Creating Azure OpenAI client")
-            return AsyncOpenAI(
-                api_key=self._api_key,
-                base_url=f"{self._base_url}/openai/v1",
-                default_query={"api-version": "preview"},
-            )
-        if self._api_key and self._base_url:
-            logger.debug("Creating OpenAI client with custom base URL")
-            return AsyncOpenAI(api_key=self._api_key, base_url=self._base_url)
-        if self._api_key:
-            logger.debug("Creating standard OpenAI client")
-            return AsyncOpenAI(api_key=self._api_key)
+        return _build_client(self._api_key, self._base_url, self._on_azure)
 
-        return None
+    @staticmethod
+    async def create_client_for_model(
+        ai_model: str,
+    ) -> AsyncOpenAI | None:
+        """Create an AsyncOpenAI client using credentials from a DB model.
+
+        Looks up the :class:`AssistantAIModel` by its ``model_id`` string
+        and builds a client with the model's own API key / base URL.
+
+        Args:
+            ai_model: The ``model_id`` string (e.g. ``"gpt-4o"``).
+
+        Returns:
+            Configured AsyncOpenAI client, or *None* if the model has
+            no API key or cannot be found.
+        """
+        # Import here to avoid circular imports at module level
+        from appkit_assistant.backend.database.repositories import (  # noqa: PLC0415
+            ai_model_repo,
+        )
+        from appkit_commons.database.session import get_asyncdb_session  # noqa: PLC0415
+
+        try:
+            async with get_asyncdb_session() as session:
+                model = await ai_model_repo.find_by_model_id(session, ai_model)
+                if not model or not model.api_key:
+                    logger.warning("No API key for model %s", ai_model)
+                    return None
+                return _build_client(model.api_key, model.base_url, model.on_azure)
+        except Exception as e:
+            logger.error(
+                "Failed to create client for model %s: %s",
+                ai_model,
+                e,
+            )
+            return None
+
+
+def _build_client(
+    api_key: str,
+    base_url: str | None,
+    on_azure: bool,
+) -> AsyncOpenAI:
+    """Build an AsyncOpenAI client from explicit credentials.
+
+    Args:
+        api_key: API key (required).
+        base_url: Optional base URL override.
+        on_azure: Whether to use Azure OpenAI endpoint conventions.
+
+    Returns:
+        Configured AsyncOpenAI client.
+    """
+    if base_url and on_azure:
+        logger.debug("Creating Azure OpenAI client")
+        return AsyncOpenAI(
+            api_key=api_key,
+            base_url=f"{base_url}/openai/v1",
+            default_query={"api-version": "preview"},
+        )
+    if base_url:
+        logger.debug("Creating OpenAI client with custom base URL")
+        return AsyncOpenAI(api_key=api_key, base_url=base_url)
+    logger.debug("Creating standard OpenAI client")
+    return AsyncOpenAI(api_key=api_key)
 
 
 def get_openai_client_service() -> OpenAIClientService:
@@ -95,6 +150,6 @@ def get_openai_client_service() -> OpenAIClientService:
         return service_registry().get(OpenAIClientService)
     except KeyError:
         logger.warning(
-            "OpenAIClientService not registered – no openai DB model available"
+            "OpenAIClientService not registered - no openai DB model available"
         )
         return OpenAIClientService()
