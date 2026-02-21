@@ -42,7 +42,7 @@ class PasswordResetRequestRepository(
             .select_from(PasswordResetRequestEntity)
             .where(
                 PasswordResetRequestEntity.email == email,
-                PasswordResetRequestEntity.created_at >= since_naive,
+                PasswordResetRequestEntity.created >= since_naive,
             )
         )
         result = await session.execute(stmt)
@@ -72,12 +72,12 @@ class PasswordResetRequestRepository(
         await session.commit()
         await session.refresh(entity)
 
-        logger.debug("Logged password reset request for email=%s, ip=%s", email, ip_address)
+        logger.debug(
+            "Logged password reset request for email=%s, ip=%s", email, ip_address
+        )
         return entity
 
-    async def cleanup_old_requests(
-        self, session: AsyncSession, days: int = 7
-    ) -> int:
+    async def cleanup_old_requests(self, session: AsyncSession, days: int = 7) -> int:
         """Clean up old password reset requests.
 
         Args:
@@ -91,7 +91,7 @@ class PasswordResetRequestRepository(
         cutoff_naive = cutoff.replace(tzinfo=None)
 
         stmt = delete(PasswordResetRequestEntity).where(
-            PasswordResetRequestEntity.created_at < cutoff_naive
+            PasswordResetRequestEntity.created < cutoff_naive
         )
         result = await session.execute(stmt)
         await session.commit()

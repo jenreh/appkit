@@ -3,7 +3,6 @@
 import logging
 import re
 from collections.abc import AsyncGenerator
-from typing import Any
 
 import reflex as rx
 
@@ -22,7 +21,6 @@ from appkit_user.authentication.backend.password_reset_request_repository import
 )
 from appkit_user.authentication.backend.user_repository import user_repo
 from appkit_user.authentication.backend.user_session_repository import session_repo
-from appkit_user.authentication.states import LoginState, UserSession
 from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)
@@ -96,17 +94,25 @@ class PasswordResetRequestState(rx.State):
 
                 if not user_entity:
                     # Email not found - silent response for security
-                    logger.info("Password reset requested for non-existent email: %s", self.email)
+                    logger.info(
+                        "Password reset requested for non-existent email: %s",
+                        self.email,
+                    )
                     # Still log the request for rate limiting
                     await password_reset_request_repo.log_request(db, self.email)
                     self.is_submitted = True
                     yield
                     return
 
+                # Eagerly load user attributes while in session context
+                user_id = user_entity.id
+                user_name = user_entity.name or user_entity.email.split("@")[0]
+                user_email = user_entity.email
+
                 # 4. Generate token
                 token_entity = await password_reset_token_repo.create_token(
                     db,
-                    user_id=user_entity.id,
+                    user_id=user_id,
                     email=self.email,
                     reset_type="user_initiated",
                     expiry_minutes=config.password_reset.token_expiry_minutes,
@@ -116,7 +122,14 @@ class PasswordResetRequestState(rx.State):
                 email_service = get_email_service()
                 if email_service:
                     reset_url = f"{config.server_url}/password-reset/confirm?token={token_entity.token}"
-                    user_name = user_entity.name or user_entity.email.split("@")[0]
+
+                    # If the configured email service is a MockService (e.g. in tests/dev),
+                    # log the reset URL for debugging purposes.
+                    if (
+                        getattr(email_service.__class__, "__name__", "")
+                        == "MockEmailProvider"
+                    ):
+                        logger.debug("Password reset URL (mock): %s", reset_url)
 
                     success = await email_service.send_password_reset_email(
                         to_email=self.email,
@@ -126,13 +139,11 @@ class PasswordResetRequestState(rx.State):
                     )
 
                     if success:
-                        logger.info(
-                            "Password reset email sent to user_id=%d", user_entity.id
-                        )
+                        logger.info("Password reset email sent to user_id=%d", user_id)
                     else:
                         logger.error(
                             "Failed to send password reset email to user_id=%d",
-                            user_entity.id,
+                            user_id,
                         )
                 else:
                     logger.error("Email service not configured")
@@ -243,13 +254,15 @@ class PasswordResetConfirmState(rx.State):
         self.has_digit = any(c.isdigit() for c in value)
         self.has_special = any(not c.isalnum() for c in value)
 
-        criteria_met = sum([
-            self.has_upper,
-            self.has_lower,
-            self.has_digit,
-            self.has_special,
-            self.has_length,
-        ])
+        criteria_met = sum(
+            [
+                self.has_upper,
+                self.has_lower,
+                self.has_digit,
+                self.has_special,
+                self.has_length,
+            ]
+        )
 
         if criteria_met == 1:
             self.strength_value = 20
@@ -309,9 +322,14 @@ class PasswordResetConfirmState(rx.State):
                     yield rx.redirect("/password-reset")
                     return
 
+                # Eagerly load token attributes while in session context
+                token_id = token_entity.id
+                token_user_id = token_entity.user_id
+                token_reset_type = token_entity.reset_type
+
                 # 4. Check password history (last 6 passwords)
                 is_reused = await password_history_repo.check_password_reuse(
-                    db, token_entity.user_id, self.new_password, n=6
+                    db, token_user_id, self.new_password, n=6
                 )
 
                 if is_reused:
@@ -323,42 +341,45 @@ class PasswordResetConfirmState(rx.State):
                     return
 
                 # 5. Get user entity
-                user_entity = await user_repo.find_by_id(db, token_entity.user_id)
+                user_entity = await user_repo.find_by_id(db, token_user_id)
                 if not user_entity:
-                    yield rx.toast.error("Benutzer nicht gefunden.", position="top-right")
+                    yield rx.toast.error(
+                        "Benutzer nicht gefunden.", position="top-right"
+                    )
                     return
 
                 # 6. Hash new password
                 new_password_hash = generate_password_hash(self.new_password)
 
-                # 7. Start transaction: update password, log history, mark token, clear sessions
+                # 7. Start transaction: update password, log history, mark token,
+                # clear sessions
                 user_entity._password = new_password_hash
 
                 # Log to password history
                 await password_history_repo.save_password_to_history(
                     db,
-                    user_id=token_entity.user_id,
+                    user_id=token_user_id,
                     password_hash=new_password_hash,
-                    change_reason=token_entity.reset_type,
+                    change_reason=token_reset_type,
                 )
 
                 # Mark token as used
-                await password_reset_token_repo.mark_as_used(db, token_entity.id)
+                await password_reset_token_repo.mark_as_used(db, token_id)
 
                 # Clear needs_password_reset flag if it was admin-forced
-                if token_entity.reset_type == "admin_forced":
+                if token_reset_type == "admin_forced":
                     user_entity.needs_password_reset = False
 
                 # Commit user changes
                 await db.commit()
 
                 # 8. Clear all existing sessions for user (force re-login)
-                await session_repo.delete_all_by_user_id(db, token_entity.user_id)
+                await session_repo.delete_all_by_user_id(db, token_user_id)
 
                 logger.info(
                     "Password reset completed for user_id=%d, type=%s",
-                    token_entity.user_id,
-                    token_entity.reset_type,
+                    token_user_id,
+                    token_reset_type,
                 )
 
             # 9. Show success and redirect to login

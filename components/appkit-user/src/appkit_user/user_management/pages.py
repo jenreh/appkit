@@ -7,6 +7,10 @@ from appkit_ui.components.header import header
 from appkit_user.authentication.components import (
     login_form,
 )
+from appkit_user.authentication.password_reset_states import (
+    PasswordResetConfirmState,
+    PasswordResetRequestState,
+)
 from appkit_user.authentication.states import LOGIN_ROUTE, LoginState, UserSession
 from appkit_user.authentication.templates import (
     authenticated,
@@ -31,6 +35,249 @@ def _password_rule(check: bool, message: str) -> rx.Component:
         rx.text(message),
         padding_left="18px",
     )
+
+
+def create_password_reset_request_page(
+    route: str = "/password-reset",
+    title: str = "Passwort zurücksetzen",
+) -> Callable:
+    """Create the password reset request page (email entry).
+
+    Args:
+        route: The route for the password reset request page.
+        title: The title for the password reset request page.
+
+    Returns:
+        The password reset request page component.
+    """
+
+    @default_layout(route=route, title=title)
+    def _password_reset_request_page() -> rx.Component:
+        """The password reset request page (email entry).
+
+        Returns:
+            The UI for the password reset request page.
+        """
+        return rx.center(
+            rx.card(
+                rx.vstack(
+                    rx.vstack(
+                        rx.heading("Passwort zurücksetzen", size="7"),
+                        rx.text(
+                            "Geben Sie Ihre E-Mail-Adresse ein, um einen "
+                            "Link zum Zurücksetzen Ihres Passworts zu erhalten.",
+                            color_scheme="gray",
+                        ),
+                        class_name="w-full gap-2",
+                    ),
+                    rx.cond(
+                        PasswordResetRequestState.email_error,
+                        rx.callout(
+                            PasswordResetRequestState.email_error,
+                            icon="triangle_alert",
+                            color_scheme="red",
+                            role="alert",
+                        ),
+                    ),
+                    rx.cond(
+                        PasswordResetRequestState.is_submitted,
+                        rx.callout(
+                            PasswordResetRequestState.success_message,
+                            icon="circle_check",
+                            color_scheme="green",
+                            role="status",
+                        ),
+                    ),
+                    rx.form(
+                        rx.vstack(
+                            mn.text_input(
+                                placeholder="E-Mail-Adresse",
+                                value=PasswordResetRequestState.email,
+                                on_change=PasswordResetRequestState.set_email,
+                                type="email",
+                                class_name="w-full",
+                            ),
+                            rx.button(
+                                "Link senden",
+                                type="submit",
+                                size="3",
+                                class_name="w-full",
+                                loading=PasswordResetRequestState.is_loading,
+                            ),
+                            rx.hstack(
+                                rx.spacer(),
+                                rx.link(
+                                    rx.text(
+                                        "Zurück zur Anmeldung",
+                                        size="2",
+                                        color_scheme="blue",
+                                    ),
+                                    href="/login",
+                                ),
+                                class_name="w-full",
+                            ),
+                            class_name="w-full gap-2",
+                        ),
+                        on_submit=[PasswordResetRequestState.request_password_reset],
+                    ),
+                    class_name="w-full gap-4",
+                ),
+                size="4",
+                class_name="min-w-[26em] max-w-[26em] w-full",
+                variant="surface",
+                appearance="dark",
+            ),
+        )
+
+    return _password_reset_request_page
+
+
+def create_password_reset_confirm_page(
+    route: str = "/password-reset/confirm",
+    title: str = "Passwort bestätigen",
+) -> Callable:
+    """Create the password reset confirmation page (new password entry).
+
+    Args:
+        route: The route for the password reset confirmation page.
+        title: The title for the password reset confirmation page.
+
+    Returns:
+        The password reset confirmation page component.
+    """
+
+    @default_layout(
+        route=route,
+        title=title,
+        on_load=PasswordResetConfirmState.validate_token,
+    )
+    def _password_reset_confirm_page() -> rx.Component:
+        """The password reset confirmation page (new password entry).
+
+        Returns:
+            The UI for the password reset confirmation page.
+        """
+        return rx.center(
+            rx.card(
+                rx.vstack(
+                    rx.vstack(
+                        rx.heading("Passwort zurücksetzen", size="7"),
+                        rx.text(
+                            rx.text(
+                                "Für: ",
+                                as_="span",
+                                font_weight="500",
+                            ),
+                            PasswordResetConfirmState.user_email,
+                            color_scheme="gray",
+                        ),
+                        rx.text(
+                            "Geben Sie Ihr neues Passwort ein.",
+                            color_scheme="gray",
+                            size="2",
+                        ),
+                        class_name="w-full gap-1",
+                    ),
+                    rx.cond(
+                        PasswordResetConfirmState.token_error,
+                        rx.callout(
+                            PasswordResetConfirmState.token_error,
+                            icon="triangle_alert",
+                            color_scheme="red",
+                            role="alert",
+                        ),
+                    ),
+                    rx.cond(
+                        PasswordResetConfirmState.password_error,
+                        rx.callout(
+                            PasswordResetConfirmState.password_error,
+                            icon="triangle_alert",
+                            color_scheme="red",
+                            role="alert",
+                        ),
+                    ),
+                    rx.cond(
+                        PasswordResetConfirmState.password_history_error,
+                        rx.callout(
+                            PasswordResetConfirmState.password_history_error,
+                            icon="triangle_alert",
+                            color_scheme="red",
+                            role="alert",
+                        ),
+                    ),
+                    rx.form(
+                        rx.vstack(
+                            mn.password_input(
+                                placeholder="Neues Passwort",
+                                value=PasswordResetConfirmState.new_password,
+                                on_change=PasswordResetConfirmState.set_new_password,
+                                class_name="w-full",
+                            ),
+                            mn.password_input(
+                                placeholder="Passwort bestätigen",
+                                value=PasswordResetConfirmState.confirm_password,
+                                on_change=PasswordResetConfirmState.set_confirm_password,
+                                class_name="w-full",
+                            ),
+                            rx.vstack(
+                                rx.vstack(
+                                    _password_rule(
+                                        PasswordResetConfirmState.has_length,
+                                        f"Mindestens {MIN_PASSWORD_LENGTH} Zeichen",
+                                    ),
+                                    _password_rule(
+                                        PasswordResetConfirmState.has_upper,
+                                        "Ein Großbuchstabe",
+                                    ),
+                                    _password_rule(
+                                        PasswordResetConfirmState.has_lower,
+                                        "Ein Kleinbuchstabe",
+                                    ),
+                                    _password_rule(
+                                        PasswordResetConfirmState.has_digit,
+                                        "Eine Ziffer",
+                                    ),
+                                    _password_rule(
+                                        PasswordResetConfirmState.has_special,
+                                        "Ein Sonderzeichen",
+                                    ),
+                                    class_name="w-full gap-2 text-sm",
+                                ),
+                                class_name="w-full",
+                            ),
+                            rx.button(
+                                "Passwort zurücksetzen",
+                                type="submit",
+                                size="3",
+                                class_name="w-full",
+                                loading=PasswordResetConfirmState.is_loading,
+                            ),
+                            rx.hstack(
+                                rx.spacer(),
+                                rx.link(
+                                    rx.text(
+                                        "Zurück zur Anmeldung",
+                                        size="2",
+                                        color_scheme="blue",
+                                    ),
+                                    href="/login",
+                                ),
+                                class_name="w-full",
+                            ),
+                            class_name="w-full gap-2",
+                        ),
+                        on_submit=[PasswordResetConfirmState.confirm_password_reset],
+                    ),
+                    class_name="w-full gap-4",
+                ),
+                size="4",
+                class_name="min-w-[26em] max-w-[26em] w-full",
+                variant="surface",
+                appearance="dark",
+            ),
+        )
+
+    return _password_reset_confirm_page
 
 
 # @default_layout(route=LOGIN_ROUTE, title="Login")

@@ -257,7 +257,9 @@ class PasswordHistoryEntity(Entity, Base):
     change_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("user_id", "password_hash", name="uq_password_history_user_hash"),
+        UniqueConstraint(
+            "user_id", "password_hash", name="uq_password_history_user_hash"
+        ),
         Index("idx_password_history_user_id_changed", "user_id", "changed_at"),
     )
 
@@ -270,7 +272,3 @@ class PasswordResetRequestEntity(Entity, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(200), nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
-
-    __table_args__ = (
-        Index("idx_password_reset_requests_email_created", "email", "created_at"),
-    )

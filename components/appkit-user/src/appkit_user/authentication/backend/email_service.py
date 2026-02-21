@@ -33,9 +33,7 @@ class EmailProviderBase(ABC):
         self.config = config
 
     @abstractmethod
-    async def send_email(
-        self, to_email: str, subject: str, html_body: str
-    ) -> bool:
+    async def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
         """Send an email.
 
         Args:
@@ -46,7 +44,6 @@ class EmailProviderBase(ABC):
         Returns:
             True if email was sent successfully, False otherwise
         """
-        pass
 
     async def send_password_reset_email(
         self,
@@ -106,9 +103,7 @@ class ResendEmailProvider(EmailProviderBase):
         super().__init__(config)
         self.config: ResendEmailConfig = config
 
-    async def send_email(
-        self, to_email: str, subject: str, html_body: str
-    ) -> bool:
+    async def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
         """Send email using Resend API.
 
         Args:
@@ -166,9 +161,7 @@ class AzureEmailProvider(EmailProviderBase):
         super().__init__(config)
         self.config: AzureEmailConfig = config
 
-    async def send_email(
-        self, to_email: str, subject: str, html_body: str
-    ) -> bool:
+    async def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
         """Send email using Azure Communication Services.
 
         Args:
@@ -182,9 +175,7 @@ class AzureEmailProvider(EmailProviderBase):
         try:
             from azure.communication.email import EmailClient
 
-            client = EmailClient.from_connection_string(
-                self.config.connection_string
-            )
+            client = EmailClient.from_connection_string(self.config.connection_string)
 
             message = {
                 "senderAddress": self.config.from_email,
@@ -224,9 +215,7 @@ class MockEmailProvider(EmailProviderBase):
         super().__init__(config)
         self.config: MockEmailConfig = config
 
-    async def send_email(
-        self, to_email: str, subject: str, html_body: str
-    ) -> bool:
+    async def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
         """Mock email sending by logging to console.
 
         Args:

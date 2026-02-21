@@ -94,5 +94,20 @@ class UserSessionRepository(BaseRepository[UserSessionEntity, AsyncSession]):
         await session.flush()
         return result.rowcount
 
+    async def delete_all_by_user_id(self, session: AsyncSession, user_id: int) -> int:
+        """Delete all sessions for a user (force logout).
+
+        Args:
+            session: AsyncSession
+            user_id: User ID
+
+        Returns:
+            int: The number of deleted sessions.
+        """
+        stmt = delete(UserSessionEntity).where(UserSessionEntity.user_id == user_id)
+        result = await session.execute(stmt)
+        await session.flush()
+        return result.rowcount
+
 
 session_repo = UserSessionRepository()

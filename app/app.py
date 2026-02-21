@@ -28,6 +28,8 @@ from appkit_user.authentication.pages import (  # noqa: F401
 from appkit_user.authentication.templates import navbar_layout
 from appkit_user.user_management.pages import (  # noqa: F401
     create_login_page,
+    create_password_reset_confirm_page,
+    create_password_reset_request_page,
     create_profile_page,
 )
 
@@ -70,6 +72,8 @@ create_profile_page(
     class_name="w-full gap-6 max-w-[800px]",
     padding="2rem",
 )
+create_password_reset_request_page()
+create_password_reset_confirm_page()
 
 
 @navbar_layout(

@@ -221,6 +221,18 @@ def login_form(
                             class_name="w-full mt-3",
                             loading=LoginState.is_loading,
                         ),
+                        rx.hstack(
+                            rx.spacer(),
+                            rx.link(
+                                rx.text(
+                                    "Passwort vergessen?",
+                                    size="2",
+                                    color_scheme="blue",
+                                ),
+                                href="/password-reset",
+                            ),
+                            class_name="w-full",
+                        ),
                         class_name="justify-start w-full gap-2",
                     ),
                     on_submit=[
