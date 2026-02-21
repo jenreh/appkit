@@ -13,11 +13,11 @@ UPLOAD_ID = "skill_zip_upload"
 def create_skill_modal() -> rx.Component:
     """Modal for uploading a new skill zip file."""
     return mn.modal(
-        rx.flex(
+        mn.stack(
             rx.upload(
                 rx.cond(
                     rx.selected_files(UPLOAD_ID),
-                    rx.vstack(
+                    mn.stack(
                         mn.text(
                             rx.selected_files(UPLOAD_ID)[0],
                             size="sm",
@@ -29,9 +29,9 @@ def create_skill_modal() -> rx.Component:
                             c="dimmed",
                         ),
                         align="center",
-                        spacing="1",
+                        gap="xs",
                     ),
-                    rx.vstack(
+                    mn.stack(
                         mn.text(
                             "ZIP-Datei hierher ziehen oder klicken",
                             size="sm",
@@ -42,7 +42,7 @@ def create_skill_modal() -> rx.Component:
                             c="dimmed",
                         ),
                         align="center",
-                        spacing="1",
+                        gap="xs",
                     ),
                 ),
                 id=UPLOAD_ID,
@@ -57,7 +57,7 @@ def create_skill_modal() -> rx.Component:
                 width="100%",
                 cursor="pointer",
             ),
-            rx.flex(
+            mn.group(
                 mn.button(
                     "Abbrechen",
                     variant="subtle",
@@ -71,15 +71,13 @@ def create_skill_modal() -> rx.Component:
                     loading=SkillAdminState.uploading,
                     disabled=~rx.selected_files(UPLOAD_ID),
                 ),
-                direction="row",
-                width="100%",
+                w="100%",
                 gap="9px",
-                margin_top="12px",
-                justify_content="end",
+                mt="12px",
+                justify="flex-end",
             ),
-            direction="column",
             gap="12px",
-            width="100%",
+            w="100%",
         ),
         title="Neuen Skill anlegen",
         opened=SkillAdminState.create_modal_open,
