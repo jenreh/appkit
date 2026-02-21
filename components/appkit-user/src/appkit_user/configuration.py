@@ -1,4 +1,5 @@
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field
@@ -98,6 +99,7 @@ class PasswordResetConfig(BaseConfig):
 
     token_expiry_minutes: int = 60
     max_requests_per_hour: int = 3
+    templates_dir: Path | None = None
 
 
 class AuthenticationConfiguration(BaseSettings):

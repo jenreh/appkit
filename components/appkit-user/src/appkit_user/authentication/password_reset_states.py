@@ -62,6 +62,7 @@ class PasswordResetRequestState(rx.State):
         self.is_loading = True
         self.email_error = ""
         self.is_submitted = False
+        yield
 
         try:
             # 1. Validate email format
@@ -107,7 +108,6 @@ class PasswordResetRequestState(rx.State):
                 # Eagerly load user attributes while in session context
                 user_id = user_entity.id
                 user_name = user_entity.name or user_entity.email.split("@")[0]
-                user_email = user_entity.email
 
                 # 4. Generate token
                 token_entity = await password_reset_token_repo.create_token(
@@ -292,13 +292,15 @@ class PasswordResetConfirmState(rx.State):
         self.is_loading = True
         self.password_error = ""
         self.password_history_error = ""
+        yield
 
         try:
             # 1. Validate password format
             if not PASSWORD_REGEX.match(self.new_password):
                 self.password_error = (
                     f"Passwort muss mindestens {MIN_PASSWORD_LENGTH} Zeichen lang sein "
-                    "und Großbuchstaben, Kleinbuchstaben, Zahlen und Sonderzeichen enthalten."
+                    "und Großbuchstaben, Kleinbuchstaben, Zahlen und "
+                    "Sonderzeichen enthalten."
                 )
                 yield
                 return

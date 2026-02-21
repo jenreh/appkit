@@ -18,7 +18,23 @@ from appkit_user.configuration import (
 
 logger = logging.getLogger(__name__)
 
-TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
+
+def _get_templates_dir() -> Path:
+    """Get email templates directory from config or use default.
+
+    Returns:
+        Path to templates directory. Uses configured templates_dir if set,
+        otherwise defaults to appkit_user/authentication/templates.
+    """
+    config: AuthenticationConfiguration = service_registry().get(
+        AuthenticationConfiguration
+    )
+
+    if config.password_reset.templates_dir:
+        return config.password_reset.templates_dir
+
+    # Default to templates in appkit_user/authentication/templates
+    return Path(__file__).parent.parent / "templates"
 
 
 class EmailProviderBase(ABC):
@@ -69,7 +85,7 @@ class EmailProviderBase(ABC):
         else:
             template_file = "password_reset_user_initiated.html"
 
-        template_path = TEMPLATES_DIR / template_file
+        template_path = _get_templates_dir() / template_file
 
         # Load and render template
         try:

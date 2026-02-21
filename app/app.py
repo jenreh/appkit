@@ -66,7 +66,7 @@ from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.image_generators import image_generators_page  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
-create_login_page(header="AppKit")
+create_login_page()
 create_profile_page(
     app_navbar(),
     class_name="w-full gap-6 max-w-[800px]",
