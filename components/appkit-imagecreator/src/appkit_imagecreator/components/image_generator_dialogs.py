@@ -393,6 +393,6 @@ def delete_image_generator_dialog(
         content=generator.label,
         on_click=lambda: ImageGeneratorAdminState.delete_generator(generator.id),
         icon_button=True,
-        variant="ghost",
-        color_scheme="red",
+        variant="subtle",
+        color="red",
     )

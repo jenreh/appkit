@@ -100,6 +100,7 @@ class SystemPromptState(State):
 
         self.is_loading = True
         self.error_message = ""
+        yield
         try:
             user_session: UserSession = await self.get_state(UserSession)
             user_id = user_session.user_id
@@ -136,6 +137,7 @@ class SystemPromptState(State):
 
         self.is_loading = True
         self.error_message = ""
+        yield
         try:
             async with get_asyncdb_session() as session:
                 if self.selected_version_id:

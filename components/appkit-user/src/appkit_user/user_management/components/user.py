@@ -15,22 +15,30 @@ def role_checkbox(
 ) -> rx.Component:
     """Checkbox for a role in the user form."""
     name = role.get("name")
+    label = role.get("label", "")
+    description = role.get("description", "")
+
+    chk = mn.checkbox(
+        label=label,
+        name=f"role_{name}",
+        default_checked=(
+            user.roles.contains(name)
+            if is_edit_mode and user.roles is not None
+            else False
+        ),
+        size="sm",
+    )
 
     return rx.cond(
         name,
         mn.box(
-            mn.tooltip(
-                mn.checkbox(
-                    label=role.get("label", ""),
-                    name=f"role_{name}",
-                    default_checked=(
-                        user.roles.contains(name)
-                        if is_edit_mode and user.roles is not None
-                        else False
-                    ),
-                    size="sm",
+            rx.cond(
+                description & (description != ""),
+                mn.tooltip(
+                    chk,
+                    label=description,
                 ),
-                label=role.get("description", ""),
+                chk,
             ),
             class_name="w-[30%] max-w-[30%] flex-grow",
         ),
@@ -300,7 +308,7 @@ def delete_user_button(user: User, **kwargs) -> rx.Component:
         content=rx.cond(user.email, user.email, "Unbekannter Benutzer"),
         on_click=lambda: UserState.delete_user(user.user_id),
         icon_button=True,
-        color_scheme="red",
+        color="red",
         **kwargs,
     )
 
@@ -368,7 +376,7 @@ def users_table_row(
                 update_user_button(user=user, variant="ghost"),
                 delete_user_button(
                     user=user,
-                    variant="ghost",
+                    variant="subtle",
                 ),
                 gap="xs",
                 wrap="nowrap",

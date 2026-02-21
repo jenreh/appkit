@@ -133,6 +133,8 @@ class MCPServerState(rx.State):
 
     async def add_server(self, form_data: dict[str, Any]) -> AsyncGenerator[Any, Any]:
         """Add a new MCP server."""
+        self.loading = True
+        yield
         try:
             headers = self._parse_headers_from_form(form_data)
             auth_type = form_data.get("auth_type", MCPAuthType.API_KEY)
@@ -171,6 +173,7 @@ class MCPServerState(rx.State):
 
             await self.load_servers()
             self.add_modal_open = False
+            self.loading = False
             yield rx.toast.info(
                 "MCP Server {} wurde hinzugefügt.".format(form_data["name"]),
                 position="top-right",
@@ -178,12 +181,14 @@ class MCPServerState(rx.State):
             logger.debug("Added MCP server: %s", server_name)
 
         except ValueError as e:
+            self.loading = False
             logger.error("Invalid form data for MCP server: %s", e)
             yield rx.toast.error(
                 str(e),
                 position="top-right",
             )
         except Exception as e:
+            self.loading = False
             logger.error("Failed to add MCP server: %s", e)
             yield rx.toast.error(
                 "Fehler beim Hinzufügen des MCP Servers.",
@@ -194,7 +199,10 @@ class MCPServerState(rx.State):
         self, form_data: dict[str, Any]
     ) -> AsyncGenerator[Any, Any]:
         """Modify an existing MCP server."""
+        self.loading = True
+        yield
         if not self.current_server:
+            self.loading = False
             yield rx.toast.error(
                 "Kein Server ausgewählt.",
                 position="top-right",
@@ -251,24 +259,28 @@ class MCPServerState(rx.State):
                 await self.load_servers()
                 self.edit_modal_open = False
                 self.current_server = None
+                self.loading = False
                 yield rx.toast.info(
                     "MCP Server {} wurde aktualisiert.".format(form_data["name"]),
                     position="top-right",
                 )
                 logger.debug("Updated MCP server: %s", updated_name)
             else:
+                self.loading = False
                 yield rx.toast.error(
                     "MCP Server konnte nicht gefunden werden.",
                     position="top-right",
                 )
 
         except ValueError as e:
+            self.loading = False
             logger.error("Invalid form data for MCP server: %s", e)
             yield rx.toast.error(
                 str(e),
                 position="top-right",
             )
         except Exception as e:
+            self.loading = False
             logger.error("Failed to update MCP server: %s", e)
             yield rx.toast.error(
                 "Fehler beim Aktualisieren des MCP Servers.",
@@ -277,11 +289,14 @@ class MCPServerState(rx.State):
 
     async def delete_server(self, server_id: int) -> AsyncGenerator[Any, Any]:
         """Delete an MCP server."""
+        self.loading = True
+        yield
         try:
             async with get_asyncdb_session() as session:
                 # Get server name for the success message
                 server = await mcp_server_repo.find_by_id(session, server_id)
                 if not server:
+                    self.loading = False
                     yield rx.toast.error(
                         "MCP Server nicht gefunden.",
                         position="top-right",
@@ -294,19 +309,22 @@ class MCPServerState(rx.State):
                 success = await mcp_server_repo.delete_by_id(session, server_id)
 
             if success:
+                logger.debug("Deleted MCP server: %s", server_name)
                 await self.load_servers()
+                self.loading = False
                 yield rx.toast.info(
                     f"MCP Server {server_name} wurde gelöscht.",
                     position="top-right",
                 )
-                logger.debug("Deleted MCP server: %s", server_name)
             else:
+                self.loading = False
                 yield rx.toast.error(
                     "MCP Server konnte nicht gelöscht werden.",
                     position="top-right",
                 )
 
         except Exception as e:
+            self.loading = False
             logger.error("Failed to delete MCP server %d: %s", server_id, e)
             yield rx.toast.error(
                 "Fehler beim Löschen des MCP Servers.",

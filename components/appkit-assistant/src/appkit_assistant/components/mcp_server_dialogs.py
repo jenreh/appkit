@@ -688,8 +688,8 @@ def delete_mcp_server_dialog(server: MCPServer) -> rx.Component:
         content=server.name,
         on_click=lambda: MCPServerState.delete_server(server.id),
         icon_button=True,
-        variant="ghost",
-        color_scheme="red",
+        variant="subtle",
+        color="red",
     )
 
 
