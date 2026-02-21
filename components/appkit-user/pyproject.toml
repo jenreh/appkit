@@ -28,11 +28,16 @@ dependencies = [
     "urllib3>=2.6.3",
 ]
 
+[project.optional-dependencies]
+azure = ["azure-communication-email>=1.1.0"]
+resend = ["resend>=2.22.0"]
+
 [project.urls]
 Homepage = "https://github.com/jenreh/appkit"
 Documentation = "https://github.com/jenreh/appkit/tree/main/docs"
 Repository = "https://github.com/jenreh/appkit"
 Issues = "https://github.com/jenreh/appkit/issues"
+
 
 [tool.setuptools.packages.find]
 where = ["src"]

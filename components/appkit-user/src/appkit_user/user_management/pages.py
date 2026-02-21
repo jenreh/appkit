@@ -6,7 +6,6 @@ from appkit_user.authentication.components import (
     login_form,
     password_reset_confirm_form,
     password_reset_request_form,
-    user_profile_view,
 )
 from appkit_user.authentication.password_reset_states import (
     PasswordResetConfirmState,
@@ -16,6 +15,7 @@ from appkit_user.authentication.templates import (
     authenticated,
     default_layout,
 )
+from appkit_user.user_management.components.user_profile import user_profile_view
 
 ROLES = []
 

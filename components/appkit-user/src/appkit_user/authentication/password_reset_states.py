@@ -9,7 +9,10 @@ import reflex as rx
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 from appkit_commons.security import generate_password_hash
-from appkit_user.authentication.backend.email_service import get_email_service
+from appkit_user.authentication.backend.email_service import (
+    PasswordResetType,
+    get_email_service,
+)
 from appkit_user.authentication.backend.password_history_repository import (
     password_history_repo,
 )
@@ -114,17 +117,20 @@ class PasswordResetRequestState(rx.State):
                     db,
                     user_id=user_id,
                     email=self.email,
-                    reset_type="user_initiated",
+                    reset_type=PasswordResetType.USER_INITIATED,
                     expiry_minutes=config.password_reset.token_expiry_minutes,
                 )
 
                 # 5. Send email
                 email_service = get_email_service()
                 if email_service:
-                    reset_url = f"{config.server_url}/password-reset/confirm?token={token_entity.token}"
+                    reset_url = (
+                        f"{config.server_url}/password-reset/confirm"
+                        f"?token={token_entity.token}"
+                    )
 
-                    # If the configured email service is a MockService (e.g. in tests/dev),
-                    # log the reset URL for debugging purposes.
+                    # If the configured email service is a MockService (e.g. in
+                    # tests/dev), log the reset URL for debugging purposes.
                     if (
                         getattr(email_service.__class__, "__name__", "")
                         == "MockEmailProvider"
@@ -135,7 +141,7 @@ class PasswordResetRequestState(rx.State):
                         to_email=self.email,
                         reset_link=reset_url,
                         user_name=user_name,
-                        reset_type="user_initiated",
+                        reset_type=PasswordResetType.USER_INITIATED,
                     )
 
                     if success:
@@ -195,7 +201,7 @@ class PasswordResetConfirmState(rx.State):
         self.token = self.router.page.params.get("token", "")
 
         if not self.token:
-            self.token_error = "Kein gültiger Token gefunden."
+            self.token_error = "Kein gültiger Token gefunden."  # noqa: S105
             yield rx.redirect("/password-reset")
             return
 
@@ -206,16 +212,16 @@ class PasswordResetConfirmState(rx.State):
                 )
 
                 if not token_entity:
-                    self.token_error = "Ungültiger oder abgelaufener Token."
+                    self.token_error = "Ungültiger oder abgelaufener Token."  # noqa: S105
                     logger.warning("Invalid password reset token: %s", self.token)
                     yield rx.redirect("/password-reset")
                     return
 
                 if not token_entity.is_valid():
                     if token_entity.is_used:
-                        self.token_error = "Dieser Token wurde bereits verwendet."
+                        self.token_error = "Dieser Token wurde bereits verwendet."  # noqa: S105
                     else:
-                        self.token_error = "Dieser Token ist abgelaufen."
+                        self.token_error = "Dieser Token ist abgelaufen."  # noqa: S105
                     logger.warning(
                         "Invalid token state: used=%s, expired=%s",
                         token_entity.is_used,
@@ -231,13 +237,13 @@ class PasswordResetConfirmState(rx.State):
                     self.user_name = user_entity.name or user_entity.email.split("@")[0]
                     self.user_id = user_entity.id
                 else:
-                    self.token_error = "Benutzer nicht gefunden."
+                    self.token_error = "Benutzer nicht gefunden."  # noqa: S105
                     yield rx.redirect("/password-reset")
                     return
 
         except Exception as e:
             logger.exception("Error validating token: %s", e)
-            self.token_error = "Fehler bei der Token-Validierung."
+            self.token_error = "Fehler bei der Token-Validierung."  # noqa: S105
             yield rx.redirect("/password-reset")
 
     @rx.event
@@ -266,13 +272,13 @@ class PasswordResetConfirmState(rx.State):
 
         if criteria_met == 1:
             self.strength_value = 20
-        elif criteria_met == 2:
+        elif criteria_met == 2:  # noqa: PLR2004
             self.strength_value = 40
-        elif criteria_met == 3:
+        elif criteria_met == 3:  # noqa: PLR2004
             self.strength_value = 60
-        elif criteria_met == 4:
+        elif criteria_met == 4:  # noqa: PLR2004
             self.strength_value = 80
-        elif criteria_met == 5:
+        elif criteria_met == 5:  # noqa: PLR2004
             self.strength_value = 100
         else:
             self.strength_value = 0
@@ -282,7 +288,7 @@ class PasswordResetConfirmState(rx.State):
         """Set confirm password and validate match."""
         self.confirm_password = value
         if self.new_password and self.new_password != value:
-            self.password_error = "Passwörter stimmen nicht überein."
+            self.password_error = "Passwörter stimmen nicht überein."  # noqa: S105
         else:
             self.password_error = ""
 
@@ -307,7 +313,7 @@ class PasswordResetConfirmState(rx.State):
 
             # 2. Verify passwords match
             if self.new_password != self.confirm_password:
-                self.password_error = "Passwörter stimmen nicht überein."
+                self.password_error = "Passwörter stimmen nicht überein."  # noqa: S105
                 yield
                 return
 
@@ -336,7 +342,7 @@ class PasswordResetConfirmState(rx.State):
 
                 if is_reused:
                     self.password_history_error = (
-                        "Dieses Passwort wurde bereits verwendet. "
+                        "Dieses Passwort wurde bereits verwendet. "  # noqa: S105
                         "Bitte wählen Sie ein anderes Passwort."
                     )
                     yield
@@ -355,7 +361,7 @@ class PasswordResetConfirmState(rx.State):
 
                 # 7. Start transaction: update password, log history, mark token,
                 # clear sessions
-                user_entity._password = new_password_hash
+                user_entity._password = new_password_hash  # noqa: SLF001
 
                 # Log to password history
                 await password_history_repo.save_password_to_history(
@@ -369,7 +375,7 @@ class PasswordResetConfirmState(rx.State):
                 await password_reset_token_repo.mark_as_used(db, token_id)
 
                 # Clear needs_password_reset flag if it was admin-forced
-                if token_reset_type == "admin_forced":
+                if token_reset_type == PasswordResetType.ADMIN_FORCED:
                     user_entity.needs_password_reset = False
 
                 # Commit user changes

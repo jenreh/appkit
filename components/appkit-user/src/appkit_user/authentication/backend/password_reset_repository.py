@@ -9,6 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
+from appkit_user.authentication.backend.email_service import PasswordResetType
 from appkit_user.authentication.backend.entities import PasswordResetTokenEntity
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,9 @@ def _generate_reset_token() -> str:
     return "".join(secrets.choice(TOKEN_CHARS) for _ in range(64))
 
 
-class PasswordResetTokenRepository(BaseRepository[PasswordResetTokenEntity, AsyncSession]):
+class PasswordResetTokenRepository(
+    BaseRepository[PasswordResetTokenEntity, AsyncSession]
+):
     """Repository for managing password reset tokens."""
 
     @property
@@ -51,7 +54,7 @@ class PasswordResetTokenRepository(BaseRepository[PasswordResetTokenEntity, Asyn
         session: AsyncSession,
         user_id: int,
         email: str,
-        reset_type: str,
+        reset_type: PasswordResetType = PasswordResetType.USER_INITIATED,
         expiry_minutes: int = 60,
     ) -> PasswordResetTokenEntity:
         """Create a new password reset token.
@@ -60,7 +63,7 @@ class PasswordResetTokenRepository(BaseRepository[PasswordResetTokenEntity, Asyn
             session: Database session
             user_id: User ID for whom to create the token
             email: Email address associated with the reset
-            reset_type: Type of reset ("user_initiated" or "admin_forced")
+            reset_type: Type of reset
             expiry_minutes: Token expiration time in minutes (default 60)
 
         Returns:
@@ -82,12 +85,12 @@ class PasswordResetTokenRepository(BaseRepository[PasswordResetTokenEntity, Asyn
         await session.commit()
         await session.refresh(entity)
 
-        logger.info("Created password reset token for user_id=%d, type=%s", user_id, reset_type)
+        logger.info(
+            "Created password reset token for user_id=%d, type=%s", user_id, reset_type
+        )
         return entity
 
-    async def mark_as_used(
-        self, session: AsyncSession, token_id: int
-    ) -> None:
+    async def mark_as_used(self, session: AsyncSession, token_id: int) -> None:
         """Mark a token as used.
 
         Args:
@@ -145,7 +148,11 @@ class PasswordResetTokenRepository(BaseRepository[PasswordResetTokenEntity, Asyn
 
         deleted_count = result.rowcount or 0
         if deleted_count > 0:
-            logger.info("Deleted %d password reset tokens for user_id=%d", deleted_count, user_id)
+            logger.info(
+                "Deleted %d password reset tokens for user_id=%d",
+                deleted_count,
+                user_id,
+            )
 
         return deleted_count
 

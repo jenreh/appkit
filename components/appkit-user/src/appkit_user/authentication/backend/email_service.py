@@ -2,7 +2,8 @@
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 
 from jinja2 import Template
@@ -19,91 +20,80 @@ from appkit_user.configuration import (
 logger = logging.getLogger(__name__)
 
 
-def _get_templates_dir() -> Path:
-    """Get email templates directory from config or use default.
+class PasswordResetType(StrEnum):
+    """Type of password reset process."""
 
-    Returns:
-        Path to templates directory. Uses configured templates_dir if set,
-        otherwise defaults to appkit_user/authentication/templates.
-    """
-    config: AuthenticationConfiguration = service_registry().get(
-        AuthenticationConfiguration
-    )
+    USER_INITIATED = "user_initiated"
+    ADMIN_FORCED = "admin_forced"
 
-    if config.password_reset.templates_dir:
-        return config.password_reset.templates_dir
 
-    # Default to templates in appkit_user/authentication/templates
-    return Path(__file__).parent.parent / "templates"
+type EmailConfigType = ResendEmailConfig | AzureEmailConfig | MockEmailConfig
 
 
 class EmailProviderBase(ABC):
     """Abstract base class for email providers."""
 
-    def __init__(self, config: ResendEmailConfig | AzureEmailConfig | MockEmailConfig):
-        """Initialize email provider with configuration.
-
-        Args:
-            config: Email provider configuration
-        """
+    def __init__(self, config: EmailConfigType):
         self.config = config
 
     @abstractmethod
     async def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
-        """Send an email.
+        """Send an email to the specified recipient."""
 
-        Args:
-            to_email: Recipient email address
-            subject: Email subject
-            html_body: HTML content of the email
+    def _get_template_path(self, filename: str) -> Path:
+        """Resolve template path from configuration or default location."""
+        config: AuthenticationConfiguration = service_registry().get(
+            AuthenticationConfiguration
+        )
+        base_dir = (
+            config.password_reset.templates_dir
+            if config.password_reset.templates_dir
+            else Path(__file__).parent.parent / "templates"
+        )
+        return base_dir / filename
 
-        Returns:
-            True if email was sent successfully, False otherwise
-        """
+    def _render_template(self, template_file: str, **context) -> str:
+        """Load and render a Jinja2 template."""
+        try:
+            template_path = self._get_template_path(template_file)
+            template_content = template_path.read_text(encoding="utf-8")
+            template = Template(template_content)
+            return template.render(**context)
+        except Exception as e:
+            logger.error("Failed to render template '%s': %s", template_file, e)
+            raise
 
     async def send_password_reset_email(
         self,
         to_email: str,
         reset_link: str,
         user_name: str,
-        reset_type: str = "user_initiated",
+        reset_type: PasswordResetType = PasswordResetType.USER_INITIATED,
     ) -> bool:
-        """Send a password reset email.
+        """Send a password reset email."""
+        template_file = (
+            "password_reset_admin_forced.html"
+            if reset_type == PasswordResetType.ADMIN_FORCED
+            else "password_reset_user_initiated.html"
+        )
 
-        Args:
-            to_email: Recipient email address
-            reset_link: Password reset URL
-            user_name: User's name
-            reset_type: Type of reset ("user_initiated" or "admin_forced")
-
-        Returns:
-            True if email was sent successfully, False otherwise
-        """
-        # Select appropriate template based on reset type
-        if reset_type == "admin_forced":
-            template_file = "password_reset_admin_forced.html"
-        else:
-            template_file = "password_reset_user_initiated.html"
-
-        template_path = _get_templates_dir() / template_file
-
-        # Load and render template
         try:
-            with open(template_path, encoding="utf-8") as f:
-                template = Template(f.read())
-
-            html_body = template.render(
+            config: AuthenticationConfiguration = service_registry().get(
+                AuthenticationConfiguration
+            )
+            html_body = self._render_template(
+                template_file,
                 reset_url=reset_link,
                 user_name=user_name,
-                year=datetime.now().year,
+                year=datetime.now(UTC).year,
+                logo_url=f"{config.server_url}/img/appkit_logo.svg",
             )
 
             subject = "Passwort zurücksetzen | AppKit"
-
             return await self.send_email(to_email, subject, html_body)
 
         except Exception as e:
-            logger.exception("Failed to render email template: %s", e)
+            logger.exception("Failed to send password reset email: %s", e)
             return False
 
 
@@ -111,45 +101,31 @@ class ResendEmailProvider(EmailProviderBase):
     """Email provider using Resend API."""
 
     def __init__(self, config: ResendEmailConfig):
-        """Initialize Resend email provider.
-
-        Args:
-            config: Resend configuration
-        """
         super().__init__(config)
         self.config: ResendEmailConfig = config
 
     async def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
-        """Send email using Resend API.
-
-        Args:
-            to_email: Recipient email address
-            subject: Email subject
-            html_body: HTML content
-
-        Returns:
-            True if sent successfully
-        """
         try:
-            import httpx
+            import httpx  # noqa: PLC0415
+
+            url = "https://api.resend.com/emails"
+            headers = {
+                "Authorization": f"Bearer {self.config.api_key.get_secret_value()}",
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "from": f"{self.config.from_name} <{self.config.from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_body,
+            }
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    "https://api.resend.com/emails",
-                    headers={
-                        "Authorization": f"Bearer {self.config.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "from": f"{self.config.from_name} <{self.config.from_email}>",
-                        "to": [to_email],
-                        "subject": subject,
-                        "html": html_body,
-                    },
-                    timeout=30.0,
+                    url, headers=headers, json=payload, timeout=30.0
                 )
 
-                if response.status_code == 200:
+                if response.status_code == 200:  # noqa: PLR2004
                     logger.info("Email sent successfully via Resend to %s", to_email)
                     return True
 
@@ -160,6 +136,9 @@ class ResendEmailProvider(EmailProviderBase):
                 )
                 return False
 
+        except ImportError:
+            logger.error("httpx is required for Resend provider but not installed.")
+            return False
         except Exception as e:
             logger.exception("Error sending email via Resend: %s", e)
             return False
@@ -169,39 +148,21 @@ class AzureEmailProvider(EmailProviderBase):
     """Email provider using Azure Communication Services."""
 
     def __init__(self, config: AzureEmailConfig):
-        """Initialize Azure email provider.
-
-        Args:
-            config: Azure email configuration
-        """
         super().__init__(config)
         self.config: AzureEmailConfig = config
 
     async def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
-        """Send email using Azure Communication Services.
-
-        Args:
-            to_email: Recipient email address
-            subject: Email subject
-            html_body: HTML content
-
-        Returns:
-            True if sent successfully
-        """
+        """Send email using Azure Communication Services."""
         try:
-            from azure.communication.email import EmailClient
+            from azure.communication.email import EmailClient  # noqa: PLC0415
 
-            client = EmailClient.from_connection_string(self.config.connection_string)
-
+            client = EmailClient.from_connection_string(
+                self.config.connection_string.get_secret_value()
+            )
             message = {
                 "senderAddress": self.config.from_email,
-                "recipients": {
-                    "to": [{"address": to_email}],
-                },
-                "content": {
-                    "subject": subject,
-                    "html": html_body,
-                },
+                "recipients": {"to": [{"address": to_email}]},
+                "content": {"subject": subject, "html": html_body},
             }
 
             poller = client.begin_send(message)
@@ -211,9 +172,12 @@ class AzureEmailProvider(EmailProviderBase):
                 logger.info("Email sent successfully via Azure to %s", to_email)
                 return True
 
-            logger.error("Failed to send email via Azure")
+            logger.error("Failed to send email via Azure: No result returned")
             return False
 
+        except ImportError:
+            logger.error("azure-communication-email is required for Azure provider.")
+            return False
         except Exception as e:
             logger.exception("Error sending email via Azure: %s", e)
             return False
@@ -223,25 +187,11 @@ class MockEmailProvider(EmailProviderBase):
     """Mock email provider for development/testing."""
 
     def __init__(self, config: MockEmailConfig):
-        """Initialize mock email provider.
-
-        Args:
-            config: Mock email configuration
-        """
         super().__init__(config)
         self.config: MockEmailConfig = config
 
     async def send_email(self, to_email: str, subject: str, html_body: str) -> bool:
-        """Mock email sending by logging to console.
-
-        Args:
-            to_email: Recipient email address
-            subject: Email subject
-            html_body: HTML content
-
-        Returns:
-            Always True
-        """
+        """Mock email sending by logging to console."""
         logger.info("=" * 80)
         logger.info("MOCK EMAIL SENT")
         logger.info("To: %s", to_email)
@@ -261,34 +211,26 @@ class EmailServiceFactory:
     def create_provider(
         config: AuthenticationConfiguration,
     ) -> EmailProviderBase | None:
-        """Create an email provider based on configuration.
-
-        Args:
-            config: Authentication configuration
-
-        Returns:
-            EmailProviderBase instance or None if not configured
-        """
+        """Create an email provider based on configuration."""
         if not config.email_provider:
             logger.warning("No email provider configured")
             return None
 
         provider_config = config.email_provider
 
-        if provider_config.provider == EmailProvider.RESEND:
-            logger.info("Initializing Resend email provider")
-            return ResendEmailProvider(provider_config)
-
-        if provider_config.provider == EmailProvider.AZURE:
-            logger.info("Initializing Azure email provider")
-            return AzureEmailProvider(provider_config)
-
-        if provider_config.provider == EmailProvider.MOCK:
-            logger.info("Initializing Mock email provider")
-            return MockEmailProvider(provider_config)
-
-        logger.error("Unknown email provider: %s", provider_config.provider)
-        return None
+        match provider_config.provider:
+            case EmailProvider.RESEND:
+                logger.info("Initializing Resend email provider")
+                return ResendEmailProvider(provider_config)
+            case EmailProvider.AZURE:
+                logger.info("Initializing Azure email provider")
+                return AzureEmailProvider(provider_config)
+            case EmailProvider.MOCK:
+                logger.info("Initializing Mock email provider")
+                return MockEmailProvider(provider_config)
+            case _:
+                logger.error("Unknown email provider: %s", provider_config.provider)
+                return None
 
 
 def get_email_service() -> EmailProviderBase | None:

@@ -46,9 +46,7 @@ class PasswordResetRequestRepository(
             )
         )
         result = await session.execute(stmt)
-        count = result.scalar() or 0
-
-        return count
+        return result.scalar() or 0
 
     async def log_request(
         self, session: AsyncSession, email: str, ip_address: str | None = None

@@ -10,7 +10,7 @@ dependencies = [
     "appkit-imagecreator",
     "appkit-mantine",
     "appkit-ui",
-    "appkit-user",
+    "appkit-user[azure,resend]",
     "jinja2>=3.1.6",
     "psycopg==3.3.3",
     "psycopg-binary==3.3.3",

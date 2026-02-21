@@ -2,7 +2,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings
 
 from appkit_commons.configuration.base import BaseConfig
@@ -71,14 +71,14 @@ class ResendEmailConfig(EmailProviderConfig):
     """Configuration for Resend email provider."""
 
     provider: Literal[EmailProvider.RESEND] = EmailProvider.RESEND
-    api_key: str
+    api_key: SecretStr
 
 
 class AzureEmailConfig(EmailProviderConfig):
     """Configuration for Azure Communication Services email provider."""
 
     provider: Literal[EmailProvider.AZURE] = EmailProvider.AZURE
-    connection_string: str
+    connection_string: SecretStr
 
 
 class MockEmailConfig(EmailProviderConfig):
@@ -97,7 +97,7 @@ AnyEmailProviderConfig = Annotated[
 class PasswordResetConfig(BaseConfig):
     """Configuration for password reset feature."""
 
-    token_expiry_minutes: int = 60
+    token_expiry_minutes: int = 30
     max_requests_per_hour: int = 3
     templates_dir: Path | None = None
 

@@ -12,7 +12,6 @@ from appkit_user.authentication.components.password import (
     password_reset_confirm_form,
     password_reset_request_form,
 )
-from appkit_user.authentication.components.user import user_profile_view
 
 __all__ = [
     "default_fallback",
@@ -26,5 +25,4 @@ __all__ = [
     "requires_role",
     "session_monitor",
     "themed_logo",
-    "user_profile_view",
 ]

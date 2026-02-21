@@ -29,11 +29,13 @@ app:
 
     # Email provider for password reset (mock for local development)
     email_provider:
-      provider: "mock"
-      from_email: "noreply@localhost"
+      #provider: "mock"
+      provider: "resend"
+      api_key: secret:mn-resend-api-key
+      from_email: "onboarding@resend.dev"
       from_name: "AppKit Local"
 
     # Password reset settings
     password_reset:
-      token_expiry_minutes: 60
+      token_expiry_minutes: 5
       max_requests_per_hour: 3

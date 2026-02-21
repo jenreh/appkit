@@ -38,6 +38,12 @@ def _get_engine_kwargs() -> dict[str, Any]:
             "echo": db_config.echo,
             "pool_pre_ping": True,
             "pool_recycle": db_config.pool_recycle,
+            "connect_args": {
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            },
         }
 
     return {}
