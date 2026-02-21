@@ -6,10 +6,13 @@ import appkit_mantine as mn
 from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.components.mcp_server_dialogs import (
     add_mcp_server_button,
+    add_mcp_server_modal,
     delete_mcp_server_dialog,
+    edit_mcp_server_modal,
     update_mcp_server_dialog,
 )
 from appkit_assistant.state.mcp_server_state import MCPServerState
+from appkit_ui.styles import sticky_header_style
 
 
 def mcp_server_table_row(server: MCPServer) -> rx.Component:
@@ -113,6 +116,8 @@ def mcp_servers_table(
         available_roles = []
 
     return mn.stack(
+        add_mcp_server_modal(),
+        edit_mcp_server_modal(),
         rx.flex(
             add_mcp_server_button(),
             mn.text_input(
@@ -138,11 +143,14 @@ def mcp_servers_table(
                     mn.table.th(mn.text("Rolle", size="sm", fw="700")),
                     mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
                     mn.table.th(mn.text("", size="sm")),
+                    style=sticky_header_style,
                 ),
             ),
             mn.table.tbody(
                 rx.foreach(MCPServerState.filtered_servers, mcp_server_table_row)
             ),
+            sticky_header=True,
+            sticky_header_offset="0px",
             striped=False,
             highlight_on_hover=True,
             highlight_on_hover_color=rx.color_mode_cond(

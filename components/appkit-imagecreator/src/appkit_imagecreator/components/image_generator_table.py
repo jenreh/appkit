@@ -12,6 +12,7 @@ from appkit_imagecreator.components.image_generator_dialogs import (
     delete_image_generator_dialog,
     edit_image_generator_modal,
 )
+from appkit_ui.styles import sticky_header_style
 
 
 def _processor_short_name(processor_type: str) -> str:
@@ -174,6 +175,7 @@ def image_generators_table(
                     mn.table.th(mn.text("Rolle", size="sm", fw="700")),
                     mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
                     mn.table.th(mn.text("", size="sm")),
+                    style=sticky_header_style,
                 ),
             ),
             mn.table.tbody(
@@ -182,6 +184,8 @@ def image_generators_table(
                     image_generator_table_row,
                 )
             ),
+            sticky_header=True,
+            sticky_header_offset="0px",
             striped=False,
             highlight_on_hover=True,
             highlight_on_hover_color=rx.color_mode_cond(

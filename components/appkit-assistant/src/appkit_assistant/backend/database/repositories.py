@@ -235,6 +235,43 @@ class FileUploadRepository(BaseRepository[AssistantFileUpload, AsyncSession]):
         result = await session.execute(stmt)
         return [(row[0], row[1] or "") for row in result.all()]
 
+    async def find_unique_vector_stores_by_ai_model(
+        self, session: AsyncSession, ai_model: str
+    ) -> list[tuple[str, str]]:
+        """Get unique vector store IDs with names for a specific AI model.
+
+        Args:
+            ai_model: The model_id string to filter by.
+
+        Returns:
+            List of tuples (vector_store_id, vector_store_name).
+        """
+        stmt = (
+            select(
+                AssistantFileUpload.vector_store_id,
+                AssistantFileUpload.vector_store_name,
+            )
+            .where(AssistantFileUpload.ai_model == ai_model)
+            .distinct()
+            .order_by(AssistantFileUpload.vector_store_id)
+        )
+        result = await session.execute(stmt)
+        return [(row[0], row[1] or "") for row in result.all()]
+
+    async def find_distinct_ai_models(self, session: AsyncSession) -> list[str]:
+        """Get distinct ai_model values from all file uploads.
+
+        Returns:
+            List of unique ai_model strings (excluding empty).
+        """
+        stmt = (
+            select(AssistantFileUpload.ai_model)
+            .distinct()
+            .order_by(AssistantFileUpload.ai_model)
+        )
+        result = await session.execute(stmt)
+        return [row[0] for row in result.all() if row[0]]
+
     async def find_by_vector_store(
         self, session: AsyncSession, vector_store_id: str
     ) -> list[AssistantFileUpload]:
@@ -783,6 +820,21 @@ class AIModelRepository(BaseRepository[AssistantAIModel, AsyncSession]):
             .where(
                 AssistantAIModel.supports_skills == True,  # noqa: E712
                 AssistantAIModel.processor_type == "openai",
+            )
+            .order_by(AssistantAIModel.text)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_with_attachments(
+        self, session: AsyncSession
+    ) -> list[AssistantAIModel]:
+        """Retrieve all active models that support file attachments."""
+        stmt = (
+            select(AssistantAIModel)
+            .where(
+                AssistantAIModel.supports_attachments == True,  # noqa: E712
+                AssistantAIModel.active == True,  # noqa: E712
             )
             .order_by(AssistantAIModel.text)
         )

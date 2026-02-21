@@ -156,7 +156,9 @@ class AssistantMCPUserToken(rx.Model, table=True):
 class AssistantFileUpload(rx.Model, table=True):
     """Model for tracking files uploaded to OpenAI for vector search.
 
-    Each file is associated with a thread and vector store.
+    Each file is associated with a thread, vector store, and AI model
+    (subscription). The ``ai_model`` field stores the model_id string
+    of the :class:`AssistantAIModel` whose API key was used for the upload.
     """
 
     __tablename__ = "assistant_file_uploads"
@@ -171,6 +173,7 @@ class AssistantFileUpload(rx.Model, table=True):
     )
     user_id: int = Field(index=True, nullable=False)
     file_size: int = Field(default=0, nullable=False)
+    ai_model: str = Field(default="", max_length=100, nullable=False, index=True)
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

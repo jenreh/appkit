@@ -140,6 +140,7 @@ def form_field(
         error=validation_error,
         required=kwargs.get("required", False),
         width="100%",
+        my="3px",
     )
 
 
