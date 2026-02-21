@@ -25,6 +25,10 @@ class MCPServerState(rx.State):
     loading: bool = False
     updating_active_server_id: int | None = None
     updating_role_server_id: int | None = None
+    add_modal_open: bool = False
+    opening_add_modal: bool = False
+    edit_modal_open: bool = False
+    opening_edit_server_id: int | None = None
     search_filter: str = ""
     available_roles: list[dict[str, str]] = []
     role_labels: dict[str, str] = {}
@@ -41,6 +45,36 @@ class MCPServerState(rx.State):
 
         search = self.search_filter.lower()
         return [server for server in self.servers if search in server.name.lower()]
+
+    async def open_add_modal(self) -> AsyncGenerator[Any, Any]:
+        """Open the add server modal."""
+        self.opening_add_modal = True
+        yield
+        self.add_modal_open = True
+        self.opening_add_modal = False
+
+    def close_add_modal(self) -> None:
+        """Close the add server modal."""
+        self.add_modal_open = False
+
+    async def open_edit_modal(self, server_id: int) -> AsyncGenerator[Any, Any]:
+        """Open the edit server modal."""
+        self.opening_edit_server_id = server_id
+        yield
+
+        # Find server in list (sync operation but inside async loop)
+        for server in self.servers:
+            if server.id == server_id:
+                self.current_server = server
+                self.edit_modal_open = True
+                break
+
+        self.opening_edit_server_id = None
+
+    def close_edit_modal(self) -> None:
+        """Close the edit server modal."""
+        self.edit_modal_open = False
+        self.current_server = None
 
     def set_available_roles(
         self,
@@ -136,6 +170,7 @@ class MCPServerState(rx.State):
                 server_name = server.name
 
             await self.load_servers()
+            self.add_modal_open = False
             yield rx.toast.info(
                 "MCP Server {} wurde hinzugefügt.".format(form_data["name"]),
                 position="top-right",
@@ -214,6 +249,8 @@ class MCPServerState(rx.State):
 
             if updated_name:
                 await self.load_servers()
+                self.edit_modal_open = False
+                self.current_server = None
                 yield rx.toast.info(
                     "MCP Server {} wurde aktualisiert.".format(form_data["name"]),
                     position="top-right",

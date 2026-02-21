@@ -42,8 +42,17 @@ class PGQueuerScheduler(Scheduler):
             # Fix connection string for psycopg if it contains driver info
             url_str = str(config.url).replace("+psycopg", "").replace("+asyncpg", "")
 
-            # Connect using psycopg
-            self._conn = await psycopg.AsyncConnection.connect(url_str, autocommit=True)
+            # Connect using psycopg with keepalive settings to prevent dropouts
+            # Azure DB for PostgreSQL defaults to 4 minutes idle timeout, so we
+            # set keepalives to ensure the connection stays active.
+            self._conn = await psycopg.AsyncConnection.connect(
+                url_str,
+                autocommit=True,
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5,
+            )
 
             # Driver
             driver = PsycopgDriver(self._conn)
@@ -90,43 +99,66 @@ class PGQueuerScheduler(Scheduler):
         self._pgq.schedule(service.job_id, cron)(wrapper)
         logger.debug("Registered service '%s' with cron '%s'", service.job_id, cron)
 
+    async def _cleanup_connection(self) -> None:
+        """Close database connection and clear PGQueuer instance."""
+        if self._conn:
+            with contextlib.suppress(Exception):
+                await self._conn.close()
+        self._conn = None
+        self._pgq = None
+
+    async def _run_loop(self) -> None:
+        """Main loop for the scheduler with auto-restart on connection loss."""
+        while self._is_running:
+            try:
+                # 1. Setup connection and PGQueuer if needed
+                if not self._pgq:
+                    await self._setup_pgqueuer()
+                    if not self._pgq:
+                        # Failed to setup, retry later
+                        await asyncio.sleep(10)
+                        continue
+
+                    # 2. Register services on NEW pgq instance
+                    for service in self._services.values():
+                        self._register_service_on_pgq(service)
+
+                # 3. Run safely
+                logger.info(
+                    "Starting PGQueuer run loop (services=%d)...", len(self._services)
+                )
+                if self._pgq:
+                    await self._pgq.run()
+
+            except asyncio.CancelledError:
+                logger.debug("PGQueuer loop cancelled.")
+                break
+            except Exception as e:
+                logger.error("PGQueuer scheduler crashed: %s. Restarting in 5s...", e)
+                # Cleanup to force reconnection
+                await self._cleanup_connection()
+                await asyncio.sleep(5)
+
     async def start(self) -> None:
         """Start the scheduler background task."""
         if not self._is_running:
-            await self._setup_pgqueuer()
-
-            if not self._pgq:
-                logger.warning("PGQueuer not initialized, scheduler will not run.")
-                return
-
-            # Register all services
-            for service in self._services.values():
-                self._register_service_on_pgq(service)
-
-            # Start the consumer loop in background
-            # Note: run() blocks, so create task
-            # pgqueuer's run() method might need wait?
-            if self._pgq:
-                self._task = asyncio.create_task(self._pgq.run())
-                self._is_running = True
-                logger.info("Started scheduler (services=%d)", len(self._services))
+            self._is_running = True
+            # Start the resilient loop
+            self._task = asyncio.create_task(self._run_loop())
+            logger.info("Scheduler started")
         else:
             logger.debug("Application scheduler is already running")
 
     async def shutdown(self) -> None:
         """Shutdown the scheduler."""
         if self._is_running:
+            self._is_running = False
             if self._task:
                 self._task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await self._task
 
-            if self._conn:
-                await self._conn.close()
-
-            self._pgq = None
-            self._conn = None
-            self._is_running = False
+            await self._cleanup_connection()
             logger.info("Application scheduler stopped")
 
     # Compatibility method if needed, but we aim to remove direct usage

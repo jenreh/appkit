@@ -7,25 +7,10 @@ from appkit_imagecreator.backend.models import (
     GeneratedImageData,
     GenerationInput,
     ImageGeneratorResponse,
-    ImageModel,
     ImageResponseState,
 )
 
 logger = logging.getLogger(__name__)
-
-NANO_BANANA = ImageModel(
-    id="nano-banana",
-    model="gemini-2.5-flash-image",
-    label="Google Nano Banana",
-    config={},
-)
-
-NANO_BANANA_PRO = ImageModel(
-    id="nano-banana-pro",
-    model="gemini-3-pro-image-preview",
-    label="Google Nano Banana Pro",
-    config={},
-)
 
 
 class NanoBananaImageGenerator(GoogleImageGenerator):

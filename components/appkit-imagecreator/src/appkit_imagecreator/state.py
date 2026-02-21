@@ -125,8 +125,8 @@ class ImageGalleryState(rx.State):
     enhance_prompt: bool = True
 
     # Model selection
-    generator: str = generator_registry.get_default_generator().model.id
-    generators: list[dict[str, str]] = generator_registry.list_generators()
+    generator: str = ""
+    generators: list[dict[str, str]] = []
 
     # Zoom modal state
     zoom_modal_open: bool = False
@@ -211,8 +211,52 @@ class ImageGalleryState(rx.State):
     @rx.event(background=True)
     async def initialize(self) -> AsyncGenerator[Any, Any]:
         """Initialize the image gallery - load images from database."""
+        # Always refresh generators from the registry
+        async with self:
+            await generator_registry.initialize()
+            await self.refresh_generators()
+            yield
+
         async for _ in self._load_images():
             yield
+
+    def _refresh_generators(self, user_roles: list[str]) -> None:
+        """Refresh generator list from registry and validate selection."""
+        all_generators = generator_registry.list_generators()
+        self.generators = [
+            gen
+            for gen in all_generators
+            if not gen["required_role"] or gen["required_role"] in user_roles
+        ]
+
+        valid_ids = {g["id"] for g in self.generators}
+        if self.generator not in valid_ids:
+            if self.generators:
+                # Try to use default if available to user, otherwise
+                # pick first available
+                try:
+                    default_id = generator_registry.get_default_generator().model.id
+                    if default_id in valid_ids:
+                        self.generator = default_id
+                    else:
+                        self.generator = self.generators[0]["id"]
+                except Exception:
+                    self.generator = self.generators[0]["id"]
+            else:
+                self.generator = ""
+
+    @rx.event
+    async def refresh_generators(self) -> None:
+        """Reload generators from registry and update the list based on user roles."""
+        # Ensure registry is up to date
+        if not generator_registry._loaded:  # noqa: SLF001
+            await generator_registry.initialize()
+        else:
+            await generator_registry.reload()
+
+        user_session: UserSession = await self.get_state(UserSession)
+        roles = user_session.user.roles if user_session.user else []
+        self._refresh_generators(roles)
 
     async def _load_images(self) -> AsyncGenerator[Any, Any]:  # noqa: PLR0915
         """Load images from database (internal)."""

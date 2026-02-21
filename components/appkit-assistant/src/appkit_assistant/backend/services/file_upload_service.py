@@ -145,6 +145,7 @@ class FileUploadService:
         user_id: int,
         filenames: list[str],
         file_sizes: list[int],
+        ai_model: str = "",
     ) -> None:
         """Add uploaded files to a vector store and track in database (private helper).
 
@@ -156,6 +157,7 @@ class FileUploadService:
             user_id: ID of the user who uploaded the files.
             filenames: Original filenames for each file.
             file_sizes: Size in bytes for each file.
+            ai_model: model_id string of the AI model (subscription).
 
         Raises:
             FileUploadError: If adding files fails.
@@ -196,6 +198,7 @@ class FileUploadService:
                     thread_id=thread_id,
                     user_id=user_id,
                     file_size=size,
+                    ai_model=ai_model,
                 )
                 session.add(upload_record)
 
@@ -238,7 +241,7 @@ class FileUploadService:
 
         for attempt in range(max_retries):
             try:
-                file_content = path.read_bytes()
+                file_content = path.read_bytes()  # noqa: ASYNC240
                 vs_file = await self.client.files.create(
                     file=(path.name, file_content),
                     purpose="assistants",
@@ -519,11 +522,11 @@ class FileUploadService:
         path = Path(file_path)
 
         # Validate file exists
-        if not path.exists():
+        if not path.exists():  # noqa: ASYNC240
             raise FileUploadError(f"Datei nicht gefunden: {file_path}")
 
         # Validate file size
-        file_size = path.stat().st_size
+        file_size = path.stat().st_size  # noqa: ASYNC240
         if file_size > self._max_file_size_bytes:
             raise FileUploadError(
                 "Datei überschreitet die maximale Größe von "
@@ -550,6 +553,7 @@ class FileUploadService:
         thread_db_id: int,
         thread_uuid: str,
         user_id: int,
+        ai_model: str = "",
     ) -> AsyncGenerator[Chunk, None]:
         """Process files for a thread, yielding progress chunks in real-time.
 
@@ -563,6 +567,7 @@ class FileUploadService:
             thread_db_id: Database ID of the thread.
             thread_uuid: UUID string of the thread.
             user_id: ID of the user.
+            ai_model: model_id string of the AI model (subscription).
 
         Yields:
             Chunk objects with real-time progress updates.
@@ -600,7 +605,7 @@ class FileUploadService:
                 file_id = await self.upload_file(file_path, thread_db_id, user_id)
                 uploaded_file_ids.append(file_id)
                 filenames.append(filename)
-                file_sizes.append(path.stat().st_size)
+                file_sizes.append(path.stat().st_size)  #  # noqa: ASYNC240
 
             # Phase 2: Get or create vector store
             yield self._chunk_factory.create(
@@ -649,6 +654,7 @@ class FileUploadService:
                         thread_id=thread_db_id,
                         user_id=user_id,
                         file_size=size,
+                        ai_model=ai_model,
                     )
                     session.add(upload_record)
                 await session.commit()

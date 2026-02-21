@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 from sqlmodel import Column, DateTime, Field
 
-from appkit_assistant.backend.schemas import MCPAuthType, ThreadStatus
+from appkit_assistant.backend.schemas import AIModel, MCPAuthType, ThreadStatus
 from appkit_commons.database.configuration import DatabaseConfig
 from appkit_commons.database.entities import EncryptedString
 from appkit_commons.registry import service_registry
@@ -156,7 +156,9 @@ class AssistantMCPUserToken(rx.Model, table=True):
 class AssistantFileUpload(rx.Model, table=True):
     """Model for tracking files uploaded to OpenAI for vector search.
 
-    Each file is associated with a thread and vector store.
+    Each file is associated with a thread, vector store, and AI model
+    (subscription). The ``ai_model`` field stores the model_id string
+    of the :class:`AssistantAIModel` whose API key was used for the upload.
     """
 
     __tablename__ = "assistant_file_uploads"
@@ -171,6 +173,7 @@ class AssistantFileUpload(rx.Model, table=True):
     )
     user_id: int = Field(index=True, nullable=False)
     file_size: int = Field(default=0, nullable=False)
+    ai_model: str = Field(default="", max_length=100, nullable=False, index=True)
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
@@ -223,6 +226,8 @@ class Skill(rx.Model, table=True):
 
     Stores metadata synced from the OpenAI Skills API alongside
     local administration state (active toggle, role restriction).
+    The ``api_key_hash`` links the skill to the API key that was
+    used to create/sync it so that skills can be filtered by model.
     """
 
     __tablename__ = "assistant_skills"
@@ -235,10 +240,64 @@ class Skill(rx.Model, table=True):
     latest_version: str = Field(default="1", max_length=20, nullable=False)
     active: bool = Field(default=True, nullable=False)
     required_role: str | None = Field(default=None, nullable=True)
+    api_key_hash: str | None = Field(
+        default=None, max_length=64, nullable=True, index=True
+    )
     last_synced: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         sa_column=Column(DateTime(timezone=True)),
     )
+
+
+class AssistantAIModel(rx.Model, table=True):
+    """Database model for AI model configuration.
+
+    Stores model metadata, capabilities, and processor assignment
+    for dynamic admin-driven management.
+    """
+
+    __tablename__ = "assistant_ai_models"
+
+    id: int | None = Field(default=None, primary_key=True)
+    model_id: str = Field(unique=True, max_length=100, nullable=False)
+    text: str = Field(max_length=100, nullable=False)
+    icon: str = Field(default="codesandbox", max_length=50, nullable=False)
+    model: str = Field(max_length=100, nullable=False)
+    processor_type: str = Field(max_length=50, nullable=False)
+    stream: bool = Field(default=False, nullable=False)
+    temperature: float = Field(default=0.05, nullable=False)
+    supports_tools: bool = Field(default=False, nullable=False)
+    supports_attachments: bool = Field(default=False, nullable=False)
+    supports_search: bool = Field(default=False, nullable=False)
+    supports_skills: bool = Field(default=False, nullable=False)
+    active: bool = Field(default=True, nullable=False)
+    requires_role: str | None = Field(default=None, nullable=True)
+    # Per-model API credentials (override global config when set)
+    api_key: str | None = Field(default=None, nullable=True, sa_type=EncryptedString)
+    base_url: str | None = Field(default=None, nullable=True, max_length=500)
+    on_azure: bool = Field(default=False, nullable=False)
+    enable_tracking: bool = Field(default=True, nullable=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True)),
+    )
+
+    def to_ai_model(self) -> AIModel:
+        """Convert DB record to runtime AIModel schema."""
+        return AIModel(
+            id=self.model_id,
+            text=self.text,
+            icon=self.icon,
+            model=self.model,
+            stream=self.stream,
+            temperature=self.temperature,
+            supports_tools=self.supports_tools,
+            supports_attachments=self.supports_attachments,
+            supports_search=self.supports_search,
+            supports_skills=self.supports_skills,
+            requires_role=self.requires_role,
+            active=self.active,
+        )
 
 
 class UserSkillSelection(rx.Model, table=True):

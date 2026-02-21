@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from appkit_assistant.backend.database.models import (
+    AssistantAIModel,
     AssistantFileUpload,
     AssistantThread,
     MCPServer,
@@ -234,6 +235,43 @@ class FileUploadRepository(BaseRepository[AssistantFileUpload, AsyncSession]):
         result = await session.execute(stmt)
         return [(row[0], row[1] or "") for row in result.all()]
 
+    async def find_unique_vector_stores_by_ai_model(
+        self, session: AsyncSession, ai_model: str
+    ) -> list[tuple[str, str]]:
+        """Get unique vector store IDs with names for a specific AI model.
+
+        Args:
+            ai_model: The model_id string to filter by.
+
+        Returns:
+            List of tuples (vector_store_id, vector_store_name).
+        """
+        stmt = (
+            select(
+                AssistantFileUpload.vector_store_id,
+                AssistantFileUpload.vector_store_name,
+            )
+            .where(AssistantFileUpload.ai_model == ai_model)
+            .distinct()
+            .order_by(AssistantFileUpload.vector_store_id)
+        )
+        result = await session.execute(stmt)
+        return [(row[0], row[1] or "") for row in result.all()]
+
+    async def find_distinct_ai_models(self, session: AsyncSession) -> list[str]:
+        """Get distinct ai_model values from all file uploads.
+
+        Returns:
+            List of unique ai_model strings (excluding empty).
+        """
+        stmt = (
+            select(AssistantFileUpload.ai_model)
+            .distinct()
+            .order_by(AssistantFileUpload.ai_model)
+        )
+        result = await session.execute(stmt)
+        return [row[0] for row in result.all() if row[0]]
+
     async def find_by_vector_store(
         self, session: AsyncSession, vector_store_id: str
     ) -> list[AssistantFileUpload]:
@@ -333,7 +371,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         result = await session.execute(stmt)
         prompts = []
         for prompt, creator_name in result:
-            prompt_dict = prompt.dict()
+            prompt_dict = prompt.model_dump()
             prompt_dict["creator_name"] = creator_name or "Unbekannt"
             # Ensure mcp_server_ids is included as a list
             prompt_dict["mcp_server_ids"] = list(prompt.mcp_server_ids)
@@ -635,6 +673,31 @@ class SkillRepository(BaseRepository[Skill, AsyncSession]):
         result = await session.execute(stmt)
         return result.scalars().first()
 
+    async def find_all_by_api_key_hash(
+        self, session: AsyncSession, api_key_hash: str
+    ) -> list[Skill]:
+        """Retrieve all skills for a given API key hash, ordered by name."""
+        stmt = (
+            select(Skill).where(Skill.api_key_hash == api_key_hash).order_by(Skill.name)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_active_by_api_key_hash(
+        self, session: AsyncSession, api_key_hash: str
+    ) -> list[Skill]:
+        """Retrieve all active skills for a given API key hash."""
+        stmt = (
+            select(Skill)
+            .where(
+                Skill.api_key_hash == api_key_hash,
+                Skill.active == True,  # noqa: E712
+            )
+            .order_by(Skill.name)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
 
 class UserSkillRepository(BaseRepository[UserSkillSelection, AsyncSession]):
     """Repository for user skill selection operations."""
@@ -698,6 +761,113 @@ class UserSkillRepository(BaseRepository[UserSkillSelection, AsyncSession]):
         return len(selections)
 
 
+class AIModelRepository(BaseRepository[AssistantAIModel, AsyncSession]):
+    """Repository for AI model database operations."""
+
+    @property
+    def model_class(self) -> type[AssistantAIModel]:
+        return AssistantAIModel
+
+    async def find_all_ordered_by_text(
+        self, session: AsyncSession
+    ) -> list[AssistantAIModel]:
+        """Retrieve all AI models ordered by display text."""
+        stmt = select(AssistantAIModel).order_by(AssistantAIModel.text)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_active_ordered_by_text(
+        self, session: AsyncSession
+    ) -> list[AssistantAIModel]:
+        """Retrieve all active models ordered by text."""
+        stmt = (
+            select(AssistantAIModel)
+            .where(AssistantAIModel.active == True)  # noqa: E712
+            .order_by(AssistantAIModel.text)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_by_model_id(
+        self, session: AsyncSession, model_id: str
+    ) -> AssistantAIModel | None:
+        """Find a model by its unique model_id string."""
+        stmt = select(AssistantAIModel).where(AssistantAIModel.model_id == model_id)
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+    async def find_by_processor_type(
+        self, session: AsyncSession, processor_type: str
+    ) -> list[AssistantAIModel]:
+        """Find all active models for a given processor type."""
+        stmt = (
+            select(AssistantAIModel)
+            .where(
+                AssistantAIModel.processor_type == processor_type,
+                AssistantAIModel.active == True,  # noqa: E712
+            )
+            .order_by(AssistantAIModel.text)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_skill_capable(
+        self, session: AsyncSession
+    ) -> list[AssistantAIModel]:
+        """Retrieve all OpenAI models that support skills, ordered by text."""
+        stmt = (
+            select(AssistantAIModel)
+            .where(
+                AssistantAIModel.supports_skills == True,  # noqa: E712
+                AssistantAIModel.processor_type == "openai",
+            )
+            .order_by(AssistantAIModel.text)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def find_all_with_attachments(
+        self, session: AsyncSession
+    ) -> list[AssistantAIModel]:
+        """Retrieve all active models that support file attachments."""
+        stmt = (
+            select(AssistantAIModel)
+            .where(
+                AssistantAIModel.supports_attachments == True,  # noqa: E712
+                AssistantAIModel.active == True,  # noqa: E712
+            )
+            .order_by(AssistantAIModel.text)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def update_active(
+        self, session: AsyncSession, model_id: int, active: bool
+    ) -> AssistantAIModel | None:
+        """Update the active flag for a model."""
+        rec = await session.get(AssistantAIModel, model_id)
+        if not rec:
+            return None
+        rec.active = active
+        session.add(rec)
+        await session.flush()
+        await session.refresh(rec)
+        return rec
+
+    async def update_role(
+        self, session: AsyncSession, model_id: int, requires_role: str | None
+    ) -> AssistantAIModel | None:
+        """Update the required_role for a model."""
+        rec = await session.get(AssistantAIModel, model_id)
+        if not rec:
+            return None
+        rec.requires_role = requires_role
+        session.add(rec)
+        await session.flush()
+        await session.refresh(rec)
+        return rec
+
+
 # Export instances
 mcp_server_repo = MCPServerRepository()
 system_prompt_repo = SystemPromptRepository()
@@ -706,3 +876,4 @@ file_upload_repo = FileUploadRepository()
 user_prompt_repo = UserPromptRepository()
 skill_repo = SkillRepository()
 user_skill_repo = UserSkillRepository()
+ai_model_repo = AIModelRepository()

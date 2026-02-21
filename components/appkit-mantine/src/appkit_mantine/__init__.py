@@ -66,7 +66,7 @@ from appkit_mantine.inputs import (
     text_input,
     textarea,
 )
-
+from appkit_mantine.inputs_toggles import checkbox, radio, switch
 from appkit_mantine.layout import (
     center,
     container,
@@ -101,7 +101,6 @@ from appkit_mantine.overlay import (
 )
 from appkit_mantine.scroll_area import scroll_area
 from appkit_mantine.slider import slider, range_slider
-from appkit_mantine.switch import switch
 from appkit_mantine.table import table
 from appkit_mantine.tiptap import (
     rich_text_editor,
@@ -115,8 +114,6 @@ from appkit_mantine.typography import (
     title,
     typography_styles_provider,
 )
-
-
 from appkit_mantine.charts import (
     area_chart,
     bar_chart,
@@ -171,6 +168,7 @@ __all__ = [
     "calendar",
     "card",
     "center",
+    "checkbox",
     "code",
     "composite_chart",
     "container",
@@ -209,10 +207,12 @@ __all__ = [
     "number_formatter",
     "number_input",
     "pagination",
+    "paper",
     "password_input",
     "pie_chart",
     "progress",
     "radar_chart",
+    "radio",
     "range_slider",
     "rich_select",
     "rich_text_editor",

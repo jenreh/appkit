@@ -27,6 +27,7 @@ from appkit_assistant.backend.database.models import (
     ThreadStatus,
 )
 from appkit_assistant.backend.database.repositories import (
+    ai_model_repo,
     mcp_server_repo,
     skill_repo,
     user_prompt_repo,
@@ -47,6 +48,7 @@ from appkit_assistant.backend.schemas import (
 )
 from appkit_assistant.backend.services import file_manager
 from appkit_assistant.backend.services.response_accumulator import ResponseAccumulator
+from appkit_assistant.backend.services.skill_service import compute_api_key_hash
 from appkit_assistant.backend.services.thread_service import ThreadService
 from appkit_assistant.configuration import AssistantConfig
 from appkit_assistant.state.thread_list_state import ThreadListState
@@ -276,14 +278,16 @@ class ThreadState(rx.State):
         user = await user_session.authenticated_user
         current_user_id = str(user.user_id) if user else ""
 
-        # If already initialized and user hasn't changed, skip
+        # Always refresh the model list so role changes from the admin UI
+        # are reflected without requiring a full session reset.
+        self._setup_models(user)
+
+        # If already initialized and user hasn't changed, skip full reset
         if self._initialized and self._current_user_id == current_user_id:
             logger.debug(
                 "Thread state already initialized for user %s", current_user_id
             )
             return
-
-        self._setup_models(user)
 
         self._thread = self._thread_service.create_new_thread(
             current_model=self.selected_model,
@@ -307,7 +311,6 @@ class ThreadState(rx.State):
         """Setup available AI models based on user roles."""
         model_manager = ModelManager()
         all_models = model_manager.get_all_models()
-        self.selected_model = model_manager.get_default_model()
 
         user_roles = user.roles if user else []
         self.ai_models = [
@@ -316,10 +319,14 @@ class ThreadState(rx.State):
             if not m.requires_role or m.requires_role in user_roles
         ]
 
-        # Ensure selected model is available
+        # Ensure selected model is still available; keep current selection
+        # when possible so refreshes don't disrupt the user's choice.
         available_ids = {m.id for m in self.ai_models}
         if self.selected_model not in available_ids:
-            if self.ai_models:
+            default = model_manager.get_default_model()
+            if default in available_ids:
+                self.selected_model = default
+            elif self.ai_models:
                 self.selected_model = self.ai_models[0].id
             else:
                 logger.warning("No models available for user")
@@ -488,7 +495,7 @@ class ThreadState(rx.State):
         # Get the model to check capabilities
         model = ModelManager().get_model(model_id)
         if not model:
-            return
+            return None
 
         # Deactivate features if not supported
         if not model.supports_search:
@@ -500,8 +507,14 @@ class ThreadState(rx.State):
         if not model.supports_attachments:
             self._clear_uploaded_files()
 
+        if not model.supports_skills:
+            self._restore_skill_selection([])
+
         # Reset modal tab to "tools" when model changes
         self.modal_active_tab = "tools"
+
+        # Reload skills for the newly selected model
+        return ThreadState.load_available_skills_for_user  # type: ignore[return-value]
 
     @rx.event
     def set_with_thread_list(self, with_thread_list: bool) -> None:
@@ -776,13 +789,29 @@ class ThreadState(rx.State):
 
     @rx.event
     async def load_available_skills_for_user(self) -> None:
-        """Load active skills filtered by user roles."""
+        """Load active skills filtered by user roles and selected model."""
         user_session = await self.get_state(UserSession)
         user = await user_session.authenticated_user
         user_roles: list[str] = user.roles if user else []
 
         async with get_asyncdb_session() as session:
-            skills = await skill_repo.find_all_active_ordered_by_name(session)
+            # Resolve the selected model's API key hash
+            api_key_hash: str | None = None
+            if self.selected_model:
+                db_model = await ai_model_repo.find_by_model_id(
+                    session, self.selected_model
+                )
+                if db_model and db_model.api_key:
+                    api_key_hash = compute_api_key_hash(db_model.api_key)
+
+            # Load skills filtered by api_key_hash when available
+            if api_key_hash:
+                skills = await skill_repo.find_all_active_by_api_key_hash(
+                    session, api_key_hash
+                )
+            else:
+                skills = await skill_repo.find_all_active_ordered_by_name(session)
+
             filtered = [
                 Skill(**s.model_dump())
                 for s in skills
@@ -1140,8 +1169,10 @@ class ThreadState(rx.State):
             payload = {
                 "thread_uuid": self._thread.thread_id,
                 **({"web_search_enabled": True} if self.web_search_enabled else {}),
-                **({"skill_openai_ids": skill_ids} if skill_ids else {}),
             }
+
+            if skill_ids and self.selected_model_supports_skills:
+                payload["skill_openai_ids"] = skill_ids
 
             async for chunk in processor.process(
                 self.messages,

@@ -9,6 +9,7 @@ from appkit_assistant.components.skill_dialogs import (
     delete_skill_dialog,
 )
 from appkit_assistant.state.skill_admin_state import SkillAdminState
+from appkit_ui.styles import sticky_header_style
 
 
 def _skill_table_row(skill: Skill) -> rx.Component:
@@ -115,6 +116,7 @@ def skills_table(
                 left_section=rx.icon("plus", size=16),
                 size="sm",
                 on_click=SkillAdminState.open_create_modal,
+                disabled=~SkillAdminState.has_skill_models,
             ),
             mn.text_input(
                 placeholder="Skills filtern...",
@@ -126,6 +128,14 @@ def skills_table(
                 w="18rem",
             ),
             rx.spacer(),
+            mn.select(
+                data=SkillAdminState.skill_model_options,
+                value=SkillAdminState.selected_model_id,
+                on_change=SkillAdminState.set_selected_model,
+                placeholder="Modell auswählen...",
+                size="sm",
+                w="14rem",
+            ),
             mn.button(
                 "Synchronisieren",
                 left_section=rx.icon("refresh-cw", size=16),
@@ -133,6 +143,7 @@ def skills_table(
                 variant="outline",
                 on_click=SkillAdminState.sync_skills,
                 loading=SkillAdminState.syncing,
+                disabled=~SkillAdminState.has_skill_models,
             ),
             width="100%",
             margin_bottom="md",
@@ -148,6 +159,7 @@ def skills_table(
                     mn.table.th(mn.text("Rolle", size="sm", fw="700")),
                     mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
                     mn.table.th(mn.text("", size="sm")),
+                    style=sticky_header_style,
                 ),
             ),
             mn.table.tbody(
@@ -156,6 +168,8 @@ def skills_table(
                     _skill_table_row,
                 )
             ),
+            sticky_header=True,
+            sticky_header_offset="0px",
             striped=False,
             highlight_on_hover=True,
             highlight_on_hover_color=rx.color_mode_cond(
@@ -167,6 +181,7 @@ def skills_table(
         w="100%",
         on_mount=lambda: [
             SkillAdminState.set_available_roles(available_roles, role_labels),
+            SkillAdminState.load_skill_models(),
             SkillAdminState.load_skills_with_toast(),
         ],
     )

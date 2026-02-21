@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "format",
+			"type": "shell",
+			"command": "task format"
+		},
+		{
+			"label": "format",
+			"type": "shell",
+			"command": "task format"
+		}
+	]
+}

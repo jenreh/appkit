@@ -16,33 +16,6 @@ from appkit_imagecreator.backend.models import (
 
 logger = logging.getLogger(__name__)
 
-GPT_IMAGE_1_5 = ImageModel(
-    id="gpt-image-1.5",
-    model="gpt-image-1.5",
-    label="OpenAI GPT-Image-1.5 (Azure)",
-    config={
-        "input_fidelity": "high",
-        "moderation": "low",
-        "output_compression": 95,
-        "output_format": "jpeg",
-        "quality": "high",
-        "background": "auto",
-    },
-)
-
-GPT_IMAGE_1_MINI = ImageModel(
-    id="gpt-image-1-mini",
-    model="gpt-image-1-mini",
-    label="OpenAI GPT-Image-1 mini (Azure)",
-    config={
-        "moderation": "low",
-        "output_compression": 90,
-        "output_format": "jpeg",
-        "quality": "high",
-        "background": "auto",
-    },
-)
-
 
 class OpenAIImageGenerator(ImageGenerator):
     """Generator for the OpenAI DALL-E API."""

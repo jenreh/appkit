@@ -333,9 +333,6 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             collected_parts: list[types.Part] = []
             streamed_text = ""
 
-            # Track tools used in this round
-            tools_used_in_round: list[tuple[str, str | None]] = []
-
             async for chunk in stream:
                 if cancellation_token and cancellation_token.is_set():
                     logger.info("Processing cancelled by user")

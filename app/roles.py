@@ -2,26 +2,21 @@ from typing import Final
 
 from appkit_assistant.roles import (
     ASSISTANT_ADMIN_ROLE,
+    ASSISTANT_ADMIN_SKILL_ROLE,
     ASSISTANT_ADVANCED_MODELS_ROLE,
     ASSISTANT_BASIC_MODELS_ROLE,
     ASSISTANT_FILE_UPLOAD_ROLE,
     ASSISTANT_PERPLEXITY_MODEL_ROLE,
     ASSISTANT_USER_ROLE,
     ASSISTANT_WEB_SEARCH_ROLE,
-    SKILL_ADMIN_ROLE,
 )
 from appkit_commons.roles import Role
-
-IMAGE_GENERATOR_GROUP = "Bildgenerator"
-
-IMAGE_GENERATOR_ROLE = Role(
-    id=2,
-    name="image_generator",
-    label="Bildgenerator",
-    description="Berechtigung für die Bildgenerierung",
-    group=IMAGE_GENERATOR_GROUP,
+from appkit_imagecreator.roles import (
+    IMAGE_GEN_ADMIN_ROLE,
+    IMAGE_GEN_AZURE_ROLE,
+    IMAGE_GEN_GOOGLE_ROLE,
+    IMAGE_GEN_USER_ROLE,
 )
-
 
 MCP_GROUP: Final[str] = "MCP Servers"
 
@@ -48,8 +43,11 @@ ALL_ROLES: list[Role] = [
     ASSISTANT_FILE_UPLOAD_ROLE,
     ASSISTANT_WEB_SEARCH_ROLE,
     ASSISTANT_ADMIN_ROLE,
+    ASSISTANT_ADMIN_SKILL_ROLE,
     MCP_BASIC_ROLE,
     MCP_ADVANCED_ROLE,
-    IMAGE_GENERATOR_ROLE,
-    SKILL_ADMIN_ROLE,
+    IMAGE_GEN_USER_ROLE,
+    IMAGE_GEN_ADMIN_ROLE,
+    IMAGE_GEN_GOOGLE_ROLE,
+    IMAGE_GEN_AZURE_ROLE,
 ]

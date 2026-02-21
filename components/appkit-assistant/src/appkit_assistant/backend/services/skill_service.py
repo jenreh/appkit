@@ -1,5 +1,6 @@
 """Service for interacting with the OpenAI Skills API."""
 
+import hashlib
 import logging
 from datetime import UTC, datetime
 
@@ -18,23 +19,50 @@ from appkit_assistant.backend.services.openai_client_service import (
 logger = logging.getLogger(__name__)
 
 
+def compute_api_key_hash(api_key: str) -> str:
+    """Return a stable SHA-256 hash (hex) for an API key."""
+    return hashlib.sha256(api_key.encode()).hexdigest()
+
+
 class SkillService:
     """Wraps OpenAI Skills API calls and local DB synchronisation."""
 
-    def _get_client(self) -> AsyncOpenAI:
-        """Return an authenticated AsyncOpenAI client or raise."""
+    def _get_client(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> AsyncOpenAI:
+        """Return an authenticated AsyncOpenAI client.
+
+        When *api_key* is given it takes precedence over the global
+        OpenAIClientService.
+        """
+        if api_key:
+            kwargs: dict = {"api_key": api_key}
+            if base_url:
+                kwargs["base_url"] = base_url
+            return AsyncOpenAI(**kwargs)
+
         client = get_openai_client_service().create_client()
         if client is None:
             raise RuntimeError("OpenAI client not available - API key missing.")
         return client
 
-    async def list_remote_skills(self) -> list[dict]:
+    async def list_remote_skills(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> list[dict]:
         """List all skills from the OpenAI API.
+
+        When *api_key* / *base_url* are provided they override the global
+        client configuration so that skills for a specific model can be
+        fetched.
 
         Returns a list of dicts with id, name, description,
         default_version, latest_version.
         """
-        client = self._get_client()
+        client = self._get_client(api_key=api_key, base_url=base_url)
         page = await client.skills.list()
         return [
             {
@@ -47,12 +75,18 @@ class SkillService:
             for s in page.data
         ]
 
-    async def create_skill(self, file_bytes: bytes, filename: str) -> dict:
+    async def create_skill(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> dict:
         """Upload a zip file to create a new skill.
 
         Returns a dict with the created skill metadata.
         """
-        client = self._get_client()
+        client = self._get_client(api_key=api_key, base_url=base_url)
         skill = await client.skills.create(
             files=(filename, file_bytes),
         )
@@ -96,6 +130,8 @@ class SkillService:
         session: AsyncSession,
         file_bytes: bytes,
         filename: str,
+        api_key: str | None = None,
+        base_url: str | None = None,
     ) -> dict:
         """Create or update a skill on OpenAI.
 
@@ -106,13 +142,17 @@ class SkillService:
 
         Returns a dict with the skill metadata (versions adjusted).
         """
-        remote_skills = await self.list_remote_skills()
+        remote_skills = await self.list_remote_skills(
+            api_key=api_key, base_url=base_url
+        )
 
         # Build name→id map from existing remote skills
         name_to_id: dict[str, str] = {s["name"]: s["id"] for s in remote_skills}
 
         # Create the skill (always creates a new one on OpenAI)
-        result = await self.create_skill(file_bytes, filename)
+        result = await self.create_skill(
+            file_bytes, filename, api_key=api_key, base_url=base_url
+        )
         skill_name = result["name"]
 
         if skill_name in name_to_id:
@@ -153,9 +193,14 @@ class SkillService:
 
         return result
 
-    async def retrieve_skill(self, openai_id: str) -> dict:
+    async def retrieve_skill(
+        self,
+        openai_id: str,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> dict:
         """Retrieve a single skill from the OpenAI API."""
-        client = self._get_client()
+        client = self._get_client(api_key=api_key, base_url=base_url)
         skill = await client.skills.retrieve(openai_id)
         return {
             "id": skill.id,
@@ -165,9 +210,14 @@ class SkillService:
             "latest_version": skill.latest_version,
         }
 
-    async def delete_remote_skill(self, openai_id: str) -> bool:
+    async def delete_remote_skill(
+        self,
+        openai_id: str,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> bool:
         """Delete a skill from the OpenAI API."""
-        client = self._get_client()
+        client = self._get_client(api_key=api_key, base_url=base_url)
         result = await client.skills.delete(openai_id)
         logger.info("Deleted OpenAI skill: %s", openai_id)
         return getattr(result, "deleted", True)
@@ -176,25 +226,50 @@ class SkillService:
     # Synchronisation helpers
     # ------------------------------------------------------------------
 
-    async def sync_skill(self, session: AsyncSession, openai_id: str) -> Skill:
+    async def sync_skill(
+        self,
+        session: AsyncSession,
+        openai_id: str,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> Skill:
         """Sync a single skill from the OpenAI API into the DB."""
-        remote = await self.retrieve_skill(openai_id)
-        return await self._upsert_skill(session, remote)
+        remote = await self.retrieve_skill(
+            openai_id, api_key=api_key, base_url=base_url
+        )
+        key_hash = compute_api_key_hash(api_key) if api_key else None
+        return await self._upsert_skill(session, remote, api_key_hash=key_hash)
 
-    async def sync_all_skills(self, session: AsyncSession) -> int:
+    async def sync_all_skills(
+        self,
+        session: AsyncSession,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> int:
         """Sync all remote skills into the local DB.
+
+        When *api_key* is given, only skills for that API key are synced
+        and the deactivation pass is limited to skills with the same
+        ``api_key_hash``.
 
         Returns the number of skills synced.
         """
-        remote_skills = await self.list_remote_skills()
+        remote_skills = await self.list_remote_skills(
+            api_key=api_key, base_url=base_url
+        )
         remote_ids: set[str] = set()
+        key_hash = compute_api_key_hash(api_key) if api_key else None
 
         for remote in remote_skills:
-            await self._upsert_skill(session, remote)
+            await self._upsert_skill(session, remote, api_key_hash=key_hash)
             remote_ids.add(remote["id"])
 
         # Deactivate local skills that no longer exist remotely
-        all_local = await skill_repo.find_all_ordered_by_name(session)
+        if key_hash:
+            all_local = await skill_repo.find_all_by_api_key_hash(session, key_hash)
+        else:
+            all_local = await skill_repo.find_all_ordered_by_name(session)
+
         deactivated = 0
         for local in all_local:
             if local.openai_id not in remote_ids and local.active:
@@ -211,7 +286,13 @@ class SkillService:
         )
         return total
 
-    async def delete_skill_full(self, session: AsyncSession, skill_id: int) -> str:
+    async def delete_skill_full(
+        self,
+        session: AsyncSession,
+        skill_id: int,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> str:
         """Delete a skill from OpenAI and remove local DB records.
 
         Returns the name of the deleted skill.
@@ -224,7 +305,7 @@ class SkillService:
         openai_id = skill.openai_id
 
         # Delete from OpenAI
-        await self.delete_remote_skill(openai_id)
+        await self.delete_remote_skill(openai_id, api_key=api_key, base_url=base_url)
 
         # Cascade: remove user selections
         await user_skill_repo.delete_by_skill_openai_id(session, openai_id)
@@ -239,7 +320,12 @@ class SkillService:
     # Internal
     # ------------------------------------------------------------------
 
-    async def _upsert_skill(self, session: AsyncSession, remote: dict) -> Skill:
+    async def _upsert_skill(
+        self,
+        session: AsyncSession,
+        remote: dict,
+        api_key_hash: str | None = None,
+    ) -> Skill:
         """Insert or update a local Skill from remote data.
 
         OpenAI is the leading source — matches by openai_id only.
@@ -253,6 +339,8 @@ class SkillService:
             existing.default_version = remote["default_version"]
             existing.latest_version = remote["latest_version"]
             existing.last_synced = now
+            if api_key_hash:
+                existing.api_key_hash = api_key_hash
             session.add(existing)
             await session.flush()
             await session.refresh(existing)
@@ -265,6 +353,7 @@ class SkillService:
             default_version=remote["default_version"],
             latest_version=remote["latest_version"],
             active=True,
+            api_key_hash=api_key_hash,
             last_synced=now,
         )
         session.add(skill)

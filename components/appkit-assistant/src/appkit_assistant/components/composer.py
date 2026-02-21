@@ -232,6 +232,7 @@ def choose_model(show: bool = False) -> rx.Component | None:
                 ThreadState.ai_models,
                 renderer=render_model_option,
                 value=lambda model: model.id,
+                disabled=lambda model: ~model.active,
             ),
             placeholder="Wähle ein Modell",
             value=ThreadState.selected_model,
