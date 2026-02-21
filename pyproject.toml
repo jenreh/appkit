@@ -30,6 +30,14 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest==9.0.2",
+    "pytest-asyncio==0.25.2",
+    "pytest-cov==6.0.0",
+    "pytest-xdist==3.6.1",
+    "pytest-timeout==2.3.1",
+    "aiosqlite==0.20.0",
+    "httpx==0.28.1",
+    "responses==0.26.0",
+    "faker==34.0.0",
     "ruff==0.15.1",
     "bump-my-version==1.2.7",
     "detect-secrets==1.5.0",
@@ -253,8 +261,13 @@ exclude = [
 
 [tool.coverage.run]
 branch = true
-omit = []
-source = ["app", "server", "common"]
+omit = ["*/tests/*", "*/__pycache__/*", "*/migrations/*"]
+source = [
+    "components/appkit-commons/src/appkit_commons",
+    "components/appkit-user/src/appkit_user",
+    "components/appkit-imagecreator/src/appkit_imagecreator",
+    "components/appkit-assistant/src/appkit_assistant",
+]
 
 [tool.coverage.report]
 exclude_lines = ["if TYPE_CHECKING:", "if __name__ == .__main__.:", "pragma: no cover"]
