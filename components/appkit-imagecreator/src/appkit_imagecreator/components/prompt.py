@@ -68,7 +68,11 @@ def _model_selector() -> rx.Component:
     """Dropdown for selecting the image generation model."""
     return rx.select.root(
         rx.select.trigger(
-            placeholder="Model",
+            rx.cond(
+                ImageGalleryState.current_generator_label != "",
+                ImageGalleryState.current_generator_label,
+                "Model",
+            ),
             variant="ghost",
             margin_left="3px",
             size="1",

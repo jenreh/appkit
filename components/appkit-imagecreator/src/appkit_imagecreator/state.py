@@ -182,6 +182,16 @@ class ImageGalleryState(rx.State):
         """Number of selected reference images."""
         return len(self.selected_images)
 
+    @rx.var
+    def current_generator_label(self) -> str:
+        """Get the label for the currently selected generator."""
+        if not self.generator:
+            return ""
+        for gen in self.generators:
+            if gen["id"] == self.generator:
+                return gen["label"]
+        return ""
+
     # -------------------------------------------------------------------------
     # Helper methods
     # -------------------------------------------------------------------------
@@ -214,7 +224,9 @@ class ImageGalleryState(rx.State):
         # Always refresh generators from the registry
         async with self:
             await generator_registry.initialize()
-            await self.refresh_generators()
+            user_session: UserSession = await self.get_state(UserSession)
+            roles = user_session.user.roles if user_session.user else []
+            self._refresh_generators(roles)
             yield
 
         async for _ in self._load_images():
@@ -230,18 +242,10 @@ class ImageGalleryState(rx.State):
         ]
 
         valid_ids = {g["id"] for g in self.generators}
-        if self.generator not in valid_ids:
+        if not self.generator or self.generator not in valid_ids:
             if self.generators:
-                # Try to use default if available to user, otherwise
-                # pick first available
-                try:
-                    default_id = generator_registry.get_default_generator().model.id
-                    if default_id in valid_ids:
-                        self.generator = default_id
-                    else:
-                        self.generator = self.generators[0]["id"]
-                except Exception:
-                    self.generator = self.generators[0]["id"]
+                # Always default to the first available generator if none selected
+                self.generator = self.generators[0]["id"]
             else:
                 self.generator = ""
 
@@ -408,6 +412,7 @@ class ImageGalleryState(rx.State):
     # Generator selection
     # -------------------------------------------------------------------------
 
+    @rx.event
     @rx.event
     def set_generator(self, generator_id: str) -> None:
         """Set the selected generator/model."""
