@@ -204,6 +204,7 @@ known-first-party = ["appkit_*"]
 [tool.pytest.ini_options]
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = [
