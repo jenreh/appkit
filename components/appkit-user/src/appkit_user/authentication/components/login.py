@@ -43,8 +43,8 @@ def _oauth_button(
 def oauth_login_splash(
     provider: OAuthProvider,
     message: str = "Anmeldung mit {provider}...",
-    logo: str = "/img/logo.svg",
-    logo_dark: str = "/img/logo_dark.svg",
+    logo: str = "/img/appkit_logo.svg",
+    logo_dark: str = "/img/appkit_logo_dark.svg",
 ) -> rx.Component:
     """Render a splash screen while handling OAuth callback."""
     return mn.center(
@@ -53,16 +53,14 @@ def oauth_login_splash(
                 themed_logo(
                     light=logo,
                     dark=logo_dark,
-                    h=60,
-                    w="auto",
-                    style={"marginLeft": "0px", "objectFit": "contain"},
+                    w="180px",
+                    style={"margin_left": "0px", "object_fit": "contain"},
                 ),
                 mn.group(
                     mn.text(message.format(provider=provider)),
                     rx.spinner(),
                     gap="lg",
                 ),
-                align="center",
             ),
             padding="lg",
             radius="md",
