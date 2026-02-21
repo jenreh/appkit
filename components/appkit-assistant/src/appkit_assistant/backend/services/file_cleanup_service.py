@@ -56,42 +56,113 @@ class FileCleanupService(ScheduledService):
         return IntervalTrigger(minutes=max(minutes, 1))
 
     async def execute(self) -> None:
-        """Execute the cleanup logic."""
+        """Execute cleanup for all subscriptions with uploaded files."""
         if self.config.cleanup_interval_minutes <= 0:
             logger.debug("File cleanup is disabled (interval <= 0)")
             return
 
         try:
-            # Lazily initialize dependencies
-            client_service = OpenAIClientService.from_config()
-            if not client_service.is_available:
-                logger.debug("OpenAI service not available, skipping cleanup")
-                return
-
-            client = client_service.create_client()
-            if not client:
-                logger.debug("Could not create OpenAI client, skipping cleanup")
-                return
-
-            file_upload_service = FileUploadService(client=client, config=self.config)
-
-            logger.info("Starting scheduled file cleanup")
+            logger.info("Starting scheduled file cleanup (all subscriptions)")
             final_stats: dict[str, Any] = {}
 
-            # Execute cleanup logic
-            async for progress in self.cleanup_expired_files(
-                client, file_upload_service
-            ):
+            async for progress in self.cleanup_all_subscriptions():
                 final_stats = progress
 
             logger.info("Scheduled cleanup completed: %s", final_stats)
         except Exception as e:
             logger.error("Scheduled cleanup failed: %s", e)
 
-    async def cleanup_expired_files(
-        self, client: AsyncOpenAI, file_upload_service: FileUploadService
+    async def cleanup_all_subscriptions(
+        self,
     ) -> AsyncGenerator[dict[str, Any], None]:
-        """Clean up expired vector stores and their associated files."""
+        """Iterate distinct ai_model values and clean up each subscription.
+
+        For each subscription we build a dedicated OpenAI client using the
+        model's own API key / base URL, then run cleanup_expired_files.
+
+        Yields aggregated progress across all subscriptions.
+        """
+        aggregated: dict[str, Any] = {
+            "vector_stores_checked": 0,
+            "vector_stores_expired": 0,
+            "vector_stores_deleted": 0,
+            "files_found": 0,
+            "files_deleted": 0,
+            "threads_updated": 0,
+            "current_vector_store": None,
+            "total_vector_stores": 0,
+            "status": "starting",
+        }
+
+        async with get_asyncdb_session() as session:
+            ai_models = await file_upload_repo.find_distinct_ai_models(
+                session,
+            )
+
+        if not ai_models:
+            logger.info("No subscriptions with uploaded files found")
+            aggregated["status"] = "completed"
+            yield aggregated
+            return
+
+        logger.info(
+            "Cleaning up %d subscription(s): %s",
+            len(ai_models),
+            ai_models,
+        )
+
+        for ai_model in ai_models:
+            client = await OpenAIClientService.create_client_for_model(
+                ai_model,
+            )
+            if not client:
+                logger.warning(
+                    "Skipping subscription %s: no client available",
+                    ai_model,
+                )
+                continue
+
+            file_upload_service = FileUploadService(client=client, config=self.config)
+            async for progress in self.cleanup_expired_files(
+                client, file_upload_service, ai_model=ai_model
+            ):
+                # Merge per-subscription progress into aggregated
+                for key in (
+                    "vector_stores_checked",
+                    "vector_stores_expired",
+                    "vector_stores_deleted",
+                    "files_found",
+                    "files_deleted",
+                    "threads_updated",
+                ):
+                    aggregated[key] = aggregated.get(key, 0) + progress.get(key, 0)
+                aggregated["status"] = progress.get("status", "checking")
+                aggregated["current_vector_store"] = progress.get(
+                    "current_vector_store"
+                )
+                aggregated["total_vector_stores"] += progress.get(
+                    "total_vector_stores", 0
+                )
+                yield aggregated.copy()
+
+        aggregated["status"] = "completed"
+        aggregated["current_vector_store"] = None
+        logger.info("All-subscription cleanup completed: %s", aggregated)
+        yield aggregated
+
+    async def cleanup_expired_files(
+        self,
+        client: AsyncOpenAI,
+        file_upload_service: FileUploadService,
+        ai_model: str = "",
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Clean up expired vector stores and their associated files.
+
+        Args:
+            client: AsyncOpenAI client for this subscription.
+            file_upload_service: Service for deleting vector stores.
+            ai_model: If set, only process stores belonging to this model.
+        """
         stats = {
             "vector_stores_checked": 0,
             "vector_stores_expired": 0,
@@ -105,18 +176,26 @@ class FileCleanupService(ScheduledService):
         }
 
         try:
-            # Get all unique vector store IDs from BOTH file uploads AND threads
             async with get_asyncdb_session() as session:
-                # Vector stores from file uploads
-                file_stores = await file_upload_repo.find_unique_vector_stores(session)
+                if ai_model:
+                    file_stores = (
+                        await file_upload_repo.find_unique_vector_stores_by_ai_model(
+                            session, ai_model
+                        )
+                    )
+                else:
+                    file_stores = await file_upload_repo.find_unique_vector_stores(
+                        session
+                    )
                 file_store_ids = {store_id for store_id, _ in file_stores if store_id}
 
-                # Vector stores from threads (may have orphaned references)
+                # Vector stores from threads (may have orphaned refs)
                 thread_store_ids = set(
-                    await thread_repo.find_unique_vector_store_ids(session)
+                    await thread_repo.find_unique_vector_store_ids(
+                        session,
+                    )
                 )
 
-                # Combine both sets
                 vector_store_ids = list(file_store_ids | thread_store_ids)
 
             stats["total_vector_stores"] = len(vector_store_ids)
@@ -227,11 +306,17 @@ def get_file_upload_config() -> FileUploadConfig:
     return FileUploadConfig()
 
 
-async def run_cleanup() -> AsyncGenerator[dict[str, Any], None]:
-    """Manually trigger file cleanup.
+async def run_cleanup(
+    ai_model: str = "",
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Manually trigger file cleanup for a specific subscription.
 
     This async generator can be called from Reflex UI (e.g., filemanager) to
     trigger the cleanup process and receive real-time progress updates.
+
+    Args:
+        ai_model: If set, only clean up stores belonging to this model.
+            When empty, cleans up all subscriptions.
 
     Yields:
         Dictionary with cleanup progress including:
@@ -244,30 +329,38 @@ async def run_cleanup() -> AsyncGenerator[dict[str, Any], None]:
         - total_vector_stores: total count to process
         - error: error message (only if status is 'error')
     """
-    # Initialize dependencies
     config = get_file_upload_config()
-    client_service = OpenAIClientService.from_config()
-
-    if not client_service.is_available:
-        logger.warning("OpenAI client not available for manual cleanup")
-        yield {"status": "error", "error": "OpenAI client not available"}
-        return
-
-    client = client_service.create_client()
-    if not client:
-        logger.warning("Failed to create OpenAI client for manual cleanup")
-        yield {"status": "error", "error": "Failed to create OpenAI client"}
-        return
-
-    file_upload_service = FileUploadService(client=client, config=config)
     cleanup_service = FileCleanupService(config=config)
 
     try:
-        logger.info("Starting manual file cleanup")
-        async for stats in cleanup_service.cleanup_expired_files(
-            client, file_upload_service
-        ):
-            yield stats
+        if ai_model:
+            # Single-subscription cleanup
+            client = await OpenAIClientService.create_client_for_model(
+                ai_model,
+            )
+            if not client:
+                logger.warning(
+                    "No client for model %s, cannot run cleanup",
+                    ai_model,
+                )
+                yield {
+                    "status": "error",
+                    "error": f"No client for model {ai_model}",
+                }
+                return
+
+            file_upload_service = FileUploadService(client=client, config=config)
+            logger.info("Starting manual cleanup for model %s", ai_model)
+            async for stats in cleanup_service.cleanup_expired_files(
+                client, file_upload_service, ai_model=ai_model
+            ):
+                yield stats
+        else:
+            # All-subscription cleanup
+            logger.info("Starting manual cleanup for all subscriptions")
+            async for stats in cleanup_service.cleanup_all_subscriptions():
+                yield stats
+
         logger.info("Manual cleanup completed")
     except Exception as e:
         logger.error("Manual cleanup failed: %s", e)

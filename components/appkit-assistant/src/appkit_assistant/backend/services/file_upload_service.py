@@ -145,6 +145,7 @@ class FileUploadService:
         user_id: int,
         filenames: list[str],
         file_sizes: list[int],
+        ai_model: str = "",
     ) -> None:
         """Add uploaded files to a vector store and track in database (private helper).
 
@@ -156,6 +157,7 @@ class FileUploadService:
             user_id: ID of the user who uploaded the files.
             filenames: Original filenames for each file.
             file_sizes: Size in bytes for each file.
+            ai_model: model_id string of the AI model (subscription).
 
         Raises:
             FileUploadError: If adding files fails.
@@ -196,6 +198,7 @@ class FileUploadService:
                     thread_id=thread_id,
                     user_id=user_id,
                     file_size=size,
+                    ai_model=ai_model,
                 )
                 session.add(upload_record)
 
@@ -550,6 +553,7 @@ class FileUploadService:
         thread_db_id: int,
         thread_uuid: str,
         user_id: int,
+        ai_model: str = "",
     ) -> AsyncGenerator[Chunk, None]:
         """Process files for a thread, yielding progress chunks in real-time.
 
@@ -563,6 +567,7 @@ class FileUploadService:
             thread_db_id: Database ID of the thread.
             thread_uuid: UUID string of the thread.
             user_id: ID of the user.
+            ai_model: model_id string of the AI model (subscription).
 
         Yields:
             Chunk objects with real-time progress updates.
@@ -649,6 +654,7 @@ class FileUploadService:
                         thread_id=thread_db_id,
                         user_id=user_id,
                         file_size=size,
+                        ai_model=ai_model,
                     )
                     session.add(upload_record)
                 await session.commit()

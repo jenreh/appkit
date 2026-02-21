@@ -15,8 +15,6 @@ from appkit_assistant.roles import ASSISTANT_USER_ROLE
 from appkit_assistant.state.mcp_server_state import MCPServerState
 from appkit_ui.components.dialogs import (
     delete_dialog,
-    dialog_buttons,
-    dialog_header,
 )
 from appkit_ui.components.form_inputs import form_field
 
@@ -27,9 +25,11 @@ AUTH_TYPE_OAUTH = "oauth"
 
 
 class ValidationState(rx.State):
+    """State for validating MCP server form inputs."""
+
     url: str = ""
     name: str = ""
-    desciption: str = ""
+    description: str = ""
     prompt: str = ""
     required_role: str = ASSISTANT_USER_ROLE.name
     active: bool = False
@@ -47,6 +47,7 @@ class ValidationState(rx.State):
     oauth_token_url: str = ""
     oauth_scopes: str = ""
 
+    # Validation errors
     url_error: str = ""
     name_error: str = ""
     description_error: str = ""
@@ -56,45 +57,17 @@ class ValidationState(rx.State):
 
     @rx.event
     def initialize(self, server: MCPServer | None = None) -> None:
-        """Reset validation state."""
+        """Reset validation state with optional server data."""
         logger.debug("Initializing ValidationState")
+        self._reset_errors()
+
         if server is None:
-            self.url = ""
-            self.name = ""
-            self.desciption = ""
-            self.prompt = ""
-            self.required_role = ASSISTANT_USER_ROLE.name
-            self.auth_type = AUTH_TYPE_API_KEY
-            self.oauth_client_id = ""
-            self.oauth_client_secret = ""
-            self.oauth_issuer = ""
-            self.oauth_authorize_url = ""
-            self.oauth_token_url = ""
-            self.oauth_scopes = ""
+            self._reset_fields()
         else:
-            self.url = server.url
-            self.name = server.name
-            self.desciption = server.description
-            self.prompt = server.prompt or ""
-            self.active = server.active
-            # Use sentinel value if no role is set
-            self.required_role = server.required_role or ASSISTANT_USER_ROLE.name
-            # Determine auth type from server
-            if server.oauth_client_id:
-                self.auth_type = AUTH_TYPE_OAUTH
-                self.oauth_client_id = server.oauth_client_id or ""
-                self.oauth_client_secret = server.oauth_client_secret or ""
-            else:
-                self.auth_type = AUTH_TYPE_API_KEY
-                self.oauth_client_id = ""
-                self.oauth_client_secret = ""
+            self._load_server_data(server)
 
-            # Load discovered metadata
-            self.oauth_issuer = server.oauth_issuer or ""
-            self.oauth_authorize_url = server.oauth_authorize_url or ""
-            self.oauth_token_url = server.oauth_token_url or ""
-            self.oauth_scopes = server.oauth_scopes or ""
-
+    def _reset_errors(self) -> None:
+        """Clear all validation errors."""
         self.url_error = ""
         self.name_error = ""
         self.description_error = ""
@@ -102,25 +75,64 @@ class ValidationState(rx.State):
         self.oauth_client_id_error = ""
         self.oauth_client_secret_error = ""
 
+    def _reset_fields(self) -> None:
+        """Reset all form fields to default values."""
+        self.url = ""
+        self.name = ""
+        self.description = ""
+        self.prompt = ""
+        self.required_role = ASSISTANT_USER_ROLE.name
+        self.auth_type = AUTH_TYPE_API_KEY
+        self.oauth_client_id = ""
+        self.oauth_client_secret = ""
+        self.oauth_issuer = ""
+        self.oauth_authorize_url = ""
+        self.oauth_token_url = ""
+        self.oauth_scopes = ""
+
+    def _load_server_data(self, server: MCPServer) -> None:
+        """Load data from an existing server."""
+        self.url = server.url
+        self.name = server.name
+        self.description = server.description
+        self.prompt = server.prompt or ""
+        self.active = server.active
+        self.required_role = server.required_role or ASSISTANT_USER_ROLE.name
+
+        # Load OAuth configuration
+        if server.oauth_client_id:
+            self.auth_type = AUTH_TYPE_OAUTH
+            self.oauth_client_id = server.oauth_client_id
+            self.oauth_client_secret = server.oauth_client_secret or ""
+        else:
+            self.auth_type = AUTH_TYPE_API_KEY
+            self.oauth_client_id = ""
+            self.oauth_client_secret = ""
+
+        # Load discovered metadata
+        self.oauth_issuer = server.oauth_issuer or ""
+        self.oauth_authorize_url = server.oauth_authorize_url or ""
+        self.oauth_token_url = server.oauth_token_url or ""
+        self.oauth_scopes = server.oauth_scopes or ""
+
     @rx.event
     async def set_auth_type(self, auth_type: str) -> AsyncGenerator[Any, Any]:
-        """Set the authentication type."""
+        """Set the authentication type and trigger discovery if needed."""
         self.auth_type = auth_type
-        # Clear OAuth errors when switching to API key mode
+
         if auth_type == AUTH_TYPE_API_KEY:
             self.oauth_client_id_error = ""
             self.oauth_client_secret_error = ""
         elif auth_type == AUTH_TYPE_OAUTH:
-            # Trigger discovery
             async for event in self.check_discovery():
                 yield event
 
     @rx.event
     def validate_url(self) -> None:
         """Validate the URL field."""
-        if not self.url or self.url.strip() == "":
+        if not self.url or not self.url.strip():
             self.url_error = "Die URL darf nicht leer sein."
-        elif not self.url.startswith("http://") and not self.url.startswith("https://"):
+        elif not self.url.startswith(("http://", "https://")):
             self.url_error = "Die URL muss mit http:// oder https:// beginnen."
         else:
             self.url_error = ""
@@ -128,9 +140,9 @@ class ValidationState(rx.State):
     @rx.event
     def validate_name(self) -> None:
         """Validate the name field."""
-        if not self.name or self.name.strip() == "":
+        if not self.name or not self.name.strip():
             self.name_error = "Der Name darf nicht leer sein."
-        elif len(self.name) < 3:  # noqa: PLR2004
+        elif len(self.name) < 3:
             self.name_error = "Der Name muss mindestens 3 Zeichen lang sein."
         else:
             self.name_error = ""
@@ -138,12 +150,12 @@ class ValidationState(rx.State):
     @rx.event
     def validate_description(self) -> None:
         """Validate the description field."""
-        if self.desciption and len(self.desciption) > 200:  # noqa: PLR2004
+        if not self.description or not self.description.strip():
+            self.description_error = "Die Beschreibung darf nicht leer sein."
+        elif len(self.description) > 200:
             self.description_error = (
                 "Die Beschreibung darf maximal 200 Zeichen lang sein."
             )
-        elif not self.desciption or self.desciption.strip() == "":
-            self.description_error = "Die Beschreibung darf nicht leer sein."
         else:
             self.description_error = ""
 
@@ -158,14 +170,11 @@ class ValidationState(rx.State):
     @rx.event
     def validate_oauth_client_id(self) -> None:
         """Validate the OAuth client ID field."""
-        # Client ID might be optional for some public clients or implicit flows
-        # so we don't enforce it strictly here, but warn if missing for standard flows
         self.oauth_client_id_error = ""
 
     @rx.event
     def validate_oauth_client_secret(self) -> None:
         """Validate the OAuth client secret field."""
-        # Client Secret is optional for Public Clients (PKCE)
         self.oauth_client_secret_error = ""
 
     @rx.var
@@ -186,7 +195,7 @@ class ValidationState(rx.State):
     @rx.var
     def prompt_remaining(self) -> int:
         """Calculate remaining characters for prompt field."""
-        return 2000 - len(self.prompt or "")
+        return 2000 - len(self.prompt or "")  # noqa: PLR2004
 
     @rx.var
     def is_oauth_mode(self) -> bool:
@@ -205,7 +214,7 @@ class ValidationState(rx.State):
 
     def set_description(self, description: str) -> None:
         """Set the description and validate it."""
-        self.desciption = description
+        self.description = description
         self.validate_description()
 
     def set_prompt(self, prompt: str) -> None:
@@ -290,36 +299,22 @@ def json(obj: rx.Var, indent: int = 4) -> CustomVarOperationReturn[RETURN]:
 
 def _auth_type_selector() -> rx.Component:
     """Radio for selecting authentication type."""
-    return rx.box(
-        rx.heading("Authentifizierung", size="3", margin_bottom="9px"),
-        rx.radio_group.root(
-            rx.flex(
-                rx.flex(
-                    rx.radio_group.item(value=AUTH_TYPE_API_KEY),
-                    rx.text("HTTP Headers", size="2"),
-                    align="center",
-                    spacing="2",
-                ),
-                rx.flex(
-                    rx.radio_group.item(value=AUTH_TYPE_OAUTH),
-                    rx.text("OAuth 2.0", size="2"),
-                    align="center",
-                    spacing="2",
-                ),
-                spacing="4",
-            ),
-            value=ValidationState.auth_type,
-            on_change=ValidationState.set_auth_type,
-            name="auth_type",
+    return mn.radio_group(
+        mn.group(
+            mn.radio(value=AUTH_TYPE_API_KEY, label="HTTP Headers"),
+            mn.radio(value=AUTH_TYPE_OAUTH, label="OAuth 2.0"),
         ),
-        width="100%",
-        margin_bottom="12px",
+        value=ValidationState.auth_type,
+        on_change=ValidationState.set_auth_type,
+        name="auth_type",
+        mb="12px",
     )
 
 
 def _api_key_auth_fields(server: MCPServer | None = None) -> rx.Component:
     """Fields for API key / HTTP headers authentication."""
-    is_edit_mode = server is not None
+    headers_default = json(server.headers) if server is not None else "{}"
+
     return rx.cond(
         ~ValidationState.is_oauth_mode,
         mn.form.json(
@@ -332,7 +327,7 @@ def _api_key_auth_fields(server: MCPServer | None = None) -> rx.Component:
             ),
             placeholder="{}",
             validation_error="Ungültiges JSON",
-            default_value=json(server.headers) if is_edit_mode else "{}",
+            default_value=headers_default,
             format_on_blur=True,
             autosize=True,
             min_rows=4,
@@ -346,6 +341,7 @@ def _api_key_auth_fields(server: MCPServer | None = None) -> rx.Component:
 def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
     """Fields for OAuth 2.0 authentication."""
     is_edit_mode = server is not None
+
     return rx.cond(
         ValidationState.is_oauth_mode,
         rx.flex(
@@ -437,7 +433,6 @@ def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
                 value=MCPAuthType.OAUTH_DISCOVERY,
             ),
             direction="column",
-            spacing="1",
             width="100%",
         ),
         # Hidden field for non-OAuth mode
@@ -451,35 +446,63 @@ def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
 
 def _role_select() -> rx.Component:
     """Role selection dropdown for MCP server access control."""
-    return rx.box(
-        rx.text("Erforderliche Rolle", size="2", weight="medium"),
-        rx.text(
-            "Nur Benutzer mit dieser Rolle können den MCP Server verwenden.",
-            size="1",
-            color="gray",
-            margin_bottom="3px",
-        ),
-        rx.select.root(
-            rx.select.trigger(
-                placeholder="Rolle auswählen",
-                width="100%",
+    return mn.select(
+        label="Erforderliche Rolle",
+        description="Nur Benutzer mit dieser Rolle können den MCP Server verwenden.",
+        data=MCPServerState.available_roles,
+        value=ValidationState.required_role,
+        on_change=ValidationState.set_required_role,
+        placeholder="Rolle auswählen",
+        name="required_role",
+        width="100%",
+        mb="12px",
+    )
+
+
+def _prompt_field(server: MCPServer | None = None) -> rx.Component:
+    """Reusable prompt textarea with character count."""
+    is_edit_mode = server is not None
+    return rx.flex(
+        mn.textarea(
+            name="prompt",
+            label="Prompt",
+            description=(
+                "Beschreiben Sie, wie das MCP-Tool verwendet werden soll. "
+                "Dies wird als Ergänzung des Systemprompts im Chat genutzt."
             ),
-            rx.select.content(
-                rx.foreach(
-                    MCPServerState.available_roles,
-                    lambda role: rx.select.item(
-                        role["label"],
-                        value=role["value"],
-                    ),
-                ),
-            ),
-            value=ValidationState.required_role,
-            on_change=ValidationState.set_required_role,
-            name="required_role",
+            placeholder=("Anweidungen an das Modell..."),
+            default_value=server.prompt if is_edit_mode else "",
+            on_change=ValidationState.set_prompt,
+            on_blur=ValidationState.validate_prompt,
+            validation_error=ValidationState.prompt_error,
+            autosize=True,
+            min_rows=3,
+            max_rows=8,
             width="100%",
         ),
+        rx.flex(
+            rx.cond(
+                ValidationState.prompt_remaining >= 0,
+                mn.text(
+                    f"{ValidationState.prompt_remaining}/2000",
+                    size="xs",
+                    c="dimmed",
+                ),
+                mn.text(
+                    f"{ValidationState.prompt_remaining}/2000",
+                    size="xs",
+                    c="red",
+                    fw="bold",
+                ),
+            ),
+            justify="end",
+            width="100%",
+            margin_top="4px",
+        ),
+        direction="column",
+        spacing="0",
         width="100%",
-        margin_bottom="12px",
+        my="3px",
     )
 
 
@@ -532,49 +555,10 @@ def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
             on_blur=[ValidationState.validate_url, ValidationState.check_discovery],
             validation_error=ValidationState.url_error,
         ),
-        rx.flex(
-            mn.textarea(
-                name="prompt",
-                label="Prompt",
-                description=(
-                    "Beschreiben Sie, wie das MCP-Tool verwendet werden soll. "
-                    "Dies wird als Ergänzung des Systemprompts im Chat genutzt."
-                ),
-                placeholder=("Anweidungen an das Modell..."),
-                default_value=server.prompt if is_edit_mode else "",
-                on_change=ValidationState.set_prompt,
-                on_blur=ValidationState.validate_prompt,
-                validation_error=ValidationState.prompt_error,
-                autosize=True,
-                min_rows=3,
-                max_rows=8,
-                width="100%",
-            ),
-            rx.flex(
-                rx.cond(
-                    ValidationState.prompt_remaining >= 0,
-                    rx.text(
-                        f"{ValidationState.prompt_remaining}/2000",
-                        size="1",
-                        color="gray",
-                    ),
-                    rx.text(
-                        f"{ValidationState.prompt_remaining}/2000",
-                        size="1",
-                        color="red",
-                        weight="bold",
-                    ),
-                ),
-                justify="end",
-                width="100%",
-                margin_top="4px",
-            ),
-            direction="column",
-            spacing="0",
-            width="100%",
-        ),
+        _prompt_field(server),
+        mn.divider(label="Berechtigung", my="md"),
         _role_select(),
-        # Authentication type selector and conditional fields
+        mn.divider(label="Authentifizierung", my="md"),
         _auth_type_selector(),
         _api_key_auth_fields(server),
         _oauth_auth_fields(server),
@@ -583,48 +567,106 @@ def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
     return rx.flex(
         *fields,
         direction="column",
-        spacing="1",
+    )
+
+
+def _modal_footer(
+    submit_label: str,
+    on_cancel: rx.EventHandler,
+) -> rx.Component:
+    """Footer buttons for add/edit modals."""
+    return rx.flex(
+        mn.button(
+            "Abbrechen",
+            variant="subtle",
+            on_click=on_cancel,
+        ),
+        mn.button(
+            submit_label,
+            type="submit",
+            disabled=ValidationState.has_errors,
+            loading=MCPServerState.loading,
+        ),
+        direction="row",
+        gap="9px",
+        justify_content="end",
+        padding="16px",
+        border_top="1px solid var(--mantine-color-default-border)",
+        background="var(--mantine-color-body)",
+        width="100%",
+    )
+
+
+def _mcp_server_modal(
+    title: str,
+    opened: bool | rx.Var,
+    on_close: rx.EventHandler,
+    on_submit: rx.EventHandler,
+    submit_label: str,
+    fields: rx.Component,
+) -> rx.Component:
+    """Shared modal structure for add/edit MCP server."""
+    return mn.modal(
+        rx.form.root(
+            rx.flex(
+                mn.scroll_area.autosize(
+                    fields,
+                    max_height="60vh",
+                    width="100%",
+                    type="always",
+                    offset_scrollbars=True,
+                ),
+                _modal_footer(submit_label, on_close),
+                direction="column",
+            ),
+            on_submit=on_submit,
+            reset_on_submit=False,
+            height="100%",
+        ),
+        title=title,
+        opened=opened,
+        on_close=on_close,
+        size="lg",
+        centered=True,
+        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
 
 def add_mcp_server_button() -> rx.Component:
-    """Button and dialog for adding a new MCP server."""
-    ValidationState.initialize()
-    return rx.dialog.root(
-        rx.dialog.trigger(
-            mn.button(
-                "Neuen MCP Server anlegen",
-                left_section=rx.icon("plus", size=16),
-                size="sm",
-                on_click=[ValidationState.initialize(server=None)],
-            ),
-        ),
-        rx.dialog.content(
-            dialog_header(
-                icon="server",
-                title="Neuen MCP Server anlegen",
-                description="Geben Sie die Details des neuen MCP Servers ein",
-            ),
-            rx.flex(
-                rx.form.root(
-                    mn.scroll_area(
-                        mcp_server_form_fields(),
-                        height="60vh",
-                        width="100%",
-                    ),
-                    dialog_buttons(
-                        "MCP Server anlegen",
-                        has_errors=ValidationState.has_errors,
-                    ),
-                    on_submit=MCPServerState.add_server,
-                    reset_on_submit=False,
-                ),
-                width="100%",
-                direction="column",
-                spacing="4",
-            ),
-            class_name="dialog",
-        ),
+    """Button to open the add MCP server modal."""
+    return mn.button(
+        "Neuen MCP Server anlegen",
+        left_section=rx.icon("plus", size=16),
+        size="sm",
+        loading=MCPServerState.opening_add_modal,
+        on_click=[
+            ValidationState.initialize(None),
+            MCPServerState.open_add_modal,
+        ],
+    )
+
+
+def add_mcp_server_modal() -> rx.Component:
+    """Modal for adding a new MCP server."""
+    return _mcp_server_modal(
+        title="Neuen MCP Server anlegen",
+        opened=MCPServerState.add_modal_open,
+        on_close=MCPServerState.close_add_modal,
+        on_submit=MCPServerState.add_server,
+        submit_label="MCP Server anlegen",
+        fields=mcp_server_form_fields(),
+    )
+
+
+def edit_mcp_server_modal() -> rx.Component:
+    """Modal for editing an existing MCP server."""
+    return _mcp_server_modal(
+        title="MCP Server aktualisieren",
+        opened=MCPServerState.edit_modal_open,
+        on_close=MCPServerState.close_edit_modal,
+        on_submit=MCPServerState.modify_server,
+        submit_label="MCP Server aktualisieren",
+        fields=mcp_server_form_fields(MCPServerState.current_server),
     )
 
 
@@ -641,43 +683,15 @@ def delete_mcp_server_dialog(server: MCPServer) -> rx.Component:
 
 
 def update_mcp_server_dialog(server: MCPServer) -> rx.Component:
-    """Dialog for updating an existing MCP server."""
-    return rx.dialog.root(
-        rx.dialog.trigger(
-            rx.icon_button(
-                rx.icon("square-pen", size=19),
-                variant="ghost",
-                on_click=[
-                    lambda: MCPServerState.get_server(server.id),
-                    ValidationState.initialize(server),
-                ],
-                margin="0",
-            ),
-        ),
-        rx.dialog.content(
-            dialog_header(
-                icon="server",
-                title="MCP Server aktualisieren",
-                description="Aktualisieren Sie die Details des MCP Servers",
-            ),
-            rx.flex(
-                rx.form.root(
-                    mn.scroll_area(
-                        mcp_server_form_fields(server),
-                        height="60vh",
-                        width="100%",
-                    ),
-                    dialog_buttons(
-                        "MCP Server aktualisieren",
-                        has_errors=ValidationState.has_errors,
-                    ),
-                    on_submit=MCPServerState.modify_server,
-                    reset_on_submit=False,
-                ),
-                width="100%",
-                direction="column",
-                spacing="4",
-            ),
-            class_name="dialog",
-        ),
+    """Dialog trigger button for updating an existing MCP server."""
+    return mn.action_icon(
+        rx.icon("square-pen", size=19),
+        variant="subtle",
+        color="gray",
+        loading=MCPServerState.opening_edit_server_id == server.id,
+        on_click=[
+            ValidationState.initialize(server),
+            MCPServerState.open_edit_modal(server.id),
+        ],
+        margin="0",
     )

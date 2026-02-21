@@ -182,6 +182,15 @@ def ai_models_table(
                     mn.table.th(mn.text("Rolle", size="sm", fw="700")),
                     mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
                     mn.table.th(mn.text("", size="sm")),
+                    style={
+                        "zIndex": "10",
+                        "position": "relative",
+                        "boxShadow": (
+                            "0 4px 6px -1px rgba(0, 0, 0, 0.05), "
+                            "0 2px 4px -1px rgba(0, 0, 0, 0.03)"
+                        ),
+                        "clipPath": "inset(0 0 -10px 0)",
+                    },
                 ),
             ),
             mn.table.tbody(
@@ -190,6 +199,8 @@ def ai_models_table(
                     ai_model_table_row,
                 )
             ),
+            sticky_header=True,
+            sticky_header_offset="0px",
             striped=False,
             highlight_on_hover=True,
             highlight_on_hover_color=rx.color_mode_cond(

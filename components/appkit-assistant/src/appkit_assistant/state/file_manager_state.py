@@ -8,10 +8,15 @@ from typing import Any, Final
 import reflex as rx
 from pydantic import BaseModel
 
-from appkit_assistant.backend.database.repositories import file_upload_repo, thread_repo
+from appkit_assistant.backend.database.models import AssistantAIModel
+from appkit_assistant.backend.database.repositories import (
+    ai_model_repo,
+    file_upload_repo,
+    thread_repo,
+)
 from appkit_assistant.backend.services.file_cleanup_service import run_cleanup
 from appkit_assistant.backend.services.openai_client_service import (
-    get_openai_client_service,
+    OpenAIClientService,
 )
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.backend.user_repository import user_repo
@@ -127,7 +132,17 @@ class CleanupStats(BaseModel):
 
 
 class FileManagerState(rx.State):
-    """State class for managing uploaded files in vector stores."""
+    """State class for managing uploaded files in vector stores.
+
+    Supports multiple subscriptions (API keys / base URLs) by letting
+    the admin select an AI model.  All OpenAI operations use the
+    credentials of the currently selected model.
+    """
+
+    # Model / subscription selection
+    file_models: list[AssistantAIModel] = []
+    selected_file_model_id: str = ""
+    active_tab: str = "vector_stores"
 
     vector_stores: list[VectorStoreInfo] = []
     selected_vector_store_id: str = ""
@@ -144,28 +159,105 @@ class FileManagerState(rx.State):
     cleanup_running: bool = False
     cleanup_stats: CleanupStats = CleanupStats()
 
+    # ------------------------------------------------------------------
+    # Computed properties
+    # ------------------------------------------------------------------
+
+    @rx.var(cache=True)
+    def file_model_options(self) -> list[dict[str, str]]:
+        """Options for the model select dropdown."""
+        return [{"value": m.model_id, "label": m.text} for m in self.file_models]
+
+    @rx.var(cache=True)
+    def has_file_models(self) -> bool:
+        """Whether any models with attachment support exist."""
+        return len(self.file_models) > 0
+
+    @rx.var(cache=True)
+    def selected_file_model_name(self) -> str:
+        """Display name of the currently selected model."""
+        for m in self.file_models:
+            if m.model_id == self.selected_file_model_id:
+                return m.text
+        return ""
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    async def _get_client(self):
+        """Get an AsyncOpenAI client for the currently selected model."""
+        if not self.selected_file_model_id:
+            return None
+        return await OpenAIClientService.create_client_for_model(
+            self.selected_file_model_id,
+        )
+
     def _get_file_by_id(self, file_id: int) -> FileInfo | None:
         """Get a file by ID from the current files list."""
         return next((f for f in self.files if f.id == file_id), None)
 
     def _get_openai_file_by_id(self, openai_id: str) -> OpenAIFileInfo | None:
         """Get an OpenAI file by ID from the current OpenAI files list."""
-        return next((f for f in self.openai_files if f.openai_id == openai_id), None)
+        return next(
+            (f for f in self.openai_files if f.openai_id == openai_id),
+            None,
+        )
+
+    # ------------------------------------------------------------------
+    # Model loading
+    # ------------------------------------------------------------------
+
+    async def load_file_models(self) -> AsyncGenerator[Any, Any]:
+        """Load AI models that support file attachments."""
+        try:
+            async with get_asyncdb_session() as session:
+                models = await ai_model_repo.find_all_with_attachments(
+                    session,
+                )
+                session.expunge_all()
+            self.file_models = list(models)
+
+            # Auto-select first model if nothing selected yet
+            if not self.selected_file_model_id and self.file_models:
+                self.selected_file_model_id = self.file_models[0].model_id
+                yield FileManagerState.load_vector_stores
+        except Exception as e:
+            logger.error("Failed to load file models: %s", e)
+
+    async def set_selected_file_model(self, model_id: str) -> AsyncGenerator[Any, Any]:
+        """Select a model (subscription) and reload active tab."""
+        self.selected_file_model_id = model_id
+        self.selected_vector_store_id = ""
+        self.selected_vector_store_name = ""
+        self.files = []
+        self.openai_files = []
+        if self.active_tab == "openai_files":
+            yield FileManagerState.load_openai_files
+        else:
+            yield FileManagerState.load_vector_stores
 
     async def on_tab_change(self, tab_value: str) -> AsyncGenerator[Any, Any]:
         """Handle tab change events."""
+        self.active_tab = tab_value
         if tab_value == "openai_files":
             yield FileManagerState.load_openai_files
         else:
             yield FileManagerState.load_vector_stores
 
     async def load_vector_stores(self) -> AsyncGenerator[Any, Any]:
-        """Load all unique vector stores from the database."""
+        """Load vector stores for the currently selected model."""
+        if not self.selected_file_model_id:
+            self.vector_stores = []
+            return
+
         self.loading = True
         yield
         try:
             async with get_asyncdb_session() as session:
-                stores = await file_upload_repo.find_unique_vector_stores(session)
+                stores = await file_upload_repo.find_unique_vector_stores_by_ai_model(
+                    session, self.selected_file_model_id
+                )
                 self.vector_stores = [
                     VectorStoreInfo(store_id=store_id, name=name)
                     for store_id, name in stores
@@ -202,8 +294,7 @@ class FileManagerState(rx.State):
     async def delete_vector_store(self, store_id: str) -> AsyncGenerator[Any, Any]:
         """Delete a vector store and all its associated files.
 
-        Deletes the vector store from OpenAI, all associated files from OpenAI,
-        and removes all database records.
+        Uses the credentials of the currently selected model.
 
         Args:
             store_id: The ID of the vector store to delete.
@@ -211,15 +302,7 @@ class FileManagerState(rx.State):
         self.deleting_vector_store_id = store_id
         yield
         try:
-            openai_service = get_openai_client_service()
-            if not openai_service.is_available:
-                yield rx.toast.error(
-                    ERROR_OPENAI_NOT_CONFIGURED,
-                    position="top-right",
-                )
-                return
-
-            client = openai_service.create_client()
+            client = await self._get_client()
             if not client:
                 yield rx.toast.error(
                     ERROR_OPENAI_NOT_CONFIGURED,
@@ -309,44 +392,35 @@ class FileManagerState(rx.State):
         self.loading = True
         yield
         try:
-            # First validate the vector store exists and is not expired in OpenAI
-            openai_service = get_openai_client_service()
-            if openai_service.is_available:
-                client = openai_service.create_client()
-                if client:
-                    try:
-                        vector_store = await client.vector_stores.retrieve(store_id)
-                        # Check if the vector store has expired
-                        if vector_store.status == "expired":
-                            logger.info(
-                                "Vector store %s has expired status, cleaning up",
-                                store_id,
-                            )
-                            async for event in self._cleanup_expired_vector_store(
-                                store_id
-                            ):
-                                yield event
-                            return
-                        logger.debug("Vector store %s exists in OpenAI", store_id)
-                    except Exception as e:
-                        # Vector store not found - clean up
-                        error_msg = str(e).lower()
-                        if "not found" in error_msg or "404" in error_msg:
-                            logger.info(
-                                "Vector store %s not found, cleaning up",
-                                store_id,
-                            )
-                            async for event in self._cleanup_expired_vector_store(
-                                store_id
-                            ):
-                                yield event
-                            return
-                        # Other error - log and continue
-                        logger.warning(
-                            "Error checking vector store %s: %s",
+            # First validate the vector store exists and is not expired
+            client = await self._get_client()
+            if client:
+                try:
+                    vector_store = await client.vector_stores.retrieve(store_id)
+                    if vector_store.status == "expired":
+                        logger.info(
+                            "Vector store %s has expired, cleaning up",
                             store_id,
-                            e,
                         )
+                        async for event in self._cleanup_expired_vector_store(store_id):
+                            yield event
+                        return
+                    logger.debug("Vector store %s exists in OpenAI", store_id)
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if "not found" in error_msg or "404" in error_msg:
+                        logger.info(
+                            "Vector store %s not found, cleaning up",
+                            store_id,
+                        )
+                        async for event in self._cleanup_expired_vector_store(store_id):
+                            yield event
+                        return
+                    logger.warning(
+                        "Error checking vector store %s: %s",
+                        store_id,
+                        e,
+                    )
 
             self.selected_vector_store_id = store_id
             self.selected_vector_store_name = store_name
@@ -360,44 +434,42 @@ class FileManagerState(rx.State):
     ) -> AsyncGenerator[Any, Any]:
         """Clean up an expired vector store: delete OpenAI files, store, and DB."""
         try:
-            # Get files from DB to know which OpenAI files to delete
             async with get_asyncdb_session() as session:
                 files = await file_upload_repo.find_by_vector_store(session, store_id)
                 openai_file_ids = [f.openai_file_id for f in files]
 
                 # Delete files and vector store from OpenAI
-                openai_service = get_openai_client_service()
-                if openai_service.is_available:
-                    client = openai_service.create_client()
-                    if client:
-                        # Delete files from OpenAI storage
-                        for file_id in openai_file_ids:
-                            try:
-                                await client.files.delete(file_id=file_id)
-                                logger.debug(
-                                    "Deleted expired file from OpenAI: %s", file_id
-                                )
-                            except Exception as e:
-                                logger.warning(
-                                    "Failed to delete file %s from OpenAI: %s",
-                                    file_id,
-                                    e,
-                                )
-
-                        # Delete the vector store from OpenAI
+                client = await self._get_client()
+                if client:
+                    for file_id in openai_file_ids:
                         try:
-                            await client.vector_stores.delete(vector_store_id=store_id)
-                            logger.info(
-                                "Deleted expired vector store from OpenAI: %s",
-                                store_id,
+                            await client.files.delete(file_id=file_id)
+                            logger.debug(
+                                "Deleted expired file from OpenAI: %s",
+                                file_id,
                             )
                         except Exception as e:
                             logger.warning(
-                                "Failed to delete vector store %s from OpenAI "
-                                "(may already be deleted): %s",
-                                store_id,
+                                "Failed to delete file %s from OpenAI: %s",
+                                file_id,
                                 e,
                             )
+
+                    try:
+                        await client.vector_stores.delete(
+                            vector_store_id=store_id,
+                        )
+                        logger.info(
+                            "Deleted expired vector store from OpenAI: %s",
+                            store_id,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to delete vector store %s from OpenAI "
+                            "(may already be deleted): %s",
+                            store_id,
+                            e,
+                        )
 
                 # Delete records from database
                 await file_upload_repo.delete_by_vector_store(session, store_id)
@@ -493,19 +565,11 @@ class FileManagerState(rx.State):
             self.loading = False
 
     async def load_openai_files(self) -> AsyncGenerator[Any, Any]:
-        """Load files directly from OpenAI API."""
+        """Load files directly from OpenAI API for current subscription."""
         self.loading = True
         yield
         try:
-            openai_service = get_openai_client_service()
-            if not openai_service.is_available:
-                yield rx.toast.error(
-                    ERROR_OPENAI_NOT_CONFIGURED,
-                    position="top-right",
-                )
-                return
-
-            client = openai_service.create_client()
+            client = await self._get_client()
             if not client:
                 yield rx.toast.error(
                     ERROR_OPENAI_NOT_CONFIGURED,
@@ -570,15 +634,13 @@ class FileManagerState(rx.State):
 
             # Delete from OpenAI
             try:
-                openai_service = get_openai_client_service()
-                if openai_service.is_available:
-                    client = openai_service.create_client()
-                    if client:
-                        await client.files.delete(file_id=openai_file_id)
-                        logger.debug("Deleted OpenAI file: %s", openai_file_id)
+                client = await self._get_client()
+                if client:
+                    await client.files.delete(file_id=openai_file_id)
+                    logger.debug("Deleted OpenAI file: %s", openai_file_id)
                 else:
                     logger.warning(
-                        "OpenAI API key not configured, skipping OpenAI deletion"
+                        "No client for selected model, skipping OpenAI deletion"
                     )
             except Exception as e:
                 logger.warning(
@@ -639,15 +701,7 @@ class FileManagerState(rx.State):
 
             filename = file_info.filename
 
-            openai_service = get_openai_client_service()
-            if not openai_service.is_available:
-                yield rx.toast.error(
-                    ERROR_OPENAI_NOT_CONFIGURED,
-                    position="top-right",
-                )
-                return
-
-            client = openai_service.create_client()
+            client = await self._get_client()
             if not client:
                 yield rx.toast.error(
                     ERROR_OPENAI_NOT_CONFIGURED,
@@ -703,7 +757,9 @@ class FileManagerState(rx.State):
             self.cleanup_stats = CleanupStats(status="starting")
 
         try:
-            async for stats in run_cleanup():
+            async for stats in run_cleanup(
+                ai_model=self.selected_file_model_id,
+            ):
                 async with self:
                     self.cleanup_stats = CleanupStats(
                         status=stats.get("status", "checking"),
