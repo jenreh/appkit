@@ -56,12 +56,6 @@ if not _registry.has(ReflexConfig):
         )
     )
 
-# Import all model modules to register tables with Base.metadata
-# This must happen AFTER registry bootstrapping
-import appkit_assistant.backend.database.models  # noqa: F401
-import appkit_imagecreator.backend.models  # noqa: F401
-import appkit_user.authentication.backend.entities  # noqa: F401
-
 # ============================================================================
 # Pytest Configuration
 # ============================================================================

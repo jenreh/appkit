@@ -53,7 +53,7 @@ class TestUserSessionRepository:
         # Arrange
         user1 = await user_factory(email="user1@example.com")
         user2 = await user_factory(email="user2@example.com")
-        session = await session_factory(user=user1, session_id="session_user1")
+        _session = await session_factory(user=user1, session_id="session_user1")
 
         # Act
         found = await session_repo.find_by_user_and_session_id(

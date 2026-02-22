@@ -104,6 +104,8 @@ class PasswordResetRequestState(rx.State):
                     )
                     # Still log the request for rate limiting
                     await password_reset_request_repo.log_request(db, self.email)
+                    # Commit the request log
+                    await db.commit()
                     self.is_submitted = True
                     yield
                     return
@@ -156,6 +158,9 @@ class PasswordResetRequestState(rx.State):
 
                 # 6. Log request for rate limiting
                 await password_reset_request_repo.log_request(db, self.email)
+
+                # Commit all changes: token creation and request logging
+                await db.commit()
 
             # 7. Always show success message (security)
             self.is_submitted = True
@@ -378,11 +383,14 @@ class PasswordResetConfirmState(rx.State):
                 if token_reset_type == PasswordResetType.ADMIN_FORCED:
                     user_entity.needs_password_reset = False
 
-                # Commit user changes
+                # Commit all changes: user password, history, and token
                 await db.commit()
 
                 # 8. Clear all existing sessions for user (force re-login)
                 await session_repo.delete_all_by_user_id(db, token_user_id)
+
+                # Commit session deletion
+                await db.commit()
 
                 logger.info(
                     "Password reset completed for user_id=%d, type=%s",

@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_user.authentication.backend.entities import OAuthAccountEntity
@@ -143,7 +144,7 @@ class TestUserRepository:
     ) -> None:
         """find_by_email_and_password returns user with correct credentials."""
         # Arrange
-        password = "CorrectPassword123!"
+        password = "CorrectPassword123!"  # noqa: S105
         user = await user_with_password_factory(
             email="login@example.com", password=password
         )
@@ -217,7 +218,7 @@ class TestUserRepository:
     ) -> None:
         """get_login_status_by_credentials returns user and success status."""
         # Arrange
-        password = "ValidPass123!"
+        password = "ValidPass123!"  # noqa: S105
         user = await user_with_password_factory(
             email="status@example.com", password=password
         )
@@ -344,7 +345,7 @@ class TestUserRepository:
 
         # Act & Assert
         with pytest.raises(ValueError, match="Your account has been deactivated"):
-            await user_repository._validate_and_raise_for_oauth_login(user)
+            await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_validate_and_raise_for_oauth_login_not_verified_raises(
@@ -356,7 +357,7 @@ class TestUserRepository:
 
         # Act & Assert
         with pytest.raises(ValueError, match="Your account has not been verified"):
-            await user_repository._validate_and_raise_for_oauth_login(user)
+            await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_validate_and_raise_for_oauth_login_success(
@@ -367,7 +368,7 @@ class TestUserRepository:
         user = await user_factory(is_active=True, is_verified=True)
 
         # Act & Assert - should not raise
-        await user_repository._validate_and_raise_for_oauth_login(user)
+        await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_create_new_user(
@@ -491,8 +492,8 @@ class TestUserRepository:
     ) -> None:
         """update_password changes password successfully."""
         # Arrange
-        old_password = "OldPassword123!"
-        new_password = "NewPassword456!"
+        old_password = "OldPassword123!"  # noqa: S105
+        new_password = "NewPassword456!"  # noqa: S105
         user = await user_with_password_factory(password=old_password)
 
         # Act
@@ -616,7 +617,6 @@ class TestUserRepository:
         # Assert
         assert user.id == existing_user.id
         # Verify OAuth account was created
-        from sqlalchemy import select
 
         result = await async_session.execute(
             select(OAuthAccountEntity).where(OAuthAccountEntity.user_id == user.id)
@@ -738,8 +738,6 @@ class TestUserRepository:
         )
 
         # Assert
-        from sqlalchemy import select
-
         result = await async_session.execute(
             select(OAuthAccountEntity).where(OAuthAccountEntity.user_id == user.id)
         )
@@ -764,7 +762,6 @@ class TestUserRepository:
         )
 
         # Assert
-        from sqlalchemy import select
 
         result = await async_session.execute(
             select(OAuthAccountEntity).where(OAuthAccountEntity.user_id == user.id)

@@ -91,8 +91,7 @@ class PasswordHistoryRepository(BaseRepository[PasswordHistoryEntity, AsyncSessi
         )
 
         session.add(entity)
-        await session.commit()
-        await session.refresh(entity)
+        await session.flush()
 
         logger.info(
             "Saved password to history for user_id=%d, reason=%s",

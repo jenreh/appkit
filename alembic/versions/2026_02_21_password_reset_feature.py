@@ -131,9 +131,29 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name="pk_password_reset_requests"),
     )
 
+    # Create indexes for password reset requests
+    op.create_index(
+        "idx_password_reset_requests_email_created",
+        "auth_password_reset_requests",
+        ["email", "created"],
+    )
+    op.create_index(
+        "idx_password_reset_requests_created",
+        "auth_password_reset_requests",
+        ["created"],
+    )
+
 
 def downgrade() -> None:
     """Drop password reset related tables."""
+    op.drop_index(
+        "idx_password_reset_requests_created",
+        table_name="auth_password_reset_requests",
+    )
+    op.drop_index(
+        "idx_password_reset_requests_email_created",
+        table_name="auth_password_reset_requests",
+    )
     op.drop_table("auth_password_reset_requests")
 
     op.drop_index(

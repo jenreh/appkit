@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from typing import Any
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -40,6 +40,9 @@ class SessionManager:
     def close(self) -> None:
         if self._engine:
             self._engine.dispose()
+
+    def get_engine(self) -> Engine:
+        return self._engine
 
     @contextmanager
     def session(self) -> Iterator[Session]:

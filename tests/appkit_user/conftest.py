@@ -9,14 +9,30 @@ import pytest_asyncio
 from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from appkit_commons.security import generate_password_hash
 from appkit_user.authentication.backend.entities import (
     OAuthAccountEntity,
     OAuthStateEntity,
+    PasswordHistoryEntity,
+    PasswordResetRequestEntity,
+    PasswordResetTokenEntity,
     UserEntity,
     UserSessionEntity,
 )
 from appkit_user.authentication.backend.oauthstate_repository import (
     OAuthStateRepository,
+)
+from appkit_user.authentication.backend.password_history_repository import (
+    PasswordHistoryRepository,
+)
+from appkit_user.authentication.backend.password_reset_repository import (
+    PasswordResetTokenRepository,
+)
+from appkit_user.authentication.backend.password_reset_request_repository import (
+    PasswordResetRequestRepository,
+)
+from appkit_user.authentication.backend.services.email_service import (
+    PasswordResetType,
 )
 from appkit_user.authentication.backend.user_repository import UserRepository
 from appkit_user.authentication.backend.user_session_repository import (
@@ -204,6 +220,119 @@ async def oauth_state_factory(async_session: AsyncSession) -> Any:
 
 
 # ============================================================================
+# Password Entity Factories
+# ============================================================================
+
+
+@pytest_asyncio.fixture
+async def password_reset_token_factory(
+    async_session: AsyncSession,
+) -> Any:
+    """Factory for creating password reset tokens."""
+
+    async def _create_token(
+        user: UserEntity,
+        reset_type: PasswordResetType = PasswordResetType.USER_INITIATED,
+        is_used: bool = False,
+        expires_at: datetime | None = None,
+        **kwargs: Any,
+    ) -> PasswordResetTokenEntity:
+        """Create a password reset token."""
+        if expires_at is None:
+            expires_at = datetime.now(UTC) + timedelta(hours=1)
+        # Convert to naive datetime to match SQLite storage
+        if expires_at.tzinfo:
+            expires_at = expires_at.replace(tzinfo=None)
+
+        defaults = {
+            "user_id": user.id,
+            "token": secrets.token_urlsafe(32),
+            "email": user.email,
+            "reset_type": reset_type,
+            "is_used": is_used,
+            "expires_at": expires_at,
+        }
+        defaults.update(kwargs)
+
+        token = PasswordResetTokenEntity(**defaults)
+        async_session.add(token)
+        await async_session.flush()
+        await async_session.refresh(token)
+        return token
+
+    return _create_token
+
+
+@pytest_asyncio.fixture
+async def password_history_factory(
+    async_session: AsyncSession,
+) -> Any:
+    """Factory for creating password history entries."""
+
+    async def _create_history(
+        user: UserEntity,
+        password: str | None = None,
+        change_reason: str = "password_change",
+        changed_at: datetime | None = None,
+        **kwargs: Any,
+    ) -> PasswordHistoryEntity:
+        """Create a password history entry."""
+        if password is None:
+            password = "TestPassword123!"  # noqa: S105
+
+        password_hash = generate_password_hash(password)
+
+        if changed_at is None:
+            changed_at = datetime.now(UTC)
+        # Convert to naive datetime to match SQLite storage
+        if changed_at.tzinfo:
+            changed_at = changed_at.replace(tzinfo=None)
+
+        defaults = {
+            "user_id": user.id,
+            "password_hash": password_hash,
+            "changed_at": changed_at,
+            "change_reason": change_reason,
+        }
+        defaults.update(kwargs)
+
+        history = PasswordHistoryEntity(**defaults)
+        async_session.add(history)
+        await async_session.flush()
+        await async_session.refresh(history)
+        return history
+
+    return _create_history
+
+
+@pytest_asyncio.fixture
+async def password_reset_request_factory(
+    async_session: AsyncSession, faker_instance: Faker
+) -> Any:
+    """Factory for creating password reset requests."""
+
+    async def _create_request(
+        email: str | None = None,
+        ip_address: str | None = None,
+        **kwargs: Any,
+    ) -> PasswordResetRequestEntity:
+        """Create a password reset request."""
+        defaults = {
+            "email": email or faker_instance.email(),
+            "ip_address": ip_address or "192.168.1.1",
+        }
+        defaults.update(kwargs)
+
+        request = PasswordResetRequestEntity(**defaults)
+        async_session.add(request)
+        await async_session.flush()
+        await async_session.refresh(request)
+        return request
+
+    return _create_request
+
+
+# ============================================================================
 # Repository Fixtures
 # ============================================================================
 
@@ -232,6 +361,24 @@ async def session_repo(
 async def oauth_state_repository() -> OAuthStateRepository:
     """Provide OAuthStateRepository instance."""
     return OAuthStateRepository()
+
+
+@pytest_asyncio.fixture
+async def password_reset_token_repository() -> PasswordResetTokenRepository:
+    """Provide PasswordResetTokenRepository instance."""
+    return PasswordResetTokenRepository()
+
+
+@pytest_asyncio.fixture
+async def password_history_repository() -> PasswordHistoryRepository:
+    """Provide PasswordHistoryRepository instance."""
+    return PasswordHistoryRepository()
+
+
+@pytest_asyncio.fixture
+async def password_reset_request_repository() -> PasswordResetRequestRepository:
+    """Provide PasswordResetRequestRepository instance."""
+    return PasswordResetRequestRepository()
 
 
 # ============================================================================

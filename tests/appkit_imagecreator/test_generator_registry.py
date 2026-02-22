@@ -20,8 +20,8 @@ class TestImageGeneratorRegistry:
         registry = ImageGeneratorRegistry()
 
         # Assert
-        assert registry._generators == {}
-        assert registry._loaded is False
+        assert registry._generators == {}  # noqa: SLF001
+        assert registry._loaded is False  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_initialize_loads_generators(self) -> None:
@@ -41,7 +41,7 @@ class TestImageGeneratorRegistry:
         """initialize does not reload if already loaded."""
         # Arrange
         registry = ImageGeneratorRegistry()
-        registry._loaded = True
+        registry._loaded = True  # noqa: SLF001
 
         with patch.object(registry, "reload", new_callable=AsyncMock) as mock_reload:
             # Act
@@ -80,7 +80,7 @@ class TestImageGeneratorRegistry:
 
                 # Assert
                 mock_find.assert_called_once_with(mock_session)
-                assert registry._loaded is True
+                assert registry._loaded is True  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_reload_instantiates_generators(
@@ -110,8 +110,8 @@ class TestImageGeneratorRegistry:
                 await registry.reload()
 
                 # Assert
-                assert "test-openai" in registry._generators
-                assert isinstance(registry._generators["test-openai"], ImageGenerator)
+                assert "test-openai" in registry._generators  # noqa: SLF001
+                assert isinstance(registry._generators["test-openai"], ImageGenerator)  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_reload_handles_instantiation_errors(
@@ -147,13 +147,13 @@ class TestImageGeneratorRegistry:
                 await registry.reload()
 
                 # Assert - good model loaded, bad model skipped
-                assert "good-model" in registry._generators
-                assert "bad-model" not in registry._generators
+                assert "good-model" in registry._generators  # noqa: SLF001
+                assert "bad-model" not in registry._generators  # noqa: SLF001
 
     def test_resolve_processor_class_valid(self) -> None:
         """_resolve_processor_class imports and returns correct class."""
         # Act
-        cls = ImageGeneratorRegistry._resolve_processor_class(
+        cls = ImageGeneratorRegistry._resolve_processor_class(  # noqa: SLF001
             "appkit_imagecreator.backend.generators.openai.OpenAIImageGenerator"
         )
 
@@ -165,7 +165,7 @@ class TestImageGeneratorRegistry:
         """_resolve_processor_class raises for invalid module path."""
         # Act & Assert
         with pytest.raises(ModuleNotFoundError):
-            ImageGeneratorRegistry._resolve_processor_class(
+            ImageGeneratorRegistry._resolve_processor_class(  # noqa: SLF001
                 "nonexistent.module.ClassName"
             )
 
@@ -173,7 +173,7 @@ class TestImageGeneratorRegistry:
         """_resolve_processor_class raises TypeError if not ImageGenerator."""
         # Act & Assert
         with pytest.raises(TypeError, match="not an ImageGenerator subclass"):
-            ImageGeneratorRegistry._resolve_processor_class(
+            ImageGeneratorRegistry._resolve_processor_class(  # noqa: SLF001
                 "appkit_imagecreator.backend.models.ImageModel"
             )
 
@@ -192,7 +192,7 @@ class TestImageGeneratorRegistry:
         )
 
         # Act
-        generator = ImageGeneratorRegistry._instantiate_generator(db_model)
+        generator = ImageGeneratorRegistry._instantiate_generator(db_model)  # noqa: SLF001
 
         # Assert
         assert isinstance(generator, ImageGenerator)
@@ -211,8 +211,8 @@ class TestImageGeneratorRegistry:
         registry.register(generator)
 
         # Assert
-        assert "test" in registry._generators
-        assert registry._generators["test"] == generator
+        assert "test" in registry._generators  # noqa: SLF001
+        assert registry._generators["test"] == generator  # noqa: SLF001
 
     def test_get_returns_registered_generator(self) -> None:
         """get returns generator by ID."""

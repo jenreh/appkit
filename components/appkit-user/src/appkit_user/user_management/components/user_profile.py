@@ -1,5 +1,3 @@
-import logging
-
 import reflex as rx
 
 import appkit_mantine as mn
@@ -10,8 +8,6 @@ from appkit_user.user_management.states.profile_states import (
     MIN_PASSWORD_LENGTH,
     ProfileState,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def _status_row(label: str, active: bool = False) -> rx.Component:

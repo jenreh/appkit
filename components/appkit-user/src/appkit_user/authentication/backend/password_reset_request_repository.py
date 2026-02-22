@@ -67,8 +67,7 @@ class PasswordResetRequestRepository(
         )
 
         session.add(entity)
-        await session.commit()
-        await session.refresh(entity)
+        await session.flush()
 
         logger.debug(
             "Logged password reset request for email=%s, ip=%s", email, ip_address
@@ -92,7 +91,7 @@ class PasswordResetRequestRepository(
             PasswordResetRequestEntity.created < cutoff_naive
         )
         result = await session.execute(stmt)
-        await session.commit()
+        await session.flush()
 
         deleted_count = result.rowcount or 0
         if deleted_count > 0:

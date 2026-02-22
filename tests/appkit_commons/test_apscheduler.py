@@ -584,14 +584,12 @@ class TestAPSchedulerStart:
         scheduler._scheduler = mock_scheduler
 
         # Act
-        with caplog.at_level(logging.INFO):
-            with patch.object(
-                scheduler, "_configure_scheduler", new_callable=AsyncMock
-            ):
-                with patch.object(
-                    scheduler, "_schedule_service", new_callable=AsyncMock
-                ):
-                    await scheduler.start()
+        with (
+            caplog.at_level(logging.INFO),
+            patch.object(scheduler, "_configure_scheduler", new_callable=AsyncMock),
+            patch.object(scheduler, "_schedule_service", new_callable=AsyncMock),
+        ):
+            await scheduler.start()
 
         # Assert
         assert "Started scheduler" in caplog.text

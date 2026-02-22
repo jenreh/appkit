@@ -82,8 +82,7 @@ class PasswordResetTokenRepository(
         )
 
         session.add(entity)
-        await session.commit()
-        await session.refresh(entity)
+        await session.flush()
 
         logger.info(
             "Created password reset token for user_id=%d, type=%s", user_id, reset_type
@@ -105,7 +104,7 @@ class PasswordResetTokenRepository(
 
         if token_entity:
             token_entity.is_used = True
-            await session.commit()
+            await session.flush()
             logger.info("Marked password reset token id=%d as used", token_id)
 
     async def delete_expired(self, session: AsyncSession) -> int:
@@ -122,7 +121,7 @@ class PasswordResetTokenRepository(
             PasswordResetTokenEntity.expires_at < now
         )
         result = await session.execute(stmt)
-        await session.commit()
+        await session.flush()
 
         deleted_count = result.rowcount or 0
         if deleted_count > 0:
@@ -144,7 +143,7 @@ class PasswordResetTokenRepository(
             PasswordResetTokenEntity.user_id == user_id
         )
         result = await session.execute(stmt)
-        await session.commit()
+        await session.flush()
 
         deleted_count = result.rowcount or 0
         if deleted_count > 0:

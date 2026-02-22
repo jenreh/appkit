@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
-from jinja2 import Template
+from jinja2 import Environment, select_autoescape
 
 from appkit_commons.registry import service_registry
 from appkit_user.configuration import (
@@ -57,7 +57,8 @@ class EmailProviderBase(ABC):
         try:
             template_path = self._get_template_path(template_file)
             template_content = template_path.read_text(encoding="utf-8")
-            template = Template(template_content)
+            env = Environment(autoescape=select_autoescape(["html", "xml"]))
+            template = env.from_string(template_content)
             return template.render(**context)
         except Exception as e:
             logger.error("Failed to render template '%s': %s", template_file, e)
