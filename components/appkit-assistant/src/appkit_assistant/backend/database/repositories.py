@@ -19,7 +19,7 @@ from appkit_assistant.backend.database.models import (
     UserSkillSelection,
 )
 from appkit_commons.database.base_repository import BaseRepository
-from appkit_user.authentication.backend.database.entities import UserEntity
+from appkit_user.authentication.backend.database import UserEntity
 
 logger = logging.getLogger(__name__)
 

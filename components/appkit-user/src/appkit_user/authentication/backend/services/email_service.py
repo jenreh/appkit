@@ -3,12 +3,12 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
-from enum import StrEnum
 from pathlib import Path
 
 from jinja2 import Environment, select_autoescape
 
 from appkit_commons.registry import service_registry
+from appkit_user.authentication.backend.types import PasswordResetType
 from appkit_user.configuration import (
     AuthenticationConfiguration,
     AzureEmailConfig,
@@ -18,13 +18,6 @@ from appkit_user.configuration import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class PasswordResetType(StrEnum):
-    """Type of password reset process."""
-
-    USER_INITIATED = "user_initiated"
-    ADMIN_FORCED = "admin_forced"
 
 
 type EmailConfigType = ResendEmailConfig | AzureEmailConfig | MockEmailConfig

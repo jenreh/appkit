@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from appkit_user.authentication.backend.services.oauth_service import (
+from appkit_user.authentication.backend.services import (
     OAuthService,
     generate_pkce_pair,
 )

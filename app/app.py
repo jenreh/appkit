@@ -18,7 +18,7 @@ from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_imagecreator.backend.services.image_cleanup_service import (
     ImageCleanupService,
 )
-from appkit_user.authentication.backend.services.session_cleanup_service import (
+from appkit_user.authentication.backend.services import (
     SessionCleanupService,
 )
 from appkit_user.authentication.pages import (  # noqa: F401

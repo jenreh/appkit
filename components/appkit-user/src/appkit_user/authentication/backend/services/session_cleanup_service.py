@@ -8,7 +8,7 @@ from appkit_commons.scheduler import (
     ScheduledService,
     Trigger,
 )
-from appkit_user.authentication.backend.database.user_session_repository import (
+from appkit_user.authentication.backend.database import (
     session_repo,
 )
 

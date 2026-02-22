@@ -5,15 +5,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.database.entities import (
+from appkit_user.authentication.backend.database import (
     PasswordResetTokenEntity,
-)
-from appkit_user.authentication.backend.database.password_reset_repository import (
     PasswordResetTokenRepository,
 )
-from appkit_user.authentication.backend.services.email_service import (
-    PasswordResetType,
-)
+from appkit_user.authentication.backend.types import PasswordResetType
 
 
 @pytest.fixture

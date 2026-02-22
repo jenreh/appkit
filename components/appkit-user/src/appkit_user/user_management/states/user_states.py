@@ -5,7 +5,7 @@ import reflex as rx
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.roles import Role
-from appkit_user.authentication.backend.database.user_repository import user_repo
+from appkit_user.authentication.backend.database import user_repo
 from appkit_user.authentication.backend.models import User, UserCreate
 from appkit_user.authentication.decorators import is_authenticated
 

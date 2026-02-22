@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from appkit_commons.registry import service_registry
-from appkit_user.authentication.backend.services.email_service import (
+from appkit_user.authentication.backend.services import (
     AzureEmailProvider,
     EmailServiceFactory,
     MockEmailProvider,

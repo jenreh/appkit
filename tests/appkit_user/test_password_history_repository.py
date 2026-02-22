@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.security import generate_password_hash
-from appkit_user.authentication.backend.database.entities import PasswordHistoryEntity
-from appkit_user.authentication.backend.database.password_history_repository import (
+from appkit_user.authentication.backend.database import (
+    PasswordHistoryEntity,
     PasswordHistoryRepository,
 )
 

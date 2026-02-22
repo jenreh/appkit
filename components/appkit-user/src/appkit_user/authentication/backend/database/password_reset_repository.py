@@ -12,7 +12,7 @@ from appkit_commons.database.base_repository import BaseRepository
 from appkit_user.authentication.backend.database.entities import (
     PasswordResetTokenEntity,
 )
-from appkit_user.authentication.backend.services.email_service import PasswordResetType
+from appkit_user.authentication.backend.types import PasswordResetType
 
 logger = logging.getLogger(__name__)
 

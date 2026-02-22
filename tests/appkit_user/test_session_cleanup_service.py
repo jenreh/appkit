@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.scheduler import IntervalTrigger
-from appkit_user.authentication.backend.services.session_cleanup_service import (
+from appkit_user.authentication.backend.services import (
     SessionCleanupService,
 )
 
