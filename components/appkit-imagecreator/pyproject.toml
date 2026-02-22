@@ -22,12 +22,12 @@ classifiers = [
 ]
 dependencies = [
     "appkit-commons",
-    "fastapi>=0.129.0",
-    "google-genai>=1.63.0",
+    "fastapi>=0.129.2",
+    "google-genai>=1.64.0",
     "httpx>=0.28.1",
-    "openai>=2.20.0",
+    "openai>=2.21.0",
     "pillow>=12.1.1",
-    "reflex>=0.8.26",
+    "reflex>=0.8.27",
     "pyasn1>=0.6.2",
 ]
 
