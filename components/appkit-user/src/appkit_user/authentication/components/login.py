@@ -93,9 +93,10 @@ def login_form(logo: str, logo_dark: str, margin_left: str = "0px") -> rx.Compon
                             LoginState.error_message,
                             mn.alert(
                                 LoginState.error_message,
-                                title="Fehler",
-                                color="red",
-                                icon=rx.icon("triangle_alert"),
+                                color="pink",
+                                variant="light",
+                                radius="sm",
+                                p="6px",
                             ),
                         ),
                         mn.text_input(
