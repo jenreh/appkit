@@ -93,13 +93,15 @@ class TestThreadService:
         service = ThreadService()
         available_model = MagicMock(id="gpt-3.5", requires_role=None)
 
-        with patch.object(
-            service.model_manager, "get_all_models", return_value=[available_model]
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                service.model_manager, "get_all_models", return_value=[available_model]
+            ),
+            patch.object(
                 service.model_manager, "get_default_model", return_value="gpt-3.5"
-            ):
-                thread = service.create_new_thread("invalid-model")
+            ),
+        ):
+            thread = service.create_new_thread("invalid-model")
 
         assert thread.ai_model == "gpt-3.5"
 
@@ -111,15 +113,17 @@ class TestThreadService:
         restricted_default = MagicMock(id="gpt-4", requires_role="admin")
         accessible_model = MagicMock(id="gpt-3.5", requires_role=None)
 
-        with patch.object(
-            service.model_manager,
-            "get_all_models",
-            return_value=[restricted_default, accessible_model],
-        ):
-            with patch.object(
+        with (
+            patch.object(
+                service.model_manager,
+                "get_all_models",
+                return_value=[restricted_default, accessible_model],
+            ),
+            patch.object(
                 service.model_manager, "get_default_model", return_value="gpt-4"
-            ):
-                thread = service.create_new_thread("invalid", user_roles=["user"])
+            ),
+        ):
+            thread = service.create_new_thread("invalid", user_roles=["user"])
 
         assert thread.ai_model == "gpt-3.5"
 

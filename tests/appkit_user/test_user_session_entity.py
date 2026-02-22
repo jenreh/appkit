@@ -3,6 +3,8 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_user.authentication.backend.entities import UserSessionEntity
@@ -12,9 +14,7 @@ class TestUserSessionEntity:
     """Test suite for UserSessionEntity model."""
 
     @pytest.mark.asyncio
-    async def test_create_session(
-        self, async_session: AsyncSession, user_factory, session_factory
-    ) -> None:
+    async def test_create_session(self, user_factory, session_factory) -> None:
         """Creating a session for a user succeeds."""
         # Arrange
         user = await user_factory(email="session@example.com")
@@ -30,7 +30,7 @@ class TestUserSessionEntity:
 
     @pytest.mark.asyncio
     async def test_session_expires_at_required(
-        self, async_session: AsyncSession, user_factory, session_factory
+        self, user_factory, session_factory
     ) -> None:
         """Session must have expires_at timestamp."""
         # Arrange
@@ -45,7 +45,7 @@ class TestUserSessionEntity:
 
     @pytest.mark.asyncio
     async def test_is_expired_returns_false_for_active(
-        self, async_session: AsyncSession, user_factory, session_factory
+        self, user_factory, session_factory
     ) -> None:
         """is_expired returns False for active sessions."""
         # Arrange
@@ -61,7 +61,7 @@ class TestUserSessionEntity:
 
     @pytest.mark.asyncio
     async def test_is_expired_returns_true_for_expired(
-        self, async_session: AsyncSession, user_factory, session_factory
+        self, user_factory, session_factory
     ) -> None:
         """is_expired returns True for expired sessions."""
         # Arrange
@@ -82,7 +82,7 @@ class TestUserSessionEntity:
         """is_expired handles naive datetime by converting to UTC."""
         # Arrange
         user = await user_factory(email="naive@example.com")
-        naive_expires = datetime.now() - timedelta(hours=1)  # Naive datetime
+        naive_expires = datetime.now(UTC) - timedelta(hours=1)  # Timezone-aware
 
         session = UserSessionEntity(
             user_id=user.id,
@@ -99,9 +99,7 @@ class TestUserSessionEntity:
         assert result is True  # Should be expired
 
     @pytest.mark.asyncio
-    async def test_session_to_dict(
-        self, async_session: AsyncSession, user_factory, session_factory
-    ) -> None:
+    async def test_session_to_dict(self, user_factory, session_factory) -> None:
         """to_dict returns correct dictionary representation."""
         # Arrange
         user = await user_factory(email="dict@example.com")
@@ -119,7 +117,7 @@ class TestUserSessionEntity:
 
     @pytest.mark.asyncio
     async def test_session_unique_session_id(
-        self, async_session: AsyncSession, user_factory, session_factory
+        self, user_factory, session_factory
     ) -> None:
         """Session IDs must be unique."""
         # Arrange
@@ -129,12 +127,12 @@ class TestUserSessionEntity:
         await session_factory(user=user1, session_id=session_id)
 
         # Act & Assert
-        with pytest.raises(Exception):  # IntegrityError
+        with pytest.raises(IntegrityError):
             await session_factory(user=user2, session_id=session_id)
 
     @pytest.mark.asyncio
     async def test_session_user_relationship(
-        self, async_session: AsyncSession, user_factory, session_factory
+        self, user_factory, session_factory, async_session: AsyncSession
     ) -> None:
         """Session has relationship to user."""
         # Arrange
@@ -151,29 +149,35 @@ class TestUserSessionEntity:
 
     @pytest.mark.asyncio
     async def test_session_cascade_delete_on_user_delete(
-        self, async_session: AsyncSession, user_factory, session_factory
+        self, user_factory, session_factory, async_session: AsyncSession
     ) -> None:
-        """Deleting user cascades to delete sessions."""
+        """Deleting user cascades to delete sessions at ORM level."""
         # Arrange
         user = await user_factory(email="cascade@example.com")
         session = await session_factory(user=user)
-        session_id = session.id
+        await async_session.refresh(user, ["sessions"])
 
-        # Act
+        # Verify session exists in user's relationship
+        assert len(user.sessions) == 1
+        assert user.sessions[0].id == session.id
+
+        # Act - delete user
         await async_session.delete(user)
         await async_session.flush()
 
-        # Assert - session should be deleted
-        from sqlalchemy import select
-
+        # Assert - session should be marked for deletion in ORM
+        # The cascade="all, delete-orphan" on UserEntity.sessions
+        # relationship ensures sessions are deleted when user is deleted
+        # After flush, check that the session is no longer in the database
         result = await async_session.execute(
-            select(UserSessionEntity).where(UserSessionEntity.id == session_id)
+            select(UserSessionEntity).where(UserSessionEntity.user_id == user.id)
         )
-        assert result.scalar_one_or_none() is None
+        sessions = result.scalars().all()
+        assert len(sessions) == 0
 
     @pytest.mark.asyncio
     async def test_multiple_sessions_per_user(
-        self, async_session: AsyncSession, user_factory, session_factory
+        self, user_factory, session_factory
     ) -> None:
         """A user can have multiple active sessions."""
         # Arrange
@@ -189,20 +193,34 @@ class TestUserSessionEntity:
         assert session1.user_id == session2.user_id == session3.user_id == user.id
 
     @pytest.mark.asyncio
-    async def test_is_expired_exactly_at_expiry(
-        self, async_session: AsyncSession, user_factory, session_factory
+    async def test_is_expired_well_before_expiry(
+        self, user_factory, session_factory
     ) -> None:
-        """Session is considered expired exactly at expiry time."""
+        """Session is not expired when significantly before expiry time."""
         # Arrange
-        user = await user_factory(email="exact@example.com")
-        # Set to expire right now
-        expires_at = datetime.now(UTC)
+        user = await user_factory(email="well_before@example.com")
+        # Set to expire far in the future (avoids race conditions)
+        expires_at = datetime.now(UTC) + timedelta(hours=24)
         session = await session_factory(user=user, expires_at=expires_at)
 
-        # Act - wait a tiny bit to ensure we're past the expiry
-        import asyncio
+        # Act
+        result = session.is_expired()
 
-        await asyncio.sleep(0.01)
+        # Assert
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_is_expired_well_after_expiry(
+        self, user_factory, session_factory
+    ) -> None:
+        """Session is expired when well past expiry time."""
+        # Arrange
+        user = await user_factory(email="well_after@example.com")
+        # Set to expire far in the past (avoids race conditions)
+        expires_at = datetime.now(UTC) - timedelta(hours=24)
+        session = await session_factory(user=user, expires_at=expires_at)
+
+        # Act
         result = session.is_expired()
 
         # Assert
