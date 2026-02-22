@@ -48,7 +48,7 @@ class EmailProviderBase(ABC):
         base_dir = (
             config.password_reset.templates_dir
             if config.password_reset.templates_dir
-            else Path(__file__).parent.parent / "templates"
+            else Path(__file__).parent.parent.parent / "templates"
         )
         return base_dir / filename
 

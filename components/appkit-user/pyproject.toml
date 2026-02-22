@@ -48,6 +48,9 @@ appkit-ui = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/appkit_user"]
+include = [
+    "/src/appkit_user/authentication/templates/*.html",
+]
 
 [build-system]
 requires = ["hatchling"]

@@ -1042,3 +1042,154 @@ class TestEmailServiceIntegration:
                     user_name=f"User {i}",
                 )
                 assert result is True
+
+    def test_default_template_path_resolution(self) -> None:
+        """Test that _get_template_path resolves to actual templates dir when templates_dir is None."""
+        # Create a config without custom templates_dir (None) so it uses default
+        mock_config = AuthenticationConfiguration(
+            session_timeout=25,
+            server_url="http://localhost",
+            server_port=3000,
+            email_provider=MockEmailConfig(from_email="test@localhost"),
+            password_reset=PasswordResetConfig(
+                templates_dir=None
+            ),  # Force default path
+        )
+
+        with patch.object(
+            service_registry(), "get", return_value=mock_config
+        ) as mock_get:
+            mock_get.side_effect = lambda cls: (
+                mock_config
+                if cls == AuthenticationConfiguration
+                else object.__getattribute__(service_registry(), "get")(cls)
+            )
+
+            provider = MockEmailProvider(mock_config.email_provider)
+            template_path = provider._get_template_path(
+                "password_reset_user_initiated.html"
+            )
+
+            # Verify path contains 'authentication/templates'
+            assert "authentication" in str(template_path)
+            assert "templates" in str(template_path)
+            assert str(template_path).endswith(
+                "authentication/templates/password_reset_user_initiated.html"
+            )
+
+    def test_default_template_path_finds_actual_templates(self) -> None:
+        """Test that actual template files can be found using default path."""
+        mock_config = AuthenticationConfiguration(
+            session_timeout=25,
+            server_url="http://localhost",
+            server_port=3000,
+            email_provider=MockEmailConfig(from_email="test@localhost"),
+            password_reset=PasswordResetConfig(
+                templates_dir=None
+            ),  # Force default path
+        )
+
+        with patch.object(
+            service_registry(), "get", return_value=mock_config
+        ) as mock_get:
+            mock_get.side_effect = lambda cls: (
+                mock_config
+                if cls == AuthenticationConfiguration
+                else object.__getattribute__(service_registry(), "get")(cls)
+            )
+
+            provider = MockEmailProvider(mock_config.email_provider)
+
+            # Check both template files exist
+            user_initiated_path = provider._get_template_path(
+                "password_reset_user_initiated.html"
+            )
+            admin_forced_path = provider._get_template_path(
+                "password_reset_admin_forced.html"
+            )
+
+            assert user_initiated_path.exists(), (
+                f"User initiated template not found at {user_initiated_path}"
+            )
+            assert admin_forced_path.exists(), (
+                f"Admin forced template not found at {admin_forced_path}"
+            )
+
+    def test_default_template_path_renders_successfully(self) -> None:
+        """Test that templates can be rendered using default path."""
+        mock_config = AuthenticationConfiguration(
+            session_timeout=25,
+            server_url="http://localhost",
+            server_port=3000,
+            email_provider=MockEmailConfig(from_email="test@localhost"),
+            password_reset=PasswordResetConfig(
+                templates_dir=None
+            ),  # Force default path
+        )
+
+        with patch.object(
+            service_registry(), "get", return_value=mock_config
+        ) as mock_get:
+            mock_get.side_effect = lambda cls: (
+                mock_config
+                if cls == AuthenticationConfiguration
+                else object.__getattribute__(service_registry(), "get")(cls)
+            )
+
+            provider = MockEmailProvider(mock_config.email_provider)
+            rendered = provider._render_template(
+                "password_reset_user_initiated.html",
+                reset_url="http://localhost/reset?token=test123",
+                user_name="Test User",
+                logo_url="http://localhost/img/appkit_logo.svg",
+            )
+
+            # Verify rendered content contains expected parts
+            assert "reset_url" not in rendered  # Variable is rendered, not left as-is
+            assert "test123" in rendered  # Token should be in the rendered output
+            assert "Test User" in rendered  # Username should be in the rendered output
+
+    def test_custom_template_path_overrides_default(self, tmp_path: Path) -> None:
+        """Test that custom templates_dir takes precedence over default."""
+        # Create custom template directory
+        custom_template_dir = tmp_path / "custom_templates"
+        custom_template_dir.mkdir()
+        custom_template_path = (
+            custom_template_dir / "password_reset_user_initiated.html"
+        )
+        custom_template_path.write_text("<html>CUSTOM: {{ reset_url }}</html>")
+
+        mock_config = AuthenticationConfiguration(
+            session_timeout=25,
+            server_url="http://localhost",
+            server_port=3000,
+            email_provider=MockEmailConfig(from_email="test@localhost"),
+            password_reset=PasswordResetConfig(
+                templates_dir=custom_template_dir  # Use custom path
+            ),
+        )
+
+        with patch.object(
+            service_registry(), "get", return_value=mock_config
+        ) as mock_get:
+            mock_get.side_effect = lambda cls: (
+                mock_config
+                if cls == AuthenticationConfiguration
+                else object.__getattribute__(service_registry(), "get")(cls)
+            )
+
+            provider = MockEmailProvider(mock_config.email_provider)
+            template_path = provider._get_template_path(
+                "password_reset_user_initiated.html"
+            )
+
+            # Should point to custom directory, not default
+            assert template_path == custom_template_path
+            assert template_path.exists()
+
+            # Rendered content should use custom template
+            rendered = provider._render_template(
+                "password_reset_user_initiated.html",
+                reset_url="http://localhost/reset?token=custom123",
+            )
+            assert "CUSTOM:" in rendered
