@@ -15,24 +15,32 @@ def role_checkbox(
 ) -> rx.Component:
     """Checkbox for a role in the user form."""
     name = role.get("name")
+    label = role.get("label", "")
+    description = role.get("description", "")
+
+    chk = mn.checkbox(
+        label=label,
+        name=f"role_{name}",
+        default_checked=(
+            user.roles.contains(name)
+            if is_edit_mode and user.roles is not None
+            else False
+        ),
+        size="sm",
+    )
 
     return rx.cond(
         name,
         mn.box(
-            mn.tooltip(
-                mn.checkbox(
-                    label=role.get("label", ""),
-                    name=f"role_{name}",
-                    default_checked=(
-                        user.roles.contains(name)
-                        if is_edit_mode and user.roles is not None
-                        else False
-                    ),
-                    size="sm",
+            rx.cond(
+                description & (description != ""),
+                mn.tooltip(
+                    chk,
+                    label=description,
                 ),
-                label=role.get("description", ""),
+                chk,
             ),
-            class_name="w-[30%] max-w-[30%] flex-grow",
+            w="100%",
         ),
         rx.fragment(),
     )
@@ -93,7 +101,7 @@ def user_form_fields(user: User | None = None) -> rx.Component:
                         ),
                         size="sm",
                     ),
-                    class_name="w-[30%] max-w-[30%] flex-grow",
+                    class_name="w-[50%] max-w-[50%] flex-grow",
                 ),
                 mn.box(
                     mn.switch(
@@ -106,7 +114,7 @@ def user_form_fields(user: User | None = None) -> rx.Component:
                         ),
                         size="sm",
                     ),
-                    class_name="w-[30%] max-w-[30%] flex-grow",
+                    class_name="w-[50%] max-w-[50%] flex-grow",
                 ),
                 mn.box(
                     mn.switch(
@@ -119,7 +127,7 @@ def user_form_fields(user: User | None = None) -> rx.Component:
                         ),
                         size="sm",
                     ),
-                    class_name="w-[30%] max-w-[30%] flex-grow",
+                    class_name="w-[50%] max-w-[50%] flex-grow",
                 ),
                 class_name="w-full flex-wrap gap-2",
             ),
@@ -138,16 +146,13 @@ def user_form_fields(user: User | None = None) -> rx.Component:
                 label=group_name,
                 size="xs",
                 width="100%",
-                my="sm",
+                my="3px",
             ),
-            mn.flex(
-                rx.foreach(
-                    roles,
-                    lambda role: role_checkbox(
-                        user=user, role=role, is_edit_mode=is_edit_mode
-                    ),
+            rx.foreach(
+                roles,
+                lambda role: role_checkbox(
+                    user=user, role=role, is_edit_mode=is_edit_mode
                 ),
-                class_name="w-full flex-wrap gap-2",
             ),
             gap="xs",
             my="4px",
@@ -156,7 +161,6 @@ def user_form_fields(user: User | None = None) -> rx.Component:
 
     role_fields = [
         mn.stack(
-            mn.text("Berechtigungen", size="sm", fw="bold"),
             rx.foreach(
                 UserState.sorted_group_names,
                 lambda group_name: render_role_group(
@@ -171,12 +175,41 @@ def user_form_fields(user: User | None = None) -> rx.Component:
     ]
 
     # Combine all fields
-    all_fields = basic_fields + status_fields + role_fields
+    left_fields = basic_fields + status_fields
 
     return mn.flex(
-        *all_fields,
-        direction="column",
-        gap="md" if is_edit_mode else "sm",
+        # Left column: inputs and status (non-scrolling)
+        mn.box(
+            mn.flex(
+                *left_fields,
+                direction="column",
+                gap="md" if is_edit_mode else "sm",
+                width="100%",
+            ),
+            flex="1",
+            min_width="0",
+            overflow="hidden",
+        ),
+        mn.box(
+            mn.text("Berechtigungen", size="sm", fw="500", mt="3px"),
+            mn.scroll_area.autosize(
+                *role_fields,
+                max_height="60vh",
+                width="100%",
+                type="always",
+                offset_scrollbars=True,
+                padding="0",
+            ),
+            flex="1",
+            min_width="0",
+            height="100%",
+            overflow="hidden",
+        ),
+        direction="row",
+        gap="md",
+        width="100%",
+        height="100%",
+        align="flex-start",
     )
 
 
@@ -218,16 +251,17 @@ def _user_modal(
     return mn.modal(
         rx.form.root(
             rx.flex(
-                mn.scroll_area.autosize(
+                rx.box(
                     content,
-                    max_height="60vh",
+                    flex="1",
+                    min_height="0",
                     width="100%",
-                    type="always",
-                    offset_scrollbars=True,
-                    padding="12px",
+                    gap="md",
                 ),
                 _modal_footer(submit_label, on_close),
                 direction="column",
+                height="100%",
+                width="100%",
             ),
             on_submit=on_submit,
             reset_on_submit=False,
@@ -300,7 +334,7 @@ def delete_user_button(user: User, **kwargs) -> rx.Component:
         content=rx.cond(user.email, user.email, "Unbekannter Benutzer"),
         on_click=lambda: UserState.delete_user(user.user_id),
         icon_button=True,
-        color_scheme="red",
+        color="red",
         **kwargs,
     )
 
@@ -368,7 +402,7 @@ def users_table_row(
                 update_user_button(user=user, variant="ghost"),
                 delete_user_button(
                     user=user,
-                    variant="ghost",
+                    variant="subtle",
                 ),
                 gap="xs",
                 wrap="nowrap",

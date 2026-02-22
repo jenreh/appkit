@@ -19,7 +19,7 @@ from appkit_assistant.backend.services.openai_client_service import (
     OpenAIClientService,
 )
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.backend.user_repository import user_repo
+from appkit_user.authentication.backend.database import user_repo
 
 logger = logging.getLogger(__name__)
 

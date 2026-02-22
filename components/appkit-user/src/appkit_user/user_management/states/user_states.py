@@ -1,10 +1,12 @@
+from collections.abc import AsyncGenerator
+from typing import Any
+
 import reflex as rx
-from reflex.components.sonner.toast import Toaster
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.roles import Role
+from appkit_user.authentication.backend.database import user_repo
 from appkit_user.authentication.backend.models import User, UserCreate
-from appkit_user.authentication.backend.user_repository import user_repo
 from appkit_user.authentication.decorators import is_authenticated
 
 
@@ -95,82 +97,118 @@ class UserState(rx.State):
             if key.startswith("role_") and value == "on"
         ]
 
-    @is_authenticated
-    async def load_users(self, limit: int = 200, offset: int = 0) -> None:
-        self.is_loading = True
+    async def _load_users(self, limit: int = 200, offset: int = 0) -> None:
+        """Internal load logic."""
         async with get_asyncdb_session() as session:
             user_entities = await user_repo.find_all_paginated(
                 session, limit=limit, offset=offset
             )
             self.users = [User(**user.to_dict()) for user in user_entities]
-        self.is_loading = False
 
     @is_authenticated
-    async def create_user(self, form_data: dict) -> Toaster:
-        roles = self._get_selected_roles(form_data)
-        new_user = UserCreate(
-            name=form_data["name"],
-            email=form_data["email"],
-            password=form_data["password"],
-            is_verified=True,
-            needs_password_reset=True,
-            roles=roles,
-        )
-
-        async with get_asyncdb_session() as session:
-            await user_repo.create_new_user(session, new_user)
-
-        await self.load_users()
-        self.close_add_modal()
-
-        return rx.toast.info(
-            f"Benutzer {form_data['email']} angelegt.", position="top-right"
-        )
+    async def load_users(
+        self, limit: int = 200, offset: int = 0
+    ) -> AsyncGenerator[Any, None]:
+        self.is_loading = True
+        yield
+        try:
+            await self._load_users(limit, offset)
+        finally:
+            self.is_loading = False
 
     @is_authenticated
-    async def update_user(self, form_data: dict) -> Toaster:
-        if not self.selected_user:
-            return rx.toast.error("Kein Benutzer ausgewählt.", position="top-right")
+    async def create_user(self, form_data: dict) -> AsyncGenerator[Any, None]:
+        self.is_loading = True
+        yield
+        try:
+            roles = self._get_selected_roles(form_data)
+            new_user = UserCreate(
+                name=form_data["name"],
+                email=form_data["email"],
+                password=form_data["password"],
+                is_verified=True,
+                needs_password_reset=True,
+                roles=roles,
+            )
 
-        # Handle boolean fields (checkboxes)
-        for field in ["is_active", "is_admin", "is_verified"]:
-            form_data[field] = bool(form_data.get(field))
+            async with get_asyncdb_session() as session:
+                await user_repo.create_new_user(session, new_user)
 
-        form_data["roles"] = self._get_selected_roles(form_data)
-
-        # Create update object and set ID
-        user = UserCreate(**form_data)
-        user.user_id = self.selected_user.user_id
-
-        async with get_asyncdb_session() as session:
-            await user_repo.update_from_model(session, user)
-
-        await self.load_users()
-        self.close_edit_modal()
-
-        return rx.toast.info(
-            f"Benutzer {form_data['email']} wurde aktualisiert.", position="top-right"
-        )
+            await self._load_users()
+            self.close_add_modal()
+            self.is_loading = False
+            yield rx.toast.info(
+                f"Benutzer {form_data['email']} angelegt.",
+                position="top-right",
+            )
+        except Exception as e:
+            self.is_loading = False
+            yield rx.toast.error(f"Fehler: {e}", position="top-right")
 
     @is_authenticated
-    async def delete_user(self, user_id: int) -> Toaster:
-        async with get_asyncdb_session() as session:
-            user_entity = await user_repo.find_by_id(session, user_id)
-            if not user_entity:
-                return rx.toast.error(
-                    "Benutzer kann nicht gelöscht werden, er wurde nicht gefunden.",
-                    position="top-right",
-                )
+    async def update_user(self, form_data: dict) -> AsyncGenerator[Any, None]:
+        self.is_loading = True
+        yield
+        try:
+            if not self.selected_user:
+                self.is_loading = False
+                yield rx.toast.error("Kein Benutzer ausgewählt.", position="top-right")
+                return
 
-            deleted = await user_repo.delete_by_id(session, user_id)
-            if not deleted:
-                return rx.toast.error(
-                    "Benutzer konnte nicht gelöscht werden.",
-                    position="top-right",
-                )
+            # Handle boolean fields (checkboxes)
+            for field in ["is_active", "is_admin", "is_verified"]:
+                form_data[field] = bool(form_data.get(field))
 
-        await self.load_users()
-        return rx.toast.info("Benutzer wurde gelöscht.", position="top-right")
+            form_data["roles"] = self._get_selected_roles(form_data)
+
+            # Create update object and set ID
+            user = UserCreate(**form_data)
+            user.user_id = self.selected_user.user_id
+
+            async with get_asyncdb_session() as session:
+                await user_repo.update_from_model(session, user)
+
+            await self._load_users()
+            self.close_edit_modal()
+            self.is_loading = False
+            yield rx.toast.info(
+                f"Benutzer {form_data['email']} wurde aktualisiert.",
+                position="top-right",
+            )
+        except Exception as e:
+            self.is_loading = False
+            yield rx.toast.error(f"Fehler: {e}", position="top-right")
+
+    @is_authenticated
+    async def delete_user(self, user_id: int) -> AsyncGenerator[Any, None]:
+        self.is_loading = True
+        yield
+        try:
+            async with get_asyncdb_session() as session:
+                user_entity = await user_repo.find_by_id(session, user_id)
+                if not user_entity:
+                    self.is_loading = False
+                    yield rx.toast.error(
+                        "Benutzer kann nicht gelöscht werden, er wurde nicht gefunden.",
+                        position="top-right",
+                    )
+                    return
+
+                deleted = await user_repo.delete_by_id(session, user_id)
+                if not deleted:
+                    self.is_loading = False
+                    yield rx.toast.error(
+                        "Benutzer konnte nicht gelöscht werden.",
+                        position="top-right",
+                    )
+                    return
+
+            await self._load_users()
+            self.is_loading = False
+            yield rx.toast.info("Benutzer wurde gelöscht.", position="top-right")
+        except Exception as e:
+            self.is_loading = False
+            yield rx.toast.error(f"Fehler: {e}", position="top-right")
 
     async def select_user(self, user_id: int) -> None:
         async with get_asyncdb_session() as session:

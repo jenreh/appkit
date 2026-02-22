@@ -63,23 +63,23 @@ def _get_secret_from_env(key: str) -> str:
     """
     # Try direct lookup first
     value = os.getenv(key)
-    if value:
+    if value is not None:
         return value
 
     # Try uppercase
     value = os.getenv(key.upper())
-    if value:
+    if value is not None:
         return value
 
     # Try dash-to-underscore + uppercase transformation
     transformed_key = key.replace("-", "_").upper()
     value = os.getenv(transformed_key)
-    if value:
+    if value is not None:
         return value
 
     # Try dash-to-underscore + lowercase transformation
     value = os.getenv(transformed_key.lower())
-    if value:
+    if value is not None:
         return value
 
     error_msg = (
@@ -89,7 +89,11 @@ def _get_secret_from_env(key: str) -> str:
     raise SecretNotFoundError(error_msg)
 
 
+def _get_secret_provider() -> str:
+    return os.getenv("SECRET_PROVIDER", "local").lower()
+
+
 def get_secret(key: str) -> str:
-    if SECRET_PROVIDER == SecretProvider.AZURE:
+    if _get_secret_provider() == SecretProvider.AZURE:
         return _get_secret_from_azure(key)
     return _get_secret_from_env(key)

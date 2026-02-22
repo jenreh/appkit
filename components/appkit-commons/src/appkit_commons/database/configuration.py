@@ -1,14 +1,18 @@
 from typing import Literal
 from urllib.parse import quote
 
-from pydantic import SecretStr, computed_field
+from pydantic import Field, SecretStr, computed_field
 from pydantic_settings import SettingsConfigDict
 
 from appkit_commons.configuration.base import BaseConfig
 
 
 class DatabaseConfig(BaseConfig):
-    model_config = SettingsConfigDict(env_prefix="app_database_", env_file=".env")
+    model_config = SettingsConfigDict(
+        env_prefix="app_database_",
+        env_file=".env",
+        populate_by_name=True,
+    )
 
     type: str = "postgresql"
     username: str = "postgres"
@@ -22,6 +26,11 @@ class DatabaseConfig(BaseConfig):
     pool_recycle: int = 1800  # seconds, recycle connections to prevent stale SSL
     echo: bool = False
     testing: bool = False
+    url_override: str | None = Field(
+        default=None,
+        validation_alias="url",
+        serialization_alias="url_override",
+    )
     # SSL mode: disable, allow, prefer, require, verify-ca, verify-full
     ssl_mode: Literal[
         "disable", "allow", "prefer", "require", "verify-ca", "verify-full"
@@ -30,6 +39,8 @@ class DatabaseConfig(BaseConfig):
     @computed_field(repr=False)  # type: ignore
     @property
     def url(self) -> str:
+        if self.url_override is not None:
+            return self.url_override
         if self.type == "sqlite":
             return f"sqlite:///{self.name}"
 

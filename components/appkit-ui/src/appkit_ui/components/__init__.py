@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from appkit_ui.components.collabsible import collabsible
+from appkit_ui.components.collapsible import collapsible
 from appkit_ui.components.editor import (
     EditorButtonList,
     EditorOptions,
@@ -12,6 +12,6 @@ __all__ = [
     "EditorButtonList",
     "EditorOptions",
     "EventHandler",
-    "collabsible",
+    "collapsible",
     "editor",
 ]

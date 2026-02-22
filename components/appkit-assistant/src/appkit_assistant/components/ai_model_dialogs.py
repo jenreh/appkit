@@ -482,6 +482,6 @@ def delete_ai_model_dialog(record: AssistantAIModel) -> rx.Component:
         content=record.text,
         on_click=lambda: AIModelAdminState.delete_model(record.id),
         icon_button=True,
-        variant="ghost",
-        color_scheme="red",
+        variant="subtle",
+        color="red",
     )

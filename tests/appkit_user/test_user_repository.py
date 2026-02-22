@@ -1,13 +1,14 @@
 """Tests for UserRepository."""
 
+from datetime import UTC, datetime
+
 import pytest
-from datetime import UTC, datetime, timedelta
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.entities import OAuthAccountEntity, UserEntity
-from appkit_user.authentication.backend.user_repository import (
+from appkit_user.authentication.backend.database import (
     DefaultUserRoles,
-    UserRepository,
+    OAuthAccountEntity,
     get_current_utc_time,
     get_expiration_time,
     get_name_from_email,
@@ -30,14 +31,23 @@ class TestHelperFunctions:
 
     def test_get_expiration_time(self) -> None:
         """get_expiration_time calculates correct expiration."""
+        # Arrange
+        duration_seconds = 3600  # 1 hour
+        before = datetime.now(UTC)
+
         # Act
-        result = get_expiration_time(3600)  # 1 hour
+        result = get_expiration_time(duration_seconds)
 
         # Assert
+        after = datetime.now(UTC)
         assert result.tzinfo == UTC
-        # Should be roughly 1 hour from now (with second/microsecond reset)
-        time_diff = (result - datetime.now(UTC)).total_seconds()
-        assert 3590 <= time_diff <= 3610  # Allow 10 second variance
+        # Should be roughly 1 hour from the calculation point
+        # The function resets seconds/microseconds, so we check the result is in range
+        time_diff_from_before = (result - before).total_seconds()
+        time_diff_from_after = (result - after).total_seconds()
+        # Should be between ~59:00 and ~60:59 seconds difference
+        assert 3540 <= time_diff_from_before <= 3720  # 59-61 minutes
+        assert 3540 <= time_diff_from_after <= 3720
 
     def test_normalize_scope_from_list(self) -> None:
         """normalize_scope converts list to space-separated string."""
@@ -101,14 +111,14 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_find_by_email_existing_user(
-        self, async_session: AsyncSession, user_factory, user_repo
+        self, async_session: AsyncSession, user_factory, user_repository
     ) -> None:
         """find_by_email returns existing user."""
         # Arrange
         user = await user_factory(email="find@example.com")
 
         # Act
-        found = await user_repo.find_by_email(async_session, "find@example.com")
+        found = await user_repository.find_by_email(async_session, "find@example.com")
 
         # Assert
         assert found is not None
@@ -117,11 +127,11 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_find_by_email_nonexistent_user(
-        self, async_session: AsyncSession, user_repo
+        self, async_session: AsyncSession, user_repository
     ) -> None:
         """find_by_email returns None for nonexistent user."""
         # Act
-        found = await user_repo.find_by_email(
+        found = await user_repository.find_by_email(
             async_session, "nonexistent@example.com"
         )
 
@@ -130,17 +140,17 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_find_by_email_and_password_success(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """find_by_email_and_password returns user with correct credentials."""
         # Arrange
-        password = "CorrectPassword123!"
+        password = "CorrectPassword123!"  # noqa: S105
         user = await user_with_password_factory(
             email="login@example.com", password=password
         )
 
         # Act
-        found = await user_repo.find_by_email_and_password(
+        found = await user_repository.find_by_email_and_password(
             async_session, "login@example.com", password
         )
 
@@ -150,7 +160,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_find_by_email_and_password_wrong_password(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """find_by_email_and_password returns None for wrong password."""
         # Arrange
@@ -159,7 +169,7 @@ class TestUserRepository:
         )
 
         # Act
-        found = await user_repo.find_by_email_and_password(
+        found = await user_repository.find_by_email_and_password(
             async_session, "wrong@example.com", "WrongPassword"
         )
 
@@ -168,7 +178,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_find_by_email_and_password_inactive_user(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """find_by_email_and_password returns None for inactive user."""
         # Arrange
@@ -177,7 +187,7 @@ class TestUserRepository:
         )
 
         # Act
-        found = await user_repo.find_by_email_and_password(
+        found = await user_repository.find_by_email_and_password(
             async_session, "inactive@example.com", "Pass123!"
         )
 
@@ -186,7 +196,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_find_by_email_and_password_unverified_user(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """find_by_email_and_password returns None for unverified user."""
         # Arrange
@@ -195,7 +205,7 @@ class TestUserRepository:
         )
 
         # Act
-        found = await user_repo.find_by_email_and_password(
+        found = await user_repository.find_by_email_and_password(
             async_session, "unverified@example.com", "Pass123!"
         )
 
@@ -204,17 +214,17 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_login_status_by_credentials_success(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """get_login_status_by_credentials returns user and success status."""
         # Arrange
-        password = "ValidPass123!"
+        password = "ValidPass123!"  # noqa: S105
         user = await user_with_password_factory(
             email="status@example.com", password=password
         )
 
         # Act
-        found_user, status = await user_repo.get_login_status_by_credentials(
+        found_user, status = await user_repository.get_login_status_by_credentials(
             async_session, "status@example.com", password
         )
 
@@ -225,7 +235,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_login_status_by_credentials_invalid(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """get_login_status_by_credentials returns invalid_credentials status."""
         # Arrange
@@ -234,7 +244,7 @@ class TestUserRepository:
         )
 
         # Act
-        found_user, status = await user_repo.get_login_status_by_credentials(
+        found_user, status = await user_repository.get_login_status_by_credentials(
             async_session, "invalid@example.com", "WrongPassword"
         )
 
@@ -244,7 +254,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_login_status_by_credentials_inactive(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """get_login_status_by_credentials returns inactive status."""
         # Arrange
@@ -253,7 +263,7 @@ class TestUserRepository:
         )
 
         # Act
-        found_user, status = await user_repo.get_login_status_by_credentials(
+        found_user, status = await user_repository.get_login_status_by_credentials(
             async_session, "inactive@example.com", "Pass123!"
         )
 
@@ -263,7 +273,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_login_status_by_credentials_not_verified(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """get_login_status_by_credentials returns not_verified status."""
         # Arrange
@@ -272,7 +282,7 @@ class TestUserRepository:
         )
 
         # Act
-        found_user, status = await user_repo.get_login_status_by_credentials(
+        found_user, status = await user_repository.get_login_status_by_credentials(
             async_session, "notverified@example.com", "Pass123!"
         )
 
@@ -281,13 +291,15 @@ class TestUserRepository:
         assert status == "not_verified"
 
     @pytest.mark.asyncio
-    async def test_validate_user_for_login_success(self, user_factory, user_repo) -> None:
+    async def test_validate_user_for_login_success(
+        self, user_factory, user_repository
+    ) -> None:
         """validate_user_for_login returns success for valid user."""
         # Arrange
         user = await user_factory(is_active=True, is_verified=True)
 
         # Act
-        can_login, status = user_repo.validate_user_for_login(user)
+        can_login, status = user_repository.validate_user_for_login(user)
 
         # Assert
         assert can_login is True
@@ -295,14 +307,14 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_validate_user_for_login_inactive(
-        self, user_factory, user_repo
+        self, user_factory, user_repository
     ) -> None:
         """validate_user_for_login returns inactive status."""
         # Arrange
         user = await user_factory(is_active=False, is_verified=True)
 
         # Act
-        can_login, status = user_repo.validate_user_for_login(user)
+        can_login, status = user_repository.validate_user_for_login(user)
 
         # Assert
         assert can_login is False
@@ -310,14 +322,14 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_validate_user_for_login_not_verified(
-        self, user_factory, user_repo
+        self, user_factory, user_repository
     ) -> None:
         """validate_user_for_login returns not_verified status."""
         # Arrange
         user = await user_factory(is_active=True, is_verified=False)
 
         # Act
-        can_login, status = user_repo.validate_user_for_login(user)
+        can_login, status = user_repository.validate_user_for_login(user)
 
         # Assert
         assert can_login is False
@@ -325,46 +337,42 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_validate_and_raise_for_oauth_login_inactive_raises(
-        self, user_factory, user_repo
+        self, user_factory, user_repository
     ) -> None:
         """_validate_and_raise_for_oauth_login raises ValueError for inactive user."""
         # Arrange
         user = await user_factory(is_active=False, is_verified=True)
 
         # Act & Assert
-        with pytest.raises(
-            ValueError, match="Your account has been deactivated"
-        ):
-            await user_repo._validate_and_raise_for_oauth_login(user)
+        with pytest.raises(ValueError, match="Your account has been deactivated"):
+            await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_validate_and_raise_for_oauth_login_not_verified_raises(
-        self, user_factory, user_repo
+        self, user_factory, user_repository
     ) -> None:
         """_validate_and_raise_for_oauth_login raises ValueError for unverified user."""
         # Arrange
         user = await user_factory(is_active=True, is_verified=False)
 
         # Act & Assert
-        with pytest.raises(
-            ValueError, match="Your account has not been verified"
-        ):
-            await user_repo._validate_and_raise_for_oauth_login(user)
+        with pytest.raises(ValueError, match="Your account has not been verified"):
+            await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_validate_and_raise_for_oauth_login_success(
-        self, user_factory, user_repo
+        self, user_factory, user_repository
     ) -> None:
         """_validate_and_raise_for_oauth_login does not raise for valid user."""
         # Arrange
         user = await user_factory(is_active=True, is_verified=True)
 
         # Act & Assert - should not raise
-        await user_repo._validate_and_raise_for_oauth_login(user)
+        await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_create_new_user(
-        self, async_session: AsyncSession, user_repo
+        self, async_session: AsyncSession, user_repository
     ) -> None:
         """create_new_user creates user with correct fields."""
         # Arrange
@@ -378,7 +386,7 @@ class TestUserRepository:
         )
 
         # Act
-        created = await user_repo.create_new_user(async_session, user_create)
+        created = await user_repository.create_new_user(async_session, user_create)
 
         # Assert
         assert created.id is not None
@@ -391,37 +399,35 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_create_new_user_extracts_name_from_email(
-        self, async_session: AsyncSession, user_repo
+        self, async_session: AsyncSession, user_repository
     ) -> None:
         """create_new_user extracts name from email when not provided."""
         # Arrange
-        user_create = UserCreate(
-            email="extracted@example.com", password="Pass123!"
-        )
+        user_create = UserCreate(email="extracted@example.com", password="Pass123!")
 
         # Act
-        created = await user_repo.create_new_user(async_session, user_create)
+        created = await user_repository.create_new_user(async_session, user_create)
 
         # Assert
         assert created.name == "extracted"
 
     @pytest.mark.asyncio
     async def test_create_new_user_assigns_default_role(
-        self, async_session: AsyncSession, user_repo
+        self, async_session: AsyncSession, user_repository
     ) -> None:
         """create_new_user assigns default USER role when not specified."""
         # Arrange
         user_create = UserCreate(email="role@example.com", password="Pass123!")
 
         # Act
-        created = await user_repo.create_new_user(async_session, user_create)
+        created = await user_repository.create_new_user(async_session, user_create)
 
         # Assert
         assert DefaultUserRoles.USER in created.roles
 
     @pytest.mark.asyncio
     async def test_update_from_model(
-        self, async_session: AsyncSession, user_factory, user_repo
+        self, async_session: AsyncSession, user_factory, user_repository
     ) -> None:
         """update_from_model updates existing user."""
         # Arrange
@@ -434,7 +440,7 @@ class TestUserRepository:
         )
 
         # Act
-        updated = await user_repo.update_from_model(async_session, user_update)
+        updated = await user_repository.update_from_model(async_session, user_update)
 
         # Assert
         assert updated is not None
@@ -445,7 +451,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_update_from_model_nonexistent_user(
-        self, async_session: AsyncSession, user_repo
+        self, async_session: AsyncSession, user_repository
     ) -> None:
         """update_from_model returns None for nonexistent user."""
         # Arrange
@@ -454,14 +460,14 @@ class TestUserRepository:
         )
 
         # Act
-        result = await user_repo.update_from_model(async_session, user_update)
+        result = await user_repository.update_from_model(async_session, user_update)
 
         # Assert
         assert result is None
 
     @pytest.mark.asyncio
     async def test_update_from_model_updates_password(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """update_from_model updates password when provided."""
         # Arrange
@@ -473,7 +479,7 @@ class TestUserRepository:
         )
 
         # Act
-        updated = await user_repo.update_from_model(async_session, user_update)
+        updated = await user_repository.update_from_model(async_session, user_update)
 
         # Assert
         assert updated is not None
@@ -482,16 +488,16 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_update_password_success(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """update_password changes password successfully."""
         # Arrange
-        old_password = "OldPassword123!"
-        new_password = "NewPassword456!"
+        old_password = "OldPassword123!"  # noqa: S105
+        new_password = "NewPassword456!"  # noqa: S105
         user = await user_with_password_factory(password=old_password)
 
         # Act
-        updated = await user_repo.update_password(
+        updated = await user_repository.update_password(
             async_session, user.id, new_password, old_password
         )
 
@@ -502,7 +508,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_update_password_wrong_old_password_raises(
-        self, async_session: AsyncSession, user_with_password_factory, user_repo
+        self, async_session: AsyncSession, user_with_password_factory, user_repository
     ) -> None:
         """update_password raises ValueError for incorrect old password."""
         # Arrange
@@ -510,17 +516,17 @@ class TestUserRepository:
 
         # Act & Assert
         with pytest.raises(ValueError, match="Old password is incorrect"):
-            await user_repo.update_password(
+            await user_repository.update_password(
                 async_session, user.id, "NewPass456!", "WrongOldPass"
             )
 
     @pytest.mark.asyncio
     async def test_update_password_nonexistent_user(
-        self, async_session: AsyncSession, user_repo
+        self, async_session: AsyncSession, user_repository
     ) -> None:
         """update_password returns None for nonexistent user."""
         # Act
-        result = await user_repo.update_password(
+        result = await user_repository.update_password(
             async_session, 99999, "NewPass", "OldPass"
         )
 
@@ -529,7 +535,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_find_all_paginated(
-        self, async_session: AsyncSession, user_factory, user_repo
+        self, async_session: AsyncSession, user_factory, user_repository
     ) -> None:
         """find_all_paginated returns paginated users."""
         # Arrange
@@ -538,14 +544,16 @@ class TestUserRepository:
         await user_factory(email="user3@example.com")
 
         # Act
-        users = await user_repo.find_all_paginated(async_session, limit=2, offset=0)
+        users = await user_repository.find_all_paginated(
+            async_session, limit=2, offset=0
+        )
 
         # Assert
         assert len(users) == 2
 
     @pytest.mark.asyncio
     async def test_find_all_paginated_offset(
-        self, async_session: AsyncSession, user_factory, user_repo
+        self, async_session: AsyncSession, user_factory, user_repository
     ) -> None:
         """find_all_paginated respects offset parameter."""
         # Arrange
@@ -554,7 +562,9 @@ class TestUserRepository:
         await user_factory(email="c@example.com")
 
         # Act
-        users = await user_repo.find_all_paginated(async_session, limit=2, offset=1)
+        users = await user_repository.find_all_paginated(
+            async_session, limit=2, offset=1
+        )
 
         # Assert
         assert len(users) == 2
@@ -562,37 +572,52 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_or_create_oauth_user_creates_new_user(
-        self, async_session: AsyncSession, user_repo, mock_github_user_info, mock_github_token
+        self,
+        async_session: AsyncSession,
+        user_repository,
+        mock_github_user_response,
+        mock_github_token_response,
     ) -> None:
         """get_or_create_oauth_user creates new user when no existing OAuth account."""
         # Act
-        user = await user_repo.get_or_create_oauth_user(
-            async_session, mock_github_user_info, "github", mock_github_token
+        user = await user_repository.get_or_create_oauth_user(
+            async_session,
+            mock_github_user_response,
+            "github",
+            mock_github_token_response,
         )
 
         # Assert
         assert user.id is not None
-        assert user.email == mock_github_user_info["email"]
+        assert user.email == mock_github_user_response["email"]
         assert user.is_verified is True
         assert user.is_active is True
 
     @pytest.mark.asyncio
     async def test_get_or_create_oauth_user_links_existing_user(
-        self, async_session: AsyncSession, user_factory, user_repo, mock_github_user_info, mock_github_token
+        self,
+        async_session: AsyncSession,
+        user_factory,
+        user_repository,
+        mock_github_user_response,
+        mock_github_token_response,
     ) -> None:
         """get_or_create_oauth_user links to existing user with same email."""
         # Arrange
-        existing_user = await user_factory(email=mock_github_user_info["email"])
+        existing_user = await user_factory(email=mock_github_user_response["email"])
 
         # Act
-        user = await user_repo.get_or_create_oauth_user(
-            async_session, mock_github_user_info, "github", mock_github_token
+        user = await user_repository.get_or_create_oauth_user(
+            async_session,
+            mock_github_user_response,
+            "github",
+            mock_github_token_response,
         )
 
         # Assert
         assert user.id == existing_user.id
         # Verify OAuth account was created
-        from sqlalchemy import select
+
         result = await async_session.execute(
             select(OAuthAccountEntity).where(OAuthAccountEntity.user_id == user.id)
         )
@@ -602,72 +627,101 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_or_create_oauth_user_updates_existing_oauth_user(
-        self, async_session: AsyncSession, user_factory, oauth_account_factory, user_repo, mock_github_user_info, mock_github_token
+        self,
+        async_session: AsyncSession,
+        user_factory,
+        oauth_account_factory,
+        user_repository,
+        mock_github_user_response,
+        mock_github_token_response,
     ) -> None:
         """get_or_create_oauth_user updates existing OAuth account."""
         # Arrange
-        user = await user_factory(email=mock_github_user_info["email"])
+        user = await user_factory(email=mock_github_user_response["email"])
         oauth_account = await oauth_account_factory(
             user=user,
             provider="github",
-            account_id=str(mock_github_user_info["id"]),
+            account_id=str(mock_github_user_response["id"]),
             access_token="old_token",
         )
 
         # Act
-        updated_user = await user_repo.get_or_create_oauth_user(
-            async_session, mock_github_user_info, "github", mock_github_token
+        updated_user = await user_repository.get_or_create_oauth_user(
+            async_session,
+            mock_github_user_response,
+            "github",
+            mock_github_token_response,
         )
 
         # Assert
         assert updated_user.id == user.id
         # Verify token was updated
         await async_session.refresh(oauth_account)
-        assert oauth_account.access_token == mock_github_token["access_token"]
+        assert oauth_account.access_token == mock_github_token_response["access_token"]
 
     @pytest.mark.asyncio
     async def test_get_or_create_oauth_user_inactive_user_raises(
-        self, async_session: AsyncSession, user_factory, oauth_account_factory, user_repo, mock_github_user_info, mock_github_token
+        self,
+        async_session: AsyncSession,
+        user_factory,
+        oauth_account_factory,
+        user_repository,
+        mock_github_user_response,
+        mock_github_token_response,
     ) -> None:
         """get_or_create_oauth_user raises for inactive user."""
         # Arrange
-        user = await user_factory(email=mock_github_user_info["email"], is_active=False)
+        user = await user_factory(
+            email=mock_github_user_response["email"], is_active=False
+        )
         await oauth_account_factory(
             user=user,
             provider="github",
-            account_id=str(mock_github_user_info["id"]),
+            account_id=str(mock_github_user_response["id"]),
         )
 
         # Act & Assert
         with pytest.raises(ValueError, match="account has been deactivated"):
-            await user_repo.get_or_create_oauth_user(
-                async_session, mock_github_user_info, "github", mock_github_token
+            await user_repository.get_or_create_oauth_user(
+                async_session,
+                mock_github_user_response,
+                "github",
+                mock_github_token_response,
             )
 
     @pytest.mark.asyncio
     async def test_get_or_create_oauth_user_unverified_user_raises(
-        self, async_session: AsyncSession, user_factory, oauth_account_factory, user_repo, mock_github_user_info, mock_github_token
+        self,
+        async_session: AsyncSession,
+        user_factory,
+        oauth_account_factory,
+        user_repository,
+        mock_github_user_response,
+        mock_github_token_response,
     ) -> None:
         """get_or_create_oauth_user raises for unverified user."""
         # Arrange
         user = await user_factory(
-            email=mock_github_user_info["email"], is_verified=False
+            email=mock_github_user_response["email"], is_verified=False
         )
         await oauth_account_factory(
             user=user,
             provider="github",
-            account_id=str(mock_github_user_info["id"]),
+            account_id=str(mock_github_user_response["id"]),
         )
 
         # Act & Assert
         with pytest.raises(ValueError, match="account has not been verified"):
-            await user_repo.get_or_create_oauth_user(
-                async_session, mock_github_user_info, "github", mock_github_token
+            await user_repository.get_or_create_oauth_user(
+                async_session,
+                mock_github_user_response,
+                "github",
+                mock_github_token_response,
             )
 
     @pytest.mark.asyncio
     async def test_get_or_create_oauth_user_normalizes_scope(
-        self, async_session: AsyncSession, user_repo, mock_github_user_info
+        self, async_session: AsyncSession, user_repository, mock_github_user_response
     ) -> None:
         """get_or_create_oauth_user normalizes scope from list to string."""
         # Arrange
@@ -679,12 +733,11 @@ class TestUserRepository:
         }
 
         # Act
-        user = await user_repo.get_or_create_oauth_user(
-            async_session, mock_github_user_info, "github", token_with_list_scope
+        user = await user_repository.get_or_create_oauth_user(
+            async_session, mock_github_user_response, "github", token_with_list_scope
         )
 
         # Assert
-        from sqlalchemy import select
         result = await async_session.execute(
             select(OAuthAccountEntity).where(OAuthAccountEntity.user_id == user.id)
         )
@@ -693,7 +746,7 @@ class TestUserRepository:
 
     @pytest.mark.asyncio
     async def test_get_or_create_oauth_user_handles_expires_in(
-        self, async_session: AsyncSession, user_repo, mock_github_user_info
+        self, async_session: AsyncSession, user_repository, mock_github_user_response
     ) -> None:
         """get_or_create_oauth_user sets expiration from expires_in."""
         # Arrange
@@ -704,17 +757,26 @@ class TestUserRepository:
         }
 
         # Act
-        user = await user_repo.get_or_create_oauth_user(
-            async_session, mock_github_user_info, "github", token_with_expiry
+        user = await user_repository.get_or_create_oauth_user(
+            async_session, mock_github_user_response, "github", token_with_expiry
         )
 
         # Assert
-        from sqlalchemy import select
+
         result = await async_session.execute(
             select(OAuthAccountEntity).where(OAuthAccountEntity.user_id == user.id)
         )
         oauth_account = result.scalars().first()
         assert oauth_account.expires_at is not None
         # Expiration should be roughly 2 hours from now
-        time_diff = (oauth_account.expires_at - datetime.now(UTC)).total_seconds()
-        assert 7190 <= time_diff <= 7210
+        # Handle both naive and aware datetimes (SQLite may return naive)
+        now = datetime.now(UTC)
+        expires_at = oauth_account.expires_at
+        if expires_at.tzinfo:
+            expires_ts = expires_at.timestamp()
+        else:
+            expires_ts = expires_at.replace(tzinfo=UTC).timestamp()
+        now_ts = now.timestamp()
+        time_diff = expires_ts - now_ts
+        # Allow wider range due to base time truncation in get_expiration_time
+        assert 7000 <= time_diff <= 7300

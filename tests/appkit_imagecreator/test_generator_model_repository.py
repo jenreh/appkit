@@ -3,18 +3,16 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_imagecreator.backend.models import ImageGeneratorModel
-from appkit_imagecreator.backend.generator_repository import (
-    ImageGeneratorModelRepository,
-)
-
 
 class TestImageGeneratorModelRepository:
     """Test suite for ImageGeneratorModelRepository."""
 
     @pytest.mark.asyncio
     async def test_find_all_ordered_by_name(
-        self, async_session: AsyncSession, image_generator_model_factory, generator_model_repo
+        self,
+        async_session: AsyncSession,
+        image_generator_model_factory,
+        generator_model_repo,
     ) -> None:
         """find_all_ordered_by_name returns all models sorted by label."""
         # Arrange
@@ -33,7 +31,10 @@ class TestImageGeneratorModelRepository:
 
     @pytest.mark.asyncio
     async def test_find_all_ordered_by_name_includes_inactive(
-        self, async_session: AsyncSession, image_generator_model_factory, generator_model_repo
+        self,
+        async_session: AsyncSession,
+        image_generator_model_factory,
+        generator_model_repo,
     ) -> None:
         """find_all_ordered_by_name includes inactive models."""
         # Arrange
@@ -51,7 +52,10 @@ class TestImageGeneratorModelRepository:
 
     @pytest.mark.asyncio
     async def test_find_all_active(
-        self, async_session: AsyncSession, image_generator_model_factory, generator_model_repo
+        self,
+        async_session: AsyncSession,
+        image_generator_model_factory,
+        generator_model_repo,
     ) -> None:
         """find_all_active returns only active models."""
         # Arrange
@@ -71,7 +75,10 @@ class TestImageGeneratorModelRepository:
 
     @pytest.mark.asyncio
     async def test_find_all_active_ordered_by_label(
-        self, async_session: AsyncSession, image_generator_model_factory, generator_model_repo
+        self,
+        async_session: AsyncSession,
+        image_generator_model_factory,
+        generator_model_repo,
     ) -> None:
         """find_all_active returns results sorted by label."""
         # Arrange
@@ -87,7 +94,10 @@ class TestImageGeneratorModelRepository:
 
     @pytest.mark.asyncio
     async def test_find_by_model_id_existing(
-        self, async_session: AsyncSession, image_generator_model_factory, generator_model_repo
+        self,
+        async_session: AsyncSession,
+        image_generator_model_factory,
+        generator_model_repo,
     ) -> None:
         """find_by_model_id returns model by model_id string."""
         # Arrange
@@ -118,7 +128,10 @@ class TestImageGeneratorModelRepository:
 
     @pytest.mark.asyncio
     async def test_find_by_model_id_case_sensitive(
-        self, async_session: AsyncSession, image_generator_model_factory, generator_model_repo
+        self,
+        async_session: AsyncSession,
+        image_generator_model_factory,
+        generator_model_repo,
     ) -> None:
         """find_by_model_id is case-sensitive."""
         # Arrange

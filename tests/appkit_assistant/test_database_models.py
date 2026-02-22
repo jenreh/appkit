@@ -6,18 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_assistant.backend.database.models import (
-    AssistantAIModel,
-    AssistantFileUpload,
-    AssistantMCPUserToken,
-    AssistantThread,
-    MCPServer,
-    Skill,
-    SystemPrompt,
-    UserPrompt,
-    UserSkillSelection,
-)
-from appkit_assistant.backend.schemas import MCPAuthType, MessageType, ThreadStatus
+from appkit_assistant.backend.schemas import MCPAuthType, ThreadStatus
 
 
 class TestMCPServer:
@@ -242,11 +231,12 @@ class TestAssistantMCPUserToken:
         self, async_session: AsyncSession, mcp_user_token_factory
     ) -> None:
         """AssistantMCPUserToken tracks token expiry."""
-        expires_at = datetime.now(UTC) + timedelta(hours=2)
+        now_naive = datetime.now()  # Use naive datetime for comparison
+        expires_at = now_naive + timedelta(hours=2)
         token = await mcp_user_token_factory(expires_at=expires_at)
 
         assert token.expires_at is not None
-        assert token.expires_at > datetime.now(UTC)
+        assert token.expires_at > now_naive
 
 
 class TestAssistantFileUpload:

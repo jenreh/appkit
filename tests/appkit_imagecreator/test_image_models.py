@@ -1,7 +1,8 @@
 """Tests for image creator models."""
 
-import pytest
 from datetime import UTC, datetime
+
+import pytest
 
 from appkit_imagecreator.backend.models import (
     GeneratedImage,
@@ -9,11 +10,9 @@ from appkit_imagecreator.backend.models import (
     GeneratedImageModel,
     GenerationInput,
     ImageGenerator,
-    ImageGeneratorModel,
     ImageGeneratorResponse,
     ImageModel,
     ImageResponseState,
-    get_image_api_base_url,
 )
 
 
@@ -121,7 +120,7 @@ class TestImageGeneratorModel:
         await image_generator_model_factory(model_id=model_id)
 
         # Act & Assert
-        with pytest.raises(Exception):  # IntegrityError
+        with pytest.raises(Exception):  # IntegrityError  # noqa: B017
             await image_generator_model_factory(model_id=model_id)
 
 
@@ -221,7 +220,7 @@ class TestGeneratedImageModel:
         assert pydantic_model.prompt == "Test prompt"
         assert pydantic_model.model == "dall-e-3"
 
-    def test_image_url_computed_field(self, sample_image_bytes) -> None:
+    def test_image_url_computed_field(self, sample_image_bytes) -> None:  # noqa: ARG002
         """image_url computed field generates correct URL."""
         # Arrange
         model = GeneratedImageModel(
@@ -431,7 +430,7 @@ class TestImageGenerator:
         generator = ImageGenerator(model=model, api_key="test-key")
 
         # Act
-        ratio = generator._aspect_ratio(2048, 1024)
+        ratio = generator._aspect_ratio(2048, 1024)  # noqa: SLF001
 
         # Assert
         assert ratio == "2:1"
@@ -443,7 +442,7 @@ class TestImageGenerator:
         generator = ImageGenerator(model=model, api_key="test-key")
 
         # Act
-        ratio = generator._aspect_ratio(1024, 2048)
+        ratio = generator._aspect_ratio(1024, 2048)  # noqa: SLF001
 
         # Assert
         assert ratio == "1:2"
@@ -455,9 +454,7 @@ class TestImageGenerator:
         generator = ImageGenerator(model=model, api_key="test-key")
 
         # Act
-        result = generator._create_generated_image_data(
-            sample_image_bytes, "image/png"
-        )
+        result = generator._create_generated_image_data(sample_image_bytes, "image/png")  # noqa: SLF001
 
         # Assert
         assert result.image_bytes == sample_image_bytes
@@ -470,7 +467,7 @@ class TestImageGenerator:
         model = ImageModel(id="test", model="dall-e-3", label="Test")
 
         class TestGenerator(ImageGenerator):
-            async def _perform_generation(self, input_data):
+            async def _perform_generation(self, input_data):  # noqa: ARG002
                 return ImageGeneratorResponse(
                     state=ImageResponseState.SUCCEEDED, generated_images=[]
                 )
@@ -491,7 +488,7 @@ class TestImageGenerator:
         model = ImageModel(id="test", model="dall-e-3", label="Test")
 
         class FailingGenerator(ImageGenerator):
-            async def _perform_generation(self, input_data):
+            async def _perform_generation(self, input_data):  # noqa: ARG002
                 raise ValueError("API error")
 
         generator = FailingGenerator(model=model, api_key="test-key")
@@ -509,9 +506,7 @@ class TestImageGenerator:
         """edit returns error when supports_edit is False."""
         # Arrange
         model = ImageModel(id="test", model="dall-e-3", label="Test")
-        generator = ImageGenerator(
-            model=model, api_key="test-key", supports_edit=False
-        )
+        generator = ImageGenerator(model=model, api_key="test-key", supports_edit=False)
         input_data = GenerationInput(prompt="Test")
 
         # Act
@@ -528,7 +523,7 @@ class TestImageGenerator:
         model = ImageModel(id="test", model="dall-e-3", label="Test")
 
         class TestGenerator(ImageGenerator):
-            async def _perform_edit(self, input_data, reference_images):
+            async def _perform_edit(self, input_data, reference_images):  # noqa: ARG002
                 return ImageGeneratorResponse(
                     state=ImageResponseState.SUCCEEDED, generated_images=[]
                 )

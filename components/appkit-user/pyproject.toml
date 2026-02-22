@@ -21,18 +21,24 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
-    "greenlet>=3.3.1",
+    "greenlet>=3.3.2",
     "appkit-commons",
     "appkit-ui",
     "requests_oauthlib>=2.0.0",
     "urllib3>=2.6.3",
+    "jinja2>=3.1.6",
 ]
+
+[project.optional-dependencies]
+azure = ["azure-communication-email>=1.1.0"]
+resend = ["resend>=2.22.0"]
 
 [project.urls]
 Homepage = "https://github.com/jenreh/appkit"
 Documentation = "https://github.com/jenreh/appkit/tree/main/docs"
 Repository = "https://github.com/jenreh/appkit"
 Issues = "https://github.com/jenreh/appkit/issues"
+
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -43,6 +49,9 @@ appkit-ui = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/appkit_user"]
+include = [
+    "/src/appkit_user/authentication/templates/*.html",
+]
 
 [build-system]
 requires = ["hatchling"]

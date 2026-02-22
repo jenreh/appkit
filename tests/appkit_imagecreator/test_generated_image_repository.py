@@ -1,11 +1,9 @@
 """Tests for GeneratedImageRepository."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_imagecreator.backend.models import GeneratedImage
-from appkit_imagecreator.backend.repository import GeneratedImageRepository
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TestGeneratedImageRepository:
@@ -144,7 +142,11 @@ class TestGeneratedImageRepository:
 
     @pytest.mark.asyncio
     async def test_find_image_data_returns_bytes_and_type(
-        self, async_session: AsyncSession, generated_image_factory, image_repo, sample_image_bytes
+        self,
+        async_session: AsyncSession,
+        generated_image_factory,
+        image_repo,
+        sample_image_bytes,
     ) -> None:
         """find_image_data returns image bytes and content type."""
         # Arrange
@@ -192,7 +194,11 @@ class TestGeneratedImageRepository:
 
     @pytest.mark.asyncio
     async def test_delete_by_id_and_user_clears_image_data(
-        self, async_session: AsyncSession, generated_image_factory, image_repo, sample_image_bytes
+        self,
+        async_session: AsyncSession,
+        generated_image_factory,
+        image_repo,
+        sample_image_bytes,
     ) -> None:
         """delete_by_id_and_user clears image_data to save space."""
         # Arrange
@@ -260,7 +266,11 @@ class TestGeneratedImageRepository:
 
     @pytest.mark.asyncio
     async def test_delete_all_by_user_clears_image_data(
-        self, async_session: AsyncSession, generated_image_factory, image_repo, sample_image_bytes
+        self,
+        async_session: AsyncSession,
+        generated_image_factory,
+        image_repo,
+        sample_image_bytes,
     ) -> None:
         """delete_all_by_user clears image_data for all images."""
         # Arrange

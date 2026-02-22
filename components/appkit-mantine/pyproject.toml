@@ -24,7 +24,7 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
-    "reflex==0.8.26",
+    "reflex==0.8.27",
 ]
 
 [project.urls]

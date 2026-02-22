@@ -4,8 +4,11 @@ Each active DB model gets its own processor instance keyed by model_id.
 All credentials (api_key, base_url, on_azure) come exclusively from the DB.
 """
 
+import asyncio
 import logging
 from collections.abc import Callable
+
+from sqlalchemy.exc import OperationalError
 
 from appkit_assistant.backend.database.models import AssistantAIModel
 from appkit_assistant.backend.database.repositories import ai_model_repo
@@ -148,6 +151,9 @@ class AIModelRegistry:
 
         Only unregisters processors that were previously registered by this
         registry, preserving non-DB processors (Azure agents, KnowledgeAI, etc.).
+
+        Retries up to 3 times with exponential back-off on transient DB errors
+        (e.g. dropped SSL connections).
         """
         model_manager = ModelManager()
 
@@ -156,18 +162,41 @@ class AIModelRegistry:
             model_manager.unregister_processors(set(self._registered_model_ids))
             self._registered_model_ids.clear()
 
-        try:
-            async with get_asyncdb_session() as session:
-                all_active = await ai_model_repo.find_all_active_ordered_by_text(
-                    session
+        max_retries = 3
+        all_active: list[AssistantAIModel] = []
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with get_asyncdb_session() as session:
+                    all_active = await ai_model_repo.find_all_active_ordered_by_text(
+                        session
+                    )
+                    session.expunge_all()
+                break
+            except OperationalError:
+                if attempt < max_retries:
+                    delay = 2**attempt
+                    logger.warning(
+                        "AIModelRegistry: transient DB error on attempt"
+                        " %d/%d; retrying in %ds",
+                        attempt,
+                        max_retries,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.exception(
+                        "AIModelRegistry: failed to load models from DB"
+                        " after %d attempts; DB models will be"
+                        " unavailable",
+                        max_retries,
+                    )
+                    return
+            except Exception:
+                logger.exception(
+                    "AIModelRegistry: failed to load models from DB; "
+                    "DB models will be unavailable"
                 )
-                session.expunge_all()
-        except Exception:
-            logger.exception(
-                "AIModelRegistry: failed to load models from DB; "
-                "DB models will be unavailable"
-            )
-            return
+                return
 
         registered = 0
         for m in all_active:

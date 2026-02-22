@@ -1,13 +1,11 @@
 """Tests for OAuthStateRepository."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_user.authentication.backend.entities import OAuthStateEntity
-from appkit_user.authentication.backend.oauthstate_repository import (
-    OAuthStateRepository,
-)
 
 
 class TestOAuthStateRepository:
@@ -15,7 +13,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_find_valid_by_state_and_provider_existing(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """find_valid_by_state_and_provider returns valid state."""
         # Arrange
@@ -25,7 +23,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        found = await oauth_state_repo.find_valid_by_state_and_provider(
+        found = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "state_abc123", "github"
         )
 
@@ -37,7 +35,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_find_valid_by_state_and_provider_expired(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """find_valid_by_state_and_provider returns None for expired state."""
         # Arrange
@@ -47,7 +45,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        found = await oauth_state_repo.find_valid_by_state_and_provider(
+        found = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "expired_state", "github"
         )
 
@@ -56,7 +54,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_find_valid_by_state_and_provider_wrong_provider(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """find_valid_by_state_and_provider returns None for wrong provider."""
         # Arrange
@@ -66,7 +64,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        found = await oauth_state_repo.find_valid_by_state_and_provider(
+        found = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "state_xyz", "azure"
         )
 
@@ -75,7 +73,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_find_valid_by_state_and_provider_wrong_state(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """find_valid_by_state_and_provider returns None for wrong state."""
         # Arrange
@@ -85,7 +83,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        found = await oauth_state_repo.find_valid_by_state_and_provider(
+        found = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "wrong_state", "github"
         )
 
@@ -94,11 +92,11 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_find_valid_by_state_and_provider_nonexistent(
-        self, async_session: AsyncSession, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_repository
     ) -> None:
         """find_valid_by_state_and_provider returns None when state doesn't exist."""
         # Act
-        found = await oauth_state_repo.find_valid_by_state_and_provider(
+        found = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "nonexistent", "github"
         )
 
@@ -107,7 +105,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_delete_expired_removes_expired_states(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_expired removes states past their expiration time."""
         # Arrange
@@ -125,7 +123,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_expired(async_session)
+        deleted_count = await oauth_state_repository.delete_expired(async_session)
 
         # Assert
         assert deleted_count == 2
@@ -146,7 +144,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_delete_expired_returns_zero_when_no_expired(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_expired returns 0 when no expired states exist."""
         # Arrange
@@ -159,14 +157,14 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_expired(async_session)
+        deleted_count = await oauth_state_repository.delete_expired(async_session)
 
         # Assert
         assert deleted_count == 0
 
     @pytest.mark.asyncio
     async def test_delete_expired_handles_multiple_providers(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_expired removes expired states across all providers."""
         # Arrange
@@ -182,14 +180,14 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_expired(async_session)
+        deleted_count = await oauth_state_repository.delete_expired(async_session)
 
         # Assert
         assert deleted_count == 3
 
     @pytest.mark.asyncio
     async def test_delete_by_session_id_removes_matching_states(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_by_session_id removes all states for a session."""
         # Arrange
@@ -205,7 +203,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_by_session_id(
+        deleted_count = await oauth_state_repository.delete_by_session_id(
             async_session, session_id
         )
 
@@ -228,7 +226,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_delete_by_session_id_returns_zero_when_no_match(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_by_session_id returns 0 when no states match session_id."""
         # Arrange
@@ -237,7 +235,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_by_session_id(
+        deleted_count = await oauth_state_repository.delete_by_session_id(
             async_session, "nonexistent_session"
         )
 
@@ -246,7 +244,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_delete_by_session_id_empty_session_id(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_by_session_id handles empty session_id."""
         # Arrange
@@ -255,7 +253,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_by_session_id(
+        deleted_count = await oauth_state_repository.delete_by_session_id(
             async_session, ""
         )
 
@@ -264,7 +262,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_delete_expired_boundary_exact_expiration(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_expired deletes states at exact expiration time."""
         # Arrange
@@ -275,7 +273,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_expired(async_session)
+        deleted_count = await oauth_state_repository.delete_expired(async_session)
 
         # Assert - state at exact expiration should be deleted (expires_at < now check)
         # In practice, some time has passed, so it will be deleted
@@ -283,7 +281,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_find_valid_distinguishes_providers(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """find_valid_by_state_and_provider distinguishes between providers."""
         # Arrange
@@ -297,10 +295,10 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        found_github = await oauth_state_repo.find_valid_by_state_and_provider(
+        found_github = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "same_state", "github"
         )
-        found_azure = await oauth_state_repo.find_valid_by_state_and_provider(
+        found_azure = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "same_state", "azure"
         )
 
@@ -313,7 +311,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_find_valid_with_code_verifier(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """find_valid_by_state_and_provider retrieves state with code_verifier."""
         # Arrange
@@ -327,7 +325,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        found = await oauth_state_repo.find_valid_by_state_and_provider(
+        found = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "pkce_state", "github"
         )
 
@@ -337,7 +335,11 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_find_valid_with_user_association(
-        self, async_session: AsyncSession, user_factory, oauth_state_factory, oauth_state_repo
+        self,
+        async_session: AsyncSession,
+        user_factory,
+        oauth_state_factory,
+        oauth_state_repository,
     ) -> None:
         """find_valid_by_state_and_provider retrieves state associated with user."""
         # Arrange
@@ -348,7 +350,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        found = await oauth_state_repo.find_valid_by_state_and_provider(
+        found = await oauth_state_repository.find_valid_by_state_and_provider(
             async_session, "user_state", "github"
         )
 
@@ -358,7 +360,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_delete_expired_preserves_valid_states_with_same_session(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_expired preserves valid states even if same session has expired states."""
         # Arrange
@@ -380,7 +382,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_expired(async_session)
+        deleted_count = await oauth_state_repository.delete_expired(async_session)
 
         # Assert
         assert deleted_count == 1
@@ -399,7 +401,7 @@ class TestOAuthStateRepository:
 
     @pytest.mark.asyncio
     async def test_delete_by_session_id_clears_all_providers(
-        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repo
+        self, async_session: AsyncSession, oauth_state_factory, oauth_state_repository
     ) -> None:
         """delete_by_session_id removes states for all providers in a session."""
         # Arrange
@@ -415,7 +417,7 @@ class TestOAuthStateRepository:
         )
 
         # Act
-        deleted_count = await oauth_state_repo.delete_by_session_id(
+        deleted_count = await oauth_state_repository.delete_by_session_id(
             async_session, session_id
         )
 
@@ -425,8 +427,6 @@ class TestOAuthStateRepository:
         from sqlalchemy import select
 
         result = await async_session.execute(
-            select(OAuthStateEntity).where(
-                OAuthStateEntity.session_id == session_id
-            )
+            select(OAuthStateEntity).where(OAuthStateEntity.session_id == session_id)
         )
         assert len(list(result.scalars().all())) == 0

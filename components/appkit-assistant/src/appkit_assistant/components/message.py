@@ -11,7 +11,7 @@ from appkit_assistant.backend.schemas import (
 from appkit_assistant.state.thread_state import (
     ThreadState,
 )
-from appkit_ui.components.collabsible import collabsible
+from appkit_ui.components.collapsible import collapsible
 from appkit_ui.components.dialogs import delete_dialog
 
 # Approximate character threshold for 6 lines of text
@@ -121,9 +121,9 @@ class MessageActionsBar:
                     content="diese Nachricht",
                     on_click=ThreadState.delete_message(message.id),
                     icon_button=True,
-                    variant="ghost",
-                    size="1",
-                    color_scheme="gray",
+                    variant="subtle",
+                    size="sm",
+                    color="gray",
                 ),
                 content="Löschen",
             ),
@@ -376,7 +376,7 @@ class MessageComponent:
                             ),
                             variant="subtle",
                             size="sm",
-                            color="gray",
+                            c="gray",
                         ),
                         content="Bearbeiten",
                     ),
@@ -386,9 +386,9 @@ class MessageComponent:
                             content="diese Nachricht",
                             on_click=ThreadState.delete_message(message.id),
                             icon_button=True,
-                            variant="ghost",
-                            size="1",
-                            color_scheme="gray",
+                            variant="subtle",
+                            size="sm",
+                            c="gray",
                         ),
                         content="Löschen",
                     ),
@@ -423,7 +423,7 @@ class MessageComponent:
         # Main content area with all components
         content_area = rx.vstack(
             # Always rendered with conditional styling for smooth animations
-            collabsible(
+            collapsible(
                 rx.scroll_area(
                     rx.foreach(
                         ThreadState.thinking_items,

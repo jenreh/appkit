@@ -1,13 +1,11 @@
 """Tests for UserSessionRepository."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.entities import UserSessionEntity
-from appkit_user.authentication.backend.user_session_repository import (
-    UserSessionRepository,
-)
+from appkit_user.authentication.backend.database import UserSessionEntity
 
 
 class TestUserSessionRepository:
@@ -55,7 +53,7 @@ class TestUserSessionRepository:
         # Arrange
         user1 = await user_factory(email="user1@example.com")
         user2 = await user_factory(email="user2@example.com")
-        session = await session_factory(user=user1, session_id="session_user1")
+        _session = await session_factory(user=user1, session_id="session_user1")
 
         # Act
         found = await session_repo.find_by_user_and_session_id(
@@ -114,14 +112,29 @@ class TestUserSessionRepository:
         assert created.id is not None
         assert created.user_id == user.id
         assert created.session_id == "new_session_789"
-        assert created.expires_at == expires_at
+
+        # Compare timestamps to handle naive/aware datetime differences
+        def get_ts(dt: datetime) -> float:
+            """Get timestamp from datetime, handling naive/aware datetimes."""
+            if dt.tzinfo:
+                return dt.timestamp()
+            return dt.replace(tzinfo=UTC).timestamp()
+
+        assert abs(get_ts(created.expires_at) - get_ts(expires_at)) < 1
 
     @pytest.mark.asyncio
     async def test_save_updates_existing_session(
         self, async_session: AsyncSession, session_factory, session_repo
     ) -> None:
         """save updates expiration for existing session."""
+
         # Arrange
+        def get_ts(dt: datetime) -> float:
+            """Get timestamp from datetime."""
+            if dt.tzinfo:
+                return dt.timestamp()
+            return dt.replace(tzinfo=UTC).timestamp()
+
         old_expires = datetime.now(UTC) + timedelta(hours=1)
         session_entity = await session_factory(
             session_id="update_session", expires_at=old_expires
@@ -135,8 +148,8 @@ class TestUserSessionRepository:
 
         # Assert
         assert updated.id == session_entity.id
-        assert updated.expires_at == new_expires
-        assert updated.expires_at != old_expires
+        assert abs(get_ts(updated.expires_at) - get_ts(new_expires)) < 1
+        assert abs(get_ts(updated.expires_at) - get_ts(old_expires)) > 3000
 
     @pytest.mark.asyncio
     async def test_save_idempotent_for_same_expiration(
@@ -202,7 +215,7 @@ class TestUserSessionRepository:
         # Arrange
         user1 = await user_factory(email="user1@example.com")
         user2 = await user_factory(email="user2@example.com")
-        session = await session_factory(user=user1, session_id="user1_session")
+        _session = await session_factory(user=user1, session_id="user1_session")
 
         # Act
         await session_repo.delete_by_user_and_session_id(
@@ -210,9 +223,7 @@ class TestUserSessionRepository:
         )
 
         # Assert - session should still exist
-        found = await session_repo.find_by_session_id(
-            async_session, "user1_session"
-        )
+        found = await session_repo.find_by_session_id(async_session, "user1_session")
         assert found is not None
 
     @pytest.mark.asyncio
@@ -224,13 +235,13 @@ class TestUserSessionRepository:
         expired_time = datetime.now(UTC) - timedelta(hours=1)
         valid_time = datetime.now(UTC) + timedelta(hours=1)
 
-        expired1 = await session_factory(
+        _expired1 = await session_factory(
             session_id="expired_1", expires_at=expired_time
         )
-        expired2 = await session_factory(
+        _expired2 = await session_factory(
             session_id="expired_2", expires_at=expired_time
         )
-        valid_session = await session_factory(
+        _valid_session = await session_factory(
             session_id="valid", expires_at=valid_time
         )
 
@@ -275,12 +286,12 @@ class TestUserSessionRepository:
         """delete_expired handles sessions with naive datetime (no timezone)."""
         # Arrange
         user = await user_factory()
-        # Create session with naive datetime
-        naive_expired = datetime.now() - timedelta(hours=1)
+        # Create session with naive datetime (SQLite stores them as naive)
+        naive_expired = (datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None)
         session_entity = UserSessionEntity(
             user_id=user.id,
             session_id="naive_session",
-            expires_at=naive_expired,  # Naive datetime
+            expires_at=naive_expired,
         )
         async_session.add(session_entity)
         await async_session.flush()
@@ -290,9 +301,7 @@ class TestUserSessionRepository:
 
         # Assert
         assert deleted_count == 1
-        found = await session_repo.find_by_session_id(
-            async_session, "naive_session"
-        )
+        found = await session_repo.find_by_session_id(async_session, "naive_session")
         assert found is None
 
     @pytest.mark.asyncio
@@ -327,9 +336,7 @@ class TestUserSessionRepository:
         # Arrange
         now = datetime.now(UTC).replace(tzinfo=None)
         # Session expires exactly now
-        session = await session_factory(
-            session_id="boundary_session", expires_at=now
-        )
+        _session = await session_factory(session_id="boundary_session", expires_at=now)
 
         # Act - should delete because expires_at < now (even if equal)
         deleted_count = await session_repo.delete_expired(async_session)

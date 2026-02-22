@@ -18,7 +18,7 @@ from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_imagecreator.backend.services.image_cleanup_service import (
     ImageCleanupService,
 )
-from appkit_user.authentication.backend.services.session_cleanup_service import (
+from appkit_user.authentication.backend.services import (
     SessionCleanupService,
 )
 from appkit_user.authentication.pages import (  # noqa: F401
@@ -28,6 +28,8 @@ from appkit_user.authentication.pages import (  # noqa: F401
 from appkit_user.authentication.templates import navbar_layout
 from appkit_user.user_management.pages import (  # noqa: F401
     create_login_page,
+    create_password_reset_confirm_page,
+    create_password_reset_request_page,
     create_profile_page,
 )
 
@@ -64,12 +66,14 @@ from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.image_generators import image_generators_page  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
-create_login_page(header="AppKit")
+create_login_page()
 create_profile_page(
     app_navbar(),
     class_name="w-full gap-6 max-w-[800px]",
     padding="2rem",
 )
+create_password_reset_request_page()
+create_password_reset_confirm_page()
 
 
 @navbar_layout(

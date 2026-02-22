@@ -14,7 +14,7 @@ from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.backend.processors.processor_base import mcp_oauth_redirect_uri
 from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
 from appkit_commons.database.session import get_session_manager
-from appkit_user.authentication.backend.entities import OAuthStateEntity
+from appkit_user.authentication.backend.database import OAuthStateEntity
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)

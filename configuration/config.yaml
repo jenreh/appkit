@@ -38,6 +38,14 @@ app:
         client_secret: secret:mn-oauth-github-client-secret
         redirect_url: https://localhost:8080/oauth/github/callback
 
+    # Email provider for password reset (mock for local development)
+    email_provider:
+      provider: "mock" # "mock" | "resend" | "azure"
+      # api_key: secret:mn-resend-api-key # Uncomment for resend
+      # connection_string: secret:mn-azure-email-connection-string # Uncomment for Azure
+      from_email: "no-reply@appkit.dummy"
+      from_name: "AppKit Framework"
+
   assistant:
     file_upload:
       vector_store_expiration_days: 2

@@ -1,7 +1,5 @@
 """Tests for ChunkFactory service."""
 
-import pytest
-
 from appkit_assistant.backend.schemas import ChunkType, ProcessingStatistics
 from appkit_assistant.backend.services.chunk_factory import ChunkFactory
 
@@ -260,9 +258,7 @@ class TestChunkFactory:
         """auth_required() includes server_id when provided."""
         factory = ChunkFactory("test")
 
-        chunk = factory.auth_required(
-            server_name="Test Server", server_id="server-456"
-        )
+        chunk = factory.auth_required(server_name="Test Server", server_id="server-456")
 
         assert chunk.chunk_metadata["server_id"] == "server-456"
 

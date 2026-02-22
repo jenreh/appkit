@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
-from appkit_user.authentication.backend.entities import (
+from appkit_user.authentication.backend.database.entities import (
     UserSessionEntity,
 )
 
@@ -90,6 +90,21 @@ class UserSessionRepository(BaseRepository[UserSessionEntity, AsyncSession]):
         """
         now = datetime.now(UTC).replace(tzinfo=None)
         stmt = delete(UserSessionEntity).where(UserSessionEntity.expires_at < now)
+        result = await session.execute(stmt)
+        await session.flush()
+        return result.rowcount
+
+    async def delete_all_by_user_id(self, session: AsyncSession, user_id: int) -> int:
+        """Delete all sessions for a user (force logout).
+
+        Args:
+            session: AsyncSession
+            user_id: User ID
+
+        Returns:
+            int: The number of deleted sessions.
+        """
+        stmt = delete(UserSessionEntity).where(UserSessionEntity.user_id == user_id)
         result = await session.execute(stmt)
         await session.flush()
         return result.rowcount

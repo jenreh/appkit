@@ -1,10 +1,10 @@
 """Tests for OAuthService."""
 
-import pytest
-from typing import Any
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
-from appkit_user.authentication.backend.oauth_service import (
+import pytest
+
+from appkit_user.authentication.backend.services import (
     OAuthService,
     generate_pkce_pair,
 )
@@ -111,11 +111,11 @@ class TestOAuthService:
         )
 
     @pytest.fixture
-    def oauth_service(
-        self, auth_config: AuthenticationConfiguration
-    ) -> OAuthService:
+    def oauth_service(self, auth_config: AuthenticationConfiguration) -> OAuthService:
         """Provide OAuth service instance."""
-        with patch("appkit_user.authentication.backend.oauth_service.service_registry") as mock_registry:
+        with patch(
+            "appkit_user.authentication.backend.services.oauth_service.service_registry"
+        ) as mock_registry:
             mock_registry.return_value.get.return_value = auth_config
             return OAuthService(config=auth_config)
 
@@ -129,25 +129,19 @@ class TestOAuthService:
         assert oauth_service.github_enabled is True
         assert oauth_service.azure_enabled is True
 
-    def test_oauth_service_github_config_set(
-        self, oauth_service: OAuthService
-    ) -> None:
+    def test_oauth_service_github_config_set(self, oauth_service: OAuthService) -> None:
         """OAuthService sets GitHub configuration."""
         # Assert
         assert oauth_service.github_config is not None
         assert oauth_service.github_config.client_id == "test_github_client_id"
 
-    def test_oauth_service_azure_config_set(
-        self, oauth_service: OAuthService
-    ) -> None:
+    def test_oauth_service_azure_config_set(self, oauth_service: OAuthService) -> None:
         """OAuthService sets Azure configuration."""
         # Assert
         assert oauth_service.azure_config is not None
         assert oauth_service.azure_config.client_id == "test_azure_client_id"
 
-    def test_oauth_service_providers_dict(
-        self, oauth_service: OAuthService
-    ) -> None:
+    def test_oauth_service_providers_dict(self, oauth_service: OAuthService) -> None:
         """OAuthService initializes providers dictionary."""
         # Assert
         assert OAuthProvider.GITHUB in oauth_service.providers
@@ -156,7 +150,9 @@ class TestOAuthService:
     def test_oauth_service_missing_config_raises(self) -> None:
         """OAuthService raises RuntimeError when config missing."""
         # Arrange
-        with patch("appkit_user.authentication.backend.oauth_service.service_registry") as mock_registry:
+        with patch(
+            "appkit_user.authentication.backend.services.oauth_service.service_registry"
+        ) as mock_registry:
             mock_registry.return_value.get.return_value = None
 
             # Act & Assert
@@ -238,9 +234,7 @@ class TestOAuthService:
         }
 
         # Act
-        normalized = oauth_service._normalize_user_data(
-            OAuthProvider.AZURE, azure_data
-        )
+        normalized = oauth_service._normalize_user_data(OAuthProvider.AZURE, azure_data)
 
         # Assert
         assert normalized["id"] == "azure-user-id"
@@ -257,9 +251,7 @@ class TestOAuthService:
         azure_data = {"sub": "subject-id", "email": "test@azure.com"}
 
         # Act
-        normalized = oauth_service._normalize_user_data(
-            OAuthProvider.AZURE, azure_data
-        )
+        normalized = oauth_service._normalize_user_data(OAuthProvider.AZURE, azure_data)
 
         # Assert
         assert normalized["id"] == "subject-id"
@@ -301,7 +293,7 @@ class TestOAuthService:
         # Assert
         assert email == "invalid#EXT#@tenant.onmicrosoft.com"  # Unchanged
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_get_auth_url_github(
         self, mock_oauth_session: Mock, oauth_service: OAuthService
     ) -> None:
@@ -323,8 +315,10 @@ class TestOAuthService:
         assert len(state) > 0
         assert code_verifier is None  # GitHub doesn't use PKCE
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
-    @patch("appkit_user.authentication.backend.oauth_service.generate_pkce_pair")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
+    @patch(
+        "appkit_user.authentication.backend.services.oauth_service.generate_pkce_pair"
+    )
     def test_get_auth_url_azure_with_pkce(
         self,
         mock_generate_pkce: Mock,
@@ -370,7 +364,7 @@ class TestOAuthService:
         # Assert
         assert redirect_url == "http://localhost:3000/oauth/azure/callback"
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_exchange_code_for_token_github(
         self, mock_oauth_session: Mock, oauth_service: OAuthService
     ) -> None:
@@ -394,7 +388,7 @@ class TestOAuthService:
         call_kwargs = mock_session_instance.fetch_token.call_args[1]
         assert call_kwargs["client_secret"] == "test_github_secret"
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_exchange_code_for_token_azure_with_pkce(
         self, mock_oauth_session: Mock, oauth_service: OAuthService
     ) -> None:
@@ -423,7 +417,7 @@ class TestOAuthService:
         assert call_kwargs["code_verifier"] == "verifier789"
         assert call_kwargs["client_secret"] == "test_azure_secret"
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_exchange_code_for_token_azure_missing_verifier_raises(
         self, mock_oauth_session: Mock, oauth_service: OAuthService
     ) -> None:
@@ -434,7 +428,7 @@ class TestOAuthService:
                 OAuthProvider.AZURE, "auth_code", "state", code_verifier=None
             )
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_exchange_code_for_token_azure_public_client(
         self, mock_oauth_session: Mock, oauth_service: OAuthService
     ) -> None:
@@ -455,7 +449,7 @@ class TestOAuthService:
         assert call_args[1].get("include_client_id") is True
         assert "client_secret" not in call_args[1]
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_get_user_info_github(
         self, mock_oauth_session: Mock, oauth_service: OAuthService
     ) -> None:
@@ -482,7 +476,7 @@ class TestOAuthService:
         assert user_info["email"] == "user@github.com"  # Lowercased
         assert user_info["username"] == "testuser"
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_get_user_info_github_fetches_email_from_api(
         self, mock_oauth_session: Mock, oauth_service: OAuthService
     ) -> None:
@@ -519,7 +513,7 @@ class TestOAuthService:
         # Assert
         assert user_info["email"] == "primary@example.com"  # Lowercased
 
-    @patch("appkit_user.authentication.backend.oauth_service.OAuth2Session")
+    @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_get_user_info_azure_with_upn_conversion(
         self, mock_oauth_session: Mock, oauth_service: OAuthService
     ) -> None:
@@ -570,9 +564,7 @@ class TestOAuthService:
         # Assert
         assert result is True
 
-    def test_provider_supported_unsupported(
-        self, oauth_service: OAuthService
-    ) -> None:
+    def test_provider_supported_unsupported(self, oauth_service: OAuthService) -> None:
         """provider_supported returns False for unsupported provider."""
         # Arrange
         oauth_service.providers = {}  # Clear providers

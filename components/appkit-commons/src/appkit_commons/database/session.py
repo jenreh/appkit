@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 
 def _get_db_config() -> DatabaseConfig:
     """Get database configuration from registry."""
-    db_config = service_registry().get(DatabaseConfig)
-    if db_config is None:
+    try:
+        return service_registry().get(DatabaseConfig)
+    except KeyError:
         logger.error("DatabaseConfig not found in registry")
-        raise RuntimeError("DatabaseConfig not initialized in registry")
-    return db_config
+        raise RuntimeError("DatabaseConfig not initialized in registry") from None
 
 
 def _get_engine_kwargs() -> dict[str, Any]:
@@ -38,6 +38,12 @@ def _get_engine_kwargs() -> dict[str, Any]:
             "echo": db_config.echo,
             "pool_pre_ping": True,
             "pool_recycle": db_config.pool_recycle,
+            "connect_args": {
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            },
         }
 
     return {}

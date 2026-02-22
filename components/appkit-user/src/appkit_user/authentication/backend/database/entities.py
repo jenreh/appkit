@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from typing import Final, Optional
 
 from sqlalchemy import (
-    ARRAY,  # Added import
     Boolean,
     DateTime,
     ForeignKey,
@@ -23,7 +22,7 @@ from sqlalchemy_utils import StringEncryptedType
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 
 from appkit_commons.database.configuration import DatabaseConfig
-from appkit_commons.database.entities import Base, Entity
+from appkit_commons.database.entities import ArrayType, Base, Entity
 from appkit_commons.registry import service_registry
 from appkit_commons.security import check_password_hash, generate_password_hash
 
@@ -46,9 +45,7 @@ class UserEntity(Entity, Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     needs_password_reset: Mapped[bool] = mapped_column(Boolean, default=False)
-    roles: Mapped[list[str]] = mapped_column(
-        ARRAY(String), default=list, nullable=False
-    )
+    roles: Mapped[list[str]] = mapped_column(ArrayType(), default=list, nullable=False)
     last_login: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -63,7 +60,7 @@ class UserEntity(Entity, Base):
         "OAuthStateEntity",
         back_populates="user",
         lazy="select",
-        cascade="all, delete-orphan",
+        cascade="save-update, merge",  # No delete: oauth_states use SET NULL on foreign key delete
     )
     sessions: Mapped[list["UserSessionEntity"]] = relationship(
         "UserSessionEntity",
@@ -204,3 +201,71 @@ class OAuthStateEntity(Entity, Base):
     )
 
     __table_args__ = (Index("ix_oauth_states_expires_at", "expires_at"),)
+
+
+class PasswordResetTokenEntity(Entity, Base):
+    """Password reset token for handling password reset requests."""
+
+    __tablename__ = "auth_password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("auth_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    email: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    reset_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    def is_expired(self) -> bool:
+        """Check if the token is expired."""
+        expires_at = self.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
+        return now >= expires_at
+
+    def is_valid(self) -> bool:
+        """Check if the token is valid (not used and not expired)."""
+        return not self.is_used and not self.is_expired()
+
+    __table_args__ = (
+        Index("idx_password_reset_tokens_token_expires", "token", "expires_at"),
+        Index("idx_password_reset_tokens_user_id_used", "user_id", "is_used"),
+    )
+
+
+class PasswordHistoryEntity(Entity, Base):
+    """Password history tracking for preventing password reuse."""
+
+    __tablename__ = "auth_password_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("auth_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    password_hash: Mapped[str] = mapped_column(String(200), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    change_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "password_hash", name="uq_password_history_user_hash"
+        ),
+        Index("idx_password_history_user_id_changed", "user_id", "changed_at"),
+    )
+
+
+class PasswordResetRequestEntity(Entity, Base):
+    """Password reset request for rate limiting."""
+
+    __tablename__ = "auth_password_reset_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(200), nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)

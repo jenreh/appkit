@@ -1,5 +1,7 @@
 import reflex as rx
 
+import appkit_mantine as mn
+
 
 def delete_dialog(
     title: str,
@@ -21,9 +23,9 @@ def delete_dialog(
     """
     # Create the appropriate trigger based on icon_button parameter
     if icon_button:
-        trigger = rx.icon_button(rx.icon("trash-2", size=19), margin="0", **kwargs)
+        trigger = mn.action_icon(rx.icon("trash-2", size=19), m=0, **kwargs)
     else:
-        trigger = rx.button(rx.icon("trash-2", size=16), **kwargs)
+        trigger = mn.button(rx.icon("trash-2", size=19), **kwargs)
 
     return rx.alert_dialog.root(
         rx.alert_dialog.trigger(trigger),

@@ -17,17 +17,44 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+import reflex as rx
 from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel
 
-from appkit_commons.configuration.secret_provider import SECRET_PROVIDER
+from appkit_commons.configuration.configuration import ReflexConfig
+from appkit_commons.database.configuration import DatabaseConfig
+from appkit_commons.database.entities import Base
 from appkit_commons.registry import ServiceRegistry, service_registry
 
 logger = logging.getLogger(__name__)
 
+# ============================================================================
+# Module-level registry bootstrapping
+# ============================================================================
+# Several model modules (appkit_assistant, appkit_user, appkit_imagecreator)
+# call service_registry().get(...) at module level during import.
+# We must register configs BEFORE importing model modules.
+
+_registry = service_registry()
+if not _registry.has(DatabaseConfig):
+    _registry.register(
+        DatabaseConfig(
+            type="sqlite",
+            name=":memory:",
+            encryption_key="x6wrrHmIwfEZacK9sOBq5wJOykTDNhYlTdI_lLmmtJw=",
+            testing=True,
+        )
+    )
+if not _registry.has(ReflexConfig):
+    _registry.register(
+        ReflexConfig(
+            deploy_url="http://localhost",
+            frontend_port=3000,
+            backend_port=3031,
+        )
+    )
 
 # ============================================================================
 # Pytest Configuration
@@ -66,6 +93,10 @@ async def async_engine() -> AsyncGenerator[AsyncEngine, None]:
 
     Uses StaticPool to ensure the same connection is reused,
     preventing SQLite from losing in-memory data between transactions.
+
+    Creates tables from both appkit_commons.Base and rx.Model.metadata
+    to support all model types in the test suite. ArrayType custom type
+    handles both PostgreSQL ARRAY and SQLite JSON compatibility.
     """
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -74,9 +105,13 @@ async def async_engine() -> AsyncGenerator[AsyncEngine, None]:
         connect_args={"check_same_thread": False},
     )
 
-    # Create all tables
+    # Create all tables from both metadata sources
     async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+        # Create appkit_commons.Base tables (appkit_user models)
+        await conn.run_sync(Base.metadata.create_all)
+        # Create rx.Model tables (appkit_imagecreator, appkit_assistant models)
+        # ArrayType custom type handles both PostgreSQL ARRAY and SQLite JSON
+        await conn.run_sync(rx.Model.metadata.create_all)
 
     yield engine
 
@@ -84,17 +119,25 @@ async def async_engine() -> AsyncGenerator[AsyncEngine, None]:
     await engine.dispose()
 
 
-@pytest_asyncio.fixture
-async def async_session_factory(
+@pytest.fixture
+def async_session_factory(
     async_engine: AsyncEngine,
 ) -> sessionmaker[AsyncSession]:
-    """Create an async session factory for the test engine."""
+    """Create an async session factory for the test engine.
+
+    Configures explicit binds for both Base and rx.Model metadata
+    to ensure the session can locate the correct engine for any model.
+    """
     return sessionmaker(
         bind=async_engine,
         class_=AsyncSession,
         expire_on_commit=False,
         autocommit=False,
         autoflush=False,
+        binds={
+            Base: async_engine,
+            rx.Model: async_engine,
+        },
     )
 
 
@@ -107,11 +150,9 @@ async def async_session(
     Each test gets a fresh session that's automatically rolled back
     after the test completes, ensuring test isolation.
     """
-    async with async_session_factory() as session:
-        # Start a transaction
-        async with session.begin():
-            yield session
-            # Automatic rollback on exit
+    async with async_session_factory() as session, session.begin():
+        # Start a transaction, automatic rollback on exit
+        yield session
 
 
 # ============================================================================

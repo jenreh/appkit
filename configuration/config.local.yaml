@@ -26,3 +26,16 @@ app:
         client_secret: secret:mn-oauth-azure-client-secret
         tenant_id: secret:mn-oauth-azure-tenant-id
         redirect_url: http://localhost:8080/oauth/azure/callback
+
+    # Email provider for password reset (mock for local development)
+    email_provider:
+      #provider: "mock"
+      provider: "resend"
+      api_key: secret:mn-resend-api-key
+      from_email: "onboarding@resend.dev"
+      from_name: "AppKit Local"
+
+    # Password reset settings
+    password_reset:
+      token_expiry_minutes: 5
+      max_requests_per_hour: 3

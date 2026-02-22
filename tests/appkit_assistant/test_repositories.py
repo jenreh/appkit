@@ -3,14 +3,6 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_assistant.backend.database.repositories import (
-    ThreadRepository,
-    MCPServerRepository,
-    SystemPromptRepository,
-    FileUploadRepository,
-)
-from appkit_assistant.backend.schemas import ThreadStatus
-
 
 class TestThreadRepository:
     """Test suite for ThreadRepository."""
@@ -439,5 +431,7 @@ class TestFileUploadRepository:
         assert file2.id in deleted_ids
 
         # Verify vs-keep still exists
-        remaining = await file_upload_repo.find_by_vector_store(async_session, "vs-keep")
+        remaining = await file_upload_repo.find_by_vector_store(
+            async_session, "vs-keep"
+        )
         assert len(remaining) == 1
