@@ -413,7 +413,6 @@ class ImageGalleryState(rx.State):
     # -------------------------------------------------------------------------
 
     @rx.event
-    @rx.event
     def set_generator(self, generator_id: str) -> None:
         """Set the selected generator/model."""
         self.generator = generator_id

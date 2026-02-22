@@ -107,7 +107,7 @@ def upgrade() -> None:
     op.create_index(
         "idx_password_history_user_id_changed",
         "auth_password_history",
-        ["user_id", sa.text("changed_at DESC")],
+        ["user_id", "changed_at"],
     )
 
     # Create password reset requests table for rate limiting
