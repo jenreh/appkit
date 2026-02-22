@@ -1,7 +1,8 @@
 """Tests for image creator models."""
 
-import pytest
 from datetime import UTC, datetime
+
+import pytest
 
 from appkit_imagecreator.backend.models import (
     GeneratedImage,
@@ -9,11 +10,9 @@ from appkit_imagecreator.backend.models import (
     GeneratedImageModel,
     GenerationInput,
     ImageGenerator,
-    ImageGeneratorModel,
     ImageGeneratorResponse,
     ImageModel,
     ImageResponseState,
-    get_image_api_base_url,
 )
 
 
@@ -455,9 +454,7 @@ class TestImageGenerator:
         generator = ImageGenerator(model=model, api_key="test-key")
 
         # Act
-        result = generator._create_generated_image_data(
-            sample_image_bytes, "image/png"
-        )
+        result = generator._create_generated_image_data(sample_image_bytes, "image/png")
 
         # Assert
         assert result.image_bytes == sample_image_bytes
@@ -509,9 +506,7 @@ class TestImageGenerator:
         """edit returns error when supports_edit is False."""
         # Arrange
         model = ImageModel(id="test", model="dall-e-3", label="Test")
-        generator = ImageGenerator(
-            model=model, api_key="test-key", supports_edit=False
-        )
+        generator = ImageGenerator(model=model, api_key="test-key", supports_edit=False)
         input_data = GenerationInput(prompt="Test")
 
         # Act

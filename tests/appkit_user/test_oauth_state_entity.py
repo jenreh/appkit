@@ -1,7 +1,8 @@
 """Tests for OAuthStateEntity model."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_user.authentication.backend.entities import OAuthStateEntity
@@ -87,7 +88,20 @@ class TestOAuthStateEntity:
         state = await oauth_state_factory(expires_at=expires_at)
 
         # Assert
-        assert state.expires_at == expires_at
+        assert state.expires_at is not None
+        # Compare timestamps instead of datetime objects to handle naive/aware differences
+        # SQLite sometimes returns naive datetimes even when stored with timezone
+        retrieved_ts = (
+            state.expires_at.timestamp()
+            if state.expires_at.tzinfo
+            else state.expires_at.replace(tzinfo=UTC).timestamp()
+        )
+        expected_ts = (
+            expires_at.timestamp()
+            if expires_at.tzinfo
+            else expires_at.replace(tzinfo=UTC).timestamp()
+        )
+        assert abs(retrieved_ts - expected_ts) < 1  # Within 1 second
 
     @pytest.mark.asyncio
     async def test_oauth_state_different_providers(

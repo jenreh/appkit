@@ -1,6 +1,5 @@
 """Package-specific fixtures for appkit-commons tests."""
 
-import tempfile
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
@@ -8,10 +7,6 @@ from typing import Any
 import pytest
 import yaml
 from faker import Faker
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from appkit_commons.configuration.base import BaseConfig
-
 
 # ============================================================================
 # Configuration Fixtures
@@ -28,7 +23,7 @@ def temp_yaml_file(tmp_path: Path) -> Generator[Path, None, None]:
             yaml.dump(data, f)
         return yaml_file
 
-    yield _create_yaml
+    return _create_yaml
 
 
 @pytest.fixture
@@ -91,9 +86,7 @@ def create_test_entity(faker_instance: Faker) -> callable:
         # Filter to only fields that exist in the model
         if hasattr(model_class, "__annotations__"):
             valid_fields = {
-                k: v
-                for k, v in fake_data.items()
-                if k in model_class.__annotations__
+                k: v for k, v in fake_data.items() if k in model_class.__annotations__
             }
             return model_class(**valid_fields)
 

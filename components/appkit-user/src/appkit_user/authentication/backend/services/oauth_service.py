@@ -118,9 +118,12 @@ class OAuthService:
         )
 
     def _as_provider(self, provider: OAuthProvider | str) -> OAuthProvider:
-        return (
-            provider if isinstance(provider, OAuthProvider) else OAuthProvider(provider)
-        )
+        if isinstance(provider, OAuthProvider):
+            return provider
+        try:
+            return OAuthProvider(provider)
+        except ValueError as e:
+            raise ValueError(f"Unsupported OAuth provider: {provider}") from e
 
     def _get_provider_config(self, provider: OAuthProvider | str) -> OAuthConfig:
         """Get provider configuration with tenant URL formatting."""

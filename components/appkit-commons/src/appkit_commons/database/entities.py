@@ -1,18 +1,21 @@
 import datetime
+import json
 
 from cryptography.fernet import Fernet
 from sqlalchemy import (
+    ARRAY,
     DateTime,
-    Dialect,
     String,
     TypeDecorator,
 )
+from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     mapped_column,
 )
 from sqlalchemy.sql import func
+from sqlalchemy.types import TypeEngine
 
 from appkit_commons.database.configuration import DatabaseConfig
 from appkit_commons.registry import service_registry
@@ -40,6 +43,42 @@ class EncryptedString(TypeDecorator):
     def process_result_value(self, value: any, dialect: Dialect) -> str | None:  # noqa: ARG002
         if value is not None:
             return self.cipher.decrypt(value.encode()).decode()
+        return value
+
+
+class ArrayType(TypeDecorator):
+    """Generic ARRAY type that works across databases.
+
+    Uses native ARRAY type for PostgreSQL, JSON string storage for SQLite and others.
+    """
+
+    impl = String
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine:
+        """Use native ARRAY for PostgreSQL, String for others."""
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(ARRAY(String))
+        return dialect.type_descriptor(String)
+
+    def process_bind_param(self, value: any, dialect: Dialect) -> str | list | None:
+        """Convert Python list to native ARRAY or JSON string."""
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return value  # PostgreSQL ARRAY type handles it
+        if isinstance(value, list):
+            return json.dumps(value)
+        return value
+
+    def process_result_value(self, value: any, dialect: Dialect) -> list | None:
+        """Convert stored ARRAY or JSON string back to Python list."""
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return value  # PostgreSQL ARRAY returns list directly
+        if isinstance(value, str):
+            return json.loads(value)
         return value
 
 

@@ -1,7 +1,8 @@
 """Tests for UserSessionEntity model."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_user.authentication.backend.entities import UserSessionEntity

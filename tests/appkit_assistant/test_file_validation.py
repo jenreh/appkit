@@ -3,8 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from appkit_assistant.backend.services.file_validation import (
     FileValidationService,
     get_file_validation_service,

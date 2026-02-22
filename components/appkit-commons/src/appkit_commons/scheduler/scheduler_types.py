@@ -59,6 +59,11 @@ class IntervalTrigger(Trigger):
         self.timezone = timezone
         self.jitter = jitter
 
+    @property
+    def interval(self) -> timedelta:
+        """Get the interval as a timedelta."""
+        return self._interval
+
     def to_cron(self) -> str:
         """Convert interval to cron expression."""
         total_seconds = int(self._interval.total_seconds())

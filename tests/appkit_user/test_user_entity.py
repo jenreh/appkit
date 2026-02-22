@@ -1,7 +1,8 @@
 """Tests for UserEntity model."""
 
+from datetime import datetime
+
 import pytest
-from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_user.authentication.backend.entities import UserEntity
@@ -69,7 +70,9 @@ class TestUserEntity:
         user.password = "test123"
 
         # Act & Assert
-        with pytest.raises(AttributeError, match="password is not a readable attribute"):
+        with pytest.raises(
+            AttributeError, match="password is not a readable attribute"
+        ):
             _ = user.password
 
     @pytest.mark.asyncio
@@ -138,9 +141,7 @@ class TestUserEntity:
         assert "last_login" in user_dict
 
     @pytest.mark.asyncio
-    async def test_user_default_values(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_user_default_values(self, async_session: AsyncSession) -> None:
         """User entity has correct default values."""
         # Arrange & Act
         user = UserEntity(email="defaults@example.com")
@@ -184,9 +185,7 @@ class TestUserEntity:
     ) -> None:
         """User can be marked as needing password reset."""
         # Arrange & Act
-        user = await user_factory(
-            email="reset@example.com", needs_password_reset=True
-        )
+        user = await user_factory(email="reset@example.com", needs_password_reset=True)
 
         # Assert
         assert user.needs_password_reset is True
@@ -204,9 +203,7 @@ class TestUserEntity:
         assert isinstance(user.roles, list)
 
     @pytest.mark.asyncio
-    async def test_user_nullable_fields(
-        self, async_session: AsyncSession
-    ) -> None:
+    async def test_user_nullable_fields(self, async_session: AsyncSession) -> None:
         """User can be created with nullable fields set to None."""
         # Arrange & Act
         user = UserEntity(

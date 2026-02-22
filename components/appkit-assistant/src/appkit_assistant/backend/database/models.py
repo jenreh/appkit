@@ -3,14 +3,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
-from sqlalchemy import Index, Integer, String
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Index
 from sqlalchemy.sql import func
 from sqlmodel import Column, DateTime, Field
 
 from appkit_assistant.backend.schemas import AIModel, MCPAuthType, ThreadStatus
 from appkit_commons.database.configuration import DatabaseConfig
-from appkit_commons.database.entities import EncryptedString
+from appkit_commons.database.entities import ArrayType, EncryptedString
 from appkit_commons.registry import service_registry
 
 db_config = service_registry().get(DatabaseConfig)
@@ -102,10 +101,10 @@ class AssistantThread(rx.Model, table=True):
     active: bool = Field(default=False, nullable=False)
     messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
     mcp_server_ids: list[int] = Field(
-        default=[], sa_column=Column(ARRAY(Integer), nullable=False)
+        default=[], sa_column=Column(ArrayType(), nullable=False)
     )
     skill_openai_ids: list[str] = Field(
-        default=[], sa_column=Column(ARRAY(String), nullable=False)
+        default=[], sa_column=Column(ArrayType(), nullable=False)
     )
     vector_store_id: str | None = Field(default=None, nullable=True)
     created_at: datetime = Field(
@@ -212,7 +211,7 @@ class UserPrompt(rx.Model, table=True):
 
     # Associated MCP server IDs (stored as integer array)
     mcp_server_ids: list[int] = Field(
-        default=[], sa_column=Column(ARRAY(Integer), nullable=False)
+        default=[], sa_column=Column(ArrayType(), nullable=False)
     )
 
     created_at: datetime = Field(

@@ -3,13 +3,6 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_assistant.backend.database.repositories import (
-    AIModelRepository,
-    UserPromptRepository,
-    SkillRepository,
-    UserSkillRepository,
-)
-
 
 class TestAIModelRepository:
     """Test suite for AIModelRepository."""
@@ -222,9 +215,7 @@ class TestUserPromptRepository:
         self, async_session: AsyncSession, user_prompt_factory, user_prompt_repo
     ) -> None:
         """find_latest_by_handle returns latest version for handle."""
-        await user_prompt_factory(
-            user_id=1, handle="test", version=1, is_latest=False
-        )
+        await user_prompt_factory(user_id=1, handle="test", version=1, is_latest=False)
         v2 = await user_prompt_factory(
             user_id=1, handle="test", version=2, is_latest=True
         )
@@ -432,9 +423,7 @@ class TestSkillRepository:
         self, async_session: AsyncSession, skill_repo
     ) -> None:
         """find_by_openai_id returns None for nonexistent openai_id."""
-        result = await skill_repo.find_by_openai_id(
-            async_session, "nonexistent-skill"
-        )
+        result = await skill_repo.find_by_openai_id(async_session, "nonexistent-skill")
 
         assert result is None
 

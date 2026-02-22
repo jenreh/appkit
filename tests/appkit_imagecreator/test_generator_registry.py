@@ -1,10 +1,14 @@
 """Tests for ImageGeneratorRegistry."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from appkit_imagecreator.backend.generator_registry import ImageGeneratorRegistry
-from appkit_imagecreator.backend.models import ImageGenerator, ImageGeneratorModel, ImageModel
+from appkit_imagecreator.backend.models import (
+    ImageGenerator,
+    ImageModel,
+)
 
 
 class TestImageGeneratorRegistry:
@@ -47,9 +51,7 @@ class TestImageGeneratorRegistry:
             mock_reload.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_reload_queries_database(
-        self, image_generator_model_factory
-    ) -> None:
+    async def test_reload_queries_database(self, image_generator_model_factory) -> None:
         """reload queries database for active generators."""
         # Arrange
         registry = ImageGeneratorRegistry()
@@ -62,11 +64,15 @@ class TestImageGeneratorRegistry:
         )
 
         # Mock the database query
-        with patch("appkit_imagecreator.backend.generator_registry.get_asyncdb_session") as mock_get_session:
+        with patch(
+            "appkit_imagecreator.backend.generator_registry.get_asyncdb_session"
+        ) as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__.return_value = mock_session
 
-            with patch("appkit_imagecreator.backend.generator_registry.generator_model_repo.find_all_active") as mock_find:
+            with patch(
+                "appkit_imagecreator.backend.generator_registry.generator_model_repo.find_all_active"
+            ) as mock_find:
                 mock_find.return_value = [mock_model]
 
                 # Act
@@ -89,11 +95,15 @@ class TestImageGeneratorRegistry:
             processor_type="appkit_imagecreator.backend.generators.openai.OpenAIImageGenerator",
         )
 
-        with patch("appkit_imagecreator.backend.generator_registry.get_asyncdb_session") as mock_get_session:
+        with patch(
+            "appkit_imagecreator.backend.generator_registry.get_asyncdb_session"
+        ) as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__.return_value = mock_session
 
-            with patch("appkit_imagecreator.backend.generator_registry.generator_model_repo.find_all_active") as mock_find:
+            with patch(
+                "appkit_imagecreator.backend.generator_registry.generator_model_repo.find_all_active"
+            ) as mock_find:
                 mock_find.return_value = [mock_model]
 
                 # Act
@@ -122,11 +132,15 @@ class TestImageGeneratorRegistry:
             processor_type="appkit_imagecreator.backend.generators.openai.OpenAIImageGenerator",
         )
 
-        with patch("appkit_imagecreator.backend.generator_registry.get_asyncdb_session") as mock_get_session:
+        with patch(
+            "appkit_imagecreator.backend.generator_registry.get_asyncdb_session"
+        ) as mock_get_session:
             mock_session = AsyncMock()
             mock_get_session.return_value.__aenter__.return_value = mock_session
 
-            with patch("appkit_imagecreator.backend.generator_registry.generator_model_repo.find_all_active") as mock_find:
+            with patch(
+                "appkit_imagecreator.backend.generator_registry.generator_model_repo.find_all_active"
+            ) as mock_find:
                 mock_find.return_value = [bad_model, good_model]
 
                 # Act
@@ -164,9 +178,7 @@ class TestImageGeneratorRegistry:
             )
 
     @pytest.mark.asyncio
-    async def test_instantiate_generator(
-        self, image_generator_model_factory
-    ) -> None:
+    async def test_instantiate_generator(self, image_generator_model_factory) -> None:
         """_instantiate_generator creates generator from DB model."""
         # Arrange
         db_model = await image_generator_model_factory(
@@ -229,8 +241,12 @@ class TestImageGeneratorRegistry:
         """list_generators returns generator metadata."""
         # Arrange
         registry = ImageGeneratorRegistry()
-        model1 = ImageModel(id="gen1", model="dall-e-3", label="Generator 1", required_role="admin")
-        model2 = ImageModel(id="gen2", model="flux", label="Generator 2", required_role=None)
+        model1 = ImageModel(
+            id="gen1", model="dall-e-3", label="Generator 1", required_role="admin"
+        )
+        model2 = ImageModel(
+            id="gen2", model="flux", label="Generator 2", required_role=None
+        )
         registry.register(ImageGenerator(model=model1, api_key="key1"))
         registry.register(ImageGenerator(model=model2, api_key="key2"))
 

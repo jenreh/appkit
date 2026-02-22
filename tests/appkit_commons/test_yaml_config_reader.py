@@ -1,11 +1,9 @@
 """Tests for YamlConfigReader and YamlConfigSettingsSource."""
 
 from pathlib import Path
-from typing import Any
 
 import pytest
 import yaml
-from pydantic import Field
 from pydantic_settings import BaseSettings
 
 from appkit_commons.configuration.yaml import (
@@ -70,7 +68,8 @@ class TestYamlConfigReader:
         """Reading invalid YAML raises YAMLError."""
         # Arrange
         yaml_file = tmp_path / "invalid.yaml"
-        yaml_file.write_text("key: value\n  invalid indentation\n")
+        # Use actually invalid YAML - unclosed bracket
+        yaml_file.write_text("key: [value1, value2\n")
 
         # Act & Assert
         with pytest.raises(yaml.YAMLError):
@@ -117,9 +116,7 @@ class TestYamlConfigReader:
         assert result["value"] == 2
         assert result["dev_only"] == "dev_data"
 
-    def test_read_and_merge_files_with_multiple_profiles(
-        self, tmp_path: Path
-    ) -> None:
+    def test_read_and_merge_files_with_multiple_profiles(self, tmp_path: Path) -> None:
         """Reading with multiple profiles merges in order."""
         # Arrange
         base_config = {"env": "base", "value": 1}
@@ -173,9 +170,7 @@ class TestYamlConfigReader:
         assert result["database"]["port"] == 5432  # Not overwritten
         assert result["database"]["user"] == "dev_user"
 
-    def test_read_and_merge_files_missing_profile_ignored(
-        self, tmp_path: Path
-    ) -> None:
+    def test_read_and_merge_files_missing_profile_ignored(self, tmp_path: Path) -> None:
         """Missing profile file is ignored without error."""
         # Arrange
         base_config = {"env": "base"}
@@ -243,16 +238,33 @@ class TestYamlConfigSettingsSource:
             app_name: str = "default"
             port: int = 8000
 
+            @classmethod
+            def settings_customise_sources(
+                cls,
+                settings_cls,
+                init_settings,
+                env_settings,
+                dotenv_settings,
+                file_secret_settings,
+            ):
+                # Use YamlConfigSettingsSource in the sources tuple
+                return (
+                    init_settings,
+                    env_settings,
+                    dotenv_settings,
+                    file_secret_settings,
+                    YamlConfigSettingsSource(
+                        settings_cls, yaml_file_path=tmp_path, profiles=None
+                    ),
+                )
+
         config_data = {"app_name": "test-app", "port": 9000}
         config_file = tmp_path / "config.yaml"
         with config_file.open("w") as f:
             yaml.dump(config_data, f)
 
         # Act
-        source = YamlConfigSettingsSource(
-            TestSettings, yaml_file_path=tmp_path, profiles=None
-        )
-        settings = TestSettings(_settings_source=source)
+        settings = TestSettings()
 
         # Assert
         assert settings.app_name == "test-app"
@@ -288,6 +300,26 @@ class TestYamlConfigSettingsSource:
             env: str = "base"
             value: int = 0
 
+            @classmethod
+            def settings_customise_sources(
+                cls,
+                settings_cls,
+                init_settings,
+                env_settings,
+                dotenv_settings,
+                file_secret_settings,
+            ):
+                # Use YamlConfigSettingsSource with profiles in the sources tuple
+                return (
+                    init_settings,
+                    env_settings,
+                    dotenv_settings,
+                    file_secret_settings,
+                    YamlConfigSettingsSource(
+                        settings_cls, yaml_file_path=tmp_path, profiles=["dev"]
+                    ),
+                )
+
         base_config = {"env": "base", "value": 1}
         dev_config = {"env": "dev", "value": 2}
 
@@ -300,10 +332,7 @@ class TestYamlConfigSettingsSource:
             yaml.dump(dev_config, f)
 
         # Act
-        source = YamlConfigSettingsSource(
-            TestSettings, yaml_file_path=tmp_path, profiles=["dev"]
-        )
-        settings = TestSettings(_settings_source=source)
+        settings = TestSettings()
 
         # Assert
         assert settings.env == "dev"

@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from typing import Final, Optional
 
 from sqlalchemy import (
-    ARRAY,  # Added import
     Boolean,
     DateTime,
     ForeignKey,
@@ -23,7 +22,7 @@ from sqlalchemy_utils import StringEncryptedType
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 
 from appkit_commons.database.configuration import DatabaseConfig
-from appkit_commons.database.entities import Base, Entity
+from appkit_commons.database.entities import ArrayType, Base, Entity
 from appkit_commons.registry import service_registry
 from appkit_commons.security import check_password_hash, generate_password_hash
 
@@ -46,9 +45,7 @@ class UserEntity(Entity, Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     needs_password_reset: Mapped[bool] = mapped_column(Boolean, default=False)
-    roles: Mapped[list[str]] = mapped_column(
-        ARRAY(String), default=list, nullable=False
-    )
+    roles: Mapped[list[str]] = mapped_column(ArrayType(), default=list, nullable=False)
     last_login: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -63,7 +60,7 @@ class UserEntity(Entity, Base):
         "OAuthStateEntity",
         back_populates="user",
         lazy="select",
-        cascade="all, delete-orphan",
+        cascade="save-update, merge",  # No delete: oauth_states use SET NULL on foreign key delete
     )
     sessions: Mapped[list["UserSessionEntity"]] = relationship(
         "UserSessionEntity",

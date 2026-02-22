@@ -1,14 +1,15 @@
 """Tests for SessionCleanupService."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from appkit_commons.scheduler import IntervalTrigger
 from appkit_user.authentication.backend.services.session_cleanup_service import (
     SessionCleanupService,
 )
-from appkit_commons.scheduler import IntervalTrigger
 
 
 class TestSessionCleanupService:
@@ -42,12 +43,16 @@ class TestSessionCleanupService:
 
         # Assert
         assert isinstance(trigger, IntervalTrigger)
-        # IntervalTrigger stores minutes internally
-        assert trigger.minutes == 45
+        # IntervalTrigger stores interval as a timedelta
+        assert trigger.interval.total_seconds() == 45 * 60  # 45 minutes in seconds
 
     @pytest.mark.asyncio
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session")
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.session_repo")
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
+    )
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
+    )
     async def test_execute_cleans_expired_sessions(
         self, mock_session_repo: MagicMock, mock_get_session: MagicMock
     ) -> None:
@@ -66,8 +71,12 @@ class TestSessionCleanupService:
         mock_session_repo.delete_expired.assert_called_once_with(mock_session)
 
     @pytest.mark.asyncio
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session")
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.session_repo")
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
+    )
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
+    )
     @patch("appkit_user.authentication.backend.services.session_cleanup_service.logger")
     async def test_execute_logs_cleanup_count(
         self,
@@ -88,13 +97,15 @@ class TestSessionCleanupService:
 
         # Assert
         mock_logger.info.assert_any_call("Running session cleanup job")
-        mock_logger.info.assert_any_call(
-            "Cleaned up %d expired user sessions", 10
-        )
+        mock_logger.info.assert_any_call("Cleaned up %d expired user sessions", 10)
 
     @pytest.mark.asyncio
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session")
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.session_repo")
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
+    )
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
+    )
     @patch("appkit_user.authentication.backend.services.session_cleanup_service.logger")
     async def test_execute_does_not_log_when_no_sessions_cleaned(
         self,
@@ -118,8 +129,12 @@ class TestSessionCleanupService:
         # Should not log "Cleaned up X sessions" when count is 0
 
     @pytest.mark.asyncio
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session")
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.session_repo")
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
+    )
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
+    )
     @patch("appkit_user.authentication.backend.services.session_cleanup_service.logger")
     async def test_execute_handles_exceptions(
         self,
@@ -140,13 +155,15 @@ class TestSessionCleanupService:
         await service.execute()
 
         # Assert
-        mock_logger.error.assert_called_once_with(
-            "Session cleanup failed: %s", error
-        )
+        mock_logger.error.assert_called_once_with("Session cleanup failed: %s", error)
 
     @pytest.mark.asyncio
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session")
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.session_repo")
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
+    )
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
+    )
     async def test_execute_session_context_manager(
         self, mock_session_repo: MagicMock, mock_get_session: MagicMock
     ) -> None:
@@ -169,8 +186,12 @@ class TestSessionCleanupService:
         mock_context.__aexit__.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session")
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.session_repo")
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
+    )
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
+    )
     async def test_execute_multiple_calls(
         self, mock_session_repo: MagicMock, mock_get_session: MagicMock
     ) -> None:
@@ -206,11 +227,7 @@ class TestSessionCleanupService:
         service2 = SessionCleanupService(interval_minutes=20)
 
         # Assert
-        assert (
-            service1.name
-            == service2.name
-            == "Clean up expired user sessions"
-        )
+        assert service1.name == service2.name == "Clean up expired user sessions"
 
     def test_trigger_changes_with_interval(self) -> None:
         """trigger interval changes based on initialization parameter."""
@@ -223,12 +240,16 @@ class TestSessionCleanupService:
         trigger2 = service2.trigger
 
         # Assert
-        assert trigger1.minutes == 10
-        assert trigger2.minutes == 60
+        assert trigger1.interval.total_seconds() == 10 * 60  # 10 minutes in seconds
+        assert trigger2.interval.total_seconds() == 60 * 60  # 60 minutes in seconds
 
     @pytest.mark.asyncio
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session")
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.session_repo")
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
+    )
+    @patch(
+        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
+    )
     @patch("appkit_user.authentication.backend.services.session_cleanup_service.logger")
     async def test_execute_logs_with_proper_format(
         self,
@@ -268,7 +289,9 @@ class TestSessionCleanupService:
         await session_factory(session_id="valid", expires_at=valid_time)
 
         # Mock get_asyncdb_session to return our test session
-        with patch("appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session") as mock_get_session:
+        with patch(
+            "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
+        ) as mock_get_session:
             mock_context = MagicMock()
             mock_context.__aenter__ = AsyncMock(return_value=async_session)
             mock_context.__aexit__ = AsyncMock(return_value=None)

@@ -16,7 +16,8 @@ class OAuthStateRepository(BaseRepository[OAuthStateEntity, AsyncSession]):
 
     async def delete_expired(self, session: AsyncSession) -> int:
         """Clean up expired OAuth states and return count of deleted records."""
-        now = datetime.now(UTC)
+        # Use naive datetime to match SQLite's storage of timezone-aware datetimes
+        now = datetime.now(UTC).replace(tzinfo=None)
         stmt = delete(OAuthStateEntity).where(OAuthStateEntity.expires_at < now)
         result = await session.execute(stmt)
         await session.flush()

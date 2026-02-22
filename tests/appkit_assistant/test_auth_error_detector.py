@@ -1,7 +1,5 @@
 """Tests for AuthErrorDetector."""
 
-import pytest
-
 from appkit_assistant.backend.services.auth_error_detector import (
     AuthErrorDetector,
     get_auth_error_detector,
@@ -204,11 +202,13 @@ class TestAuthErrorDetector:
                 self.name = name
 
         detector = AuthErrorDetector()
-        servers = [MockServer("Server A"), MockServer("Server B"), MockServer("Server A Clone")]
+        servers = [
+            MockServer("Server A"),
+            MockServer("Server B"),
+            MockServer("Server A Clone"),
+        ]
 
-        matched = detector.find_matching_server_in_error(
-            "Error with Server A", servers
-        )
+        matched = detector.find_matching_server_in_error("Error with Server A", servers)
 
         assert matched.name == "Server A"
 

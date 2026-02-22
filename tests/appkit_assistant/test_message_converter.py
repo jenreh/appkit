@@ -7,9 +7,9 @@ import pytest
 from appkit_assistant.backend.schemas import Message, MessageType
 from appkit_assistant.backend.services.message_converter import (
     ClaudeMessageConverter,
+    GeminiMessageConverter,
     OpenAIChatConverter,
     OpenAIResponsesConverter,
-    GeminiMessageConverter,
 )
 
 

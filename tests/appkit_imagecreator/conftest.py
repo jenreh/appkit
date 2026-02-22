@@ -1,7 +1,7 @@
 """Pytest fixtures for appkit-imagecreator tests."""
 
 import base64
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -9,14 +9,14 @@ import pytest_asyncio
 from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from appkit_imagecreator.backend.generator_repository import (
+    ImageGeneratorModelRepository,
+)
 from appkit_imagecreator.backend.models import (
     GeneratedImage,
     ImageGeneratorModel,
 )
 from appkit_imagecreator.backend.repository import GeneratedImageRepository
-from appkit_imagecreator.backend.generator_repository import (
-    ImageGeneratorModelRepository,
-)
 
 
 @pytest.fixture
@@ -38,7 +38,9 @@ async def generator_model_repo() -> ImageGeneratorModelRepository:
 
 
 @pytest_asyncio.fixture
-async def image_generator_model_factory(async_session: AsyncSession, faker_instance: Faker):
+async def image_generator_model_factory(
+    async_session: AsyncSession, faker_instance: Faker
+):
     """Factory for creating test ImageGeneratorModel instances."""
 
     async def _create_model(**kwargs: Any) -> ImageGeneratorModel:
