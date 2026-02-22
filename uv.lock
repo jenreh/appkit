@@ -176,7 +176,7 @@ wheels = [
 
 [[package]]
 name = "appkit"
-version = "1.5.1"
+version = "1.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "appkit-assistant" },
@@ -237,7 +237,7 @@ dev = [
 
 [[package]]
 name = "appkit-assistant"
-version = "1.5.1"
+version = "1.6.0"
 source = { editable = "components/appkit-assistant" }
 dependencies = [
     { name = "anthropic" },
@@ -268,7 +268,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-commons"
-version = "1.5.1"
+version = "1.6.0"
 source = { editable = "components/appkit-commons" }
 dependencies = [
     { name = "colorlog" },
@@ -310,7 +310,7 @@ provides-extras = ["apscheduler", "pgqueuer", "azure"]
 
 [[package]]
 name = "appkit-imagecreator"
-version = "1.5.1"
+version = "1.6.0"
 source = { editable = "components/appkit-imagecreator" }
 dependencies = [
     { name = "appkit-commons" },
@@ -337,7 +337,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mantine"
-version = "1.5.1"
+version = "1.6.0"
 source = { editable = "components/appkit-mantine" }
 dependencies = [
     { name = "reflex" },
@@ -348,7 +348,7 @@ requires-dist = [{ name = "reflex", specifier = "==0.8.27" }]
 
 [[package]]
 name = "appkit-ui"
-version = "1.5.1"
+version = "1.6.0"
 source = { editable = "components/appkit-ui" }
 dependencies = [
     { name = "appkit-mantine" },
@@ -359,7 +359,7 @@ requires-dist = [{ name = "appkit-mantine", editable = "components/appkit-mantin
 
 [[package]]
 name = "appkit-user"
-version = "1.5.1"
+version = "1.6.0"
 source = { editable = "components/appkit-user" }
 dependencies = [
     { name = "appkit-commons" },
