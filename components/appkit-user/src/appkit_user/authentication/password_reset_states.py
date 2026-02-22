@@ -378,11 +378,11 @@ class PasswordResetConfirmState(rx.State):
                 if token_reset_type == PasswordResetType.ADMIN_FORCED:
                     user_entity.needs_password_reset = False
 
-                # Commit user changes
-                await db.commit()
-
                 # 8. Clear all existing sessions for user (force re-login)
                 await session_repo.delete_all_by_user_id(db, token_user_id)
+
+                # Commit all changes atomically: password, history, token, sessions
+                await db.commit()
 
                 logger.info(
                     "Password reset completed for user_id=%d, type=%s",
