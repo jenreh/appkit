@@ -3,6 +3,7 @@
 ## Overview
 
 This test suite provides comprehensive coverage (≥80%) for the AppKit backend packages:
+
 - **appkit-commons**: Configuration, database, scheduler, registry, security
 - **appkit-user**: Authentication backend (OAuth, entities, repositories, session cleanup)
 - **appkit-imagecreator**: Image generation backend (registry, repositories, services)
@@ -11,21 +12,25 @@ This test suite provides comprehensive coverage (≥80%) for the AppKit backend 
 ## Philosophy
 
 ### Test Isolation
+
 - Each test runs in complete isolation using SQLite in-memory databases
 - Service registry is cleared between tests
 - No test depends on another test's state or execution order
 
 ### Async Testing
+
 - All async code is tested with `pytest-asyncio`
 - Async fixtures use `@pytest_asyncio.fixture` decorator
 - Async tests use `@pytest.mark.asyncio` marker
 
 ### Mocking Strategy
+
 - **Database**: SQLite in-memory (`:memory:`) for fast, isolated tests
 - **External APIs**: HTTP-level mocking with `responses` library or `httpx` MockTransport
 - **Secrets**: Local environment variables (no real Azure Key Vault calls)
 
 ### Coverage Focus
+
 - Happy paths: Standard use cases work correctly
 - Edge cases: Boundary conditions, empty results, null values
 - Error paths: Exception handling, validation failures, timeout scenarios
@@ -33,6 +38,7 @@ This test suite provides comprehensive coverage (≥80%) for the AppKit backend 
 ## Running Tests
 
 ### All Tests
+
 ```bash
 # Run all tests with coverage
 task test
@@ -45,6 +51,7 @@ pytest --cov -n auto
 ```
 
 ### Package-Specific Tests
+
 ```bash
 # Test only appkit-commons
 pytest tests/appkit_commons/ --cov=appkit_commons
@@ -60,6 +67,7 @@ pytest tests/appkit_assistant/ --cov=appkit_assistant
 ```
 
 ### Specific Test Files
+
 ```bash
 # Test a single file
 pytest tests/appkit_commons/test_service_registry.py -v
@@ -72,6 +80,7 @@ pytest tests/appkit_commons/test_service_registry.py::TestServiceRegistry::test_
 ```
 
 ### Coverage Reports
+
 ```bash
 # Generate HTML coverage report
 pytest --cov --cov-report=html
@@ -86,6 +95,7 @@ pytest --cov --cov-report=term-missing
 ## Fixture Architecture
 
 ### Root Fixtures (`tests/conftest.py`)
+
 Shared across all tests:
 
 - **async_engine**: SQLite in-memory async engine
@@ -99,26 +109,31 @@ Shared across all tests:
 - **captured_logs**: Capture log output for assertions
 
 ### Package Fixtures
+
 Each package has its own `conftest.py` with specialized fixtures:
 
 #### appkit-commons (`tests/appkit_commons/conftest.py`)
+
 - Entity factories for config models
 - YAML config file factories
 - Repository instances pre-configured
 
 #### appkit-user (`tests/appkit_user/conftest.py`)
+
 - User entity factories
 - OAuth session mocks (GitHub, Azure)
 - User/session/OAuth state repositories
 - Mock OAuth provider responses
 
 #### appkit-imagecreator (`tests/appkit_imagecreator/conftest.py`)
+
 - Image generator model factories
 - Mock OpenAI/Gemini image API responses
 - Image generator registry pre-configured
 - Image repository with test data
 
 #### appkit-assistant (`tests/appkit_assistant/conftest.py`)
+
 - Thread/message/file entity factories
 - Mock AI model API responses (OpenAI, Claude, Gemini, Perplexity)
 - MCP server factories and mock SSE servers
@@ -128,6 +143,7 @@ Each package has its own `conftest.py` with specialized fixtures:
 ## Common Testing Patterns
 
 ### Pattern 1: Async Test with Session
+
 ```python
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -146,6 +162,7 @@ async def test_create_user(async_session: AsyncSession, user_factory):
 ```
 
 ### Pattern 2: Testing Error Paths
+
 ```python
 import pytest
 
@@ -157,6 +174,7 @@ async def test_get_nonexistent_user_raises(user_repository, async_session):
 ```
 
 ### Pattern 3: Mocking HTTP Responses
+
 ```python
 import responses
 
@@ -178,6 +196,7 @@ def test_oauth_fetch_user():
 ```
 
 ### Pattern 4: Using Faker for Test Data
+
 ```python
 from faker import Faker
 
@@ -194,6 +213,7 @@ def test_with_fake_data(faker_instance: Faker):
 ```
 
 ### Pattern 5: Testing Async Context Managers
+
 ```python
 @pytest.mark.asyncio
 async def test_session_context_manager(async_session_factory):
@@ -208,6 +228,7 @@ async def test_session_context_manager(async_session_factory):
 ```
 
 ### Pattern 6: Capturing Log Output
+
 ```python
 import logging
 
@@ -226,11 +247,13 @@ def test_with_logs(captured_logs):
 ## Writing New Tests
 
 ### Test File Naming
+
 - Test files: `test_<module_name>.py`
 - Test classes: `Test<ClassName>`
 - Test functions: `test_<what_it_tests>_<expected_outcome>`
 
 Examples:
+
 ```
 test_user_repository.py
     TestUserRepository
@@ -240,6 +263,7 @@ test_user_repository.py
 ```
 
 ### Test Organization
+
 ```python
 """Tests for UserRepository."""
 
@@ -263,6 +287,7 @@ class TestUserRepository:
 ```
 
 ### Edge Cases to Cover
+
 For each class/method, ensure tests cover:
 
 1. **Happy path**: Standard use case works
@@ -276,6 +301,7 @@ For each class/method, ensure tests cover:
 ## Debugging Tests
 
 ### Verbose Output
+
 ```bash
 # Show all test names and outcomes
 pytest -v
@@ -291,6 +317,7 @@ pytest -x
 ```
 
 ### Debugging with Breakpoints
+
 ```python
 def test_debug_example():
     import pdb; pdb.set_trace()  # Breakpoint
@@ -299,6 +326,7 @@ def test_debug_example():
 ```
 
 ### Async Debugging
+
 ```python
 @pytest.mark.asyncio
 async def test_async_debug():
@@ -308,6 +336,7 @@ async def test_async_debug():
 ```
 
 ### Coverage Gaps
+
 ```bash
 # Show lines not covered by tests
 pytest --cov --cov-report=term-missing
@@ -319,11 +348,13 @@ pytest --cov=appkit_commons.registry --cov-report=term-missing
 ## Continuous Integration
 
 Tests run automatically on:
+
 - Every push to PR branches
 - PR merge to main
 - Release tags
 
 ### CI Requirements
+
 - All tests must pass
 - Coverage must be ≥80% per package
 - No skipped tests (unless explicitly documented)
@@ -332,6 +363,7 @@ Tests run automatically on:
 ## Tips and Best Practices
 
 ### DO
+
 ✓ Use async fixtures for async code
 ✓ Clear service registry between tests
 ✓ Mock external APIs at HTTP level
@@ -341,6 +373,7 @@ Tests run automatically on:
 ✓ Use factories for creating test data
 
 ### DON'T
+
 ✗ Share state between tests
 ✗ Make real API calls
 ✗ Depend on test execution order
@@ -352,30 +385,39 @@ Tests run automatically on:
 ## Troubleshooting
 
 ### Import Errors
+
 ```
 ModuleNotFoundError: No module named 'appkit_commons'
 ```
+
 **Solution**: Install dev dependencies
+
 ```bash
 uv sync --dev
 ```
 
 ### Async Fixture Errors
+
 ```
 ScopeMismatch: You tried to access the function scoped fixture event_loop
 ```
+
 **Solution**: Use `@pytest_asyncio.fixture` for async fixtures
 
 ### Database Errors
+
 ```
 sqlalchemy.exc.OperationalError: no such table
 ```
+
 **Solution**: Ensure `SQLModel.metadata.create_all()` is called in `async_engine` fixture
 
 ### Secret Provider Errors
+
 ```
 SecretNotFoundError: Secret 'xyz' not found
 ```
+
 **Solution**: Use `mock_secret_provider` and `mock_secrets` fixtures
 
 ## Resources
