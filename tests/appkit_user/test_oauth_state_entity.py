@@ -3,18 +3,17 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.entities import OAuthStateEntity
+from appkit_user.authentication.backend.database.entities import OAuthStateEntity
 
 
 class TestOAuthStateEntity:
     """Test suite for OAuthStateEntity model."""
 
     @pytest.mark.asyncio
-    async def test_create_oauth_state(
-        self, async_session: AsyncSession, oauth_state_factory
-    ) -> None:
+    async def test_create_oauth_state(self, oauth_state_factory) -> None:
         """Creating an OAuth state succeeds."""
         # Act
         state = await oauth_state_factory(provider="github")
@@ -28,7 +27,7 @@ class TestOAuthStateEntity:
 
     @pytest.mark.asyncio
     async def test_oauth_state_with_user(
-        self, async_session: AsyncSession, user_factory, oauth_state_factory
+        self, user_factory, oauth_state_factory
     ) -> None:
         """OAuth state can be associated with a user."""
         # Arrange
@@ -41,9 +40,7 @@ class TestOAuthStateEntity:
         assert state.user_id == user.id
 
     @pytest.mark.asyncio
-    async def test_oauth_state_without_user(
-        self, async_session: AsyncSession, oauth_state_factory
-    ) -> None:
+    async def test_oauth_state_without_user(self, oauth_state_factory) -> None:
         """OAuth state can exist without a user (guest login)."""
         # Act
         state = await oauth_state_factory(provider="github", user=None)
@@ -52,9 +49,7 @@ class TestOAuthStateEntity:
         assert state.user_id is None
 
     @pytest.mark.asyncio
-    async def test_oauth_state_pkce_code_verifier(
-        self, async_session: AsyncSession, oauth_state_factory
-    ) -> None:
+    async def test_oauth_state_pkce_code_verifier(self, oauth_state_factory) -> None:
         """OAuth state stores PKCE code_verifier."""
         # Arrange
         verifier = "test_code_verifier_abc123"
@@ -67,7 +62,7 @@ class TestOAuthStateEntity:
 
     @pytest.mark.asyncio
     async def test_oauth_state_nullable_code_verifier(
-        self, async_session: AsyncSession, oauth_state_factory
+        self, oauth_state_factory
     ) -> None:
         """OAuth state code_verifier can be None (non-PKCE flow)."""
         # Act
@@ -77,9 +72,7 @@ class TestOAuthStateEntity:
         assert state.code_verifier is None
 
     @pytest.mark.asyncio
-    async def test_oauth_state_expiration(
-        self, async_session: AsyncSession, oauth_state_factory
-    ) -> None:
+    async def test_oauth_state_expiration(self, oauth_state_factory) -> None:
         """OAuth state has expiration timestamp."""
         # Arrange
         expires_at = datetime.now(UTC) + timedelta(minutes=10)
@@ -89,24 +82,15 @@ class TestOAuthStateEntity:
 
         # Assert
         assert state.expires_at is not None
-        # Compare timestamps instead of datetime objects to handle naive/aware differences
-        # SQLite sometimes returns naive datetimes even when stored with timezone
-        retrieved_ts = (
-            state.expires_at.timestamp()
-            if state.expires_at.tzinfo
-            else state.expires_at.replace(tzinfo=UTC).timestamp()
-        )
-        expected_ts = (
-            expires_at.timestamp()
-            if expires_at.tzinfo
-            else expires_at.replace(tzinfo=UTC).timestamp()
-        )
-        assert abs(retrieved_ts - expected_ts) < 1  # Within 1 second
+
+        # Handle naive/aware timestamp comparison
+        def get_ts(dt: datetime) -> float:
+            return (dt if dt.tzinfo else dt.replace(tzinfo=UTC)).timestamp()
+
+        assert abs(get_ts(state.expires_at) - get_ts(expires_at)) < 1
 
     @pytest.mark.asyncio
-    async def test_oauth_state_different_providers(
-        self, async_session: AsyncSession, oauth_state_factory
-    ) -> None:
+    async def test_oauth_state_different_providers(self, oauth_state_factory) -> None:
         """OAuth states can be created for different providers."""
         # Act
         github_state = await oauth_state_factory(provider="github")
@@ -149,8 +133,6 @@ class TestOAuthStateEntity:
         await async_session.flush()
 
         # Assert - state should still exist but user_id should be NULL
-        from sqlalchemy import select
-
         result = await async_session.execute(
             select(OAuthStateEntity).where(OAuthStateEntity.id == state_id)
         )
@@ -159,9 +141,7 @@ class TestOAuthStateEntity:
         assert remaining_state.user_id is None
 
     @pytest.mark.asyncio
-    async def test_oauth_state_index_on_expires_at(
-        self, async_session: AsyncSession, oauth_state_factory
-    ) -> None:
+    async def test_oauth_state_index_on_expires_at(self, oauth_state_factory) -> None:
         """OAuth state table has index on expires_at for cleanup queries."""
         # This test verifies the index exists by checking table args
         # Arrange & Act
@@ -170,16 +150,12 @@ class TestOAuthStateEntity:
         # Assert - just verify state was created (index is in __table_args__)
         assert state.expires_at is not None
         # The actual index check is at the SQLAlchemy metadata level
-        from appkit_user.authentication.backend.entities import OAuthStateEntity
-
         table_args = OAuthStateEntity.__table_args__
         index_names = [idx.name for idx in table_args if hasattr(idx, "name")]
         assert "ix_oauth_states_expires_at" in index_names
 
     @pytest.mark.asyncio
-    async def test_oauth_state_unique_states(
-        self, async_session: AsyncSession, oauth_state_factory
-    ) -> None:
+    async def test_oauth_state_unique_states(self, oauth_state_factory) -> None:
         """Each OAuth state should have a unique state value."""
         # Act
         state1 = await oauth_state_factory()

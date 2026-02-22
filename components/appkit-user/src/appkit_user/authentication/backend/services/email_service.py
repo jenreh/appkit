@@ -75,12 +75,15 @@ class EmailProviderBase(ABC):
             config: AuthenticationConfiguration = service_registry().get(
                 AuthenticationConfiguration
             )
+            logo_url = config.server_url
+            if config.server_port and config.server_port != 0:
+                logo_url = f"{config.server_url}:{config.server_port}"
             html_body = self._render_template(
                 template_file,
                 reset_url=reset_link,
                 user_name=user_name,
                 year=datetime.now(UTC).year,
-                logo_url=f"{config.server_url}/img/appkit_logo.svg",
+                logo_url=logo_url,
             )
 
             subject = "Passwort zurücksetzen | AppKit"

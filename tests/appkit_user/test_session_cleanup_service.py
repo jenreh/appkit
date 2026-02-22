@@ -7,8 +7,15 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.scheduler import IntervalTrigger
+from appkit_user.authentication.backend.database.user_session_repository import (
+    session_repo,
+)
 from appkit_user.authentication.backend.services import (
     SessionCleanupService,
+)
+
+CLEANUP_SERVICE_PATH = (
+    "appkit_user.authentication.backend.services.session_cleanup_service"
 )
 
 
@@ -47,12 +54,8 @@ class TestSessionCleanupService:
         assert trigger.interval.total_seconds() == 45 * 60  # 45 minutes in seconds
 
     @pytest.mark.asyncio
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
-    )
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
-    )
+    @patch(f"{CLEANUP_SERVICE_PATH}.get_asyncdb_session")
+    @patch(f"{CLEANUP_SERVICE_PATH}.session_repo")
     async def test_execute_cleans_expired_sessions(
         self, mock_session_repo: MagicMock, mock_get_session: MagicMock
     ) -> None:
@@ -71,13 +74,9 @@ class TestSessionCleanupService:
         mock_session_repo.delete_expired.assert_called_once_with(mock_session)
 
     @pytest.mark.asyncio
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
-    )
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
-    )
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.logger")
+    @patch(f"{CLEANUP_SERVICE_PATH}.get_asyncdb_session")
+    @patch(f"{CLEANUP_SERVICE_PATH}.session_repo")
+    @patch(f"{CLEANUP_SERVICE_PATH}.logger")
     async def test_execute_logs_cleanup_count(
         self,
         mock_logger: MagicMock,
@@ -100,13 +99,9 @@ class TestSessionCleanupService:
         mock_logger.info.assert_any_call("Cleaned up %d expired user sessions", 10)
 
     @pytest.mark.asyncio
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
-    )
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
-    )
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.logger")
+    @patch(f"{CLEANUP_SERVICE_PATH}.get_asyncdb_session")
+    @patch(f"{CLEANUP_SERVICE_PATH}.session_repo")
+    @patch(f"{CLEANUP_SERVICE_PATH}.logger")
     async def test_execute_does_not_log_when_no_sessions_cleaned(
         self,
         mock_logger: MagicMock,
@@ -129,13 +124,9 @@ class TestSessionCleanupService:
         # Should not log "Cleaned up X sessions" when count is 0
 
     @pytest.mark.asyncio
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
-    )
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
-    )
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.logger")
+    @patch(f"{CLEANUP_SERVICE_PATH}.get_asyncdb_session")
+    @patch(f"{CLEANUP_SERVICE_PATH}.session_repo")
+    @patch(f"{CLEANUP_SERVICE_PATH}.logger")
     async def test_execute_handles_exceptions(
         self,
         mock_logger: MagicMock,
@@ -158,12 +149,8 @@ class TestSessionCleanupService:
         mock_logger.error.assert_called_once_with("Session cleanup failed: %s", error)
 
     @pytest.mark.asyncio
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
-    )
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
-    )
+    @patch(f"{CLEANUP_SERVICE_PATH}.get_asyncdb_session")
+    @patch(f"{CLEANUP_SERVICE_PATH}.session_repo")
     async def test_execute_session_context_manager(
         self, mock_session_repo: MagicMock, mock_get_session: MagicMock
     ) -> None:
@@ -186,12 +173,8 @@ class TestSessionCleanupService:
         mock_context.__aexit__.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
-    )
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
-    )
+    @patch(f"{CLEANUP_SERVICE_PATH}.get_asyncdb_session")
+    @patch(f"{CLEANUP_SERVICE_PATH}.session_repo")
     async def test_execute_multiple_calls(
         self, mock_session_repo: MagicMock, mock_get_session: MagicMock
     ) -> None:
@@ -244,13 +227,9 @@ class TestSessionCleanupService:
         assert trigger2.interval.total_seconds() == 60 * 60  # 60 minutes in seconds
 
     @pytest.mark.asyncio
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
-    )
-    @patch(
-        "appkit_user.authentication.backend.services.session_cleanup_service.session_repo"
-    )
-    @patch("appkit_user.authentication.backend.services.session_cleanup_service.logger")
+    @patch(f"{CLEANUP_SERVICE_PATH}.get_asyncdb_session")
+    @patch(f"{CLEANUP_SERVICE_PATH}.session_repo")
+    @patch(f"{CLEANUP_SERVICE_PATH}.logger")
     async def test_execute_logs_with_proper_format(
         self,
         mock_logger: MagicMock,
@@ -289,9 +268,7 @@ class TestSessionCleanupService:
         await session_factory(session_id="valid", expires_at=valid_time)
 
         # Mock get_asyncdb_session to return our test session
-        with patch(
-            "appkit_user.authentication.backend.services.session_cleanup_service.get_asyncdb_session"
-        ) as mock_get_session:
+        with patch(f"{CLEANUP_SERVICE_PATH}.get_asyncdb_session") as mock_get_session:
             mock_context = MagicMock()
             mock_context.__aenter__ = AsyncMock(return_value=async_session)
             mock_context.__aexit__ = AsyncMock(return_value=None)
@@ -303,10 +280,6 @@ class TestSessionCleanupService:
             await service.execute()
 
         # Assert - verify expired sessions were deleted
-        from appkit_user.authentication.backend.user_session_repository import (
-            session_repo,
-        )
-
         found_expired1 = await session_repo.find_by_session_id(
             async_session, "expired_1"
         )

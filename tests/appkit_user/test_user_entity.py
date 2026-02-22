@@ -12,11 +12,7 @@ class TestUserEntity:
     """Test suite for UserEntity model."""
 
     @pytest.mark.asyncio
-    async def test_create_user_basic(
-        self,
-        async_session: AsyncSession,
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_create_user_basic(self, user_factory) -> None:
         """Creating a basic user succeeds."""
         # Act
         user = await user_factory(email="test@example.com", name="Test User")
@@ -30,11 +26,7 @@ class TestUserEntity:
         assert user.is_admin is False
 
     @pytest.mark.asyncio
-    async def test_create_user_with_roles(
-        self,
-        async_session: AsyncSession,
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_create_user_with_roles(self, user_factory) -> None:
         """Creating a user with roles stores roles correctly."""
         # Act
         user = await user_factory(
@@ -65,11 +57,7 @@ class TestUserEntity:
         assert user._password.startswith("scrypt:")  # noqa: SLF001
 
     @pytest.mark.asyncio
-    async def test_user_password_getter_raises(
-        self,
-        async_session: AsyncSession,
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_user_password_getter_raises(self, user_factory) -> None:
         """Reading password directly raises AttributeError."""
         # Arrange
         user = await user_factory(email="user@example.com")
@@ -82,11 +70,7 @@ class TestUserEntity:
             _ = user.password
 
     @pytest.mark.asyncio
-    async def test_check_password_correct(
-        self,
-        async_session: AsyncSession,
-        user_with_password_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_check_password_correct(self, user_with_password_factory) -> None:
         """check_password returns True for correct password."""
         # Arrange
         password = "CorrectPassword123!"  # noqa: S105
@@ -99,11 +83,7 @@ class TestUserEntity:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_check_password_incorrect(
-        self,
-        async_session: AsyncSession,
-        user_with_password_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_check_password_incorrect(self, user_with_password_factory) -> None:
         """check_password returns False for incorrect password."""
         # Arrange
         user = await user_with_password_factory(password="CorrectPassword123!")
@@ -115,11 +95,7 @@ class TestUserEntity:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_user_unique_email_constraint(
-        self,
-        async_session: AsyncSession,
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_user_unique_email_constraint(self, user_factory) -> None:
         """Creating users with duplicate email raises integrity error."""
         # Arrange
         await user_factory(email="duplicate@example.com")
@@ -129,11 +105,7 @@ class TestUserEntity:
             await user_factory(email="duplicate@example.com")
 
     @pytest.mark.asyncio
-    async def test_user_to_dict(
-        self,
-        async_session: AsyncSession,
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_user_to_dict(self, user_factory) -> None:
         """to_dict returns correct dictionary representation."""
         # Arrange
         user = await user_factory(
@@ -171,11 +143,7 @@ class TestUserEntity:
         assert user.roles == []
 
     @pytest.mark.asyncio
-    async def test_user_last_login_timestamp(
-        self,
-        async_session: AsyncSession,
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_user_last_login_timestamp(self, user_factory) -> None:
         """User last_login is set automatically."""
         # Arrange & Act
         user = await user_factory(email="timestamp@example.com")
@@ -185,11 +153,7 @@ class TestUserEntity:
         assert isinstance(user.last_login, datetime)
 
     @pytest.mark.asyncio
-    async def test_user_inactive_flag(
-        self,
-        async_session: AsyncSession,
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_user_inactive_flag(self, user_factory) -> None:
         """User can be marked as inactive."""
         # Arrange & Act
         user = await user_factory(email="inactive@example.com", is_active=False)
@@ -198,11 +162,7 @@ class TestUserEntity:
         assert user.is_active is False
 
     @pytest.mark.asyncio
-    async def test_user_needs_password_reset_flag(
-        self,
-        async_session: AsyncSession,
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_user_needs_password_reset_flag(self, user_factory) -> None:
         """User can be marked as needing password reset."""
         # Arrange & Act
         user = await user_factory(email="reset@example.com", needs_password_reset=True)
@@ -211,11 +171,7 @@ class TestUserEntity:
         assert user.needs_password_reset is True
 
     @pytest.mark.asyncio
-    async def test_user_empty_roles_list(
-        self,
-        async_session: AsyncSession,  # noqa: ARG002
-        user_factory,  # noqa: ARG002
-    ) -> None:
+    async def test_user_empty_roles_list(self, user_factory) -> None:
         """User with empty roles list works correctly."""
         # Arrange & Act
         user = await user_factory(email="noroles@example.com", roles=[])

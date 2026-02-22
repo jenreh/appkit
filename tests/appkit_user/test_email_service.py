@@ -12,10 +12,10 @@ from appkit_user.authentication.backend.services import (
     AzureEmailProvider,
     EmailServiceFactory,
     MockEmailProvider,
-    PasswordResetType,
     ResendEmailProvider,
     get_email_service,
 )
+from appkit_user.authentication.backend.types import PasswordResetType
 from appkit_user.configuration import (
     AuthenticationConfiguration,
     AzureEmailConfig,
@@ -859,7 +859,7 @@ class TestHTMLAutoEscaping:
             )
 
             provider = MockEmailProvider(mock_config.email_provider)
-            rendered = provider._render_template("test.html", content="AT&T")
+            rendered = provider._render_template("test.html", content="AT&T")  # noqa: SLF001
 
             assert "&amp;" in rendered
             assert "AT&amp;T" in rendered
@@ -891,7 +891,7 @@ class TestHTMLAutoEscaping:
             )
 
             provider = MockEmailProvider(mock_config.email_provider)
-            rendered = provider._render_template(
+            rendered = provider._render_template(  # noqa: SLF001
                 "test.html", content="<script>alert(1)</script>"
             )
 
@@ -925,7 +925,7 @@ class TestHTMLAutoEscaping:
             )
 
             provider = MockEmailProvider(mock_config.email_provider)
-            rendered = provider._render_template("test.html", content='break" attr="')
+            rendered = provider._render_template("test.html", content='break" attr="')  # noqa: SLF001
 
             assert "&#34;" in rendered or "&quot;" in rendered
 
@@ -954,7 +954,7 @@ class TestHTMLAutoEscaping:
             )
 
             provider = MockEmailProvider(mock_config.email_provider)
-            rendered = provider._render_template("test.html", content="break' attr='")
+            rendered = provider._render_template("test.html", content="break' attr='")  # noqa: SLF001
 
             assert "&#39;" in rendered or "&#x27;" in rendered
 
@@ -1044,7 +1044,8 @@ class TestEmailServiceIntegration:
                 assert result is True
 
     def test_default_template_path_resolution(self) -> None:
-        """Test that _get_template_path resolves to actual templates dir when templates_dir is None."""
+        """Test that _get_template_path resolves to actual templates dir when
+        templates_dir is None."""
         # Create a config without custom templates_dir (None) so it uses default
         mock_config = AuthenticationConfiguration(
             session_timeout=25,
@@ -1066,7 +1067,7 @@ class TestEmailServiceIntegration:
             )
 
             provider = MockEmailProvider(mock_config.email_provider)
-            template_path = provider._get_template_path(
+            template_path = provider._get_template_path(  # noqa: SLF001
                 "password_reset_user_initiated.html"
             )
 
@@ -1101,10 +1102,10 @@ class TestEmailServiceIntegration:
             provider = MockEmailProvider(mock_config.email_provider)
 
             # Check both template files exist
-            user_initiated_path = provider._get_template_path(
+            user_initiated_path = provider._get_template_path(  # noqa: SLF001
                 "password_reset_user_initiated.html"
             )
-            admin_forced_path = provider._get_template_path(
+            admin_forced_path = provider._get_template_path(  # noqa: SLF001
                 "password_reset_admin_forced.html"
             )
 
@@ -1137,11 +1138,11 @@ class TestEmailServiceIntegration:
             )
 
             provider = MockEmailProvider(mock_config.email_provider)
-            rendered = provider._render_template(
+            rendered = provider._render_template(  # noqa: SLF001
                 "password_reset_user_initiated.html",
                 reset_url="http://localhost/reset?token=test123",
                 user_name="Test User",
-                logo_url="http://localhost/img/appkit_logo.svg",
+                logo_url="http://localhost",
             )
 
             # Verify rendered content contains expected parts
@@ -1179,7 +1180,7 @@ class TestEmailServiceIntegration:
             )
 
             provider = MockEmailProvider(mock_config.email_provider)
-            template_path = provider._get_template_path(
+            template_path = provider._get_template_path(  # noqa: SLF001
                 "password_reset_user_initiated.html"
             )
 
@@ -1188,7 +1189,7 @@ class TestEmailServiceIntegration:
             assert template_path.exists()
 
             # Rendered content should use custom template
-            rendered = provider._render_template(
+            rendered = provider._render_template(  # noqa: SLF001
                 "password_reset_user_initiated.html",
                 reset_url="http://localhost/reset?token=custom123",
             )

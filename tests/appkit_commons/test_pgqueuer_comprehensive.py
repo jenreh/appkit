@@ -200,15 +200,15 @@ class TestPGQueuerSchedulerSetupPGQueuer:
             mock_registry_instance.get.return_value = mock_config
             mock_registry.return_value = mock_registry_instance
 
-            await scheduler._setup_pgqueuer()
+            await scheduler._setup_pgqueuer()  # noqa: SLF001
 
         # Assert - verify keepalive parameters were used
         assert mock_connect.called
         call_kwargs = mock_connect.call_args[1]
         assert call_kwargs.get("keepalives") == 1
-        assert call_kwargs.get("keepalives_idle") == 30
-        assert call_kwargs.get("keepalives_interval") == 10
-        assert call_kwargs.get("keepalives_count") == 5
+        assert call_kwargs.get("keepalives_idle") == 20
+        assert call_kwargs.get("keepalives_interval") == 5
+        assert call_kwargs.get("keepalives_count") == 3
 
 
 class TestPGQueuerSchedulerRegisterService:

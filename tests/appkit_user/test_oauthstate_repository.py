@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.entities import OAuthStateEntity
+from appkit_user.authentication.backend.database.entities import OAuthStateEntity
 
 
 class TestOAuthStateRepository:

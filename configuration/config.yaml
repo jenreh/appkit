@@ -46,6 +46,11 @@ app:
       from_email: "no-reply@appkit.dummy"
       from_name: "AppKit Framework"
 
+    password_reset:
+      token_expiry_minutes: 10
+      max_requests_per_hour: 3
+      templates_dir: ./assets/email-templates
+
   assistant:
     file_upload:
       vector_store_expiration_days: 2

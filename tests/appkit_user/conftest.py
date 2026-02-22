@@ -25,7 +25,7 @@ from appkit_user.authentication.backend.database import (
     UserSessionRepository,
     password_reset_request_repository,
 )
-from appkit_user.authentication.backend.services import (
+from appkit_user.authentication.backend.types import (
     PasswordResetType,
 )
 

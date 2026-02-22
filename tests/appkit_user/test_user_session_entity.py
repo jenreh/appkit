@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.entities import UserSessionEntity
+from appkit_user.authentication.backend.database.entities import UserSessionEntity
 
 
 class TestUserSessionEntity:
