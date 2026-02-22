@@ -34,7 +34,13 @@ class PGQueuerScheduler(Scheduler):
         return self._is_running
 
     async def _setup_pgqueuer(self) -> None:
-        """Configure PGQueuer with database connection."""
+        """Configure PGQueuer with pooled database connection.
+
+        Uses DatabaseConfig settings for keepalive and connection lifecycle:
+        - pool_recycle: 1800s (recycle stale connections)
+        - pool_pre_ping: health checks via SELECT 1
+        - Aggressive keepalives prevent idle timeout
+        """
         try:
             registry = service_registry()
             config = registry.get(DatabaseConfig)
@@ -42,16 +48,19 @@ class PGQueuerScheduler(Scheduler):
             # Fix connection string for psycopg if it contains driver info
             url_str = str(config.url).replace("+psycopg", "").replace("+asyncpg", "")
 
-            # Connect using psycopg with keepalive settings to prevent dropouts
-            # Azure DB for PostgreSQL defaults to 4 minutes idle timeout, so we
-            # set keepalives to ensure the connection stays active.
+            # Connect using psycopg with aggressive keepalive settings.
+            # These settings work together with pool_recycle to prevent disconnects:
+            # - keepalives_idle: 20s (send keepalive after 20s of idle)
+            # - keepalives_interval: 5s (retry every 5s if no response)
+            # - keepalives_count: 3 (give up after 3 failed retries ~= 35s max)
+            # This means stale connections are recycled *before* they timeout.
             self._conn = await psycopg.AsyncConnection.connect(
                 url_str,
                 autocommit=True,
                 keepalives=1,
-                keepalives_idle=30,
-                keepalives_interval=10,
-                keepalives_count=5,
+                keepalives_idle=20,
+                keepalives_interval=5,
+                keepalives_count=3,
             )
 
             # Driver
@@ -99,6 +108,25 @@ class PGQueuerScheduler(Scheduler):
         self._pgq.schedule(service.job_id, cron)(wrapper)
         logger.debug("Registered service '%s' with cron '%s'", service.job_id, cron)
 
+    async def _is_connection_alive(self) -> bool:
+        """Check if the current connection is still alive."""
+        if not self._conn:
+            return False
+        try:
+            # Quick check: is the connection closed?
+            if self._conn.closed:
+                logger.warning("Connection is closed")
+                return False
+            # Try a simple query to verify connectivity
+            await self._conn.execute("SELECT 1")
+            return True
+        except (TimeoutError, psycopg.Error) as e:
+            logger.warning("Connection health check failed: %s", e)
+            return False
+        except Exception as e:
+            logger.error("Unexpected error in connection health check: %s", e)
+            return False
+
     async def _cleanup_connection(self) -> None:
         """Close database connection and clear PGQueuer instance."""
         if self._conn:
@@ -123,7 +151,14 @@ class PGQueuerScheduler(Scheduler):
                     for service in self._services.values():
                         self._register_service_on_pgq(service)
 
-                # 3. Run safely
+                # 3. Check connection health before running
+                if not await self._is_connection_alive():
+                    logger.warning("Connection health check failed; reconnecting...")
+                    await self._cleanup_connection()
+                    await asyncio.sleep(2)
+                    continue
+
+                # 4. Run safely
                 logger.info(
                     "Starting PGQueuer run loop (services=%d)...", len(self._services)
                 )
@@ -133,6 +168,15 @@ class PGQueuerScheduler(Scheduler):
             except asyncio.CancelledError:
                 logger.debug("PGQueuer loop cancelled.")
                 break
+            except psycopg.OperationalError as e:
+                logger.warning(
+                    "PGQueuer operational error (likely connection closed): %s. "
+                    "Reconnecting in 5s...",
+                    e,
+                )
+                # Cleanup to force reconnection
+                await self._cleanup_connection()
+                await asyncio.sleep(5)
             except Exception as e:
                 logger.error("PGQueuer scheduler crashed: %s. Restarting in 5s...", e)
                 # Cleanup to force reconnection

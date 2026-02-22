@@ -8,7 +8,9 @@ from appkit_commons.scheduler import (
     ScheduledService,
     Trigger,
 )
-from appkit_user.authentication.backend.user_session_repository import session_repo
+from appkit_user.authentication.backend.database.user_session_repository import (
+    session_repo,
+)
 
 logger = logging.getLogger(__name__)
 

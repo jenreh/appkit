@@ -6,15 +6,15 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.entities import OAuthAccountEntity
-from appkit_user.authentication.backend.models import UserCreate
-from appkit_user.authentication.backend.user_repository import (
+from appkit_user.authentication.backend.database.entities import OAuthAccountEntity
+from appkit_user.authentication.backend.database.user_repository import (
     DefaultUserRoles,
     get_current_utc_time,
     get_expiration_time,
     get_name_from_email,
     normalize_scope,
 )
+from appkit_user.authentication.backend.models import UserCreate
 
 
 class TestHelperFunctions:

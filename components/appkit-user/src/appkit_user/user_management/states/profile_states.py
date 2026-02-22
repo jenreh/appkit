@@ -5,7 +5,7 @@ import reflex as rx
 from reflex.components.sonner.toast import Toaster
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_user.authentication.backend.user_repository import user_repo
+from appkit_user.authentication.backend.database.user_repository import user_repo
 from appkit_user.authentication.states import UserSession
 
 MIN_PASSWORD_LENGTH: Final[int] = 12

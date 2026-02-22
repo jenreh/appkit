@@ -9,21 +9,23 @@ import reflex as rx
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 from appkit_commons.security import generate_password_hash
-from appkit_user.authentication.backend.password_history_repository import (
+from appkit_user.authentication.backend.database.password_history_repository import (
     password_history_repo,
 )
-from appkit_user.authentication.backend.password_reset_repository import (
+from appkit_user.authentication.backend.database.password_reset_repository import (
     password_reset_token_repo,
 )
-from appkit_user.authentication.backend.password_reset_request_repository import (
+from appkit_user.authentication.backend.database.password_reset_request_repository import (
     password_reset_request_repo,
+)
+from appkit_user.authentication.backend.database.user_repository import user_repo
+from appkit_user.authentication.backend.database.user_session_repository import (
+    session_repo,
 )
 from appkit_user.authentication.backend.services.email_service import (
     PasswordResetType,
     get_email_service,
 )
-from appkit_user.authentication.backend.user_repository import user_repo
-from appkit_user.authentication.backend.user_session_repository import session_repo
 from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)

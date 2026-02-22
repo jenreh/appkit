@@ -27,7 +27,7 @@ from appkit_assistant.backend.database.models import (
 from appkit_assistant.backend.schemas import (
     MCPAuthType,
 )
-from appkit_user.authentication.backend.entities import OAuthStateEntity
+from appkit_user.authentication.backend.database.entities import OAuthStateEntity
 
 logger = logging.getLogger(__name__)
 

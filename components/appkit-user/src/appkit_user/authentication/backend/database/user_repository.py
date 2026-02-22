@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from appkit_commons.database.base_repository import BaseRepository
-from appkit_user.authentication.backend.entities import (
+from appkit_user.authentication.backend.database.entities import (
     OAuthAccountEntity,
     UserEntity,
 )

@@ -7,7 +7,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
-from appkit_user.authentication.backend.entities import PasswordResetRequestEntity
+from appkit_user.authentication.backend.database.entities import (
+    PasswordResetRequestEntity,
+)
 
 logger = logging.getLogger(__name__)
 

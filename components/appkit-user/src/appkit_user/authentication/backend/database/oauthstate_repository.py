@@ -4,7 +4,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
-from appkit_user.authentication.backend.entities import (
+from appkit_user.authentication.backend.database.entities import (
     OAuthStateEntity,
 )
 

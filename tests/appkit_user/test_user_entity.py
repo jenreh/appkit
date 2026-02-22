@@ -5,7 +5,7 @@ from datetime import datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.entities import UserEntity
+from appkit_user.authentication.backend.database.entities import UserEntity
 
 
 class TestUserEntity:

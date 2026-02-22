@@ -12,12 +12,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
-from appkit_user.authentication.backend.entities import OAuthStateEntity, UserEntity
+from appkit_user.authentication.backend.database.entities import (
+    OAuthStateEntity,
+    UserEntity,
+)
+from appkit_user.authentication.backend.database.oauthstate_repository import (
+    oauth_state_repo,
+)
+from appkit_user.authentication.backend.database.user_repository import user_repo
+from appkit_user.authentication.backend.database.user_session_repository import (
+    session_repo,
+)
 from appkit_user.authentication.backend.models import User
-from appkit_user.authentication.backend.oauthstate_repository import oauth_state_repo
 from appkit_user.authentication.backend.services.oauth_service import OAuthService
-from appkit_user.authentication.backend.user_repository import user_repo
-from appkit_user.authentication.backend.user_session_repository import session_repo
 from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)

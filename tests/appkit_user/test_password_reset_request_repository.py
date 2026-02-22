@@ -5,8 +5,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from appkit_user.authentication.backend.entities import PasswordResetRequestEntity
-from appkit_user.authentication.backend.password_reset_request_repository import (
+from appkit_user.authentication.backend.database.entities import (
+    PasswordResetRequestEntity,
+)
+from appkit_user.authentication.backend.database.password_reset_request_repository import (
     PasswordResetRequestRepository,
 )
 

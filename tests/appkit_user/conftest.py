@@ -10,7 +10,10 @@ from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.security import generate_password_hash
-from appkit_user.authentication.backend.entities import (
+from appkit_user.authentication.backend.database import (
+    password_reset_request_repository,
+)
+from appkit_user.authentication.backend.database.entities import (
     OAuthAccountEntity,
     OAuthStateEntity,
     PasswordHistoryEntity,
@@ -19,24 +22,27 @@ from appkit_user.authentication.backend.entities import (
     UserEntity,
     UserSessionEntity,
 )
-from appkit_user.authentication.backend.oauthstate_repository import (
+from appkit_user.authentication.backend.database.oauthstate_repository import (
     OAuthStateRepository,
 )
-from appkit_user.authentication.backend.password_history_repository import (
+from appkit_user.authentication.backend.database.password_history_repository import (
     PasswordHistoryRepository,
 )
-from appkit_user.authentication.backend.password_reset_repository import (
+from appkit_user.authentication.backend.database.password_reset_repository import (
     PasswordResetTokenRepository,
 )
-from appkit_user.authentication.backend.password_reset_request_repository import (
-    PasswordResetRequestRepository,
+from appkit_user.authentication.backend.database.user_repository import (
+    UserRepository,
+)
+from appkit_user.authentication.backend.database.user_session_repository import (
+    UserSessionRepository,
 )
 from appkit_user.authentication.backend.services.email_service import (
     PasswordResetType,
 )
-from appkit_user.authentication.backend.user_repository import UserRepository
-from appkit_user.authentication.backend.user_session_repository import (
-    UserSessionRepository,
+
+PasswordResetRequestRepository = (
+    password_reset_request_repository.PasswordResetRequestRepository
 )
 
 # ============================================================================
