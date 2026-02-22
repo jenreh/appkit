@@ -23,7 +23,7 @@ def delete_dialog(
     """
     # Create the appropriate trigger based on icon_button parameter
     if icon_button:
-        trigger = mn.action_icon(rx.icon("trash-2", size=19), margin="0", **kwargs)
+        trigger = mn.action_icon(rx.icon("trash-2", size=19), m=0, **kwargs)
     else:
         trigger = mn.button(rx.icon("trash-2", size=19), **kwargs)
 
