@@ -67,7 +67,7 @@ class TestImageCleanupService:
     async def test_execute_calls_repository(
         self, mock_repo: MagicMock, mock_get_session: MagicMock
     ) -> None:
-        """execute calls image_repo.delete_by_user_older_than_days."""
+        """execute calls image_repo.delete_by_older_than_days."""
         # Arrange
         config = ImageGeneratorConfig(cleanup_days_threshold=30)
         service = ImageCleanupService(config=config)
@@ -76,15 +76,13 @@ class TestImageCleanupService:
         mock_get_session.return_value.__aenter__.return_value = mock_session
 
         # Mock the correct method name the service actually calls
-        mock_repo.delete_by_user_older_than_days = AsyncMock(return_value=5)
+        mock_repo.delete_by_older_than_days = AsyncMock(return_value=5)
 
         # Act
         await service.execute()
 
         # Assert
-        mock_repo.delete_by_user_older_than_days.assert_called_once_with(
-            mock_session, 30
-        )
+        mock_repo.delete_by_older_than_days.assert_called_once_with(mock_session, 30)
 
     @pytest.mark.asyncio
     @patch(
@@ -105,7 +103,7 @@ class TestImageCleanupService:
 
         mock_session = AsyncMock(spec=AsyncSession)
         mock_get_session.return_value.__aenter__.return_value = mock_session
-        mock_repo.delete_by_user_older_than_days = AsyncMock(return_value=10)
+        mock_repo.delete_by_older_than_days = AsyncMock(return_value=10)
 
         # Act
         await service.execute()
@@ -139,7 +137,7 @@ class TestImageCleanupService:
 
         mock_session = AsyncMock(spec=AsyncSession)
         mock_get_session.return_value.__aenter__.return_value = mock_session
-        mock_repo.delete_by_user_older_than_days = AsyncMock(return_value=0)
+        mock_repo.delete_by_older_than_days = AsyncMock(return_value=0)
 
         # Act
         await service.execute()
@@ -169,7 +167,7 @@ class TestImageCleanupService:
         mock_session = AsyncMock(spec=AsyncSession)
         mock_get_session.return_value.__aenter__.return_value = mock_session
         error = Exception("Database connection failed")
-        mock_repo.delete_by_user_older_than_days = AsyncMock(side_effect=error)
+        mock_repo.delete_by_older_than_days = AsyncMock(side_effect=error)
 
         # Act - should not raise
         await service.execute()
@@ -192,15 +190,13 @@ class TestImageCleanupService:
 
         mock_session = AsyncMock(spec=AsyncSession)
         mock_get_session.return_value.__aenter__.return_value = mock_session
-        mock_repo.delete_by_user_older_than_days = AsyncMock(return_value=0)
+        mock_repo.delete_by_older_than_days = AsyncMock(return_value=0)
 
         # Act
         await service.execute()
 
         # Assert
-        mock_repo.delete_by_user_older_than_days.assert_called_once_with(
-            mock_session, 90
-        )
+        mock_repo.delete_by_older_than_days.assert_called_once_with(mock_session, 90)
 
     @pytest.mark.asyncio
     @patch(
@@ -220,7 +216,7 @@ class TestImageCleanupService:
         mock_context.__aenter__ = AsyncMock(return_value=mock_session)
         mock_context.__aexit__ = AsyncMock(return_value=None)
         mock_get_session.return_value = mock_context
-        mock_repo.delete_by_user_older_than_days = AsyncMock(return_value=3)
+        mock_repo.delete_by_older_than_days = AsyncMock(return_value=3)
 
         # Act
         await service.execute()
