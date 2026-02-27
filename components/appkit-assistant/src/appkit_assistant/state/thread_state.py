@@ -7,17 +7,24 @@ This module contains ThreadState which manages the current active thread:
 - Persisting thread data to database
 - Notifying ThreadListState when a new thread is created
 
-See thread_list_state.py for ThreadListState which manages the thread list sidebar.
+Method groups are split into mixins under ``state.thread``:
+- ModelSelectionMixin   - AI model listing and capability checks
+- CommandPaletteMixin   - slash-command palette navigation
+- McpToolsMixin         - MCP server tool selection
+- SkillsMixin           - skill selection
+- FileUploadMixin       - file upload management
+- MessageEditMixin      - message editing / copy / download / retry
+- OAuthMixin            - MCP OAuth authentication flow
+- MessageProcessingMixin - message submission, streaming, persistence
+
+See thread_list_state.py for ThreadListState which manages the
+thread list sidebar.
 """
 
 import asyncio
-import json
 import logging
-import re
-import time
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
@@ -27,17 +34,10 @@ from appkit_assistant.backend.database.models import (
     Skill,
     ThreadStatus,
 )
-from appkit_assistant.backend.database.repositories import (
-    ai_model_repo,
-    mcp_server_repo,
-    skill_repo,
-    user_prompt_repo,
-)
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
-    ChunkType,
     CommandDefinition,
     Message,
     MessageType,
@@ -47,31 +47,49 @@ from appkit_assistant.backend.schemas import (
     ThreadModel,
     UploadedFile,
 )
-from appkit_assistant.backend.services import file_manager
-from appkit_assistant.backend.services.response_accumulator import ResponseAccumulator
-from appkit_assistant.backend.services.skill_service import compute_api_key_hash
 from appkit_assistant.backend.services.thread_service import ThreadService
 from appkit_assistant.configuration import AssistantConfig
+from appkit_assistant.state.thread.command_palette import (
+    CommandPaletteMixin,
+)
+from appkit_assistant.state.thread.file_upload import FileUploadMixin
+from appkit_assistant.state.thread.mcp_tools import McpToolsMixin
+from appkit_assistant.state.thread.message_edit import MessageEditMixin
+from appkit_assistant.state.thread.message_processing import (
+    MessageProcessingMixin,
+)
+from appkit_assistant.state.thread.model_selection import (
+    ModelSelectionMixin,
+)
+from appkit_assistant.state.thread.oauth import OAuthMixin
+from appkit_assistant.state.thread.skills import SkillsMixin
 from appkit_assistant.state.thread_list_state import ThreadListState
-from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
 
 
-class ThreadState(rx.State):
+class ThreadState(
+    ModelSelectionMixin,
+    CommandPaletteMixin,
+    McpToolsMixin,
+    SkillsMixin,
+    FileUploadMixin,
+    MessageEditMixin,
+    OAuthMixin,
+    MessageProcessingMixin,
+    rx.State,
+):
     """State for managing the current active thread.
 
-    Responsibilities:
-    - Managing the current thread data and messages
-    - Creating new empty threads
-    - Loading threads from database when selected
-    - Processing messages and streaming responses
-    - Persisting thread data to database (incrementally)
-    - Notifying ThreadListState when new threads are created
+    State variables are declared here; behaviour is provided by the
+    mixin classes listed in the base-class tuple.
     """
 
+    # -----------------------------------------------------------------
+    # Thread core
+    # -----------------------------------------------------------------
     _thread: ThreadModel = ThreadModel(thread_id=str(uuid.uuid4()), prompt="")
     ai_models: list[AIModel] = []
     selected_model: str = ""
@@ -82,7 +100,7 @@ class ThreadState(rx.State):
     suggestions: list[Suggestion] = []
 
     # Chunk processing state
-    thinking_items: list[Thinking] = []  # Consolidated reasoning and tool calls
+    thinking_items: list[Thinking] = []
     image_chunks: list[Chunk] = []
     show_thinking: bool = False
     thinking_expanded: bool = False
@@ -96,14 +114,7 @@ class ThreadState(rx.State):
     # Editing state
     editing_message_id: str | None = None
     edited_message_content: str = ""
-
-    # Expanded message state (for long user messages)
     expanded_message_ids: list[str] = []
-
-    # Internal logic helper (not reactive)
-    @property
-    def _thread_service(self) -> ThreadService:
-        return ThreadService()
 
     # MCP Server tool support state
     selected_mcp_servers: list[MCPServer] = []
@@ -127,8 +138,7 @@ class ThreadState(rx.State):
     pending_auth_server_name: str = ""
     pending_auth_url: str = ""
     show_auth_card: bool = False
-    pending_oauth_message: str = ""  # Message that triggered OAuth, resent on success
-    # Cross-tab synced localStorage - triggers re-render when popup sets value
+    pending_oauth_message: str = ""
     oauth_result: str = rx.LocalStorage(name="mcp-oauth-result", sync=True)
 
     # Command palette state
@@ -136,9 +146,7 @@ class ThreadState(rx.State):
     filtered_commands: list[CommandDefinition] = []
     selected_command_index: int = 0
     command_search_prefix: str = ""
-    command_trigger_position: int = 0  # Position of "/" in textarea
-
-    # Available slash commands (hardcoded for now)
+    command_trigger_position: int = 0
     available_commands: list[CommandDefinition] = []
 
     # Thread list integration
@@ -147,29 +155,112 @@ class ThreadState(rx.State):
     # Internal state
     _initialized: bool = False
     _current_user_id: str = ""
-    _skip_user_message: bool = False  # Skip adding user message (for OAuth resend)
-    _pending_file_cleanup: list[str] = []  # Files to delete after processing
-    # Internal cancellation event
+    _skip_user_message: bool = False
+    _pending_file_cleanup: list[str] = []
     _cancel_event: asyncio.Event | None = None
 
-    # -------------------------------------------------------------------------
-    # Computed properties
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Re-export mixin @rx.event and @rx.var members so that Reflex's
+    # StateMeta metaclass registers them as proper EventHandlers /
+    # ComputedVars.  Without these assignments the metaclass only sees
+    # members defined directly in this class body.
+    #
+    # For @rx.var we access the descriptor via ``__dict__`` to bypass
+    # ComputedVar.__get__ which requires an rx.State owner.
+    # -----------------------------------------------------------------
+
+    # -- ModelSelectionMixin (@rx.event) --
+    set_selected_model = ModelSelectionMixin.set_selected_model
+
+    # -- ModelSelectionMixin (@rx.var) --
+    get_selected_model = ModelSelectionMixin.__dict__["get_selected_model"]
+    has_ai_models = ModelSelectionMixin.__dict__["has_ai_models"]
+    selected_model_supports_tools = ModelSelectionMixin.__dict__[
+        "selected_model_supports_tools"
+    ]
+    selected_model_supports_attachments = ModelSelectionMixin.__dict__[
+        "selected_model_supports_attachments"
+    ]
+    selected_model_supports_search = ModelSelectionMixin.__dict__[
+        "selected_model_supports_search"
+    ]
+    selected_model_supports_skills = ModelSelectionMixin.__dict__[
+        "selected_model_supports_skills"
+    ]
+
+    # -- CommandPaletteMixin (@rx.event) --
+    reload_commands = CommandPaletteMixin.reload_commands
+    navigate_command_palette = CommandPaletteMixin.navigate_command_palette
+    select_command = CommandPaletteMixin.select_command
+    select_current_command = CommandPaletteMixin.select_current_command
+    dismiss_command_palette = CommandPaletteMixin.dismiss_command_palette
+
+    # -- CommandPaletteMixin (@rx.var) --
+    filtered_user_prompts = CommandPaletteMixin.__dict__["filtered_user_prompts"]
+    filtered_shared_prompts = CommandPaletteMixin.__dict__["filtered_shared_prompts"]
+    has_filtered_user_prompts = CommandPaletteMixin.__dict__[
+        "has_filtered_user_prompts"
+    ]
+    has_filtered_shared_prompts = CommandPaletteMixin.__dict__[
+        "has_filtered_shared_prompts"
+    ]
+
+    # -- McpToolsMixin --
+    load_mcp_servers = McpToolsMixin.load_mcp_servers
+    toggle_tools_modal = McpToolsMixin.toggle_tools_modal
+    toggle_mcp_server_selection = McpToolsMixin.toggle_mcp_server_selection
+    apply_mcp_server_selection = McpToolsMixin.apply_mcp_server_selection
+    deselect_all_mcp_servers = McpToolsMixin.deselect_all_mcp_servers
+    is_mcp_server_selected = McpToolsMixin.is_mcp_server_selected
+
+    # -- SkillsMixin --
+    load_available_skills_for_user = SkillsMixin.load_available_skills_for_user
+    set_modal_active_tab = SkillsMixin.set_modal_active_tab
+    toggle_skill_selection = SkillsMixin.toggle_skill_selection
+    apply_skill_selection = SkillsMixin.apply_skill_selection
+    deselect_all_skills = SkillsMixin.deselect_all_skills
+
+    # -- FileUploadMixin --
+    handle_upload = FileUploadMixin.handle_upload
+    remove_file_from_prompt = FileUploadMixin.remove_file_from_prompt
+
+    # -- MessageEditMixin --
+    set_editing_mode = MessageEditMixin.set_editing_mode
+    set_edited_message_content = MessageEditMixin.set_edited_message_content
+    cancel_edit = MessageEditMixin.cancel_edit
+    toggle_message_expanded = MessageEditMixin.toggle_message_expanded
+    submit_edited_message = MessageEditMixin.submit_edited_message
+    delete_message = MessageEditMixin.delete_message
+    copy_message = MessageEditMixin.copy_message
+    download_message = MessageEditMixin.download_message
+    retry_message = MessageEditMixin.retry_message
+
+    # -- OAuthMixin --
+    start_mcp_oauth = OAuthMixin.start_mcp_oauth
+    handle_mcp_oauth_success = OAuthMixin.handle_mcp_oauth_success
+    process_oauth_result = OAuthMixin.process_oauth_result
+    dismiss_auth_card = OAuthMixin.dismiss_auth_card
+
+    # -- MessageProcessingMixin --
+    submit_message = MessageProcessingMixin.submit_message
+    request_cancellation = MessageProcessingMixin.request_cancellation
+
+    # -----------------------------------------------------------------
+    # Internal helper
+    # -----------------------------------------------------------------
+
+    @property
+    def _thread_service(self) -> ThreadService:
+        return ThreadService()
+
+    # -----------------------------------------------------------------
+    # Computed properties (general)
+    # -----------------------------------------------------------------
 
     @rx.var
     def current_user_id(self) -> str:
         """Get the current user ID for OAuth validation."""
         return self._current_user_id
-
-    @rx.var
-    def get_selected_model(self) -> str:
-        """Get the currently selected model ID."""
-        return self.selected_model
-
-    @rx.var
-    def has_ai_models(self) -> bool:
-        """Check if there are any chat models."""
-        return len(self.ai_models) > 0
 
     @rx.var
     def has_suggestions(self) -> bool:
@@ -180,38 +271,6 @@ class ThreadState(rx.State):
     def has_thinking_content(self) -> bool:
         """Check if there are any thinking items to display."""
         return len(self.thinking_items) > 0
-
-    @rx.var
-    def selected_model_supports_tools(self) -> bool:
-        """Check if the currently selected model supports tools."""
-        if not self.selected_model:
-            return False
-        model = ModelManager().get_model(self.selected_model)
-        return model.supports_tools if model else False
-
-    @rx.var
-    def selected_model_supports_attachments(self) -> bool:
-        """Check if the currently selected model supports attachments."""
-        if not self.selected_model:
-            return False
-        model = ModelManager().get_model(self.selected_model)
-        return model.supports_attachments if model else False
-
-    @rx.var
-    def selected_model_supports_search(self) -> bool:
-        """Check if the currently selected model supports web search."""
-        if not self.selected_model:
-            return False
-        model = ModelManager().get_model(self.selected_model)
-        return model.supports_search if model else False
-
-    @rx.var
-    def selected_model_supports_skills(self) -> bool:
-        """Check if the currently selected model supports skills."""
-        if not self.selected_model:
-            return False
-        model = ModelManager().get_model(self.selected_model)
-        return model.supports_skills if model else False
 
     @rx.var
     def get_unique_reasoning_sessions(self) -> list[str]:
@@ -233,60 +292,33 @@ class ThreadState(rx.State):
 
     @rx.var
     def get_last_assistant_message_text(self) -> str:
-        """Get the text of the last assistant message in the conversation."""
+        """Get the text of the last assistant message."""
         for message in reversed(self.messages):
             if message.type == MessageType.ASSISTANT:
                 return message.text
         return ""
 
-    @rx.var
-    def filtered_user_prompts(self) -> list[CommandDefinition]:
-        """User's own prompts (editable), sorted alphabetically."""
-        return sorted(
-            [cmd for cmd in self.filtered_commands if cmd.is_editable],
-            key=lambda c: c.id.lower(),
-        )
-
-    @rx.var
-    def filtered_shared_prompts(self) -> list[CommandDefinition]:
-        """Shared prompts from others (not editable), sorted alphabetically."""
-        return sorted(
-            [cmd for cmd in self.filtered_commands if not cmd.is_editable],
-            key=lambda c: c.id.lower(),
-        )
-
-    @rx.var
-    def has_filtered_user_prompts(self) -> bool:
-        """Check if there are any filtered user prompts."""
-        return any(cmd.is_editable for cmd in self.filtered_commands)
-
-    @rx.var
-    def has_filtered_shared_prompts(self) -> bool:
-        """Check if there are any filtered shared prompts."""
-        return any(not cmd.is_editable for cmd in self.filtered_commands)
-
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
     # Initialization and thread management
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
 
     @rx.event
     async def initialize(self) -> None:
         """Initialize the state with models and a new empty thread.
 
-        Only initializes once per user session. Resets when user changes.
+        Only initializes once per user session. Resets when user
+        changes.
         """
         user_session: UserSession = await self.get_state(UserSession)
         user = await user_session.authenticated_user
         current_user_id = str(user.user_id) if user else ""
 
-        # Always refresh the model list so role changes from the admin UI
-        # are reflected without requiring a full session reset.
         self._setup_models(user)
 
-        # If already initialized and user hasn't changed, skip full reset
         if self._initialized and self._current_user_id == current_user_id:
             logger.debug(
-                "Thread state already initialized for user %s", current_user_id
+                "Thread state already initialized for user %s",
+                current_user_id,
             )
             return
 
@@ -303,35 +335,16 @@ class ThreadState(rx.State):
             try:
                 await self._load_user_prompts_as_commands(int(current_user_id))
             except Exception as e:
-                logger.warning("Failed to load user prompts as commands: %s", e)
+                logger.warning(
+                    "Failed to load user prompts as commands: %s",
+                    e,
+                )
 
         self._initialized = True
-        logger.debug("Initialized thread state: %s", self._thread.thread_id)
-
-    def _setup_models(self, user: Any) -> None:
-        """Setup available AI models based on user roles."""
-        model_manager = ModelManager()
-        all_models = model_manager.get_all_models()
-
-        user_roles = user.roles if user else []
-        self.ai_models = [
-            m
-            for m in all_models
-            if not m.requires_role or m.requires_role in user_roles
-        ]
-
-        # Ensure selected model is still available; keep current selection
-        # when possible so refreshes don't disrupt the user's choice.
-        available_ids = {m.id for m in self.ai_models}
-        if self.selected_model not in available_ids:
-            default = model_manager.get_default_model()
-            if default in available_ids:
-                self.selected_model = default
-            elif self.ai_models:
-                self.selected_model = self.ai_models[0].id
-            else:
-                logger.warning("No models available for user")
-                self.selected_model = ""
+        logger.debug(
+            "Initialized thread state: %s",
+            self._thread.thread_id,
+        )
 
     def _load_config(self) -> None:
         """Load assistant configuration."""
@@ -351,34 +364,35 @@ class ThreadState(rx.State):
 
     @rx.event
     async def new_thread(self) -> None:
-        """Create a new empty thread (not persisted, not in list yet).
+        """Create a new empty thread.
 
-        Called when user clicks "New Chat" or when active thread is deleted.
-        If current thread is already empty/new with no messages, does nothing.
+        Called when user clicks "New Chat" or when active thread is
+        deleted.  Does nothing if current thread is already empty/new.
         """
-        # Ensure state is initialized first
         if not self._initialized:
             await self.initialize()
 
-        # Don't create new if current thread is already empty
         if self._thread.state == ThreadStatus.NEW and not self.messages:
             logger.debug("Thread already empty, skipping new_thread")
             return
 
-        # Need user roles for create_new_thread
         user_session: UserSession = await self.get_state(UserSession)
         user = await user_session.authenticated_user
         user_roles = user.roles if user else []
 
         self._thread = self._thread_service.create_new_thread(
-            current_model=self.selected_model, user_roles=user_roles
+            current_model=self.selected_model,
+            user_roles=user_roles,
         )
         self.messages = []
         self.thinking_items = []
         self.image_chunks = []
         self.prompt = ""
         self.show_thinking = False
-        logger.debug("Created new empty thread: %s", self._thread.thread_id)
+        logger.debug(
+            "Created new empty thread: %s",
+            self._thread.thread_id,
+        )
 
     @rx.event
     def set_thread(self, thread: ThreadModel) -> None:
@@ -392,14 +406,7 @@ class ThreadState(rx.State):
 
     @rx.event(background=True)
     async def load_thread(self, thread_id: str) -> AsyncGenerator[Any, Any]:
-        """Load and select a thread by ID from database.
-
-        Called when user clicks on a thread in the sidebar.
-        Loads full thread data and updates both ThreadState and ThreadListState.
-
-        Args:
-            thread_id: The ID of the thread to load.
-        """
+        """Load and select a thread by ID from database."""
         async with self:
             user_session: UserSession = await self.get_state(UserSession)
             if not (await user_session.is_authenticated) or not user_session.user:
@@ -407,7 +414,6 @@ class ThreadState(rx.State):
 
             user_id = user_session.user.user_id
 
-            # Set loading state in ThreadListState
             threadlist_state: ThreadListState = await self.get_state(ThreadListState)
             threadlist_state.loading_thread_id = thread_id
         yield
@@ -422,12 +428,10 @@ class ThreadState(rx.State):
                 yield
                 return
 
-            # Mark all messages as done (loaded from DB)
             for msg in full_thread.messages:
                 msg.done = True
 
             async with self:
-                # Update self with loaded thread
                 self._thread = full_thread
                 self.messages = full_thread.messages
                 self.selected_model = full_thread.ai_model
@@ -435,28 +439,27 @@ class ThreadState(rx.State):
                 self.prompt = ""
                 self.web_search_enabled = False
 
-                # Get model capabilities
                 model = ModelManager().get_model(full_thread.ai_model)
 
-                # Restore MCP servers if supported
                 if model and model.supports_tools:
                     self._restore_mcp_selection(full_thread.mcp_server_ids)
                 else:
                     self._restore_mcp_selection([])
 
-                # Restore skills if supported
                 if model and model.supports_skills:
                     self._restore_skill_selection(full_thread.skill_openai_ids or [])
                 else:
                     self._restore_skill_selection([])
 
-                # Update active state in ThreadListState
                 threadlist_state: ThreadListState = await self.get_state(
                     ThreadListState
                 )
                 threadlist_state.threads = [
                     ThreadModel(
-                        **{**t.model_dump(), "active": t.thread_id == thread_id}
+                        **{
+                            **t.model_dump(),
+                            "active": t.thread_id == thread_id,
+                        }
                     )
                     for t in threadlist_state.threads
                 ]
@@ -472,261 +475,32 @@ class ThreadState(rx.State):
                 await self._stop_loading_state()
             yield
 
-    # -------------------------------------------------------------------------
-    # Prompt and model management
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Prompt and simple setters
+    # -----------------------------------------------------------------
 
     @rx.event
     def set_prompt(self, prompt: str) -> None:
-        """Set the current prompt and handle command palette detection."""
+        """Set the current prompt and handle command palette."""
         self.prompt = prompt
         self._update_command_palette(prompt)
 
     @rx.event
     def set_suggestions(self, suggestions: list[Suggestion] | list[dict]) -> None:
-        """Set custom suggestions for the thread.
-
-        Accepts either Suggestion objects or dicts (for Reflex serialization).
-        """
+        """Set custom suggestions for the thread."""
         if suggestions and isinstance(suggestions[0], dict):
             self.suggestions = [Suggestion(**s) for s in suggestions]
         else:
             self.suggestions = suggestions  # type: ignore[assignment]
 
     @rx.event
-    def set_selected_model(self, model_id: str) -> list | None:
-        """Set the selected model and deactivate unsupported tools.
-
-        Automatically deactivates web search, MCP servers (tools), and file
-        uploads if the selected model doesn't support them.
-        """
-        self.selected_model = model_id
-        self._thread.ai_model = model_id
-
-        # Get the model to check capabilities
-        model = ModelManager().get_model(model_id)
-        if not model:
-            return None
-
-        # Deactivate features if not supported
-        if not model.supports_search:
-            self.web_search_enabled = False
-
-        if not model.supports_tools:
-            self._restore_mcp_selection([])
-
-        if not model.supports_attachments:
-            self._clear_uploaded_files()
-
-        if not model.supports_skills:
-            self._restore_skill_selection([])
-
-        # Reset modal tab to "tools" when model changes
-        self.modal_active_tab = "tools"
-
-        # Reload skills and persist model change for active threads
-        events: list = [ThreadState.load_available_skills_for_user]
-        if self._thread.state != ThreadStatus.NEW and self._current_user_id:
-            events.append(ThreadState.persist_current_thread)
-        return events
-
-    @rx.event
     def set_with_thread_list(self, with_thread_list: bool) -> None:
         """Set whether thread list integration is enabled."""
         self.with_thread_list = with_thread_list
 
-    # -------------------------------------------------------------------------
-    # Command palette management
-    # -------------------------------------------------------------------------
-
-    @rx.event
-    async def reload_commands(self) -> None:
-        """Reload user prompts as commands.
-
-        Call this after creating, updating, or deleting prompts to refresh
-        the command palette.
-        """
-        if self._current_user_id:
-            await self._load_user_prompts_as_commands(int(self._current_user_id))
-            # Refresh palette filtering with new commands list
-            self._update_command_palette(self.prompt)
-
-    async def _load_user_prompts_as_commands(self, user_id: int) -> None:
-        """Load user prompts from database and convert to CommandDefinitions."""
-        try:
-            async with get_asyncdb_session() as session:
-                own_prompts = await user_prompt_repo.find_latest_prompts_by_user(
-                    session, user_id
-                )
-                shared_prompts = await user_prompt_repo.find_latest_shared_prompts(
-                    session, user_id
-                )
-
-                self.available_commands = [
-                    CommandDefinition(
-                        id=p.handle,
-                        label=f"/{p.handle}",
-                        description=p.description,
-                        icon="",
-                        is_editable=True,
-                        user_id=user_id,
-                        mcp_server_ids=list(p.mcp_server_ids),
-                    )
-                    for p in own_prompts
-                ] + [
-                    CommandDefinition(
-                        id=p["handle"],
-                        label=f"/{p['handle']}",
-                        description=p.get("description", ""),
-                        icon="share",
-                        is_editable=False,
-                        user_id=p.get("user_id", 0),
-                        mcp_server_ids=p.get("mcp_server_ids", []),
-                    )
-                    for p in shared_prompts
-                ]
-
-                logger.debug(
-                    "Loaded %d commands (%d own, %d shared) for user %d",
-                    len(self.available_commands),
-                    len(own_prompts),
-                    len(shared_prompts),
-                    user_id,
-                )
-        except Exception as e:
-            logger.error("Error loading user prompts as commands: %s", e)
-            self.available_commands = []
-
-    def _update_command_palette(self, prompt: str) -> None:
-        """Update command palette state based on prompt content."""
-        # Find the last "/" that starts a word (at start or after whitespace)
-        # and has no whitespace after it.
-        match = re.search(r"(?:^|\s)/([^\s]*)$", prompt)
-
-        if not match:
-            self._hide_command_palette()
-            return
-
-        text_after_slash = match.group(1)
-        # Calculate slash position: match end - length of text - 1 (for the slash)
-        slash_pos = match.end() - len(text_after_slash) - 1
-
-        # Filter commands
-        search_term = text_after_slash.lower()
-        self.filtered_commands = [
-            cmd
-            for cmd in self.available_commands
-            if cmd.id.lower().startswith(search_term)
-            or cmd.label.lower().startswith(f"/{search_term}")
-        ]
-
-        # Always show palette when "/" is typed, even if no commands match
-        # This allows users to create new prompts via "Neuer Prompt..." button
-        self.show_command_palette = True
-        self.command_search_prefix = text_after_slash
-        self.command_trigger_position = slash_pos
-        self.selected_command_index = 0
-
-    def _hide_command_palette(self) -> None:
-        """Hide the command palette and reset state."""
-        self.show_command_palette = False
-        self.filtered_commands = []
-        self.selected_command_index = 0
-        self.command_search_prefix = ""
-        self.command_trigger_position = 0
-
-    @rx.event
-    def navigate_command_palette(self, direction: str) -> None:
-        """Navigate through command palette items.
-
-        Args:
-            direction: "up" or "down" to move selection
-        """
-        if not self.show_command_palette or not self.filtered_commands:
-            return
-
-        count = len(self.filtered_commands)
-        if direction == "up":
-            self.selected_command_index = (self.selected_command_index - 1) % count
-        elif direction == "down":
-            self.selected_command_index = (self.selected_command_index + 1) % count
-
-    @rx.event
-    def select_command(self, command_id: str) -> None:
-        """Select a command from the palette and insert it into the prompt.
-
-        Also activates any MCP servers associated with the prompt (filtered by
-        user's available servers).
-
-        Args:
-            command_id: The ID of the command to select.
-        """
-        # Find the command
-        command = None
-        for cmd in self.filtered_commands:
-            if cmd.id == command_id:
-                command = cmd
-                break
-
-        if not command:
-            self._hide_command_palette()
-            return
-
-        # Replace "/" + search text with the full command label
-        before_slash = self.prompt[: self.command_trigger_position]
-        after_command = ""  # Since we search to end of string
-
-        # Insert the command label followed by a space
-        self.prompt = before_slash + command.label + " " + after_command
-
-        # Activate MCP servers associated with the prompt
-        if command.mcp_server_ids:
-            # Build set of available server IDs for fast lookup (int comparison)
-            available_ids = {s.id for s in self.available_mcp_servers}
-            # Filter to only available servers
-            valid_server_ids = [
-                sid for sid in command.mcp_server_ids if sid in available_ids
-            ]
-            if valid_server_ids:
-                # Find server objects and add to selection
-                servers_to_add = [
-                    server
-                    for server in self.available_mcp_servers
-                    if server.id in valid_server_ids
-                ]
-                # Merge with existing selection (avoid duplicates)
-                existing_ids = {s.id for s in self.selected_mcp_servers}
-                for server in servers_to_add:
-                    if server.id not in existing_ids:
-                        self.selected_mcp_servers.append(server)
-                        existing_ids.add(server.id)
-                # Also update temp selection for consistency with tools modal
-                for sid in valid_server_ids:
-                    if sid not in self.temp_selected_mcp_servers:
-                        self.temp_selected_mcp_servers.append(sid)
-                        self.server_selection_state[sid] = True
-
-        # Hide palette
-        self._hide_command_palette()
-
-    @rx.event
-    def select_current_command(self) -> None:
-        """Select the currently highlighted command in the palette."""
-        if not self.show_command_palette or not self.filtered_commands:
-            return
-
-        if 0 <= self.selected_command_index < len(self.filtered_commands):
-            command = self.filtered_commands[self.selected_command_index]
-            self.select_command(command.id)
-
-    @rx.event
-    def dismiss_command_palette(self) -> None:
-        """Dismiss the command palette without selecting."""
-        self._hide_command_palette()
-
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
     # UI state management
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
 
     @rx.event
     def toggle_thinking_expanded(self) -> None:
@@ -738,136 +512,9 @@ class ThreadState(rx.State):
         """Toggle web search."""
         self.web_search_enabled = not self.web_search_enabled
 
-    # -------------------------------------------------------------------------
-    # MCP Server tool support
-    # -------------------------------------------------------------------------
-
-    @rx.event
-    async def load_mcp_servers(self) -> None:
-        """Load available active MCP servers filtered by user roles."""
-        # Get the user session to check roles
-        user_session = await self.get_state(UserSession)
-        user = await user_session.authenticated_user
-        user_roles: list[str] = user.roles if user else []
-
-        async with get_asyncdb_session() as session:
-            servers = await mcp_server_repo.find_all_active_ordered_by_name(session)
-            # Filter servers by user roles:
-            # - Include if required_role is empty/None (no restriction)
-            # - Include if user has the required_role
-            filtered_servers = [
-                MCPServer(**s.model_dump())
-                for s in servers
-                if not s.required_role or s.required_role in user_roles
-            ]
-            self.available_mcp_servers = filtered_servers
-
-    @rx.event
-    def toggle_tools_modal(self, show: bool) -> None:
-        """Set the visibility of the tools modal."""
-        self.show_tools_modal = show
-
-    @rx.event
-    def toggle_mcp_server_selection(self, server_id: int, selected: bool) -> None:
-        """Toggle MCP server selection in the modal."""
-        self.server_selection_state[server_id] = selected
-        if selected and server_id not in self.temp_selected_mcp_servers:
-            self.temp_selected_mcp_servers.append(server_id)
-        elif not selected and server_id in self.temp_selected_mcp_servers:
-            self.temp_selected_mcp_servers.remove(server_id)
-
-    @rx.event
-    def apply_mcp_server_selection(self) -> None:
-        """Apply the temporary MCP server selection."""
-        self.selected_mcp_servers = [
-            server
-            for server in self.available_mcp_servers
-            if server.id in self.temp_selected_mcp_servers
-        ]
-        self.show_tools_modal = False
-
-    @rx.event
-    def deselect_all_mcp_servers(self) -> None:
-        """Deselect all MCP servers in the modal."""
-        self.server_selection_state = {}
-        self.temp_selected_mcp_servers = []
-
-    @rx.event
-    def is_mcp_server_selected(self, server_id: int) -> bool:
-        """Check if an MCP server is selected."""
-        return server_id in self.temp_selected_mcp_servers
-
-    # -------------------------------------------------------------------------
-    # Skills selection
-    # -------------------------------------------------------------------------
-
-    @rx.event
-    async def load_available_skills_for_user(self) -> None:
-        """Load active skills filtered by user roles and selected model."""
-        user_session = await self.get_state(UserSession)
-        user = await user_session.authenticated_user
-        user_roles: list[str] = user.roles if user else []
-
-        async with get_asyncdb_session() as session:
-            # Resolve the selected model's API key hash
-            api_key_hash: str | None = None
-            if self.selected_model:
-                db_model = await ai_model_repo.find_by_model_id(
-                    session, self.selected_model
-                )
-                if db_model and db_model.api_key:
-                    api_key_hash = compute_api_key_hash(db_model.api_key)
-
-            # Load skills filtered by api_key_hash when available
-            if api_key_hash:
-                skills = await skill_repo.find_all_active_by_api_key_hash(
-                    session, api_key_hash
-                )
-            else:
-                skills = await skill_repo.find_all_active_ordered_by_name(session)
-
-            filtered = [
-                Skill(**s.model_dump())
-                for s in skills
-                if not s.required_role or s.required_role in user_roles
-            ]
-            self.available_skills_for_selection = filtered
-
-    @rx.event
-    def set_modal_active_tab(self, tab: str | list[str]) -> None:
-        """Set the active tab in the tools modal."""
-        if isinstance(tab, list):
-            self.modal_active_tab = tab[0] if tab else "tools"
-        else:
-            self.modal_active_tab = tab
-
-    @rx.event
-    def toggle_skill_selection(self, openai_id: str, selected: bool) -> None:
-        """Toggle skill selection in the modal."""
-        self.skill_selection_state[openai_id] = selected
-        if selected and openai_id not in self.temp_selected_skill_ids:
-            self.temp_selected_skill_ids.append(openai_id)
-        elif not selected and openai_id in self.temp_selected_skill_ids:
-            self.temp_selected_skill_ids.remove(openai_id)
-
-    @rx.event
-    def apply_skill_selection(self) -> None:
-        """Apply the temporary skill selection."""
-        self.selected_skills = [
-            skill
-            for skill in self.available_skills_for_selection
-            if skill.openai_id in self.temp_selected_skill_ids
-        ]
-
-    @rx.event
-    def deselect_all_skills(self) -> None:
-        """Deselect all skills in the modal."""
-        self.skill_selection_state = {}
-        self.temp_selected_skill_ids = []
-
-    # -------------------------------------------------------------------------
-    # Clear/reset
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Clear / reset
+    # -----------------------------------------------------------------
 
     @rx.event
     def clear(self) -> None:
@@ -888,828 +535,15 @@ class ThreadState(rx.State):
         self.show_thinking = False
         self._clear_uploaded_files()
 
-    # -------------------------------------------------------------------------
-    # File upload handling
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Thread persistence
+    # -----------------------------------------------------------------
 
-    @rx.event
-    async def handle_upload(
-        self, files: list[rx.UploadFile]
+    @rx.event(background=True)
+    async def persist_current_thread(
+        self,
     ) -> AsyncGenerator[Any, Any]:
-        """Handle uploaded files from the browser.
-
-        Moves files to user-specific directory and adds them to state.
-        """
-        # Validate file count (using state variables from config)
-        if len(files) > self.max_files_per_thread:
-            yield rx.toast.error(
-                (
-                    f"Bitte laden Sie maximal {self.max_files_per_thread} "
-                    "Dateien gleichzeitig hoch."
-                ),
-                position="top-right",
-                close_button=True,
-            )
-            return
-
-        user_session: UserSession = await self.get_state(UserSession)
-        user_id = user_session.user.user_id if user_session.user else "anonymous"
-
-        for upload_file in files:
-            try:
-                # Save uploaded file to disk first
-                upload_data = await upload_file.read()
-                temp_path = rx.get_upload_dir() / upload_file.filename
-                temp_path.parent.mkdir(parents=True, exist_ok=True)
-                temp_path.write_bytes(upload_data)
-
-                # Move to user directory
-                final_path = file_manager.move_to_user_directory(
-                    str(temp_path), str(user_id)
-                )
-                file_size = file_manager.get_file_size(final_path)
-
-                uploaded = UploadedFile(
-                    filename=upload_file.filename,
-                    file_path=final_path,
-                    size=file_size,
-                )
-                self.uploaded_files = [*self.uploaded_files, uploaded]
-                logger.info(
-                    "Uploaded file: %s (total files: %d)",
-                    upload_file.filename,
-                    len(self.uploaded_files),
-                )
-            except Exception as e:
-                logger.error("Failed to upload file %s: %s", upload_file.filename, e)
-
-    @rx.event
-    def remove_file_from_prompt(self, file_path: str) -> None:
-        """Remove an uploaded file from the prompt."""
-        # Delete the file from disk
-        file_manager.cleanup_uploaded_files([file_path])
-        # Remove from state
-        self.uploaded_files = [
-            f for f in self.uploaded_files if f.file_path != file_path
-        ]
-        logger.debug("Removed uploaded file: %s", file_path)
-
-    def _clear_uploaded_files(self) -> None:
-        """Clear all uploaded files from state and disk."""
-        if not self.uploaded_files:
-            return
-        count = len(self.uploaded_files)
-        file_paths = [f.file_path for f in self.uploaded_files]
-        file_manager.cleanup_uploaded_files(file_paths)
-        self.uploaded_files = []
-        logger.debug("Cleared %d uploaded files", count)
-
-    # -------------------------------------------------------------------------
-    # Message processing
-    # -------------------------------------------------------------------------
-
-    @rx.event
-    def set_editing_mode(self, message_id: str, content: str) -> None:
-        """Enable editing mode for a message."""
-        self.editing_message_id = message_id
-        self.edited_message_content = content
-
-    @rx.event
-    def set_edited_message_content(self, content: str) -> None:
-        """Set the content of the message currently being edited."""
-        self.edited_message_content = content
-
-    @rx.event
-    def cancel_edit(self) -> None:
-        """Cancel editing mode."""
-        self.editing_message_id = None
-        self.edited_message_content = ""
-
-    @rx.event
-    def toggle_message_expanded(self, message_id: str) -> None:
-        """Toggle expanded state for a user message."""
-        if message_id in self.expanded_message_ids:
-            self.expanded_message_ids = [
-                mid for mid in self.expanded_message_ids if mid != message_id
-            ]
-        else:
-            self.expanded_message_ids = [*self.expanded_message_ids, message_id]
-
-    @rx.event(background=True)
-    async def submit_edited_message(self) -> AsyncGenerator[Any, Any]:
-        """Submit edited message."""
-        async with self:
-            content = self.edited_message_content.strip()
-            if not content:
-                yield rx.toast.error(
-                    "Nachricht darf nicht leer sein", position="top-right"
-                )
-                return
-
-            # Find message index
-            msg_index = next(
-                (
-                    i
-                    for i, m in enumerate(self.messages)
-                    if m.id == self.editing_message_id
-                ),
-                -1,
-            )
-
-            if msg_index == -1:
-                self.cancel_edit()
-                return
-
-            target_message = self.messages[msg_index]
-
-            # Update message
-            target_message.original_text = (
-                target_message.original_text or target_message.text
-            )
-            target_message.text = content
-
-            # Remove all messages AFTER this one
-            self.messages = self.messages[: msg_index + 1]
-
-            # Set prompt to bypass empty check in _begin_message_processing
-            self.prompt = content
-            self._skip_user_message = True
-
-            # Clear edit state
-            self.editing_message_id = None
-            self.edited_message_content = ""
-
-        # Trigger processing
-        await self._process_message()
-
-    @rx.event(background=True)
-    async def submit_message(self) -> AsyncGenerator[Any, Any]:
-        """Submit a message and process the response."""
-        # Reset textarea height immediately so it shrinks before
-        # the (potentially long-running) AI response streams in.
-        yield rx.call_script("""
-            const textarea = document.getElementById('composer-area');
-            if (textarea) {
-                textarea.value = '';
-                textarea.style.height = 'auto';
-                textarea.style.height = textarea.scrollHeight + 'px';
-            }
-        """)
-
-        await self._process_message()
-
-    @rx.event(background=True)
-    async def delete_message(self, message_id: str) -> None:
-        """Delete a message from the conversation."""
-        async with self:
-            self.messages = [m for m in self.messages if m.id != message_id]
-            self._thread.messages = self.messages
-
-            if self._thread.state != ThreadStatus.NEW:
-                await self._thread_service.save_thread(
-                    self._thread, self.current_user_id
-                )
-
-    @rx.event
-    def copy_message(self, text: str) -> list[Any]:
-        """Copy message text to clipboard."""
-        return [
-            rx.set_clipboard(text),
-            rx.toast.success("Nachricht kopiert"),
-        ]
-
-    @rx.event
-    def download_message(self, text: str, message_id: str) -> Any:
-        """Download message as markdown file."""
-        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        filename = (
-            f"message_{message_id}_{timestamp}.md"
-            if message_id
-            else f"message_{timestamp}.md"
-        )
-
-        # Use JavaScript to trigger download
-        return rx.call_script(f"""
-            const blob = new Blob([{json.dumps(text)}], {{type: 'text/markdown'}});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = '{filename}';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        """)
-
-    @rx.event(background=True)
-    async def retry_message(self, message_id: str) -> None:
-        """Retry generating a message."""
-        async with self:
-            # Find message index
-            index = -1
-            for i, msg in enumerate(self.messages):
-                if msg.id == message_id:
-                    index = i
-                    break
-
-            if index == -1:
-                return
-
-            # Keep context up to this message
-            # effectively removing this message and everything after
-            self.messages = self.messages[:index]
-
-            # Set prompt to bypass check (content checks)
-            self.prompt = "Regenerate"
-
-            # Flag to skip adding a new user message
-            self._skip_user_message = True
-
-        # Trigger processing directly
-        await self._process_message()
-
-    @rx.event
-    def request_cancellation(self) -> None:
-        """Signal that the current processing should be cancelled."""
-        self.cancellation_requested = True
-        if self._cancel_event:
-            self._cancel_event.set()
-            logger.info("Cancellation requested by user")
-
-    # Minimum interval between UI state flushes during streaming
-    _FLUSH_INTERVAL_S = 0.1  # 100 ms
-
-    async def _process_message(self) -> None:
-        """Process the current message and stream the response.
-
-        Uses time-based batching to reduce state lock contention:
-        chunks are buffered and flushed to the UI every ~50 ms
-        instead of locking per chunk.
-        """
-        logger.debug("Processing message: %s", self.prompt)
-
-        start = await self._begin_message_processing()
-        if not start:
-            return
-        current_prompt, selected_model, mcp_servers, file_paths, is_new_thread = start
-
-        processor = ModelManager().get_processor_for_model(selected_model)
-        if not processor:
-            await self._stop_processing_with_error(
-                f"Keinen Adapter für das Modell gefunden: {selected_model}"
-            )
-            return
-
-        # Read user_id and prepare accumulator under a short lock
-        async with self:
-            user_session: UserSession = await self.get_state(UserSession)
-            user_id = user_session.user.user_id if user_session.user else None
-
-            logger.debug(
-                "Pre-save check: is_new_thread=%s, file_paths=%d, user_id=%s",
-                is_new_thread,
-                len(file_paths) if file_paths else 0,
-                user_id,
-            )
-
-            # Initialize ResponseAccumulator logic
-            accumulator = ResponseAccumulator()
-            accumulator.attach_messages_ref(self.messages)
-
-            # Clear uploaded files from UI and mark for cleanup
-            self.uploaded_files = []
-            self._pending_file_cleanup = file_paths
-
-            # Initialize cancellation event
-            self._cancel_event = asyncio.Event()
-
-        # Save thread to DB if new and has files (outside lock)
-        if is_new_thread and file_paths and user_id:
-            async with self:
-                self._thread.state = ThreadStatus.ACTIVE
-                self._thread.mcp_server_ids = [
-                    s.id for s in self.selected_mcp_servers if s.id
-                ]
-                thread_copy = self._thread.model_copy()
-            await self._thread_service.save_thread(thread_copy, user_id)
-            logger.debug(
-                "Saved new thread %s to DB",
-                thread_copy.thread_id,
-            )
-
-        first_response_received = False
-        try:
-            skill_ids = [s.openai_id for s in self.selected_skills]
-            payload = {
-                "thread_uuid": self._thread.thread_id,
-                **({"web_search_enabled": True} if self.web_search_enabled else {}),
-            }
-
-            if skill_ids and self.selected_model_supports_skills:
-                payload["skill_openai_ids"] = skill_ids
-
-            # -- Batched streaming loop --
-            chunk_buffer: list[Chunk] = []
-            last_flush = time.monotonic()
-            # Chunk types that must flush immediately
-            immediate_types = {
-                ChunkType.COMPLETION,
-                ChunkType.ERROR,
-                ChunkType.AUTH_REQUIRED,
-            }
-
-            async for chunk in processor.process(
-                self.messages,
-                selected_model,
-                files=file_paths or None,
-                mcp_servers=mcp_servers,
-                payload=payload,
-                user_id=user_id,
-                cancellation_token=self._cancel_event,
-            ):
-                chunk_buffer.append(chunk)
-
-                now = time.monotonic()
-                needs_flush = (
-                    chunk.type in immediate_types
-                    or (now - last_flush) >= self._FLUSH_INTERVAL_S
-                )
-
-                if needs_flush:
-                    first_response_received = await self._flush_chunk_buffer(
-                        chunks=chunk_buffer,
-                        accumulator=accumulator,
-                        current_prompt=current_prompt,
-                        is_new_thread=is_new_thread,
-                        first_response_received=(first_response_received),
-                    )
-                    chunk_buffer.clear()
-                    last_flush = now
-
-            # Flush any remaining buffered chunks
-            if chunk_buffer:
-                first_response_received = await self._flush_chunk_buffer(
-                    chunks=chunk_buffer,
-                    accumulator=accumulator,
-                    current_prompt=current_prompt,
-                    is_new_thread=is_new_thread,
-                    first_response_received=first_response_received,
-                )
-
-            await self._finalize_successful_response(accumulator)
-
-        except Exception as ex:
-            await self._handle_process_error(
-                ex=ex,
-                current_prompt=current_prompt,
-                is_new_thread=is_new_thread,
-                first_response_received=first_response_received,
-            )
-
-        finally:
-            await self._finalize_processing()
-
-    def _parse_prompt_segments(self, prompt: str) -> list[dict]:
-        """Parse prompt into text and command segments.
-
-        Identifies command patterns (/command_name) and splits text into
-        segments of type "text" or "command".
-
-        Commands are only recognized when "/" is at the start of the string
-        or preceded by whitespace, matching the command palette trigger behavior.
-        Handle pattern matches validate_handle: letters, numbers, and hyphens only.
-
-        Args:
-            prompt: The user prompt text.
-
-        Returns:
-            List of dicts with "type" and "content"/"handle" keys.
-            Example: [
-                {"type": "text", "content": "do something"},
-                {"type": "command", "handle": "boost"},
-                {"type": "text", "content": "i want to..."}
-            ]
-        """
-        segments = []
-        # Pattern: "/" at start or after whitespace, followed by valid handle chars
-        # Matches validate_handle pattern: [a-zA-Z0-9-]+
-        pattern = r"(?:^|(?<=\s))/([a-zA-Z0-9-]+)"
-
-        last_end = 0
-        for match in re.finditer(pattern, prompt):
-            # Add text before command (include any whitespace before the "/")
-            text_before = prompt[last_end : match.start()].strip()
-            if text_before:
-                segments.append({"type": "text", "content": text_before})
-
-            # Add command
-            command_handle = match.group(1)
-            segments.append({"type": "command", "handle": command_handle})
-
-            last_end = match.end()
-
-        # Add remaining text after last command
-        if last_end < len(prompt):
-            text_after = prompt[last_end:].strip()
-            if text_after:
-                segments.append({"type": "text", "content": text_after})
-
-        return segments
-
-    async def _load_command_prompt_text(
-        self, user_id: int, command_handle: str
-    ) -> str | None:
-        """Load the prompt text for a command from the database.
-
-        Args:
-            user_id: The user ID to filter prompts by.
-            command_handle: The command handle (ID) to load.
-
-        Returns:
-            The prompt_text from the user_prompt, or None if not found.
-        """
-        try:
-            # Strip leading "/" if present
-            handle = command_handle.lstrip("/")
-
-            async with get_asyncdb_session() as session:
-                prompt = await user_prompt_repo.find_latest_accessible_by_handle(
-                    session, user_id, handle
-                )
-                if prompt:
-                    logger.debug(
-                        "Loaded command prompt for handle '%s'",
-                        handle,
-                    )
-                    return prompt.prompt_text
-
-                logger.debug(
-                    "Command prompt not found for handle '%s'",
-                    handle,
-                )
-        except Exception as e:
-            logger.error(
-                "Error loading command prompt for %s: %s",
-                command_handle,
-                e,
-            )
-        return None
-
-    async def _resolve_command_segments(
-        self, segments: list[dict], user_id: int
-    ) -> None:
-        """Resolve command handles to text prompts from DB."""
-        for segment in segments:
-            if segment["type"] == "command":
-                try:
-                    text = await self._load_command_prompt_text(
-                        user_id, segment["handle"]
-                    )
-                    segment["resolved_text"] = text
-                    if text:
-                        logger.debug(
-                            "Resolved command %s to prompt text", segment["handle"]
-                        )
-                    else:
-                        logger.warning(
-                            "Command %s not resolved for user %d",
-                            segment["handle"],
-                            user_id,
-                        )
-                except Exception as e:
-                    logger.error("Error resolving command %s: %s", segment["handle"], e)
-
-    def _create_user_messages(
-        self, prompt: str, segments: list[dict], attachments: list[str]
-    ) -> list[Message]:
-        """Create message objects from parsed segments."""
-        if not segments:
-            return [
-                Message(
-                    text=prompt,
-                    type=MessageType.HUMAN,
-                    attachments=attachments,
-                )
-            ]
-
-        messages = []
-        for i, segment in enumerate(segments):
-            if segment["type"] == "text":
-                # Attachments only on first message
-                atts = attachments if i == 0 else []
-                messages.append(
-                    Message(
-                        text=segment["content"],
-                        type=MessageType.HUMAN,
-                        attachments=atts,
-                    )
-                )
-            elif segment["type"] == "command":
-                valid_text = segment.get("resolved_text")
-                if valid_text:
-                    messages.append(Message(text=valid_text, type=MessageType.HUMAN))
-                else:
-                    # Could add a placeholder or ignore?
-                    # Original code ignored it but logged warning.
-                    # We already logged warning in _resolve_command_segments.
-                    pass
-
-        logger.debug(
-            "Created %d messages from prompt segments",
-            len(messages),
-        )
-        return messages
-
-    async def _begin_message_processing(
-        self,
-    ) -> tuple[str, str, list[MCPServer], list[str], bool] | None:
-        """Prepare state for sending a message. Returns None if no-op.
-
-        Splits work into phases to minimize state lock hold time:
-        1. Read state under lock (prompt, flags, files)
-        2. Resolve /commands via DB outside the lock
-        3. Re-acquire lock to set processing state and build messages
-        """
-        # Phase 1: Read needed state under a short lock
-        async with self:
-            current_prompt = self.prompt.strip()
-            if self.processing or not current_prompt:
-                return None
-
-            is_new_thread = self._thread.state == ThreadStatus.NEW
-            file_paths = [f.file_path for f in self.uploaded_files]
-            attachment_names = [f.filename for f in self.uploaded_files]
-            skip_user_message = self._skip_user_message
-            user_id = int(self.current_user_id or 0)
-
-        # Phase 2: Parse prompt and resolve commands outside the lock
-        segments: list[dict] = []
-        if not skip_user_message:
-            segments = self._parse_prompt_segments(current_prompt)
-            await self._resolve_command_segments(segments, user_id)
-
-        # Phase 3: Re-acquire lock and build messages
-        async with self:
-            # Re-check guard in case another event fired
-            if self.processing:
-                return None
-
-            self.processing = True
-            self.image_chunks = []
-            self.thinking_items = []
-            self.prompt = ""
-
-            logger.debug(
-                "Begin processing: is_new_thread=%s, uploaded_files=%d, file_paths=%s",
-                is_new_thread,
-                len(self.uploaded_files),
-                file_paths,
-            )
-
-            if skip_user_message:
-                self._skip_user_message = False
-            else:
-                new_messages = self._create_user_messages(
-                    current_prompt, segments, attachment_names
-                )
-                self.messages.extend(new_messages)
-
-            # Always add assistant placeholder
-            self.messages.append(Message(text="", type=MessageType.ASSISTANT))
-
-            selected_model = self.get_selected_model
-            if not selected_model:
-                self._add_error_message("Kein Chat-Modell ausgewählt")
-                self.processing = False
-                return None
-
-            return (
-                current_prompt,
-                selected_model,
-                self.selected_mcp_servers,
-                file_paths,
-                is_new_thread,
-            )
-
-    async def _stop_processing_with_error(self, error_msg: str) -> None:
-        """Stop processing and show an error message."""
-        async with self:
-            self._add_error_message(error_msg)
-            self.processing = False
-
-    async def _flush_chunk_buffer(
-        self,
-        *,
-        chunks: list[Chunk],
-        accumulator: ResponseAccumulator,
-        current_prompt: str,
-        is_new_thread: bool,
-        first_response_received: bool,
-    ) -> bool:
-        """Process buffered chunks and sync UI state in one lock cycle.
-
-        Returns updated ``first_response_received``.
-        """
-        async with self:
-            for chunk in chunks:
-                accumulator.process_chunk(chunk)
-
-            # Sync UI state once per flush (not per chunk)
-            self.thinking_items = list(accumulator.thinking_items)
-            self.current_activity = accumulator.current_activity
-            if accumulator.show_thinking:
-                self.show_thinking = True
-            if accumulator.image_chunks:
-                self.image_chunks = list(accumulator.image_chunks)
-
-            if accumulator.auth_required:
-                self._handle_auth_required_from_accumulator(accumulator)
-
-            # Activate thread on first TEXT chunk (at most once)
-            if not first_response_received and is_new_thread:
-                has_text = any(c.type == ChunkType.TEXT for c in chunks)
-                if has_text:
-                    first_response_received = True
-                    self._thread.state = ThreadStatus.ACTIVE
-                    if self._thread.title in {"", "Neuer Chat"}:
-                        self._thread.title = current_prompt[:100]
-                    if self.with_thread_list:
-                        await self._notify_thread_created()
-
-            return first_response_received
-
-    async def _finalize_successful_response(
-        self, accumulator: ResponseAccumulator
-    ) -> None:
-        """Finalize state after a successful full response.
-
-        DB persistence happens outside the state lock.
-        """
-        async with self:
-            self.show_thinking = False
-            self.thinking_items = list(accumulator.thinking_items)
-
-            self._thread.messages = list(self.messages)
-            self._thread.ai_model = self.selected_model
-            self._thread.mcp_server_ids = [
-                s.id for s in self.selected_mcp_servers if s.id
-            ]
-            self._thread.skill_openai_ids = [s.openai_id for s in self.selected_skills]
-
-            user_session: UserSession = await self.get_state(UserSession)
-            user_id = user_session.user.user_id if user_session.user else None
-            thread_copy = self._thread.model_copy()
-
-        # Persist outside the lock so UI is not blocked
-        if user_id:
-            await self._thread_service.save_thread(thread_copy, user_id)
-
-    async def _handle_process_error(
-        self,
-        *,
-        ex: Exception,
-        current_prompt: str,
-        is_new_thread: bool,
-        first_response_received: bool,
-    ) -> None:
-        """Handle failures during streaming and persist error state.
-
-        DB persistence happens outside the state lock.
-        """
-        async with self:
-            self._thread.state = ThreadStatus.ERROR
-
-            if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
-                self.messages.pop()
-            self.messages.append(Message(text=str(ex), type=MessageType.ERROR))
-
-            if is_new_thread and not first_response_received:
-                if self._thread.title in {"", "Neuer Chat"}:
-                    self._thread.title = current_prompt[:100]
-                if self.with_thread_list:
-                    await self._notify_thread_created()
-
-            self._thread.messages = list(self.messages)
-            self._thread.mcp_server_ids = [
-                s.id for s in self.selected_mcp_servers if s.id
-            ]
-
-            user_session: UserSession = await self.get_state(UserSession)
-            user_id = user_session.user.user_id if user_session.user else None
-            thread_copy = self._thread.model_copy()
-
-        # Persist outside the lock so UI is not blocked
-        if user_id:
-            await self._thread_service.save_thread(thread_copy, user_id)
-
-    async def _finalize_processing(self) -> None:
-        """Mark processing done and close out the last message.
-
-        File cleanup happens outside the lock to avoid blocking.
-        """
-        pending_files: list[str] = []
-        async with self:
-            if self.messages:
-                self.messages[-1].done = True
-            self.processing = False
-            self.cancellation_requested = False
-            self.current_activity = ""
-            self._cancel_event = None
-
-            if self._pending_file_cleanup:
-                pending_files = list(self._pending_file_cleanup)
-                self._pending_file_cleanup = []
-
-        # Clean up uploaded files outside the lock
-        if pending_files:
-            file_manager.cleanup_uploaded_files(pending_files)
-
-    def _handle_auth_required_from_accumulator(
-        self, accumulator: ResponseAccumulator
-    ) -> None:
-        """Handle auth required state from accumulator."""
-        self.pending_auth_server_id = accumulator.auth_required_data.get(
-            "server_id", ""
-        )
-        self.pending_auth_server_name = accumulator.auth_required_data.get(
-            "server_name", ""
-        )
-        self.pending_auth_url = accumulator.auth_required_data.get("auth_url", "")
-        self.show_auth_card = True
-
-        # Reset flag in accumulator so we don't trigger this again for same event
-        accumulator.auth_required = False
-
-        # Store the last user message to resend after successful OAuth
-        for msg in reversed(self.messages):
-            if msg.type == MessageType.HUMAN:
-                self.pending_oauth_message = msg.text
-                break
-        logger.debug(
-            "Auth required for server %s, showing auth card",
-            self.pending_auth_server_name,
-        )
-
-    def _restore_mcp_selection(self, server_ids: list[int]) -> None:
-        """Restore MCP selection state from a list of server IDs."""
-        if not server_ids:
-            self.selected_mcp_servers = []
-            self.temp_selected_mcp_servers = []
-            self.server_selection_state = {}
-            return
-
-        self.selected_mcp_servers = [
-            server for server in self.available_mcp_servers if server.id in server_ids
-        ]
-        self.temp_selected_mcp_servers = list(server_ids)
-        self.server_selection_state = dict.fromkeys(server_ids, True)
-
-    def _restore_skill_selection(self, skill_ids: list[str]) -> None:
-        """Restore skill selection state from a list of openai IDs."""
-        if not skill_ids:
-            self.selected_skills = []
-            self.temp_selected_skill_ids = []
-            self.skill_selection_state = {}
-            return
-
-        self.selected_skills = [
-            skill
-            for skill in self.available_skills_for_selection
-            if skill.openai_id in skill_ids
-        ]
-        self.temp_selected_skill_ids = list(skill_ids)
-        self.skill_selection_state = dict.fromkeys(skill_ids, True)
-
-    async def _stop_loading_state(self) -> None:
-        """Clear the loading state in ThreadListState."""
-        threadlist_state: ThreadListState = await self.get_state(ThreadListState)
-        threadlist_state.loading_thread_id = ""
-
-    # -------------------------------------------------------------------------
-    # Thread persistence (internal)
-    # -------------------------------------------------------------------------
-
-    async def _notify_thread_created(self) -> None:
-        """Notify ThreadListState that a new thread was created.
-
-        Called after the first successful response chunk.
-        Adds the thread to ThreadListState without a full reload.
-
-        Note: Called from within an async with self block, so don't create a new one.
-        """
-        threadlist_state: ThreadListState = await self.get_state(ThreadListState)
-        await threadlist_state.add_thread(self._thread)
-
-    # _save_thread_to_db removed, using self._thread_service.save_thread
-
-    @rx.event(background=True)
-    async def persist_current_thread(self) -> AsyncGenerator[Any, Any]:
-        """Persist the current thread to the database.
-
-        Lightweight background task used after model changes, message
-        edits, and other state mutations that should survive a page
-        reload.
-        """
+        """Persist the current thread to the database."""
         async with self:
             if self._thread.state == ThreadStatus.NEW:
                 return
@@ -1723,7 +557,10 @@ class ThreadState(rx.State):
 
         try:
             await self._thread_service.save_thread(thread_copy, user_id)
-            logger.debug("Persisted thread %s to DB", thread_copy.thread_id)
+            logger.debug(
+                "Persisted thread %s to DB",
+                thread_copy.thread_id,
+            )
         except Exception as e:
             logger.error(
                 "Failed to persist thread %s: %s",
@@ -1732,119 +569,11 @@ class ThreadState(rx.State):
             )
         yield
 
-    # -------------------------------------------------------------------------
-    # Chunk handling (internal)
-    # Logic moved to ResponseAccumulator
-    # -------------------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # Internal helpers
+    # -----------------------------------------------------------------
 
-    @rx.event
-    def start_mcp_oauth(self) -> rx.event.EventSpec:
-        """Start the OAuth flow by opening the auth URL in a popup window."""
-        if not self.pending_auth_url:
-            return rx.toast.error("Keine Authentifizierungs-URL verfügbar")
-
-        # NOTE: We do not append server_id here anymore to avoid errors with strict
-        # OAuth providers. server_id must be recovered from the state parameter in the
-        # callback.
-        auth_url = self.pending_auth_url
-
-        return rx.call_script(
-            f"window.open('{auth_url}', 'mcp_oauth', 'width=600,height=700')"
-        )
-
-    @rx.event
-    async def handle_mcp_oauth_success(
-        self, server_id: str, server_name: str
-    ) -> AsyncGenerator[Any, Any]:
-        """Handle successful OAuth completion from popup window."""
-        logger.debug("OAuth success for server %s (%s)", server_name, server_id)
-        self.show_auth_card = False
-        self.pending_auth_server_id = ""
-        self.pending_auth_server_name = ""
-        self.pending_auth_url = ""
-
-        # Check if we have a pending message to resend
-        pending_message = self.pending_oauth_message
-        self.pending_oauth_message = ""
-
-        if pending_message:
-            # Remove the incomplete assistant message from the failed attempt
-            if self.messages and self.messages[-1].type == MessageType.ASSISTANT:
-                self.messages = self.messages[:-1]
-            # Show success toast instead of adding to messages
-            yield rx.toast.success(
-                f"Erfolgreich mit {server_name} verbunden. "
-                "Anfrage wird erneut gesendet...",
-                position="top-right",
-            )
-            # Resend the original message by setting prompt and yielding the event
-            self.prompt = pending_message
-            self._skip_user_message = True  # User message already in list
-            yield ThreadState.submit_message
-        else:
-            # No pending message - just show success toast
-            yield rx.toast.success(
-                f"Erfolgreich mit {server_name} verbunden.",
-                position="top-right",
-            )
-
-    @rx.event
-    async def process_oauth_result(self) -> AsyncGenerator[Any, Any]:
-        """Process OAuth result from synced LocalStorage.
-
-        Called via on_mount when oauth_result becomes non-empty.
-        The rx.LocalStorage(sync=True) automatically syncs from popup.
-        """
-        if not self.oauth_result:
-            return
-
-        try:
-            data = json.loads(self.oauth_result)
-            if data.get("type") != "mcp-oauth-success":
-                return
-
-            server_id = data.get("serverId", "")
-            server_name = data.get("serverName", "Unknown")
-            user_id = data.get("userId", "")
-
-            # Security: verify user_id matches
-            if (
-                user_id
-                and self._current_user_id
-                and str(user_id) != str(self._current_user_id)
-            ):
-                logger.warning(
-                    "OAuth user mismatch: got %s, expected %s",
-                    user_id,
-                    self._current_user_id,
-                )
-                # Clear invalid data
-                self.oauth_result = ""
-                return
-
-            logger.info(
-                "Processing OAuth success: server_id=%s, server_name=%s",
-                server_id,
-                server_name,
-            )
-
-            # Clear localStorage before processing to prevent re-triggers
-            self.oauth_result = ""
-
-            # Process the OAuth success
-            async for event in self.handle_mcp_oauth_success(server_id, server_name):
-                yield event
-
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse OAuth result: %s", self.oauth_result)
-            self.oauth_result = ""
-
-    @rx.event
-    def dismiss_auth_card(self) -> None:
-        """Dismiss the auth card without authenticating."""
-        self.show_auth_card = False
-
-    def _add_error_message(self, error_msg: str) -> None:
-        """Add an error message to the conversation."""
-        logger.error(error_msg)
-        self.messages.append(Message(text=error_msg, type=MessageType.ERROR))
+    async def _stop_loading_state(self) -> None:
+        """Clear the loading state in ThreadListState."""
+        threadlist_state: ThreadListState = await self.get_state(ThreadListState)
+        threadlist_state.loading_thread_id = ""
