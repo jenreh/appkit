@@ -34,8 +34,9 @@ class OAuthMixin:
             return rx.toast.error("Keine Authentifizierungs-URL verfügbar")
 
         auth_url = self.pending_auth_url
+        auth_url_js = json.dumps(auth_url)
         return rx.call_script(
-            f"window.open('{auth_url}', 'mcp_oauth', 'width=600,height=700')"
+            f"window.open({auth_url_js}, 'mcp_oauth', 'width=600,height=700')"
         )
 
     @rx.event
