@@ -483,7 +483,7 @@ class ThreadState(rx.State):
             self.suggestions = suggestions  # type: ignore[assignment]
 
     @rx.event
-    def set_selected_model(self, model_id: str) -> None:
+    def set_selected_model(self, model_id: str) -> list | None:
         """Set the selected model and deactivate unsupported tools.
 
         Automatically deactivates web search, MCP servers (tools), and file
@@ -513,8 +513,11 @@ class ThreadState(rx.State):
         # Reset modal tab to "tools" when model changes
         self.modal_active_tab = "tools"
 
-        # Reload skills for the newly selected model
-        return ThreadState.load_available_skills_for_user  # type: ignore[return-value]
+        # Reload skills and persist model change for active threads
+        events: list = [ThreadState.load_available_skills_for_user]
+        if self._thread.state != ThreadStatus.NEW and self._current_user_id:
+            events.append(ThreadState.persist_current_thread)
+        return events
 
     @rx.event
     def set_with_thread_list(self, with_thread_list: bool) -> None:
@@ -1432,19 +1435,21 @@ class ThreadState(rx.State):
             if accumulator.auth_required:
                 self._handle_auth_required_from_accumulator(accumulator)
 
-            should_create_thread = (
+            should_activate_thread = (
                 not first_response_received
                 and chunk.type == ChunkType.TEXT
                 and is_new_thread
-                and self.with_thread_list
             )
-            if not should_create_thread:
+            if not should_activate_thread:
                 return first_response_received
 
             self._thread.state = ThreadStatus.ACTIVE
             if self._thread.title in {"", "Neuer Chat"}:
                 self._thread.title = current_prompt[:100]
-            await self._notify_thread_created()
+
+            # Update the thread list UI (sidebar) if enabled
+            if self.with_thread_list:
+                await self._notify_thread_created()
             return True
 
     async def _finalize_successful_response(
@@ -1468,11 +1473,11 @@ class ThreadState(rx.State):
             # Persist selected skills to thread
             self._thread.skill_openai_ids = [s.openai_id for s in self.selected_skills]
 
-            if self.with_thread_list:
-                user_session: UserSession = await self.get_state(UserSession)
-                user_id = user_session.user.user_id if user_session.user else None
-                if user_id:
-                    await self._thread_service.save_thread(self._thread, user_id)
+            # Always persist thread to DB so changes survive page reloads
+            user_session: UserSession = await self.get_state(UserSession)
+            user_id = user_session.user.user_id if user_session.user else None
+            if user_id:
+                await self._thread_service.save_thread(self._thread, user_id)
 
     async def _handle_process_error(
         self,
@@ -1490,10 +1495,11 @@ class ThreadState(rx.State):
                 self.messages.pop()
             self.messages.append(Message(text=str(ex), type=MessageType.ERROR))
 
-            if is_new_thread and self.with_thread_list and not first_response_received:
+            if is_new_thread and not first_response_received:
                 if self._thread.title in {"", "Neuer Chat"}:
                     self._thread.title = current_prompt[:100]
-                await self._notify_thread_created()
+                if self.with_thread_list:
+                    await self._notify_thread_created()
 
             # Convert Reflex proxy list to standard list to avoid Pydantic serializer
             # warnings
@@ -1502,11 +1508,11 @@ class ThreadState(rx.State):
             self._thread.mcp_server_ids = [
                 s.id for s in self.selected_mcp_servers if s.id
             ]
-            if self.with_thread_list:
-                user_session: UserSession = await self.get_state(UserSession)
-                user_id = user_session.user.user_id if user_session.user else None
-                if user_id:
-                    await self._thread_service.save_thread(self._thread, user_id)
+            # Always persist thread to DB so changes survive page reloads
+            user_session: UserSession = await self.get_state(UserSession)
+            user_id = user_session.user.user_id if user_session.user else None
+            if user_id:
+                await self._thread_service.save_thread(self._thread, user_id)
 
     async def _finalize_processing(self) -> None:
         """Mark processing done and close out the last message."""
@@ -1607,6 +1613,36 @@ class ThreadState(rx.State):
         await threadlist_state.add_thread(self._thread)
 
     # _save_thread_to_db removed, using self._thread_service.save_thread
+
+    @rx.event(background=True)
+    async def persist_current_thread(self) -> AsyncGenerator[Any, Any]:
+        """Persist the current thread to the database.
+
+        Lightweight background task used after model changes, message
+        edits, and other state mutations that should survive a page
+        reload.
+        """
+        async with self:
+            if self._thread.state == ThreadStatus.NEW:
+                return
+
+            user_session: UserSession = await self.get_state(UserSession)
+            user_id = user_session.user.user_id if user_session.user else None
+            if not user_id:
+                return
+
+            thread_copy = self._thread.model_copy()
+
+        try:
+            await self._thread_service.save_thread(thread_copy, user_id)
+            logger.debug("Persisted thread %s to DB", thread_copy.thread_id)
+        except Exception as e:
+            logger.error(
+                "Failed to persist thread %s: %s",
+                thread_copy.thread_id,
+                e,
+            )
+        yield
 
     # -------------------------------------------------------------------------
     # Chunk handling (internal)
