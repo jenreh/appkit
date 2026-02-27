@@ -963,17 +963,16 @@ class ImageGalleryState(rx.State):
             return
 
         try:
-            # Fetch image data from repository
+            # Fetch image data from repository — read bytes inside the
+            # session so the lazy-loaded column is accessible.
             async with get_asyncdb_session() as session:
                 db_image = await image_repo.find_by_id(session, image_id)
+                if db_image is None:
+                    yield rx.toast.error("Bilddaten nicht gefunden", close_button=True)
+                    return
+                image_data = bytes(db_image.image_data)
 
-            if db_image is None:
-                yield rx.toast.error("Bilddaten nicht gefunden", close_button=True)
-                return
-
-            image_data = db_image.image_data
             filename = f"image_{image.id}.png"
-            # Download raw binary data
             yield rx.download(data=image_data, filename=filename)
         except Exception as e:
             logger.error("Error downloading image: %s", e)
