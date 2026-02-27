@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import reflex as rx
-from sqlalchemy import Index
+from sqlalchemy import Index, Integer
 from sqlalchemy.sql import func
 from sqlmodel import Column, DateTime, Field
 
@@ -101,7 +101,7 @@ class AssistantThread(rx.Model, table=True):
     active: bool = Field(default=False, nullable=False)
     messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
     mcp_server_ids: list[int] = Field(
-        default=[], sa_column=Column(ArrayType(), nullable=False)
+        default=[], sa_column=Column(ArrayType(Integer), nullable=False)
     )
     skill_openai_ids: list[str] = Field(
         default=[], sa_column=Column(ArrayType(), nullable=False)
@@ -211,7 +211,7 @@ class UserPrompt(rx.Model, table=True):
 
     # Associated MCP server IDs (stored as integer array)
     mcp_server_ids: list[int] = Field(
-        default=[], sa_column=Column(ArrayType(), nullable=False)
+        default=[], sa_column=Column(ArrayType(Integer), nullable=False)
     )
 
     created_at: datetime = Field(

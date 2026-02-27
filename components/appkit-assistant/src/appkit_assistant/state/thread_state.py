@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -483,7 +484,7 @@ class ThreadState(rx.State):
             self.suggestions = suggestions  # type: ignore[assignment]
 
     @rx.event
-    def set_selected_model(self, model_id: str) -> None:
+    def set_selected_model(self, model_id: str) -> list | None:
         """Set the selected model and deactivate unsupported tools.
 
         Automatically deactivates web search, MCP servers (tools), and file
@@ -513,8 +514,11 @@ class ThreadState(rx.State):
         # Reset modal tab to "tools" when model changes
         self.modal_active_tab = "tools"
 
-        # Reload skills for the newly selected model
-        return ThreadState.load_available_skills_for_user  # type: ignore[return-value]
+        # Reload skills and persist model change for active threads
+        events: list = [ThreadState.load_available_skills_for_user]
+        if self._thread.state != ThreadStatus.NEW and self._current_user_id:
+            events.append(ThreadState.persist_current_thread)
+        return events
 
     @rx.event
     def set_with_thread_list(self, with_thread_list: bool) -> None:
@@ -1031,8 +1035,8 @@ class ThreadState(rx.State):
     @rx.event(background=True)
     async def submit_message(self) -> AsyncGenerator[Any, Any]:
         """Submit a message and process the response."""
-        await self._process_message()
-
+        # Reset textarea height immediately so it shrinks before
+        # the (potentially long-running) AI response streams in.
         yield rx.call_script("""
             const textarea = document.getElementById('composer-area');
             if (textarea) {
@@ -1041,6 +1045,8 @@ class ThreadState(rx.State):
                 textarea.style.height = textarea.scrollHeight + 'px';
             }
         """)
+
+        await self._process_message()
 
     @rx.event(background=True)
     async def delete_message(self, message_id: str) -> None:
@@ -1120,8 +1126,16 @@ class ThreadState(rx.State):
             self._cancel_event.set()
             logger.info("Cancellation requested by user")
 
+    # Minimum interval between UI state flushes during streaming
+    _FLUSH_INTERVAL_S = 0.1  # 100 ms
+
     async def _process_message(self) -> None:
-        """Process the current message and stream the response."""
+        """Process the current message and stream the response.
+
+        Uses time-based batching to reduce state lock contention:
+        chunks are buffered and flushed to the UI every ~50 ms
+        instead of locking per chunk.
+        """
         logger.debug("Processing message: %s", self.prompt)
 
         start = await self._begin_message_processing()
@@ -1136,6 +1150,7 @@ class ThreadState(rx.State):
             )
             return
 
+        # Read user_id and prepare accumulator under a short lock
         async with self:
             user_session: UserSession = await self.get_state(UserSession)
             user_id = user_session.user.user_id if user_session.user else None
@@ -1147,24 +1162,33 @@ class ThreadState(rx.State):
                 user_id,
             )
 
-            # Save thread to DB if new and has files to enable file uploads
-            if is_new_thread and file_paths and user_id:
-                await self._save_new_active_thread(user_id)
-
             # Initialize ResponseAccumulator logic
             accumulator = ResponseAccumulator()
             accumulator.attach_messages_ref(self.messages)
 
-            # Clear uploaded files from UI and mark for cleanup after processing
+            # Clear uploaded files from UI and mark for cleanup
             self.uploaded_files = []
             self._pending_file_cleanup = file_paths
 
             # Initialize cancellation event
             self._cancel_event = asyncio.Event()
 
+        # Save thread to DB if new and has files (outside lock)
+        if is_new_thread and file_paths and user_id:
+            async with self:
+                self._thread.state = ThreadStatus.ACTIVE
+                self._thread.mcp_server_ids = [
+                    s.id for s in self.selected_mcp_servers if s.id
+                ]
+                thread_copy = self._thread.model_copy()
+            await self._thread_service.save_thread(thread_copy, user_id)
+            logger.debug(
+                "Saved new thread %s to DB",
+                thread_copy.thread_id,
+            )
+
         first_response_received = False
         try:
-            # Build payload with thread_uuid for file upload support
             skill_ids = [s.openai_id for s in self.selected_skills]
             payload = {
                 "thread_uuid": self._thread.thread_id,
@@ -1173,6 +1197,16 @@ class ThreadState(rx.State):
 
             if skill_ids and self.selected_model_supports_skills:
                 payload["skill_openai_ids"] = skill_ids
+
+            # -- Batched streaming loop --
+            chunk_buffer: list[Chunk] = []
+            last_flush = time.monotonic()
+            # Chunk types that must flush immediately
+            immediate_types = {
+                ChunkType.COMPLETION,
+                ChunkType.ERROR,
+                ChunkType.AUTH_REQUIRED,
+            }
 
             async for chunk in processor.process(
                 self.messages,
@@ -1183,8 +1217,29 @@ class ThreadState(rx.State):
                 user_id=user_id,
                 cancellation_token=self._cancel_event,
             ):
-                first_response_received = await self._handle_stream_chunk(
-                    chunk=chunk,
+                chunk_buffer.append(chunk)
+
+                now = time.monotonic()
+                needs_flush = (
+                    chunk.type in immediate_types
+                    or (now - last_flush) >= self._FLUSH_INTERVAL_S
+                )
+
+                if needs_flush:
+                    first_response_received = await self._flush_chunk_buffer(
+                        chunks=chunk_buffer,
+                        accumulator=accumulator,
+                        current_prompt=current_prompt,
+                        is_new_thread=is_new_thread,
+                        first_response_received=(first_response_received),
+                    )
+                    chunk_buffer.clear()
+                    last_flush = now
+
+            # Flush any remaining buffered chunks
+            if chunk_buffer:
+                first_response_received = await self._flush_chunk_buffer(
+                    chunks=chunk_buffer,
                     accumulator=accumulator,
                     current_prompt=current_prompt,
                     is_new_thread=is_new_thread,
@@ -1293,26 +1348,55 @@ class ThreadState(rx.State):
     async def _begin_message_processing(
         self,
     ) -> tuple[str, str, list[MCPServer], list[str], bool] | None:
-        """Prepare state for sending a message. Returns None if no-op."""
+        """Prepare state for sending a message. Returns None if no-op.
+
+        Splits work into phases to minimize state lock hold time:
+        1. Read state under lock (prompt, flags, files)
+        2. Resolve /commands via DB outside the lock
+        3. Re-acquire lock to set processing state and build messages
+        """
+        # Phase 1: Read needed state under a short lock
         async with self:
             current_prompt = self.prompt.strip()
             if self.processing or not current_prompt:
                 return None
 
+            is_new_thread = self._thread.state == ThreadStatus.NEW
+            file_paths = [f.file_path for f in self.uploaded_files]
+            attachment_names = [f.filename for f in self.uploaded_files]
+            skip_user_message = self._skip_user_message
+            user_id_str = self.current_user_id
+
+        # Phase 2: Parse prompt and resolve commands outside the lock
+        segments: list[dict] = []
+        if not skip_user_message:
+            segments = self._parse_prompt_segments(current_prompt)
+            # Resolve /command prompts from DB (no lock held)
+            for segment in segments:
+                if segment["type"] == "command":
+                    try:
+                        prompt_text = await self._load_command_prompt_text(
+                            int(user_id_str), segment["handle"]
+                        )
+                        segment["resolved_text"] = prompt_text
+                    except Exception as e:
+                        logger.error(
+                            "Error resolving command %s: %s",
+                            segment["handle"],
+                            e,
+                        )
+                        segment["resolved_text"] = None
+
+        # Phase 3: Re-acquire lock and build messages
+        async with self:
+            # Re-check guard in case another event fired
+            if self.processing:
+                return None
+
             self.processing = True
-            # Clearing chunks now only resets direct UI state if needed,
-            # but accumulator handles logic
             self.image_chunks = []
             self.thinking_items = []
-
             self.prompt = ""
-
-            is_new_thread = self._thread.state == ThreadStatus.NEW
-
-            # Capture file paths before clearing
-            file_paths = [f.file_path for f in self.uploaded_files]
-            # Capture filenames for message display
-            attachment_names = [f.filename for f in self.uploaded_files]
 
             logger.debug(
                 "Begin processing: is_new_thread=%s, uploaded_files=%d, file_paths=%s",
@@ -1321,65 +1405,53 @@ class ThreadState(rx.State):
                 file_paths,
             )
 
-            # Add user message(s) unless skipped (e.g., OAuth resend)
-            if self._skip_user_message:
+            if skip_user_message:
                 self._skip_user_message = False
-            else:
-                # Parse prompt into segments (text and commands)
-                segments = self._parse_prompt_segments(current_prompt)
-
-                if segments:
-                    # Process each segment
-                    for i, segment in enumerate(segments):
-                        if segment["type"] == "text":
-                            # Add text segment as message
-                            is_first = i == 0
+            elif segments:
+                for i, segment in enumerate(segments):
+                    if segment["type"] == "text":
+                        is_first = i == 0
+                        self.messages.append(
+                            Message(
+                                text=segment["content"],
+                                type=MessageType.HUMAN,
+                                attachments=(attachment_names if is_first else []),
+                            )
+                        )
+                    elif segment["type"] == "command":
+                        resolved = segment.get("resolved_text")
+                        if resolved:
                             self.messages.append(
                                 Message(
-                                    text=segment["content"],
+                                    text=resolved,
                                     type=MessageType.HUMAN,
-                                    attachments=(attachment_names if is_first else []),
                                 )
                             )
-                        elif segment["type"] == "command":
-                            # Load command prompt and add as message
-                            command_handle = segment["handle"]
-                            command_prompt = await self._load_command_prompt_text(
-                                int(self.current_user_id), command_handle
+                            logger.debug(
+                                "Loaded command %s prompt",
+                                segment["handle"],
+                            )
+                        else:
+                            logger.warning(
+                                "Command %s not found for user %s",
+                                segment["handle"],
+                                self.current_user_id,
                             )
 
-                            if command_prompt:
-                                self.messages.append(
-                                    Message(
-                                        text=command_prompt,
-                                        type=MessageType.HUMAN,
-                                    )
-                                )
-                                logger.debug(
-                                    "Loaded command %s prompt",
-                                    command_handle,
-                                )
-                            else:
-                                logger.warning(
-                                    "Command %s not found for user %s",
-                                    command_handle,
-                                    self.current_user_id,
-                                )
+                logger.debug(
+                    "Split prompt into %d segments and %d messages",
+                    len(segments),
+                    len([m for m in self.messages if m.type == MessageType.HUMAN]),
+                )
+            else:
+                self.messages.append(
+                    Message(
+                        text=current_prompt,
+                        type=MessageType.HUMAN,
+                        attachments=attachment_names,
+                    )
+                )
 
-                    logger.debug(
-                        "Split prompt into %d segments and %d messages",
-                        len(segments),
-                        len([m for m in self.messages if m.type == MessageType.HUMAN]),
-                    )
-                else:
-                    # No segments - add original message as-is
-                    self.messages.append(
-                        Message(
-                            text=current_prompt,
-                            type=MessageType.HUMAN,
-                            attachments=attachment_names,
-                        )
-                    )
             # Always add assistant placeholder
             self.messages.append(Message(text="", type=MessageType.ASSISTANT))
 
@@ -1404,75 +1476,72 @@ class ThreadState(rx.State):
             self._add_error_message(error_msg)
             self.processing = False
 
-    async def _handle_stream_chunk(
+    async def _flush_chunk_buffer(
         self,
         *,
-        chunk: Chunk,
+        chunks: list[Chunk],
         accumulator: ResponseAccumulator,
         current_prompt: str,
         is_new_thread: bool,
         first_response_received: bool,
     ) -> bool:
-        """Handle one streamed chunk. Returns updated first_response_received."""
-        async with self:
-            accumulator.process_chunk(chunk)
+        """Process buffered chunks and sync UI state in one lock cycle.
 
-            # Sync UI state from accumulator
-            # Create copy to trigger update
+        Returns updated ``first_response_received``.
+        """
+        async with self:
+            for chunk in chunks:
+                accumulator.process_chunk(chunk)
+
+            # Sync UI state once per flush (not per chunk)
             self.thinking_items = list(accumulator.thinking_items)
             self.current_activity = accumulator.current_activity
             if accumulator.show_thinking:
                 self.show_thinking = True
             if accumulator.image_chunks:
-                # Append only new ones or sync list? image_chunks is list[Chunk]
-                # Accumulator has all of them.
                 self.image_chunks = list(accumulator.image_chunks)
 
-            # Handle Auth Required which might be set on accumulator state
             if accumulator.auth_required:
                 self._handle_auth_required_from_accumulator(accumulator)
 
-            should_create_thread = (
-                not first_response_received
-                and chunk.type == ChunkType.TEXT
-                and is_new_thread
-                and self.with_thread_list
-            )
-            if not should_create_thread:
-                return first_response_received
+            # Activate thread on first TEXT chunk (at most once)
+            if not first_response_received and is_new_thread:
+                has_text = any(c.type == ChunkType.TEXT for c in chunks)
+                if has_text:
+                    first_response_received = True
+                    self._thread.state = ThreadStatus.ACTIVE
+                    if self._thread.title in {"", "Neuer Chat"}:
+                        self._thread.title = current_prompt[:100]
+                    if self.with_thread_list:
+                        await self._notify_thread_created()
 
-            self._thread.state = ThreadStatus.ACTIVE
-            if self._thread.title in {"", "Neuer Chat"}:
-                self._thread.title = current_prompt[:100]
-            await self._notify_thread_created()
-            return True
+            return first_response_received
 
     async def _finalize_successful_response(
         self, accumulator: ResponseAccumulator
     ) -> None:
-        """Finalize state after a successful full response."""
+        """Finalize state after a successful full response.
+
+        DB persistence happens outside the state lock.
+        """
         async with self:
             self.show_thinking = False
-
-            # Final sync
             self.thinking_items = list(accumulator.thinking_items)
 
-            # Convert Reflex proxy list to standard list to avoid Pydantic
-            # serializer warnings
-            self._thread.messages = list(self.messages)  # noqa: E501
+            self._thread.messages = list(self.messages)
             self._thread.ai_model = self.selected_model
-            # Persist selected MCP servers to thread
             self._thread.mcp_server_ids = [
                 s.id for s in self.selected_mcp_servers if s.id
             ]
-            # Persist selected skills to thread
             self._thread.skill_openai_ids = [s.openai_id for s in self.selected_skills]
 
-            if self.with_thread_list:
-                user_session: UserSession = await self.get_state(UserSession)
-                user_id = user_session.user.user_id if user_session.user else None
-                if user_id:
-                    await self._thread_service.save_thread(self._thread, user_id)
+            user_session: UserSession = await self.get_state(UserSession)
+            user_id = user_session.user.user_id if user_session.user else None
+            thread_copy = self._thread.model_copy()
+
+        # Persist outside the lock so UI is not blocked
+        if user_id:
+            await self._thread_service.save_thread(thread_copy, user_id)
 
     async def _handle_process_error(
         self,
@@ -1482,7 +1551,10 @@ class ThreadState(rx.State):
         is_new_thread: bool,
         first_response_received: bool,
     ) -> None:
-        """Handle failures during streaming and persist error state."""
+        """Handle failures during streaming and persist error state.
+
+        DB persistence happens outside the state lock.
+        """
         async with self:
             self._thread.state = ThreadStatus.ERROR
 
@@ -1490,26 +1562,31 @@ class ThreadState(rx.State):
                 self.messages.pop()
             self.messages.append(Message(text=str(ex), type=MessageType.ERROR))
 
-            if is_new_thread and self.with_thread_list and not first_response_received:
+            if is_new_thread and not first_response_received:
                 if self._thread.title in {"", "Neuer Chat"}:
                     self._thread.title = current_prompt[:100]
-                await self._notify_thread_created()
+                if self.with_thread_list:
+                    await self._notify_thread_created()
 
-            # Convert Reflex proxy list to standard list to avoid Pydantic serializer
-            # warnings
-            self._thread.messages = list(self.messages)  # noqa: E501
-            # Persist selected MCP servers to thread
+            self._thread.messages = list(self.messages)
             self._thread.mcp_server_ids = [
                 s.id for s in self.selected_mcp_servers if s.id
             ]
-            if self.with_thread_list:
-                user_session: UserSession = await self.get_state(UserSession)
-                user_id = user_session.user.user_id if user_session.user else None
-                if user_id:
-                    await self._thread_service.save_thread(self._thread, user_id)
+
+            user_session: UserSession = await self.get_state(UserSession)
+            user_id = user_session.user.user_id if user_session.user else None
+            thread_copy = self._thread.model_copy()
+
+        # Persist outside the lock so UI is not blocked
+        if user_id:
+            await self._thread_service.save_thread(thread_copy, user_id)
 
     async def _finalize_processing(self) -> None:
-        """Mark processing done and close out the last message."""
+        """Mark processing done and close out the last message.
+
+        File cleanup happens outside the lock to avoid blocking.
+        """
+        pending_files: list[str] = []
         async with self:
             if self.messages:
                 self.messages[-1].done = True
@@ -1518,10 +1595,13 @@ class ThreadState(rx.State):
             self.current_activity = ""
             self._cancel_event = None
 
-            # Clean up uploaded files from disk
             if self._pending_file_cleanup:
-                file_manager.cleanup_uploaded_files(self._pending_file_cleanup)
+                pending_files = list(self._pending_file_cleanup)
                 self._pending_file_cleanup = []
+
+        # Clean up uploaded files outside the lock
+        if pending_files:
+            file_manager.cleanup_uploaded_files(pending_files)
 
     def _handle_auth_required_from_accumulator(
         self, accumulator: ResponseAccumulator
@@ -1584,13 +1664,6 @@ class ThreadState(rx.State):
         threadlist_state: ThreadListState = await self.get_state(ThreadListState)
         threadlist_state.loading_thread_id = ""
 
-    async def _save_new_active_thread(self, user_id: str) -> None:
-        """Save a new thread as active to the database."""
-        self._thread.state = ThreadStatus.ACTIVE
-        self._thread.mcp_server_ids = [s.id for s in self.selected_mcp_servers if s.id]
-        await self._thread_service.save_thread(self._thread, user_id)
-        logger.debug("Saved new thread %s to DB", self._thread.thread_id)
-
     # -------------------------------------------------------------------------
     # Thread persistence (internal)
     # -------------------------------------------------------------------------
@@ -1607,6 +1680,36 @@ class ThreadState(rx.State):
         await threadlist_state.add_thread(self._thread)
 
     # _save_thread_to_db removed, using self._thread_service.save_thread
+
+    @rx.event(background=True)
+    async def persist_current_thread(self) -> AsyncGenerator[Any, Any]:
+        """Persist the current thread to the database.
+
+        Lightweight background task used after model changes, message
+        edits, and other state mutations that should survive a page
+        reload.
+        """
+        async with self:
+            if self._thread.state == ThreadStatus.NEW:
+                return
+
+            user_session: UserSession = await self.get_state(UserSession)
+            user_id = user_session.user.user_id if user_session.user else None
+            if not user_id:
+                return
+
+            thread_copy = self._thread.model_copy()
+
+        try:
+            await self._thread_service.save_thread(thread_copy, user_id)
+            logger.debug("Persisted thread %s to DB", thread_copy.thread_id)
+        except Exception as e:
+            logger.error(
+                "Failed to persist thread %s: %s",
+                thread_copy.thread_id,
+                e,
+            )
+        yield
 
     # -------------------------------------------------------------------------
     # Chunk handling (internal)

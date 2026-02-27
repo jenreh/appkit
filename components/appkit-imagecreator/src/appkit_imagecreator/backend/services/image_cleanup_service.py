@@ -33,25 +33,20 @@ class ImageCleanupService(ScheduledService):
     async def execute(self) -> None:
         """Run the image cleanup job."""
         try:
-            config = self.config
-            logger.info(
-                "Running image cleanup job (threshold: %d days)",
-                config.cleanup_days_threshold,
-            )
+            days = self.config.cleanup_days_threshold
+            logger.info("Running image cleanup job (threshold: %d days)", days)
+
             async with get_asyncdb_session() as session:
-                count = await image_repo.delete_by_user_older_than_days(
-                    session, config.cleanup_days_threshold
+                count = await image_repo.delete_by_older_than_days(session, days)
+
+            if count > 0:
+                logger.info(
+                    "Marked %d generated images as deleted (older than %d days)",
+                    count,
+                    days,
                 )
-                if count > 0:
-                    logger.info(
-                        "Marked %d generated images as deleted (older than %d days)",
-                        count,
-                        config.cleanup_days_threshold,
-                    )
-                else:
-                    logger.debug(
-                        "No images older than %d days found for cleanup",
-                        config.cleanup_days_threshold,
-                    )
+            else:
+                logger.debug("No images older than %d days found for cleanup", days)
+
         except Exception as e:
             logger.error("Image cleanup job failed: %s", e)

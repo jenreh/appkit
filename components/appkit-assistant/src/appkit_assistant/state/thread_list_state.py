@@ -80,7 +80,21 @@ class ThreadListState(rx.State):
             yield
 
     async def _load_threads(self) -> AsyncGenerator[Any, Any]:
-        """Load thread summaries from database (internal)."""
+        """Load thread summaries from database (internal).
+
+        On page reload or user change the in-memory state is empty because
+        Reflex resets all state vars.  We must NOT eagerly clear the thread
+        list before the DB fetch completes - otherwise a transient DB error
+        would make it look like the threads were "deleted".
+
+        The approach:
+        1. Detect whether the user actually changed (different user_id).
+        2. If a *real* user change happened, reset ThreadState so the UI
+           shows a fresh chat, but defer clearing the thread list until
+           new data has been fetched from the DB.
+        3. After a successful DB fetch, replace the in-memory list.
+        4. On error, keep whatever list we already had (stale > empty).
+        """
         # Late import to avoid circular dependency
         from appkit_assistant.state.thread_state import ThreadState  # noqa: PLC0415
 
@@ -89,28 +103,29 @@ class ThreadListState(rx.State):
             current_user_id = user_session.user.user_id if user_session.user else ""
             is_authenticated = await user_session.is_authenticated
 
-            # Handle user change
-            if self._current_user_id != current_user_id:
-                logger.debug(
-                    "User changed from '%s' to '%s' - resetting state",
-                    self._current_user_id or "(none)",
-                    current_user_id or "(none)",
-                )
-                self._initialized = False
-                self._current_user_id = current_user_id
-                self._clear_threads()
-                yield
+            # Detect whether the user actually changed (e.g. a different
+            # person logged in) vs. a simple page reload where
+            # _current_user_id was reset to its default ("").
+            user_changed = self._current_user_id != "" and current_user_id not in (
+                "",
+                self._current_user_id,
+            )
 
-                # Reset ThreadState
+            if user_changed:
+                logger.debug(
+                    "User changed from '%s' to '%s' - resetting thread state",
+                    self._current_user_id,
+                    current_user_id,
+                )
+
+                # Reset ThreadState to a fresh chat for the new user
                 thread_state: ThreadState = await self.get_state(ThreadState)
                 await thread_state.new_thread()
 
-            if self._initialized:
-                self.loading = False
-                yield
-                return
+            # Always track the current user
+            self._current_user_id = current_user_id
+            self._initialized = False
 
-            # Check authentication
             if not is_authenticated:
                 self._clear_threads()
                 self._current_user_id = ""
@@ -133,7 +148,7 @@ class ThreadListState(rx.State):
                     session, user_id
                 )
 
-                # Convert entities to models inside the session context
+                # Convert entities to models inside the session
                 threads = [
                     ThreadModel(
                         thread_id=t.thread_id,
@@ -149,12 +164,18 @@ class ThreadListState(rx.State):
             async with self:
                 self.threads = threads
                 self._initialized = True
-                logger.debug("Loaded %d threads", len(threads))
+                logger.debug(
+                    "Loaded %d threads for user %s",
+                    len(threads),
+                    user_id,
+                )
             yield
         except Exception as e:
             logger.error("Error loading threads: %s", e)
+            # Keep existing thread list - stale data is better than
+            # an empty list that makes it look like threads were deleted.
             async with self:
-                self._clear_threads()
+                self._initialized = False
             yield
         finally:
             async with self:

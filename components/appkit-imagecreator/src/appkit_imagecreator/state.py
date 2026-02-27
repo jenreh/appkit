@@ -102,6 +102,7 @@ class ImageGalleryState(rx.State):
 
     # Generation state
     is_generating: bool = False
+    _generation_cancelled: bool = False
     prompt: str = ""
     generating_prompt: str = ""  # The prompt being generated (for display)
 
@@ -218,17 +219,25 @@ class ImageGalleryState(rx.State):
     # Initialization
     # -------------------------------------------------------------------------
 
+    @rx.event
+    async def init_generators(self) -> None:
+        """Load generators synchronously on mount.
+
+        This is a regular (non-background) event so Reflex processes it
+        to completion and sends the state delta to the frontend before
+        the next queued event runs.  That guarantees the model selector
+        already has items and a selected value on the very first
+        meaningful render.
+        """
+        if not generator_registry._loaded:  # noqa: SLF001
+            await generator_registry.initialize()
+        user_session: UserSession = await self.get_state(UserSession)
+        roles = user_session.user.roles if user_session.user else []
+        self._refresh_generators(roles)
+
     @rx.event(background=True)
     async def initialize(self) -> AsyncGenerator[Any, Any]:
-        """Initialize the image gallery - load images from database."""
-        # Always refresh generators from the registry
-        async with self:
-            await generator_registry.initialize()
-            user_session: UserSession = await self.get_state(UserSession)
-            roles = user_session.user.roles if user_session.user else []
-            self._refresh_generators(roles)
-            yield
-
+        """Load images from database (background)."""
         async for _ in self._load_images():
             yield
 
@@ -244,7 +253,6 @@ class ImageGalleryState(rx.State):
         valid_ids = {g["id"] for g in self.generators}
         if not self.generator or self.generator not in valid_ids:
             if self.generators:
-                # Always default to the first available generator if none selected
                 self.generator = self.generators[0]["id"]
             else:
                 self.generator = ""
@@ -439,7 +447,12 @@ class ImageGalleryState(rx.State):
 
     @rx.event
     def cancel_generation(self) -> None:
-        """Cancel the current image generation."""
+        """Cancel the current image generation.
+
+        Sets a flag that the background task checks at key points.
+        Already-saved images are retained.
+        """
+        self._generation_cancelled = True
         self.is_generating = False
         self.generating_prompt = ""
 
@@ -472,27 +485,45 @@ class ImageGalleryState(rx.State):
         return None
 
     @rx.event(background=True)
-    async def generate_images(  # noqa: PLR0912, PLR0915
+    async def generate_images(  # noqa: PLR0911, PLR0912, PLR0915, C901
         self,
     ) -> AsyncGenerator[Any, Any]:
         """Generate or edit images based on current settings.
 
-        If selected_images is not empty, uses the edit API with those images
-        as references. Otherwise, generates new images from scratch.
-        """
-        # Validation
-        async with self:
-            if not self.prompt.strip():
-                yield rx.toast.warning("Bitte gib einen Prompt ein.", close_button=True)
-                return
+        Runs as a **background task** so the UI stays responsive and
+        generation continues even when the user navigates to another
+        page.  State is only accessed inside short ``async with self:``
+        blocks; all ``yield`` calls happen **outside** the lock.
 
-            self.is_generating = True
-            self.generating_prompt = self.prompt
-            self._close_all_popups()
-        yield
+        Cancellation is cooperative: ``cancel_generation`` sets
+        ``_generation_cancelled`` which is checked at safe points.
+        """
+        # -- 1. Validate & snapshot state (short lock) --------------------
+        async with self:
+            prompt_text = self.prompt.strip()
+            if not prompt_text:
+                empty_prompt = True
+            else:
+                empty_prompt = False
+                # Guard against concurrent generation
+                if self.is_generating:
+                    return
+                self.is_generating = True
+                self._generation_cancelled = False
+                self.generating_prompt = self.prompt
+                self._close_all_popups()
+
+        # Yields MUST be outside ``async with self:``
+        if empty_prompt:
+            yield rx.toast.warning(
+                "Bitte gib einen Prompt ein.",
+                close_button=True,
+            )
+            return
+        yield  # push is_generating=True to the client
 
         try:
-            # Get user info
+            # -- 2. Authenticate ------------------------------------------
             async with self:
                 user_session: UserSession = await self.get_state(UserSession)
                 user_id = user_session.user.user_id if user_session.user else None
@@ -504,7 +535,8 @@ class ImageGalleryState(rx.State):
                 )
                 return
 
-            # Build generation input
+            # -- 3. Snapshot all inputs (short lock) ----------------------
+            warn_max_refs = False
             async with self:
                 style_prompt = ""
                 if self.selected_style and self.selected_style in self.styles_preset:
@@ -514,19 +546,12 @@ class ImageGalleryState(rx.State):
 
                 full_prompt = self.prompt + style_prompt
 
-                # Check for reference images (image-to-image mode)
                 has_references = len(self.selected_images) > 0
                 reference_ids = [
                     img.id for img in self.selected_images[:MAX_REFERENCE_IMAGES]
                 ]
-
-                # Warn if more than max images selected
                 if len(self.selected_images) > MAX_REFERENCE_IMAGES:
-                    yield rx.toast.info(
-                        f"Maximal {MAX_REFERENCE_IMAGES} Referenzbilder "
-                        "werden verwendet.",
-                        close_button=True,
-                    )
+                    warn_max_refs = True
 
                 generation_input = GenerationInput(
                     prompt=full_prompt,
@@ -538,7 +563,7 @@ class ImageGalleryState(rx.State):
                 )
                 client = generator_registry.get(self.generator)
 
-                # Capture state values for database save
+                # Capture scalar values for DB save
                 prompt = self.prompt
                 style = self.selected_style
                 model = self.generator
@@ -548,25 +573,39 @@ class ImageGalleryState(rx.State):
                 should_enhance = self.enhance_prompt
                 count = self.selected_count
 
-            # Branch based on whether we have reference images
+            # Toast outside state lock
+            if warn_max_refs:
+                yield rx.toast.info(
+                    f"Maximal {MAX_REFERENCE_IMAGES} Referenzbilder werden verwendet.",
+                    close_button=True,
+                )
+
+            # -- 4. Check cancellation ------------------------------------
+            async with self:
+                if self._generation_cancelled:
+                    logger.info("Generation cancelled before API call")
+                    return
+
+            # -- 5. Fetch reference images (if any) ----------------------
             if has_references:
-                # Fetch reference image bytes from database
                 reference_images: list[tuple[bytes, str]] = []
                 async with get_asyncdb_session() as session:
                     for img_id in reference_ids:
                         result = await image_repo.find_by_id(session, img_id)
                         if result:
                             reference_images.append(
-                                (result.image_data, result.content_type)
+                                (
+                                    result.image_data,
+                                    result.content_type,
+                                )
                             )
                         else:
                             logger.warning(
-                                "Reference image %d not found in database", img_id
+                                "Reference image %d not found",
+                                img_id,
                             )
 
                 if not reference_images:
-                    async with self:
-                        self.is_generating = False
                     yield rx.toast.error(
                         "Referenzbilder konnten nicht geladen werden.",
                         close_button=True,
@@ -577,18 +616,20 @@ class ImageGalleryState(rx.State):
                     "Editing with %d reference images",
                     len(reference_images),
                 )
-
-                # Call edit API
                 response: ImageGeneratorResponse = await client.edit(
                     generation_input, reference_images
                 )
             else:
-                # Standard generation (no references)
                 response = await client.generate(generation_input)
 
+            # -- 6. Check cancellation after API call --------------------
+            async with self:
+                if self._generation_cancelled:
+                    logger.info("Generation cancelled after API call")
+                    return
+
+            # -- 7. Validate response ------------------------------------
             if response.state != ImageResponseState.SUCCEEDED:
-                async with self:
-                    self.is_generating = False
                 yield rx.toast.error(
                     f"Fehler beim Generieren: {response.error or 'Unbekannter Fehler'}",
                     close_button=True,
@@ -596,26 +637,32 @@ class ImageGalleryState(rx.State):
                 return
 
             if not response.generated_images:
-                async with self:
-                    self.is_generating = False
                 yield rx.toast.error(
                     "Keine Bilder generiert.",
                     close_button=True,
                 )
                 return
 
-            # Save each generated image to database
+            # -- 8. Save images to DB (resilient loop) -------------------
             enhanced_prompt = response.enhanced_prompt or full_prompt
             saved_count = 0
 
             for img_data in response.generated_images:
+                # Check cancellation between images
+                async with self:
+                    if self._generation_cancelled:
+                        logger.info(
+                            "Generation cancelled during save (saved %d so far)",
+                            saved_count,
+                        )
+                        break
+
                 image_bytes = await self._get_image_bytes(img_data)
                 if not image_bytes:
                     logger.warning("Could not get bytes for generated image")
                     continue
 
                 try:
-                    # Build config dict with optional reference image info
                     config_dict: dict[str, Any] = {
                         "size": f"{width}x{height}",
                         "quality": quality,
@@ -625,6 +672,8 @@ class ImageGalleryState(rx.State):
                     if has_references:
                         config_dict["reference_image_ids"] = reference_ids
 
+                    # DB save is independent of state — always
+                    # completes even if the UI disconnects.
                     async with get_asyncdb_session() as session:
                         new_image = GeneratedImage(
                             user_id=user_id,
@@ -636,41 +685,66 @@ class ImageGalleryState(rx.State):
                             height=height,
                             enhanced_prompt=enhanced_prompt,
                             style=style if style else None,
-                            quality=quality if quality != "Auto" else None,
+                            quality=(quality if quality != "Auto" else None),
                             config=config_dict,
                         )
                         saved_entity = await image_repo.create(session, new_image)
                         saved_image = GeneratedImageModel.model_validate(saved_entity)
+
+                    # Update in-memory state (short lock)
                     async with self:
                         self.images = [saved_image, *self.images]
-                        self.history_images = [saved_image, *self.history_images]
+                        self.history_images = [
+                            saved_image,
+                            *self.history_images,
+                        ]
                     saved_count += 1
-                    yield
-                except Exception as e:
-                    logger.error("Error saving generated image: %s", e)
 
-            if saved_count > 0:
-                yield rx.toast.success(
-                    f"{saved_count} Bild(er) erfolgreich generiert!",
-                    close_button=True,
-                )
-            else:
-                yield rx.toast.error(
-                    "Keine Bilder konnten gespeichert werden.",
-                    close_button=True,
-                )
+                    # Push state to client; non-fatal if user
+                    # navigated away.
+                    try:
+                        yield
+                    except Exception:
+                        logger.debug(
+                            "Yield after image save skipped "
+                            "(client may have navigated away)"
+                        )
+                except Exception:
+                    logger.exception("Error saving generated image")
 
-        except Exception as e:
+            # -- 9. Final toast ------------------------------------------
+            try:
+                if saved_count > 0:
+                    yield rx.toast.success(
+                        f"{saved_count} Bild(er) erfolgreich generiert!",
+                        close_button=True,
+                    )
+                else:
+                    yield rx.toast.error(
+                        "Keine Bilder konnten gespeichert werden.",
+                        close_button=True,
+                    )
+            except Exception:
+                logger.debug("Final toast skipped (client may have navigated away)")
+
+        except Exception:
             logger.exception("Error generating images")
-            yield rx.toast.error(
-                f"Fehler beim Generieren: {e!s}",
-                close_button=True,
-            )
+            try:  # noqa: SIM105
+                yield rx.toast.error(
+                    "Fehler beim Generieren der Bilder.",
+                    close_button=True,
+                )
+            except Exception:  # noqa: S110
+                logger.debug("Error toast skipped (client gone)")
         finally:
             async with self:
                 self.is_generating = False
+                self._generation_cancelled = False
                 self.generating_prompt = ""
-            yield
+            try:  # noqa: SIM105
+                yield
+            except Exception:  # noqa: S110
+                logger.debug("Final yield skipped (client gone)")
 
     # -------------------------------------------------------------------------
     # Image management
@@ -889,17 +963,16 @@ class ImageGalleryState(rx.State):
             return
 
         try:
-            # Fetch image data from repository
+            # Fetch image data from repository — read bytes inside the
+            # session so the lazy-loaded column is accessible.
             async with get_asyncdb_session() as session:
                 db_image = await image_repo.find_by_id(session, image_id)
+                if db_image is None:
+                    yield rx.toast.error("Bilddaten nicht gefunden", close_button=True)
+                    return
+                image_data = bytes(db_image.image_data)
 
-            if db_image is None:
-                yield rx.toast.error("Bilddaten nicht gefunden", close_button=True)
-                return
-
-            image_data = db_image.image_data
             filename = f"image_{image.id}.png"
-            # Download raw binary data
             yield rx.download(data=image_data, filename=filename)
         except Exception as e:
             logger.error("Error downloading image: %s", e)
