@@ -433,12 +433,22 @@ class ThreadState(rx.State):
                 self.selected_model = full_thread.ai_model
                 self.thinking_items = []
                 self.prompt = ""
+                self.web_search_enabled = False
 
-                # Restore MCP servers that were selected for this thread
-                self._restore_mcp_selection(full_thread.mcp_server_ids)
+                # Get model capabilities
+                model = ModelManager().get_model(full_thread.ai_model)
 
-                # Restore skills that were selected for this thread
-                self._restore_skill_selection(full_thread.skill_openai_ids or [])
+                # Restore MCP servers if supported
+                if model and model.supports_tools:
+                    self._restore_mcp_selection(full_thread.mcp_server_ids)
+                else:
+                    self._restore_mcp_selection([])
+
+                # Restore skills if supported
+                if model and model.supports_skills:
+                    self._restore_skill_selection(full_thread.skill_openai_ids or [])
+                else:
+                    self._restore_skill_selection([])
 
                 # Update active state in ThreadListState
                 threadlist_state: ThreadListState = await self.get_state(
@@ -1345,6 +1355,71 @@ class ThreadState(rx.State):
             )
         return None
 
+    async def _resolve_command_segments(
+        self, segments: list[dict], user_id: int
+    ) -> None:
+        """Resolve command handles to text prompts from DB."""
+        for segment in segments:
+            if segment["type"] == "command":
+                try:
+                    text = await self._load_command_prompt_text(
+                        user_id, segment["handle"]
+                    )
+                    segment["resolved_text"] = text
+                    if text:
+                        logger.debug(
+                            "Resolved command %s to prompt text", segment["handle"]
+                        )
+                    else:
+                        logger.warning(
+                            "Command %s not resolved for user %d",
+                            segment["handle"],
+                            user_id,
+                        )
+                except Exception as e:
+                    logger.error("Error resolving command %s: %s", segment["handle"], e)
+
+    def _create_user_messages(
+        self, prompt: str, segments: list[dict], attachments: list[str]
+    ) -> list[Message]:
+        """Create message objects from parsed segments."""
+        if not segments:
+            return [
+                Message(
+                    text=prompt,
+                    type=MessageType.HUMAN,
+                    attachments=attachments,
+                )
+            ]
+
+        messages = []
+        for i, segment in enumerate(segments):
+            if segment["type"] == "text":
+                # Attachments only on first message
+                atts = attachments if i == 0 else []
+                messages.append(
+                    Message(
+                        text=segment["content"],
+                        type=MessageType.HUMAN,
+                        attachments=atts,
+                    )
+                )
+            elif segment["type"] == "command":
+                valid_text = segment.get("resolved_text")
+                if valid_text:
+                    messages.append(Message(text=valid_text, type=MessageType.HUMAN))
+                else:
+                    # Could add a placeholder or ignore?
+                    # Original code ignored it but logged warning.
+                    # We already logged warning in _resolve_command_segments.
+                    pass
+
+        logger.debug(
+            "Created %d messages from prompt segments",
+            len(messages),
+        )
+        return messages
+
     async def _begin_message_processing(
         self,
     ) -> tuple[str, str, list[MCPServer], list[str], bool] | None:
@@ -1365,27 +1440,13 @@ class ThreadState(rx.State):
             file_paths = [f.file_path for f in self.uploaded_files]
             attachment_names = [f.filename for f in self.uploaded_files]
             skip_user_message = self._skip_user_message
-            user_id_str = self.current_user_id
+            user_id = int(self.current_user_id or 0)
 
         # Phase 2: Parse prompt and resolve commands outside the lock
         segments: list[dict] = []
         if not skip_user_message:
             segments = self._parse_prompt_segments(current_prompt)
-            # Resolve /command prompts from DB (no lock held)
-            for segment in segments:
-                if segment["type"] == "command":
-                    try:
-                        prompt_text = await self._load_command_prompt_text(
-                            int(user_id_str), segment["handle"]
-                        )
-                        segment["resolved_text"] = prompt_text
-                    except Exception as e:
-                        logger.error(
-                            "Error resolving command %s: %s",
-                            segment["handle"],
-                            e,
-                        )
-                        segment["resolved_text"] = None
+            await self._resolve_command_segments(segments, user_id)
 
         # Phase 3: Re-acquire lock and build messages
         async with self:
@@ -1407,50 +1468,11 @@ class ThreadState(rx.State):
 
             if skip_user_message:
                 self._skip_user_message = False
-            elif segments:
-                for i, segment in enumerate(segments):
-                    if segment["type"] == "text":
-                        is_first = i == 0
-                        self.messages.append(
-                            Message(
-                                text=segment["content"],
-                                type=MessageType.HUMAN,
-                                attachments=(attachment_names if is_first else []),
-                            )
-                        )
-                    elif segment["type"] == "command":
-                        resolved = segment.get("resolved_text")
-                        if resolved:
-                            self.messages.append(
-                                Message(
-                                    text=resolved,
-                                    type=MessageType.HUMAN,
-                                )
-                            )
-                            logger.debug(
-                                "Loaded command %s prompt",
-                                segment["handle"],
-                            )
-                        else:
-                            logger.warning(
-                                "Command %s not found for user %s",
-                                segment["handle"],
-                                self.current_user_id,
-                            )
-
-                logger.debug(
-                    "Split prompt into %d segments and %d messages",
-                    len(segments),
-                    len([m for m in self.messages if m.type == MessageType.HUMAN]),
-                )
             else:
-                self.messages.append(
-                    Message(
-                        text=current_prompt,
-                        type=MessageType.HUMAN,
-                        attachments=attachment_names,
-                    )
+                new_messages = self._create_user_messages(
+                    current_prompt, segments, attachment_names
                 )
+                self.messages.extend(new_messages)
 
             # Always add assistant placeholder
             self.messages.append(Message(text="", type=MessageType.ASSISTANT))
@@ -1461,11 +1483,10 @@ class ThreadState(rx.State):
                 self.processing = False
                 return None
 
-            mcp_servers = self.selected_mcp_servers
             return (
                 current_prompt,
                 selected_model,
-                mcp_servers,
+                self.selected_mcp_servers,
                 file_paths,
                 is_new_thread,
             )
