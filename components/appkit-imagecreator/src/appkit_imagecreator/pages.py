@@ -68,7 +68,10 @@ def image_generator_page() -> rx.Component:
         ),
         image_zoom_modal(),
         history_drawer(),
-        on_mount=ImageGalleryState.initialize,
+        on_mount=[
+            ImageGalleryState.init_generators,
+            ImageGalleryState.initialize,
+        ],
         width="100%",
         height="100vh",
         position="relative",

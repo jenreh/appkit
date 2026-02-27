@@ -66,29 +66,28 @@ def _submit() -> rx.Component:
 
 def _model_selector() -> rx.Component:
     """Dropdown for selecting the image generation model."""
-    return rx.select.root(
-        rx.select.trigger(
-            rx.cond(
-                ImageGalleryState.current_generator_label != "",
+    return rx.cond(
+        ImageGalleryState.generators.length() > 0,
+        rx.select.root(
+            rx.select.trigger(
                 ImageGalleryState.current_generator_label,
-                "Model",
+                variant="ghost",
+                margin_left="3px",
+                size="1",
+                max_width="276px",
             ),
-            variant="ghost",
-            margin_left="3px",
-            size="1",
-            max_width="276px",
-        ),
-        rx.select.content(
-            rx.foreach(
-                ImageGalleryState.generators,
-                lambda gen: rx.select.item(gen["label"], value=gen["id"]),
+            rx.select.content(
+                rx.foreach(
+                    ImageGalleryState.generators,
+                    lambda gen: rx.select.item(gen["label"], value=gen["id"]),
+                ),
+                position="popper",
+                side="top",
             ),
-            position="popper",
-            side="top",
+            value=ImageGalleryState.generator,
+            on_change=ImageGalleryState.set_generator,
+            size="2",
         ),
-        value=ImageGalleryState.generator,
-        on_change=ImageGalleryState.set_generator,
-        size="2",
     )
 
 
