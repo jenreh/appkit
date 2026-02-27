@@ -50,15 +50,20 @@ class ArrayType(TypeDecorator):
     """Generic ARRAY type that works across databases.
 
     Uses native ARRAY type for PostgreSQL, JSON string storage for SQLite and others.
+    Accepts an optional item_type (e.g. Integer) for typed PostgreSQL arrays.
     """
 
     impl = String
     cache_ok = True
 
+    def __init__(self, item_type: type | None = None) -> None:
+        super().__init__()
+        self._item_type = item_type or String
+
     def load_dialect_impl(self, dialect: Dialect) -> TypeEngine:
         """Use native ARRAY for PostgreSQL, String for others."""
         if dialect.name == "postgresql":
-            return dialect.type_descriptor(ARRAY(String))
+            return dialect.type_descriptor(ARRAY(self._item_type))
         return dialect.type_descriptor(String)
 
     def process_bind_param(self, value: any, dialect: Dialect) -> str | list | None:
