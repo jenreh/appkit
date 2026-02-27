@@ -261,7 +261,24 @@ exclude = [
 
 [tool.coverage.run]
 branch = true
-omit = ["*/tests/*", "*/__pycache__/*", "*/migrations/*"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    # Reflex UI component rendering — not unit-testable
+    "*/appkit_assistant/components/*.py",
+    "*/appkit_imagecreator/components/*.py",
+    "*/appkit_mantine/*.py",
+    "*/appkit_ui/components/*.py",
+    "*/appkit_user/authentication/components/*.py",
+    "*/appkit_user/authentication/templates/*.py",
+    "*/appkit_user/user_management/components/*.py",
+    # Route definitions & role constants
+    "*/pages.py",
+    "*/roles.py",
+    "*/styles.py",
+    "*/app.py",
+]
 source = [
     "components/appkit-commons/src/appkit_commons",
     "components/appkit-user/src/appkit_user",
