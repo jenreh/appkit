@@ -106,12 +106,8 @@ class TestAIModelRepository:
         skill_model = await ai_model_factory(
             processor_type="openai", supports_skills=True
         )
-        openai_no_skills = await ai_model_factory(
-            processor_type="openai", supports_skills=False
-        )
-        claude_with_skills = await ai_model_factory(
-            processor_type="claude", supports_skills=True
-        )
+        await ai_model_factory(processor_type="openai", supports_skills=False)
+        await ai_model_factory(processor_type="claude", supports_skills=True)
 
         results = await ai_model_repo.find_all_skill_capable(async_session)
 
@@ -178,15 +174,13 @@ class TestUserPromptRepository:
         self, async_session: AsyncSession, user_prompt_factory, user_prompt_repo
     ) -> None:
         """find_latest_prompts_by_user returns latest versions only."""
-        v1 = await user_prompt_factory(
+        await user_prompt_factory(
             user_id=1, handle="prompt-1", version=1, is_latest=False
         )
         v2 = await user_prompt_factory(
             user_id=1, handle="prompt-1", version=2, is_latest=True
         )
-        other_user = await user_prompt_factory(
-            user_id=2, handle="prompt-2", is_latest=True
-        )
+        await user_prompt_factory(user_id=2, handle="prompt-2", is_latest=True)
 
         results = await user_prompt_repo.find_latest_prompts_by_user(
             async_session, user_id=1
@@ -450,7 +444,7 @@ class TestSkillRepository:
     ) -> None:
         """find_all_active_by_api_key_hash filters by active status."""
         active = await skill_factory(api_key_hash="hash-a", active=True)
-        inactive = await skill_factory(api_key_hash="hash-a", active=False)
+        await skill_factory(api_key_hash="hash-a", active=False)
 
         results = await skill_repo.find_all_active_by_api_key_hash(
             async_session, "hash-a"

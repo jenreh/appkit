@@ -776,3 +776,508 @@ class TestConfigureMcpTools:
         assert tools[0]["server_label"] == "TestMCP"
         assert tools[0]["headers"]["X-Key"] == "val"
         assert "Use search" in prompt
+
+
+# ============================================================================
+# process() full flow
+# ============================================================================
+
+_OAI_PATCH = "appkit_assistant.backend.processors.openai_responses_processor"
+
+
+class TestProcessFlow:
+    @pytest.mark.asyncio
+    async def test_validation_no_client(self) -> None:
+        with (
+            patch(f"{_OAI_PATCH}.mcp_oauth_redirect_uri", return_value="x"),
+            patch(f"{_OAI_PATCH}.AsyncOpenAI"),
+        ):
+            proc = OpenAIResponsesProcessor(models={"m": _model()}, api_key=None)
+        with pytest.raises(ValueError, match="not initialized"):
+            async for _ in proc.process([], "m"):
+                pass
+
+    @pytest.mark.asyncio
+    async def test_validation_unknown_model(self) -> None:
+        proc = _make_processor()
+        with pytest.raises(ValueError, match="not supported"):
+            async for _ in proc.process([], "bad-model"):
+                pass
+
+    @pytest.mark.asyncio
+    async def test_streaming_basic(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+
+        events = [
+            SimpleNamespace(type="response.output_text.delta", delta="Answer"),
+            SimpleNamespace(
+                type="response.completed",
+                response=SimpleNamespace(
+                    usage=SimpleNamespace(input_tokens=10, output_tokens=5),
+                    id="resp-1",
+                ),
+            ),
+        ]
+
+        async def _mock_stream():
+            for e in events:
+                yield e
+
+        proc._process_file_uploads_streaming = _no_file_uploads
+        proc._create_responses_request = AsyncMock(return_value=_mock_stream())
+
+        chunks = [c async for c in proc.process(msgs, "gpt-4o")]
+        types_found = {c.type for c in chunks}
+        assert ChunkType.TEXT in types_found
+        assert ChunkType.COMPLETION in types_found
+
+    @pytest.mark.asyncio
+    async def test_streaming_with_cancellation(self) -> None:
+        import asyncio
+
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+        cancel = asyncio.Event()
+
+        events_yielded = 0
+
+        async def _mock_stream():
+            nonlocal events_yielded
+            yield SimpleNamespace(type="response.output_text.delta", delta="A")
+            events_yielded += 1
+            cancel.set()
+            yield SimpleNamespace(type="response.output_text.delta", delta="B")
+
+        proc._process_file_uploads_streaming = _no_file_uploads
+        proc._create_responses_request = AsyncMock(return_value=_mock_stream())
+
+        chunks = [
+            c async for c in proc.process(msgs, "gpt-4o", cancellation_token=cancel)
+        ]
+        # Should get at least the first event
+        text_chunks = [c for c in chunks if c.type == ChunkType.TEXT]
+        assert len(text_chunks) >= 1
+
+    @pytest.mark.asyncio
+    async def test_non_streaming_basic(self) -> None:
+        proc = _make_processor(models={"gpt-4o": _model_no_stream()})
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+
+        # Non-streaming response (no __aiter__)
+        response = SimpleNamespace(
+            output=[
+                SimpleNamespace(
+                    content=[{"text": "Non-stream result"}],
+                )
+            ],
+        )
+
+        proc._process_file_uploads_streaming = _no_file_uploads
+        proc._create_responses_request = AsyncMock(return_value=response)
+
+        chunks = [c async for c in proc.process(msgs, "gpt-4o")]
+        text_chunks = [c for c in chunks if c.type == ChunkType.TEXT]
+        assert len(text_chunks) == 1
+
+    @pytest.mark.asyncio
+    async def test_error_yields_error_chunk(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+
+        async def _fail_stream():
+            raise RuntimeError("API error")
+            yield  # noqa: RET504
+
+        proc._process_file_uploads_streaming = _no_file_uploads
+        proc._create_responses_request = AsyncMock(return_value=_fail_stream())
+
+        chunks = [c async for c in proc.process(msgs, "gpt-4o")]
+        error_chunks = [c for c in chunks if c.type == ChunkType.ERROR]
+        assert len(error_chunks) == 1
+
+    @pytest.mark.asyncio
+    async def test_auth_error_no_error_chunk(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+
+        async def _auth_fail():
+            raise RuntimeError("Unauthorized 401")
+            yield  # noqa: RET504
+
+        proc._process_file_uploads_streaming = _no_file_uploads
+        proc._create_responses_request = AsyncMock(return_value=_auth_fail())
+        proc.auth_detector.is_auth_error = MagicMock(return_value=True)
+
+        chunks = [c async for c in proc.process(msgs, "gpt-4o")]
+        error_chunks = [c for c in chunks if c.type == ChunkType.ERROR]
+        assert len(error_chunks) == 0
+
+    @pytest.mark.asyncio
+    async def test_critical_error_propagates(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+
+        proc._process_file_uploads_streaming = _no_file_uploads
+        proc._create_responses_request = AsyncMock(side_effect=RuntimeError("Critical"))
+
+        with pytest.raises(RuntimeError, match="Critical"):
+            async for _ in proc.process(msgs, "gpt-4o"):
+                pass
+
+
+# ============================================================================
+# _process_file_uploads_streaming
+# ============================================================================
+
+
+class TestProcessFileUploadsStreaming:
+    @pytest.mark.asyncio
+    async def test_no_thread_uuid_skips(self) -> None:
+        proc = _make_processor()
+        chunks = [
+            c
+            async for c in proc._process_file_uploads_streaming(
+                files=["file.txt"], payload=None, user_id=1
+            )
+        ]
+        assert len(chunks) == 1
+        assert chunks[0].chunk_metadata["status"] == "skipped"
+
+    @pytest.mark.asyncio
+    async def test_no_user_id_skips(self) -> None:
+        proc = _make_processor()
+        chunks = [
+            c
+            async for c in proc._process_file_uploads_streaming(
+                files=["file.txt"],
+                payload={"thread_uuid": "abc"},
+                user_id=None,
+            )
+        ]
+        assert len(chunks) == 1
+        assert chunks[0].chunk_metadata["status"] == "skipped"
+
+    @pytest.mark.asyncio
+    async def test_no_files_no_thread_uuid(self) -> None:
+        proc = _make_processor()
+        chunks = [
+            c
+            async for c in proc._process_file_uploads_streaming(
+                files=None, payload=None, user_id=1
+            )
+        ]
+        assert len(chunks) == 1
+        assert chunks[0].chunk_metadata["status"] == "skipped"
+
+    @pytest.mark.asyncio
+    async def test_thread_not_found(self) -> None:
+        proc = _make_processor()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        with patch(f"{_OAI_PATCH}.get_asyncdb_session") as mock_get:
+            mock_get.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
+            chunks = [
+                c
+                async for c in proc._process_file_uploads_streaming(
+                    files=["file.txt"],
+                    payload={"thread_uuid": "abc"},
+                    user_id=1,
+                )
+            ]
+        assert chunks[-1].chunk_metadata["status"] == "skipped"
+
+    @pytest.mark.asyncio
+    async def test_no_files_with_existing_vector_store(self) -> None:
+        proc = _make_processor()
+        mock_thread = MagicMock()
+        mock_thread.id = 1
+        mock_thread.vector_store_id = "vs-123"
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_thread
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        proc._file_upload_service = MagicMock()
+        proc._file_upload_service.get_vector_store = AsyncMock(
+            return_value=("vs-123", False)
+        )
+
+        with patch(f"{_OAI_PATCH}.get_asyncdb_session") as mock_get:
+            mock_get.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
+            chunks = [
+                c
+                async for c in proc._process_file_uploads_streaming(
+                    files=None,
+                    payload={"thread_uuid": "abc"},
+                    user_id=1,
+                )
+            ]
+        assert any(c.chunk_metadata.get("vector_store_id") == "vs-123" for c in chunks)
+
+    @pytest.mark.asyncio
+    async def test_file_upload_error(self) -> None:
+        proc = _make_processor()
+        mock_thread = MagicMock()
+        mock_thread.id = 1
+        mock_thread.vector_store_id = None
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_thread
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        from appkit_assistant.backend.services.file_upload_service import (
+            FileUploadError,
+        )
+
+        proc._file_upload_service = MagicMock()
+        proc._file_upload_service.process_files = MagicMock(
+            side_effect=FileUploadError("upload broke")
+        )
+
+        with patch(f"{_OAI_PATCH}.get_asyncdb_session") as mock_get:
+            mock_get.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_get.return_value.__aexit__ = AsyncMock(return_value=False)
+            chunks = [
+                c
+                async for c in proc._process_file_uploads_streaming(
+                    files=["file.txt"],
+                    payload={"thread_uuid": "abc"},
+                    user_id=1,
+                )
+            ]
+        assert any(c.chunk_metadata.get("status") == "failed" for c in chunks)
+
+
+# ============================================================================
+# _create_responses_request
+# ============================================================================
+
+
+class TestCreateResponsesRequest:
+    @pytest.mark.asyncio
+    async def test_basic_request(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+        model = _model()
+        model.supports_search = False
+
+        proc._system_prompt_builder.build = AsyncMock(return_value="System")
+        proc._client.responses.create = AsyncMock(return_value="response")
+
+        result = await proc._create_responses_request(msgs, model)
+        assert result == "response"
+        call_kwargs = proc._client.responses.create.call_args.kwargs
+        assert call_kwargs["model"] == model.model
+
+    @pytest.mark.asyncio
+    async def test_with_vector_store(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+        model = _model()
+        model.supports_search = False
+
+        proc._system_prompt_builder.build = AsyncMock(return_value="System")
+        proc._client.responses.create = AsyncMock(return_value="response")
+
+        await proc._create_responses_request(msgs, model, vector_store_id="vs-123")
+        call_kwargs = proc._client.responses.create.call_args.kwargs
+        tools = call_kwargs["tools"]
+        file_search_tools = [t for t in tools if t.get("type") == "file_search"]
+        assert len(file_search_tools) == 1
+        assert file_search_tools[0]["vector_store_ids"] == ["vs-123"]
+
+    @pytest.mark.asyncio
+    async def test_with_web_search(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+        model = _model()
+        model.supports_search = True
+
+        proc._system_prompt_builder.build = AsyncMock(return_value="System")
+        proc._client.responses.create = AsyncMock(return_value="response")
+
+        await proc._create_responses_request(
+            msgs,
+            model,
+            payload={"web_search_enabled": True, "thread_uuid": "abc"},
+        )
+        call_kwargs = proc._client.responses.create.call_args.kwargs
+        tools = call_kwargs["tools"]
+        web_tools = [t for t in tools if t.get("type") == "web_search"]
+        assert len(web_tools) == 1
+
+    @pytest.mark.asyncio
+    async def test_with_skills(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+        model = _model()
+        model.supports_search = False
+
+        proc._system_prompt_builder.build = AsyncMock(return_value="System")
+        proc._client.responses.create = AsyncMock(return_value="response")
+
+        await proc._create_responses_request(
+            msgs,
+            model,
+            payload={"skill_openai_ids": ["skill-1", "skill-2"]},
+        )
+        call_kwargs = proc._client.responses.create.call_args.kwargs
+        tools = call_kwargs["tools"]
+        shell_tools = [t for t in tools if t.get("type") == "shell"]
+        assert len(shell_tools) == 1
+        skills = shell_tools[0]["environment"]["skills"]
+        assert len(skills) == 2
+
+    @pytest.mark.asyncio
+    async def test_filters_internal_keys(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+        model = _model()
+        model.supports_search = False
+
+        proc._system_prompt_builder.build = AsyncMock(return_value="System")
+        proc._client.responses.create = AsyncMock(return_value="response")
+
+        await proc._create_responses_request(
+            msgs,
+            model,
+            payload={"thread_uuid": "abc", "skill_openai_ids": [], "custom": "v"},
+        )
+        call_kwargs = proc._client.responses.create.call_args.kwargs
+        assert "thread_uuid" not in call_kwargs
+        assert "skill_openai_ids" not in call_kwargs
+        assert call_kwargs.get("custom") == "v"
+
+    @pytest.mark.asyncio
+    async def test_with_mcp_servers(self) -> None:
+        proc = _make_processor()
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+        model = _model()
+        model.supports_search = False
+
+        server = MagicMock()
+        server.name = "TestMCP"
+        server.url = "https://mcp.test/sse"
+        server.headers = "{}"
+        server.auth_type = None
+        server.prompt = "search tool"
+
+        proc._system_prompt_builder.build = AsyncMock(return_value="System")
+        proc._client.responses.create = AsyncMock(return_value="response")
+
+        await proc._create_responses_request(msgs, model, mcp_servers=[server])
+        call_kwargs = proc._client.responses.create.call_args.kwargs
+        tools = call_kwargs["tools"]
+        mcp_tools = [t for t in tools if t.get("type") == "mcp"]
+        assert len(mcp_tools) == 1
+
+
+# ============================================================================
+# _convert_messages_to_responses_format
+# ============================================================================
+
+
+class TestConvertMessagesToResponsesFormat:
+    @pytest.mark.asyncio
+    async def test_basic_conversion(self) -> None:
+        proc = _make_processor()
+        proc._system_prompt_builder.build = AsyncMock(return_value="System")
+        msgs = [
+            Message(type=MessageType.HUMAN, text="Hello"),
+            Message(type=MessageType.ASSISTANT, text="Hi"),
+        ]
+        result = await proc._convert_messages_to_responses_format(msgs)
+        # system + 2 messages
+        assert len(result) == 3
+        assert result[0]["role"] == "system"
+        assert result[1]["role"] == "user"
+        assert result[1]["content"][0]["type"] == "input_text"
+        assert result[2]["role"] == "assistant"
+        assert result[2]["content"][0]["type"] == "output_text"
+
+    @pytest.mark.asyncio
+    async def test_system_messages_filtered(self) -> None:
+        proc = _make_processor()
+        proc._system_prompt_builder.build = AsyncMock(return_value="System")
+        msgs = [
+            Message(type=MessageType.SYSTEM, text="sys"),
+            Message(type=MessageType.HUMAN, text="Hello"),
+        ]
+        result = await proc._convert_messages_to_responses_format(msgs)
+        # system prompt + 1 user message (system from msgs is filtered)
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_no_system_prompt(self) -> None:
+        proc = _make_processor()
+        proc._system_prompt_builder.build = AsyncMock(return_value="")
+        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+        result = await proc._convert_messages_to_responses_format(
+            msgs, use_system_prompt=False
+        )
+        assert len(result) == 1
+        assert result[0]["role"] == "user"
+
+
+# ============================================================================
+# _extract_responses_content
+# ============================================================================
+
+
+class TestExtractResponsesContent:
+    def test_normal_output(self) -> None:
+        proc = _make_processor()
+        session = SimpleNamespace(
+            output=[SimpleNamespace(content=[{"text": "result"}])]
+        )
+        assert proc._extract_responses_content(session) == "result"
+
+    def test_no_output(self) -> None:
+        proc = _make_processor()
+        session = SimpleNamespace(output=None)
+        assert proc._extract_responses_content(session) is None
+
+    def test_empty_output(self) -> None:
+        proc = _make_processor()
+        session = SimpleNamespace(output=[])
+        assert proc._extract_responses_content(session) is None
+
+    def test_no_content(self) -> None:
+        proc = _make_processor()
+        session = SimpleNamespace(output=[SimpleNamespace(content=None)])
+        assert proc._extract_responses_content(session) is None
+
+    def test_string_content(self) -> None:
+        proc = _make_processor()
+        session = SimpleNamespace(output=[SimpleNamespace(content="text")])
+        assert proc._extract_responses_content(session) == "text"
+
+
+# ============================================================================
+# Helpers
+# ============================================================================
+
+
+def _model_no_stream() -> AIModel:
+    return AIModel(
+        id="gpt-4o",
+        text="gpt-4o",
+        model="gpt-4o",
+        stream=False,
+        temperature=0.7,
+        supports_search=False,
+    )
+
+
+async def _no_file_uploads(files=None, payload=None, user_id=None, ai_model=""):
+    """No-op file upload replacement for process() tests."""
+    return
+    yield  # noqa: RET504

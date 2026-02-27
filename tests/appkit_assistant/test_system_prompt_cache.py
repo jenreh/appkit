@@ -19,8 +19,7 @@ from appkit_assistant.backend.system_prompt_cache import (
 def fresh_cache() -> SystemPromptCache:
     """Create a fresh cache instance by resetting the singleton."""
     SystemPromptCache._instance = None
-    cache = SystemPromptCache()
-    return cache
+    return SystemPromptCache()
 
 
 @pytest.fixture(autouse=True)

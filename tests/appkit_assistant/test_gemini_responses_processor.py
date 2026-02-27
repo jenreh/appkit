@@ -7,6 +7,7 @@ MCP session creation, schema fixing, tool name parsing, and chunk handling.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -68,6 +69,14 @@ def _make_server(
     server.auth_type = auth_type
     server.prompt = prompt
     return server
+
+
+def _msgs() -> list[Message]:
+    return [
+        Message(type=MessageType.HUMAN, text="Hello"),
+        Message(type=MessageType.ASSISTANT, text="Hi"),
+        Message(type=MessageType.HUMAN, text="Test question"),
+    ]
 
 
 # ============================================================================
@@ -432,3 +441,555 @@ class TestDataClasses:
         w = MCPSessionWrapper(url="https://test", headers={"X": "1"}, name="s")
         assert w.url == "https://test"
         assert w.name == "s"
+
+
+# ============================================================================
+# process() full flow
+# ============================================================================
+
+_PATCH = "appkit_assistant.backend.processors.gemini_responses_processor"
+
+
+class TestProcessFlow:
+    @pytest.mark.asyncio
+    async def test_validation_no_client(self) -> None:
+        proc = _make_processor(api_key=None)
+        with pytest.raises(ValueError, match="not initialized"):
+            async for _ in proc.process([], "gemini-2.5-flash"):
+                pass
+
+    @pytest.mark.asyncio
+    async def test_validation_unknown_model(self) -> None:
+        proc = _make_processor()
+        with pytest.raises(ValueError, match="not supported"):
+            async for _ in proc.process([], "nonexistent"):
+                pass
+
+    @pytest.mark.asyncio
+    async def test_basic_streaming(self) -> None:
+        proc = _make_processor()
+        msgs = _msgs()
+
+        async def _mock_stream(
+            model_name, contents, config, mcp_sessions, cancel_token=None
+        ):
+            yield proc.chunk_factory.text("Hello", delta="Hello")
+
+        proc._stream_with_mcp = _mock_stream
+        proc._convert_messages_to_gemini_format = AsyncMock(return_value=([], None))
+
+        chunks = [c async for c in proc.process(msgs, "gemini-2.5-flash")]
+        types_found = {c.type for c in chunks}
+        assert ChunkType.TEXT in types_found
+        assert ChunkType.COMPLETION in types_found
+
+    @pytest.mark.asyncio
+    async def test_process_with_mcp_servers(self) -> None:
+        proc = _make_processor()
+        msgs = _msgs()
+        server = _make_server(headers="{}", prompt="search tool")
+
+        async def _mock_stream(
+            model_name, contents, config, mcp_sessions, cancel_token=None
+        ):
+            yield proc.chunk_factory.text("Result", delta="Result")
+
+        proc._stream_with_mcp = _mock_stream
+        proc._create_mcp_sessions = AsyncMock(return_value=([MagicMock()], []))
+        proc._convert_messages_to_gemini_format = AsyncMock(return_value=([], None))
+
+        chunks = [
+            c
+            async for c in proc.process(msgs, "gemini-2.5-flash", mcp_servers=[server])
+        ]
+        types_found = {c.type for c in chunks}
+        assert ChunkType.TEXT in types_found
+        assert ChunkType.COMPLETION in types_found
+
+    @pytest.mark.asyncio
+    async def test_process_error_yields_error_chunk(self) -> None:
+        proc = _make_processor()
+        msgs = _msgs()
+
+        async def _mock_stream(
+            model_name, contents, config, mcp_sessions, cancel_token=None
+        ):
+            raise RuntimeError("API error")
+            yield  # noqa: RET504
+
+        proc._stream_with_mcp = _mock_stream
+        proc._convert_messages_to_gemini_format = AsyncMock(return_value=([], None))
+
+        chunks = [c async for c in proc.process(msgs, "gemini-2.5-flash")]
+        error_chunks = [c for c in chunks if c.type == ChunkType.ERROR]
+        assert len(error_chunks) == 1
+
+    @pytest.mark.asyncio
+    async def test_process_with_auth_required(self) -> None:
+        proc = _make_processor()
+        msgs = _msgs()
+        server = _make_server(
+            auth_type=MCPAuthType.OAUTH_DISCOVERY,
+            headers="{}",
+        )
+
+        async def _mock_stream(
+            model_name, contents, config, mcp_sessions, cancel_token=None
+        ):
+            yield proc.chunk_factory.text("Result", delta="Result")
+
+        proc._stream_with_mcp = _mock_stream
+        proc._create_mcp_sessions = AsyncMock(return_value=([], [server]))
+        proc._convert_messages_to_gemini_format = AsyncMock(return_value=([], None))
+
+        chunks = [
+            c
+            async for c in proc.process(msgs, "gemini-2.5-flash", mcp_servers=[server])
+        ]
+        # Should still get text and completion
+        assert any(c.type == ChunkType.TEXT for c in chunks)
+        assert any(c.type == ChunkType.COMPLETION for c in chunks)
+
+
+# ============================================================================
+# _stream_with_mcp
+# ============================================================================
+
+
+class TestStreamWithMcp:
+    @pytest.mark.asyncio
+    async def test_no_mcp_sessions_direct_stream(self) -> None:
+        proc = _make_processor()
+
+        async def _mock_gen(model_name, contents, config, cancel=None):
+            yield proc.chunk_factory.text("Direct", delta="Direct")
+
+        proc._stream_generation = _mock_gen
+
+        from google.genai import types
+
+        chunks = [
+            c
+            async for c in proc._stream_with_mcp(
+                "gemini-2.5-flash",
+                [types.Content(role="user", parts=[types.Part(text="Hi")])],
+                types.GenerateContentConfig(temperature=0.7),
+                [],
+                None,
+            )
+        ]
+        assert len(chunks) == 1
+        assert chunks[0].type == ChunkType.TEXT
+
+    @pytest.mark.asyncio
+    async def test_with_mcp_sessions(self) -> None:
+        proc = _make_processor()
+
+        # Mock the context manager
+        tool_ctx = MCPToolContext(
+            session=MagicMock(),
+            server_name="TestServer",
+            tools={
+                "search": {
+                    "description": "Search tool",
+                    "inputSchema": {"type": "object", "properties": {}},
+                }
+            },
+        )
+
+        @asynccontextmanager
+        async def _mock_ctx(wrappers):
+            yield [tool_ctx]
+
+        proc._mcp_context_manager = _mock_ctx
+
+        async def _mock_tool_loop(
+            model_name, contents, config, tool_contexts, cancel=None
+        ):
+            yield proc.chunk_factory.text("With tools", delta="With tools")
+
+        proc._stream_with_tool_loop = _mock_tool_loop
+
+        from google.genai import types
+
+        wrapper = MCPSessionWrapper("https://test", {}, "TestServer")
+        chunks = [
+            c
+            async for c in proc._stream_with_mcp(
+                "gemini-2.5-flash",
+                [types.Content(role="user", parts=[types.Part(text="Hi")])],
+                types.GenerateContentConfig(temperature=0.7),
+                [wrapper],
+                None,
+            )
+        ]
+        assert any(c.type == ChunkType.TEXT for c in chunks)
+
+
+# ============================================================================
+# _stream_with_tool_loop
+# ============================================================================
+
+
+class TestStreamWithToolLoop:
+    @pytest.mark.asyncio
+    async def test_text_only_no_tools(self) -> None:
+        proc = _make_processor()
+
+        from google.genai import types
+
+        # Mock stream that returns text only
+        chunk_response = MagicMock()
+        chunk_response.usage_metadata = MagicMock(
+            prompt_token_count=10, candidates_token_count=5
+        )
+        chunk_response.candidates = [
+            MagicMock(
+                content=MagicMock(
+                    parts=[MagicMock(text="Answer text", function_call=None)]
+                )
+            )
+        ]
+
+        async def _mock_stream():
+            yield chunk_response
+
+        proc.client.aio.models.generate_content_stream = AsyncMock(
+            return_value=_mock_stream()
+        )
+
+        chunks = [
+            c
+            async for c in proc._stream_with_tool_loop(
+                "gemini-2.5-flash",
+                [types.Content(role="user", parts=[types.Part(text="Hi")])],
+                types.GenerateContentConfig(temperature=0.7),
+                [],
+                None,
+            )
+        ]
+        text_chunks = [c for c in chunks if c.type == ChunkType.TEXT]
+        assert len(text_chunks) == 1
+        assert "Answer text" in text_chunks[0].text
+
+    @pytest.mark.asyncio
+    async def test_with_function_calls(self) -> None:
+        proc = _make_processor()
+
+        from google.genai import types
+
+        # First round: model returns function call
+        fc_part = types.Part(
+            function_call=types.FunctionCall(
+                name="TestServer__search",
+                args={"query": "test"},
+            ),
+        )
+
+        chunk1 = MagicMock()
+        chunk1.usage_metadata = MagicMock(
+            prompt_token_count=10, candidates_token_count=5
+        )
+        chunk1.candidates = [MagicMock(content=MagicMock(parts=[fc_part]))]
+
+        # Second round: model returns text
+        text_part = types.Part(text="Final answer")
+        chunk2 = MagicMock()
+        chunk2.usage_metadata = MagicMock(
+            prompt_token_count=15, candidates_token_count=10
+        )
+        chunk2.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
+
+        call_count = 0
+
+        async def _mock_stream(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                yield chunk1
+            else:
+                yield chunk2
+
+        proc.client.aio.models.generate_content_stream = AsyncMock(
+            side_effect=_mock_stream
+        )
+
+        # Mock _execute_mcp_tool
+        proc._execute_mcp_tool = AsyncMock(return_value="search results")
+
+        ctx = MCPToolContext(
+            session=MagicMock(),
+            server_name="TestServer",
+            tools={"search": {"description": "Search"}},
+        )
+
+        chunks = [
+            c
+            async for c in proc._stream_with_tool_loop(
+                "gemini-2.5-flash",
+                [types.Content(role="user", parts=[types.Part(text="Hi")])],
+                types.GenerateContentConfig(temperature=0.7),
+                [ctx],
+                None,
+            )
+        ]
+
+        tool_calls = [c for c in chunks if c.type == ChunkType.TOOL_CALL]
+        tool_results = [c for c in chunks if c.type == ChunkType.TOOL_RESULT]
+        text_chunks = [c for c in chunks if c.type == ChunkType.TEXT]
+
+        assert len(tool_calls) >= 1
+        assert len(tool_results) >= 1
+        assert len(text_chunks) >= 1
+
+    @pytest.mark.asyncio
+    async def test_cancellation_during_streaming(self) -> None:
+        import asyncio
+
+        proc = _make_processor()
+        cancel = asyncio.Event()
+
+        from google.genai import types
+
+        text_part = MagicMock(text="answer", function_call=None)
+        chunk = MagicMock()
+        chunk.usage_metadata = None
+        chunk.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
+
+        async def _mock_stream(**kwargs):
+            yield chunk
+            cancel.set()
+            yield chunk
+
+        proc.client.aio.models.generate_content_stream = AsyncMock(
+            side_effect=_mock_stream
+        )
+
+        chunks = [
+            c
+            async for c in proc._stream_with_tool_loop(
+                "gemini-2.5-flash",
+                [types.Content(role="user", parts=[types.Part(text="Hi")])],
+                types.GenerateContentConfig(temperature=0.7),
+                [],
+                cancel,
+            )
+        ]
+        # Should get at least 1 text chunk before cancellation stopped
+        assert len(chunks) >= 1
+
+    @pytest.mark.asyncio
+    async def test_empty_candidates_skipped(self) -> None:
+        proc = _make_processor()
+
+        from google.genai import types
+
+        chunk = MagicMock()
+        chunk.usage_metadata = None
+        chunk.candidates = []
+
+        async def _mock_stream(**kwargs):
+            yield chunk
+
+        proc.client.aio.models.generate_content_stream = AsyncMock(
+            side_effect=_mock_stream
+        )
+
+        chunks = [
+            c
+            async for c in proc._stream_with_tool_loop(
+                "gemini-2.5-flash",
+                [types.Content(role="user", parts=[types.Part(text="Hi")])],
+                types.GenerateContentConfig(temperature=0.7),
+                [],
+                None,
+            )
+        ]
+        assert len(chunks) == 0
+
+
+# ============================================================================
+# _execute_mcp_tool
+# ============================================================================
+
+
+class TestExecuteMcpTool:
+    @pytest.mark.asyncio
+    async def test_successful_execution(self) -> None:
+        proc = _make_processor()
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.content = [MagicMock(text="result text")]
+        mock_session.call_tool = AsyncMock(return_value=mock_result)
+
+        ctx = MCPToolContext(
+            session=mock_session,
+            server_name="TestServer",
+            tools={"search": {}},
+        )
+
+        result = await proc._execute_mcp_tool(
+            "TestServer__search", {"q": "test"}, [ctx]
+        )
+        assert result == "result text"
+
+    @pytest.mark.asyncio
+    async def test_tool_not_found(self) -> None:
+        proc = _make_processor()
+        ctx = MCPToolContext(
+            session=MagicMock(),
+            server_name="Other",
+            tools={"search": {}},
+        )
+
+        result = await proc._execute_mcp_tool("TestServer__search", {}, [ctx])
+        assert "not found" in result
+
+    @pytest.mark.asyncio
+    async def test_execution_error(self) -> None:
+        proc = _make_processor()
+        mock_session = AsyncMock()
+        mock_session.call_tool = AsyncMock(side_effect=RuntimeError("fail"))
+
+        ctx = MCPToolContext(
+            session=mock_session,
+            server_name="TestServer",
+            tools={"search": {}},
+        )
+
+        result = await proc._execute_mcp_tool("TestServer__search", {}, [ctx])
+        assert "Error" in result
+
+    @pytest.mark.asyncio
+    async def test_no_content_result(self) -> None:
+        proc = _make_processor()
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.content = []
+        mock_session.call_tool = AsyncMock(return_value=mock_result)
+
+        ctx = MCPToolContext(
+            session=mock_session,
+            server_name="TestServer",
+            tools={"search": {}},
+        )
+
+        result = await proc._execute_mcp_tool("TestServer__search", {}, [ctx])
+        # Falls through to str(result)
+        assert result is not None
+
+
+# ============================================================================
+# _stream_generation
+# ============================================================================
+
+
+class TestStreamGeneration:
+    @pytest.mark.asyncio
+    async def test_basic_generation(self) -> None:
+        proc = _make_processor()
+
+        from google.genai import types
+
+        text_part = MagicMock(text="Hello world")
+        chunk = MagicMock()
+        chunk.usage_metadata = MagicMock(
+            prompt_token_count=10, candidates_token_count=5
+        )
+        chunk.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
+
+        async def _mock_stream():
+            yield chunk
+
+        proc.client.aio.models.generate_content_stream = AsyncMock(
+            return_value=_mock_stream()
+        )
+
+        proc._reset_statistics("gemini-2.5-flash")
+        chunks = [
+            c
+            async for c in proc._stream_generation(
+                "gemini-2.5-flash",
+                [types.Content(role="user", parts=[types.Part(text="Hi")])],
+                types.GenerateContentConfig(temperature=0.7),
+            )
+        ]
+        assert len(chunks) == 1
+        assert chunks[0].type == ChunkType.TEXT
+
+    @pytest.mark.asyncio
+    async def test_generation_with_cancellation(self) -> None:
+        import asyncio
+
+        proc = _make_processor()
+        cancel = asyncio.Event()
+        cancel.set()
+
+        from google.genai import types
+
+        text_part = MagicMock(text="Hello")
+        chunk = MagicMock()
+        chunk.usage_metadata = None
+        chunk.candidates = [MagicMock(content=MagicMock(parts=[text_part]))]
+
+        async def _mock_stream():
+            yield chunk
+
+        proc.client.aio.models.generate_content_stream = AsyncMock(
+            return_value=_mock_stream()
+        )
+
+        chunks = [
+            c
+            async for c in proc._stream_generation(
+                "gemini-2.5-flash",
+                [types.Content(role="user", parts=[types.Part(text="Hi")])],
+                types.GenerateContentConfig(temperature=0.7),
+                cancel,
+            )
+        ]
+        # Should be empty or minimal since cancelled
+        assert len(chunks) == 0
+
+
+# ============================================================================
+# _mcp_context_manager
+# ============================================================================
+
+
+class TestMcpContextManager:
+    @pytest.mark.asyncio
+    async def test_empty_wrappers(self) -> None:
+        proc = _make_processor()
+        async with proc._mcp_context_manager([]) as contexts:
+            assert contexts == []
+
+    @pytest.mark.asyncio
+    async def test_connection_failure_skipped(self) -> None:
+        proc = _make_processor()
+        wrapper = MCPSessionWrapper("https://invalid", {}, "FailServer")
+
+        with patch(f"{_PATCH}.httpx.AsyncClient", side_effect=RuntimeError("oops")):
+            async with proc._mcp_context_manager([wrapper]) as contexts:
+                # Should continue with empty contexts
+                assert len(contexts) == 0
+
+
+# ============================================================================
+# Init error handling
+# ============================================================================
+
+
+class TestInitErrors:
+    def test_api_key_none_disables_client(self) -> None:
+        proc = _make_processor(api_key=None)
+        assert proc.client is None
+
+    def test_client_creation_error(self) -> None:
+        with patch(f"{_PATCH}.genai.Client", side_effect=RuntimeError("bad key")):
+            proc = GeminiResponsesProcessor(
+                models={"m": _model()},
+                api_key="test-key",
+                oauth_redirect_uri="https://test/cb",
+            )
+        assert proc.client is None
