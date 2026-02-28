@@ -22,14 +22,16 @@ from appkit_assistant.backend.database.repositories import mcp_server_repo
 from appkit_assistant.backend.services.mcp_apps_service import (
     McpAppsService,
 )
+from appkit_assistant.backend.services.mcp_token_service import MCPTokenService
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mcp-apps", tags=["mcp-apps"])
 
-# Shared service instance
-_mcp_apps_service = McpAppsService()
+# Shared service instances
+_mcp_token_service = MCPTokenService()
+_mcp_apps_service = McpAppsService(token_service=_mcp_token_service)
 
 # Default user ID when session token is not available
 _DEFAULT_USER_ID = 0
