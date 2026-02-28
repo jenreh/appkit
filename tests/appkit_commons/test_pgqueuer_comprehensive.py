@@ -4,6 +4,7 @@ import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import psycopg
 import pytest
 
 from appkit_commons.scheduler.pgqueuer import PGQueuerScheduler
@@ -449,3 +450,253 @@ class TestPGQueuerSchedulerIntegration:
 
         # Assert
         assert scheduler._services["test_service"] is service
+
+
+# ============================================================================
+# Supplementary tests for uncovered code paths
+# ============================================================================
+
+
+class TestAddServiceWhenRunning:
+    def test_registers_immediately(self) -> None:
+        """add_service registers on PGQueuer when scheduler is running."""
+        scheduler = PGQueuerScheduler()
+        scheduler._is_running = True
+        scheduler._pgq = MagicMock()
+        scheduler._pgq.schedule = MagicMock(return_value=lambda f: f)
+        service = MockScheduledService()
+
+        scheduler.add_service(service)
+
+        assert "test_service" in scheduler._services
+        scheduler._pgq.schedule.assert_called_once()
+
+
+class TestIsConnectionAlive:
+    @pytest.mark.asyncio
+    async def test_no_connection(self) -> None:
+        scheduler = PGQueuerScheduler()
+        scheduler._conn = None
+        assert await scheduler._is_connection_alive() is False
+
+    @pytest.mark.asyncio
+    async def test_connection_closed(self) -> None:
+        scheduler = PGQueuerScheduler()
+        conn = MagicMock()
+        conn.closed = True
+        scheduler._conn = conn
+        assert await scheduler._is_connection_alive() is False
+
+    @pytest.mark.asyncio
+    async def test_select_1_success(self) -> None:
+        scheduler = PGQueuerScheduler()
+        conn = AsyncMock()
+        conn.closed = False
+        scheduler._conn = conn
+        assert await scheduler._is_connection_alive() is True
+        conn.execute.assert_awaited_once_with("SELECT 1")
+
+    @pytest.mark.asyncio
+    async def test_timeout_error(self) -> None:
+        scheduler = PGQueuerScheduler()
+        conn = AsyncMock()
+        conn.closed = False
+        conn.execute = AsyncMock(side_effect=TimeoutError)
+        scheduler._conn = conn
+        assert await scheduler._is_connection_alive() is False
+
+    @pytest.mark.asyncio
+    async def test_psycopg_error(self) -> None:
+        scheduler = PGQueuerScheduler()
+        conn = AsyncMock()
+        conn.closed = False
+        conn.execute = AsyncMock(side_effect=psycopg.Error("conn lost"))
+        scheduler._conn = conn
+        assert await scheduler._is_connection_alive() is False
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error(self) -> None:
+        scheduler = PGQueuerScheduler()
+        conn = AsyncMock()
+        conn.closed = False
+        conn.execute = AsyncMock(side_effect=ValueError("unexpected"))
+        scheduler._conn = conn
+        assert await scheduler._is_connection_alive() is False
+
+
+class TestRunLoopPaths:
+    @pytest.mark.asyncio
+    async def test_setup_fails_retries(self) -> None:
+        """_run_loop retries when _setup_pgqueuer fails."""
+        scheduler = PGQueuerScheduler()
+        call_count = 0
+
+        async def flaky_setup():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                scheduler._is_running = False
+
+        with patch.object(
+            scheduler,
+            "_setup_pgqueuer",
+            side_effect=flaky_setup,
+        ):
+            scheduler._is_running = True
+            with patch(
+                "appkit_commons.scheduler.pgqueuer.asyncio.sleep",
+                new_callable=AsyncMock,
+            ):
+                await scheduler._run_loop()
+        assert call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_health_check_fails_reconnects(self) -> None:
+        """_run_loop reconnects when health check fails."""
+        scheduler = PGQueuerScheduler()
+        scheduler._pgq = MagicMock()
+        call_count = 0
+
+        async def fail_health():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                scheduler._is_running = False
+            return False
+
+        with (
+            patch.object(scheduler, "_is_connection_alive", side_effect=fail_health),
+            patch.object(
+                scheduler, "_cleanup_connection", new_callable=AsyncMock
+            ) as cleanup,
+            patch(
+                "appkit_commons.scheduler.pgqueuer.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            scheduler._is_running = True
+            await scheduler._run_loop()
+
+        cleanup.assert_awaited()
+        assert call_count >= 2
+
+    @pytest.mark.asyncio
+    async def test_operational_error_reconnects(self) -> None:
+        """_run_loop reconnects on psycopg.OperationalError."""
+        scheduler = PGQueuerScheduler()
+        scheduler._pgq = MagicMock()
+        call_count = 0
+
+        async def healthy():
+            return True
+
+        async def run_fails():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                scheduler._is_running = False
+                return
+            raise psycopg.OperationalError("connection closed")
+
+        with (
+            patch.object(scheduler, "_is_connection_alive", side_effect=healthy),
+            patch.object(scheduler._pgq, "run", side_effect=run_fails),
+            patch.object(
+                scheduler, "_cleanup_connection", new_callable=AsyncMock
+            ) as cleanup,
+            patch(
+                "appkit_commons.scheduler.pgqueuer.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            scheduler._is_running = True
+            await scheduler._run_loop()
+
+        cleanup.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_reconnects(self) -> None:
+        """_run_loop reconnects on unexpected exception."""
+        scheduler = PGQueuerScheduler()
+        scheduler._pgq = MagicMock()
+        call_count = 0
+
+        async def healthy():
+            return True
+
+        async def run_crashes():
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                scheduler._is_running = False
+                return
+            raise RuntimeError("boom")
+
+        with (
+            patch.object(scheduler, "_is_connection_alive", side_effect=healthy),
+            patch.object(scheduler._pgq, "run", side_effect=run_crashes),
+            patch.object(
+                scheduler, "_cleanup_connection", new_callable=AsyncMock
+            ) as cleanup,
+            patch(
+                "appkit_commons.scheduler.pgqueuer.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            scheduler._is_running = True
+            await scheduler._run_loop()
+
+        cleanup.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_run_loop_cancelled_error_breaks(self) -> None:
+        """_run_loop breaks on CancelledError."""
+        scheduler = PGQueuerScheduler()
+        scheduler._pgq = MagicMock()
+
+        async def healthy():
+            return True
+
+        async def run_cancel():
+            raise asyncio.CancelledError
+
+        with (
+            patch.object(scheduler, "_is_connection_alive", side_effect=healthy),
+            patch.object(scheduler._pgq, "run", side_effect=run_cancel),
+        ):
+            scheduler._is_running = True
+            await scheduler._run_loop()
+
+    @pytest.mark.asyncio
+    async def test_run_loop_registers_services_on_new_pgq(
+        self,
+    ) -> None:
+        """_run_loop registers all services on new PGQueuer setup."""
+        scheduler = PGQueuerScheduler()
+        service = MockScheduledService()
+        scheduler.add_service(service)
+
+        setup_called = False
+
+        async def setup_pgq():
+            nonlocal setup_called
+            setup_called = True
+            scheduler._pgq = MagicMock()
+            scheduler._pgq.schedule = MagicMock(return_value=lambda f: f)
+            scheduler._pgq.run = AsyncMock()
+            scheduler._is_running = False
+
+        with (
+            patch.object(scheduler, "_setup_pgqueuer", side_effect=setup_pgq),
+            patch.object(
+                scheduler,
+                "_is_connection_alive",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            scheduler._is_running = True
+            await scheduler._run_loop()
+
+        assert setup_called
+        scheduler._pgq.schedule.assert_called_once()

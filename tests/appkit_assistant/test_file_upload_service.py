@@ -16,6 +16,16 @@ from appkit_assistant.backend.services.file_upload_service import (
 )
 from appkit_assistant.configuration import FileUploadConfig
 
+_PATCH = "appkit_assistant.backend.services.file_upload_service"
+
+
+def _db_context(session: AsyncMock | None = None):
+    s = session or AsyncMock()
+    cm = AsyncMock()
+    cm.__aenter__ = AsyncMock(return_value=s)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return cm
+
 
 @pytest.fixture
 def mock_client() -> MagicMock:
@@ -500,3 +510,309 @@ class TestCleanupDeletedThread:
             result = await service.cleanup_deleted_thread(1, "vs-1")
         assert result["vector_store_deleted"] is False
         assert len(result["errors"]) == 1
+
+
+# ============================================================================
+# Supplementary tests for uncovered code paths
+# ============================================================================
+
+
+class TestRecreateVectorStore:
+    @pytest.mark.asyncio
+    async def test_recreate_migrates_files(
+        self,
+        service: FileUploadService,
+        mock_client: MagicMock,
+    ) -> None:
+        """_recreate_vector_store creates new VS and migrates files."""
+        session = AsyncMock()
+        thread = MagicMock()
+        thread.vector_store_id = "old-vs"
+
+        file1 = MagicMock()
+        file1.openai_file_id = "file-1"
+        file2 = MagicMock()
+        file2.openai_file_id = "file-2"
+
+        new_vs = MagicMock()
+        new_vs.id = "new-vs"
+        new_vs.name = "Thread-uuid"
+
+        with patch(f"{_PATCH}.file_upload_repo") as fr:
+            fr.find_by_thread = AsyncMock(return_value=[file1, file2])
+            mock_client.vector_stores.create = AsyncMock(return_value=new_vs)
+            mock_client.vector_stores.files.create = AsyncMock()
+
+            vs_id, vs_name = await service._recreate_vector_store(
+                session, thread, "uuid"
+            )
+
+        assert vs_id == "new-vs"
+        assert thread.vector_store_id == "new-vs"
+        assert mock_client.vector_stores.files.create.call_count == 2
+        session.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_recreate_handles_file_add_failure(
+        self,
+        service: FileUploadService,
+        mock_client: MagicMock,
+    ) -> None:
+        """_recreate_vector_store continues when one file fails to add."""
+        session = AsyncMock()
+        thread = MagicMock()
+        thread.vector_store_id = "old-vs"
+
+        file1 = MagicMock()
+        file1.openai_file_id = "file-ok"
+        file2 = MagicMock()
+        file2.openai_file_id = "file-fail"
+
+        new_vs = MagicMock()
+        new_vs.id = "new-vs"
+        new_vs.name = "Thread-uuid"
+
+        with patch(f"{_PATCH}.file_upload_repo") as fr:
+            fr.find_by_thread = AsyncMock(return_value=[file1, file2])
+            mock_client.vector_stores.create = AsyncMock(return_value=new_vs)
+            mock_client.vector_stores.files.create = AsyncMock(
+                side_effect=[None, RuntimeError("api error")]
+            )
+
+            vs_id, _ = await service._recreate_vector_store(session, thread, "uuid")
+
+        assert vs_id == "new-vs"
+
+
+class TestAddFilesToVectorStore:
+    @pytest.mark.asyncio
+    async def test_add_files_success(
+        self,
+        service: FileUploadService,
+        mock_client: MagicMock,
+    ) -> None:
+        """_add_files_to_vector_store adds files and writes DB records."""
+        mock_client.vector_stores.files.create = AsyncMock()
+        session = AsyncMock()
+
+        with patch(
+            f"{_PATCH}.get_asyncdb_session",
+            return_value=_db_context(session),
+        ):
+            await service._add_files_to_vector_store(
+                vector_store_id="vs-1",
+                vector_store_name="test",
+                file_ids=["f1", "f2"],
+                thread_id=1,
+                user_id=1,
+                filenames=["a.txt", "b.txt"],
+                file_sizes=[100, 200],
+                ai_model="gpt-4",
+            )
+
+        assert mock_client.vector_stores.files.create.call_count == 2
+        session.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_add_files_empty(
+        self,
+        service: FileUploadService,
+    ) -> None:
+        """_add_files_to_vector_store returns early for empty list."""
+        await service._add_files_to_vector_store(
+            vector_store_id="vs-1",
+            vector_store_name="test",
+            file_ids=[],
+            thread_id=1,
+            user_id=1,
+            filenames=[],
+            file_sizes=[],
+        )
+
+    @pytest.mark.asyncio
+    async def test_add_files_api_error(
+        self,
+        service: FileUploadService,
+        mock_client: MagicMock,
+    ) -> None:
+        """_add_files_to_vector_store raises FileUploadError on API failure."""
+        mock_client.vector_stores.files.create = AsyncMock(
+            side_effect=RuntimeError("api")
+        )
+        with pytest.raises(FileUploadError, match="Failed to add file"):
+            await service._add_files_to_vector_store(
+                vector_store_id="vs-1",
+                vector_store_name="test",
+                file_ids=["f1"],
+                thread_id=1,
+                user_id=1,
+                filenames=["a.txt"],
+                file_sizes=[100],
+            )
+
+
+class TestProcessFiles:
+    @pytest.mark.asyncio
+    async def test_empty_file_paths(
+        self,
+        service: FileUploadService,
+    ) -> None:
+        """process_files returns immediately for empty list."""
+        chunks = [c async for c in service.process_files([], 1, "u", 1)]
+        assert chunks == []
+
+    @pytest.mark.asyncio
+    async def test_full_flow(
+        self,
+        service: FileUploadService,
+        mock_client: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """process_files uploads, creates VS, adds, tracks, and waits."""
+        f = tmp_path / "test.txt"
+        f.write_text("hello")
+
+        mock_client.vector_stores.files.create = AsyncMock()
+
+        vs_file = SimpleNamespace(id="file-1", status="completed", last_error=None)
+        mock_client.vector_stores.files.list = AsyncMock(
+            return_value=SimpleNamespace(data=[vs_file])
+        )
+
+        session = AsyncMock()
+        session.add = MagicMock()
+
+        with (
+            patch(
+                f"{_PATCH}.get_asyncdb_session",
+                return_value=_db_context(session),
+            ),
+            patch.object(
+                service,
+                "upload_file",
+                new_callable=AsyncMock,
+                return_value="file-1",
+            ),
+            patch.object(
+                service,
+                "get_vector_store",
+                new_callable=AsyncMock,
+                return_value=("vs-new", "Thread-u"),
+            ),
+        ):
+            chunks = [
+                c async for c in service.process_files([str(f)], 1, "u", 1, "gpt-4")
+            ]
+
+        assert len(chunks) >= 3
+        statuses = [c.chunk_metadata.get("status") for c in chunks if c.chunk_metadata]
+        assert "uploading" in statuses
+
+    @pytest.mark.asyncio
+    async def test_cleanup_on_failure(
+        self,
+        service: FileUploadService,
+        mock_client: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """process_files cleans up uploaded files on failure."""
+        f = tmp_path / "test.txt"
+        f.write_text("hello")
+
+        mock_client.files.create = AsyncMock(return_value=SimpleNamespace(id="file-1"))
+
+        session = AsyncMock()
+        session.add = MagicMock()
+        with (
+            patch(
+                f"{_PATCH}.get_asyncdb_session",
+                return_value=_db_context(session),
+            ),
+            patch.object(
+                service,
+                "upload_file",
+                new_callable=AsyncMock,
+                return_value="file-1",
+            ),
+            patch.object(
+                service,
+                "get_vector_store",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("vs fail"),
+            ),
+            patch.object(
+                service,
+                "delete_files",
+                new_callable=AsyncMock,
+            ) as mock_del,
+        ):
+            with pytest.raises(RuntimeError, match="vs fail"):
+                async for _ in service.process_files([str(f)], 1, "u", 1):
+                    pass
+            mock_del.assert_awaited_once()
+
+
+class TestGetVectorStoreRecreate:
+    @staticmethod
+    def _mock_session_with_thread(thread: MagicMock) -> AsyncMock:
+        session = AsyncMock()
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = thread
+        session.execute = AsyncMock(return_value=result)
+        return session
+
+    @pytest.mark.asyncio
+    async def test_existing_vs_not_found_triggers_recreate(
+        self,
+        service: FileUploadService,
+        mock_client: MagicMock,
+    ) -> None:
+        """get_vector_store recreates VS when 404 from OpenAI."""
+        thread = MagicMock()
+        thread.vector_store_id = "old-vs"
+
+        session = self._mock_session_with_thread(thread)
+        mock_client.vector_stores.retrieve = AsyncMock(
+            side_effect=Exception("not found 404")
+        )
+
+        with (
+            patch(
+                f"{_PATCH}.get_asyncdb_session",
+                return_value=_db_context(session),
+            ),
+            patch.object(
+                service,
+                "_recreate_vector_store",
+                new_callable=AsyncMock,
+                return_value=("new-vs", "Thread-u"),
+            ) as recreate,
+        ):
+            vs_id, vs_name = await service.get_vector_store(1, "u")
+
+        recreate.assert_awaited_once()
+        assert vs_id == "new-vs"
+
+    @pytest.mark.asyncio
+    async def test_existing_vs_other_error(
+        self,
+        service: FileUploadService,
+        mock_client: MagicMock,
+    ) -> None:
+        """get_vector_store returns existing VS ID on non-404 error."""
+        thread = MagicMock()
+        thread.vector_store_id = "old-vs"
+
+        session = self._mock_session_with_thread(thread)
+        mock_client.vector_stores.retrieve = AsyncMock(
+            side_effect=Exception("server error")
+        )
+
+        with patch(
+            f"{_PATCH}.get_asyncdb_session",
+            return_value=_db_context(session),
+        ):
+            vs_id, vs_name = await service.get_vector_store(1, "u")
+
+        assert vs_id == "old-vs"
+        assert "Thread-u" in vs_name

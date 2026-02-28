@@ -623,3 +623,485 @@ class TestUpdateServerOAuthConfig:
         assert result.oauth_scopes == "openid profile"
         session.add.assert_called_once()
         session.commit.assert_called_once()
+
+
+# ============================================================================
+# Supplementary tests for uncovered code paths
+# ============================================================================
+
+
+class TestDiscoverOAuthConfigEdgeCases:
+    @pytest.mark.asyncio
+    async def test_unexpected_error_continues(self) -> None:
+        """Non-httpx exception is caught and next path is tried."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=ValueError("parse fail"))
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.discover_oauth_config("https://mcp.test")
+        assert result.error is not None
+
+    @pytest.mark.asyncio
+    async def test_httpx_request_error_continues(self) -> None:
+        """httpx.RequestError on first path tries remaining paths."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.discover_oauth_config("https://mcp.test")
+        assert result.error is not None
+        # Should have tried multiple discovery paths
+        assert mock_client.get.call_count > 1
+
+
+class TestRegisterClientEdgeCases:
+    @pytest.mark.asyncio
+    async def test_error_response_json_parse_failure(self) -> None:
+        """Non-parseable error response body falls back."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        mock_response = MagicMock()
+        mock_response.status_code = HTTPStatus.INTERNAL_SERVER_ERROR
+        mock_response.json.side_effect = ValueError("bad json")
+        mock_response.text = "Internal Server Error"
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.register_client("https://auth.test/register")
+        assert result.error == "registration_failed"
+        assert "500" in (result.error_description or "")
+
+
+class TestBuildAuthorizationUrlWithRegistration:
+    @pytest.mark.asyncio
+    async def test_full_dcr_flow(self) -> None:
+        """Discovers, registers, updates server, then builds URL."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.id = 1
+        server.name = "Test"
+        server.oauth_client_id = None  # triggers DCR
+        server.oauth_authorize_url = None
+        server.oauth_token_url = None
+        server.oauth_client_secret = None
+        server.oauth_scopes = None
+        server.url = "https://mcp.test"
+
+        session = MagicMock()
+        session.get.return_value = server
+
+        discovery = OAuthDiscoveryResult(
+            authorization_endpoint="https://auth.test/authz",
+            token_endpoint="https://auth.test/token",
+            registration_endpoint="https://auth.test/register",
+        )
+        reg_result = ClientRegistrationResult(
+            client_id="new-client-id",
+            client_secret="new-secret",
+        )
+
+        with (
+            patch.object(
+                svc,
+                "discover_oauth_config",
+                new_callable=AsyncMock,
+                return_value=discovery,
+            ),
+            patch.object(
+                svc,
+                "register_client",
+                new_callable=AsyncMock,
+                return_value=reg_result,
+            ),
+        ):
+            url, state = await svc.build_authorization_url_with_registration(
+                server, session=session, user_id=1
+            )
+
+        assert "client_id=new-client-id" in url
+        assert state is not None
+        session.add.assert_called()
+        session.commit.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_discovery_error_raises(self) -> None:
+        """Discovery failure raises ValueError."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.id = 1
+        server.name = "Test"
+        server.oauth_client_id = None
+        server.url = "https://mcp.test"
+
+        discovery = OAuthDiscoveryResult(error="not found")
+        with (
+            patch.object(
+                svc,
+                "discover_oauth_config",
+                new_callable=AsyncMock,
+                return_value=discovery,
+            ),
+            pytest.raises(ValueError, match="discovery failed"),
+        ):
+            await svc.build_authorization_url_with_registration(server)
+
+    @pytest.mark.asyncio
+    async def test_no_registration_endpoint_raises(self) -> None:
+        """No registration_endpoint raises ValueError."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.id = 1
+        server.name = "Test"
+        server.oauth_client_id = None
+        server.url = "https://mcp.test"
+
+        discovery = OAuthDiscoveryResult(
+            authorization_endpoint="https://auth.test/authz",
+            registration_endpoint=None,
+        )
+        with (
+            patch.object(
+                svc,
+                "discover_oauth_config",
+                new_callable=AsyncMock,
+                return_value=discovery,
+            ),
+            pytest.raises(ValueError, match="no client ID"),
+        ):
+            await svc.build_authorization_url_with_registration(server)
+
+    @pytest.mark.asyncio
+    async def test_registration_fails_raises(self) -> None:
+        """Registration error raises ValueError."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.id = 1
+        server.name = "Test"
+        server.oauth_client_id = None
+        server.url = "https://mcp.test"
+
+        discovery = OAuthDiscoveryResult(
+            authorization_endpoint="https://auth.test/authz",
+            registration_endpoint="https://auth.test/register",
+        )
+        reg = ClientRegistrationResult(error="denied", error_description="not allowed")
+        with (
+            patch.object(
+                svc,
+                "discover_oauth_config",
+                new_callable=AsyncMock,
+                return_value=discovery,
+            ),
+            patch.object(
+                svc,
+                "register_client",
+                new_callable=AsyncMock,
+                return_value=reg,
+            ),
+            pytest.raises(ValueError, match="registration failed"),
+        ):
+            await svc.build_authorization_url_with_registration(server)
+
+    @pytest.mark.asyncio
+    async def test_no_client_id_from_registration(self) -> None:
+        """Registration returns no client_id raises ValueError."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.id = 1
+        server.name = "Test"
+        server.oauth_client_id = None
+        server.url = "https://mcp.test"
+
+        discovery = OAuthDiscoveryResult(
+            authorization_endpoint="https://auth.test/authz",
+            registration_endpoint="https://auth.test/register",
+        )
+        reg = ClientRegistrationResult(client_id=None)
+        with (
+            patch.object(
+                svc,
+                "discover_oauth_config",
+                new_callable=AsyncMock,
+                return_value=discovery,
+            ),
+            patch.object(
+                svc,
+                "register_client",
+                new_callable=AsyncMock,
+                return_value=reg,
+            ),
+            pytest.raises(ValueError, match="no client_id returned"),
+        ):
+            await svc.build_authorization_url_with_registration(server)
+
+    @pytest.mark.asyncio
+    async def test_has_client_id_skips_dcr(self) -> None:
+        """When server already has client_id, skip DCR."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.id = 1
+        server.name = "Test"
+        server.oauth_client_id = "existing-client"
+        server.oauth_authorize_url = "https://auth.test/authz"
+        server.oauth_scopes = None
+
+        url, state = await svc.build_authorization_url_with_registration(server)
+        assert "client_id=existing-client" in url
+
+    @pytest.mark.asyncio
+    async def test_commit_failure_rolls_back(self) -> None:
+        """Session commit failure during DCR persist does rollback."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.id = 1
+        server.name = "Test"
+        server.oauth_client_id = None
+        server.oauth_authorize_url = None
+        server.oauth_token_url = None
+        server.oauth_client_secret = None
+        server.oauth_scopes = None
+        server.url = "https://mcp.test"
+
+        session = MagicMock()
+        session.get.return_value = server
+        session.commit.side_effect = RuntimeError("db error")
+
+        discovery = OAuthDiscoveryResult(
+            authorization_endpoint="https://auth.test/authz",
+            token_endpoint="https://auth.test/token",
+            registration_endpoint="https://auth.test/register",
+        )
+        reg = ClientRegistrationResult(client_id="new-id")
+
+        with (
+            patch.object(
+                svc,
+                "discover_oauth_config",
+                new_callable=AsyncMock,
+                return_value=discovery,
+            ),
+            patch.object(
+                svc,
+                "register_client",
+                new_callable=AsyncMock,
+                return_value=reg,
+            ),
+        ):
+            url, _ = await svc.build_authorization_url_with_registration(
+                server, session=session, user_id=1
+            )
+        session.rollback.assert_called()
+        assert "client_id=new-id" in url
+
+
+class TestBuildAuthUrlWithSession:
+    def test_state_saved_to_db(self) -> None:
+        """build_authorization_url saves state to DB session."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_authorize_url = "https://auth.test/authz"
+        server.oauth_client_id = "client-1"
+        server.oauth_scopes = None
+        server.id = 1
+
+        session = MagicMock()
+        url, state = svc.build_authorization_url(
+            server, state="s1", session=session, user_id=1
+        )
+
+        session.add.assert_called_once()
+        session.commit.assert_called_once()
+
+    def test_no_session_still_works(self) -> None:
+        """build_authorization_url works without DB session."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_authorize_url = "https://auth.test/authz"
+        server.oauth_client_id = "client-1"
+        server.oauth_scopes = None
+        server.id = 1
+
+        url, state = svc.build_authorization_url(server)
+        assert "client_id=client-1" in url
+
+    def test_state_commit_failure(self) -> None:
+        """build_authorization_url handles commit failure."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_authorize_url = "https://auth.test/authz"
+        server.oauth_client_id = "client-1"
+        server.oauth_scopes = None
+        server.id = 1
+
+        session = MagicMock()
+        session.commit.side_effect = RuntimeError("db")
+
+        url, state = svc.build_authorization_url(server, session=session, user_id=1)
+        session.rollback.assert_called_once()
+
+
+class TestExchangeCodeWithPKCE:
+    @pytest.mark.asyncio
+    async def test_with_state_and_pkce(self) -> None:
+        """Exchange uses PKCE verifier from DB state."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_token_url = "https://auth.test/token"
+        server.oauth_client_id = "client-1"
+        server.oauth_client_secret = None
+        server.id = 1
+
+        oauth_state = MagicMock()
+        oauth_state.expires_at = datetime.now(UTC) + timedelta(hours=1)
+        oauth_state.code_verifier = "test-verifier"
+
+        session = MagicMock()
+        session.exec.return_value.first.return_value = oauth_state
+
+        mock_response = MagicMock()
+        mock_response.status_code = HTTPStatus.OK
+        mock_response.json.return_value = {
+            "access_token": "at-1",
+        }
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.exchange_code_for_tokens(
+            server, "code", state="s1", session=session
+        )
+        assert result.access_token == "at-1"
+        # Verify code_verifier was included in request
+        call_kwargs = mock_client.post.call_args
+        assert "test-verifier" in str(call_kwargs)
+
+    @pytest.mark.asyncio
+    async def test_with_expired_state(self) -> None:
+        """Exchange fails with expired OAuth state."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_token_url = "https://auth.test/token"
+        server.oauth_client_id = "client-1"
+        server.oauth_client_secret = None
+        server.id = 1
+
+        oauth_state = MagicMock()
+        oauth_state.expires_at = datetime.now(UTC) - timedelta(hours=1)
+
+        session = MagicMock()
+        session.exec.return_value.first.return_value = oauth_state
+
+        result = await svc.exchange_code_for_tokens(
+            server, "code", state="s1", session=session
+        )
+        assert result.error == "invalid_grant"
+
+    @pytest.mark.asyncio
+    async def test_with_client_secret(self) -> None:
+        """Exchange includes client_secret when available."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_token_url = "https://auth.test/token"
+        server.oauth_client_id = "client-1"
+        server.oauth_client_secret = "secret-1"
+        server.id = 1
+
+        mock_response = MagicMock()
+        mock_response.status_code = HTTPStatus.OK
+        mock_response.json.return_value = {"access_token": "at"}
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.exchange_code_for_tokens(server, "code")
+        assert result.access_token == "at"
+        call_kwargs = mock_client.post.call_args
+        assert "secret-1" in str(call_kwargs)
+
+    @pytest.mark.asyncio
+    async def test_error_json_parse_failure(self) -> None:
+        """Non-parseable error response falls back."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_token_url = "https://auth.test/token"
+        server.oauth_client_id = "client-1"
+        server.oauth_client_secret = None
+        server.id = 1
+
+        mock_response = MagicMock()
+        mock_response.status_code = HTTPStatus.BAD_REQUEST
+        mock_response.json.side_effect = ValueError("bad json")
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.exchange_code_for_tokens(server, "code")
+        assert result.error == "http_error"
+
+
+class TestRefreshAccessTokenEdgeCases:
+    @pytest.mark.asyncio
+    async def test_with_client_secret(self) -> None:
+        """Refresh includes client_secret when available."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_token_url = "https://auth.test/token"
+        server.oauth_client_id = "client-1"
+        server.oauth_client_secret = "secret-1"
+
+        mock_response = MagicMock()
+        mock_response.status_code = HTTPStatus.OK
+        mock_response.json.return_value = {
+            "access_token": "new-at",
+        }
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.refresh_access_token(server, "rt-1")
+        assert result.access_token == "new-at"
+        call_data = mock_client.post.call_args
+        assert "secret-1" in str(call_data)
+
+    @pytest.mark.asyncio
+    async def test_error_json_parse_failure(self) -> None:
+        """Non-parseable error response falls back."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_token_url = "https://auth.test/token"
+        server.oauth_client_id = "client-1"
+        server.oauth_client_secret = None
+
+        mock_response = MagicMock()
+        mock_response.status_code = HTTPStatus.UNAUTHORIZED
+        mock_response.json.side_effect = ValueError("bad")
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.refresh_access_token(server, "rt-1")
+        assert result.error == "http_error"
+
+    @pytest.mark.asyncio
+    async def test_request_error(self) -> None:
+        """httpx.RequestError during refresh."""
+        svc = MCPAuthService(redirect_uri="https://app.test/callback")
+        server = MagicMock()
+        server.oauth_token_url = "https://auth.test/token"
+        server.oauth_client_id = "client-1"
+        server.oauth_client_secret = None
+
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(side_effect=httpx.RequestError("net fail"))
+        svc._http_client = mock_client  # noqa: SLF001
+
+        result = await svc.refresh_access_token(server, "rt-1")
+        assert result.error == "request_failed"

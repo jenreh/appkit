@@ -146,6 +146,7 @@ class _StubLoginState:
     redir = _unwrap(LoginState, "redir")
     check_auth = _unwrap(LoginState, "check_auth")
     _should_skip_auth_check = _unwrap(LoginState, "_should_skip_auth_check")
+    _is_oauth_callback_path = _unwrap(LoginState, "_is_oauth_callback_path")
 
     async def get_state(self, cls: type) -> MagicMock:
         return MagicMock(user_id=0, user=None)
@@ -691,3 +692,381 @@ class TestRedir:
 
         assert state.redirect_to == "/dashboard"
         assert result is not None  # redirect to login
+
+    @pytest.mark.asyncio
+    async def test_not_authenticated_at_login_route(self) -> None:
+        state = _StubLoginState()
+        state.router.url.path = "/login"
+
+        async def _not_auth():
+            return False
+
+        state.is_authenticated = _not_auth()
+        result = await state.redir()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_authenticated_with_redirect_to(self) -> None:
+        state = _StubLoginState()
+        state.redirect_to = "/dashboard"
+        state.router.url.path = "/login"
+
+        async def _auth():
+            return True
+
+        state.is_authenticated = _auth()
+        result = await state.redir()
+        assert state.redirect_to == ""
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_authenticated_at_login_route(self) -> None:
+        state = _StubLoginState()
+        state.redirect_to = ""
+        state.router.url.path = "/login"
+
+        async def _auth():
+            return True
+
+        state.is_authenticated = _auth()
+        result = await state.redir()
+        assert result is not None  # redirect to homepage
+
+    @pytest.mark.asyncio
+    async def test_authenticated_at_oauth_callback(self) -> None:
+        state = _StubLoginState()
+        state.redirect_to = ""
+        state.router.url.path = "/oauth/azure/callback"
+
+        async def _auth():
+            return True
+
+        state.is_authenticated = _auth()
+        result = await state.redir()
+        assert result is not None  # redirect to homepage
+
+    @pytest.mark.asyncio
+    async def test_authenticated_at_regular_page(self) -> None:
+        state = _StubLoginState()
+        state.redirect_to = ""
+        state.router.url.path = "/dashboard"
+
+        async def _auth():
+            return True
+
+        state.is_authenticated = _auth()
+        result = await state.redir()
+        assert result is None
+
+
+# ============================================================================
+# Supplementary tests for uncovered code paths
+# ============================================================================
+
+
+class TestAuthenticatedUserCV:
+    @pytest.mark.asyncio
+    async def test_valid_session(self) -> None:
+        """authenticated_user returns user when session is valid."""
+        state = _StubUserSession()
+        state.auth_token = "token"
+        state.user_id = 1
+
+        mock_user_session = MagicMock()
+        mock_user_session.is_expired.return_value = False
+        mock_user_session.user = _user_entity(1, "alice")
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(
+                return_value=mock_user_session
+            )
+
+            result = await _US_CV["authenticated_user"].fget(state)
+
+        assert result is not None
+        assert result.name == "alice"
+        assert state.user_id == 1
+
+    @pytest.mark.asyncio
+    async def test_expired_session(self) -> None:
+        """authenticated_user returns None when session expired."""
+        state = _StubUserSession()
+        state.auth_token = "token"
+        state.user_id = 1
+
+        mock_user_session = MagicMock()
+        mock_user_session.is_expired.return_value = True
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(
+                return_value=mock_user_session
+            )
+
+            result = await _US_CV["authenticated_user"].fget(state)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_no_session(self) -> None:
+        """authenticated_user returns None when no session found."""
+        state = _StubUserSession()
+        state.auth_token = ""
+        state.user_id = 0
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_session_id = AsyncMock(return_value=None)
+
+            result = await _US_CV["authenticated_user"].fget(state)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_db_exception_returns_none(self) -> None:
+        """authenticated_user returns None on DB exception."""
+        state = _StubUserSession()
+        state.auth_token = "token"
+        state.user_id = 1
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(
+                f"{_PATCH}.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(
+                side_effect=RuntimeError("db down")
+            )
+
+            result = await _US_CV["authenticated_user"].fget(state)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_session_without_user(self) -> None:
+        """authenticated_user returns None when session.user is None."""
+        state = _StubUserSession()
+        state.auth_token = "token"
+        state.user_id = 1
+
+        mock_user_session = MagicMock()
+        mock_user_session.is_expired.return_value = False
+        mock_user_session.user = None
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(
+                return_value=mock_user_session
+            )
+
+            result = await _US_CV["authenticated_user"].fget(state)
+
+        assert result is None
+
+
+class TestIsAuthenticatedCV:
+    @pytest.mark.asyncio
+    async def test_true_when_authenticated(self) -> None:
+        """is_authenticated returns True when user found."""
+        state = _StubUserSession()
+
+        async def _get_user():
+            return _user_entity(1, "alice")
+
+        state.authenticated_user = _get_user()
+
+        result = await _US_CV["is_authenticated"].fget(state)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_false_when_not_authenticated(self) -> None:
+        """is_authenticated returns False when no valid session."""
+        state = _StubUserSession()
+
+        async def _get_none():
+            return None
+
+        state.authenticated_user = _get_none()
+
+        result = await _US_CV["is_authenticated"].fget(state)
+        assert result is False
+
+
+class TestCheckAuth:
+    @pytest.mark.asyncio
+    async def test_valid_user_syncs_state(self) -> None:
+        """check_auth syncs user state when valid session found."""
+        state = _StubLoginState()
+        state._last_auth_check = None
+        state.auth_token = "token"
+        state.user_id = 1
+
+        mock_user_session = MagicMock()
+        mock_user_session.is_expired.return_value = False
+        mock_user_session.user = _user_entity(42, "bob")
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(
+                return_value=mock_user_session
+            )
+
+            result = await state.check_auth()
+
+        assert result is None
+        assert state.user is not None
+        assert state.user.user_id == 42
+        assert state.user_id == 42
+
+    @pytest.mark.asyncio
+    async def test_skipped_when_recent(self) -> None:
+        """check_auth skips when last check was recent."""
+        state = _StubLoginState()
+        state._last_auth_check = datetime.now(UTC) - timedelta(seconds=1)
+
+        result = await state.check_auth()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_expired_session_terminates(self) -> None:
+        """check_auth terminates session when expired."""
+        state = _StubLoginState()
+        state._last_auth_check = None
+        state.auth_token = "token"
+        state.user_id = 1
+        state.is_hydrated = True
+        state.router.url.path = "/dashboard"
+
+        mock_user_session = MagicMock()
+        mock_user_session.is_expired.return_value = True
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(
+                return_value=mock_user_session
+            )
+            mock_repo.delete_by_user_and_session_id = AsyncMock()
+
+            result = await state.check_auth()
+
+        # Should have called terminate_session + redir
+        assert state.auth_token == ""
+        assert state._last_auth_check is None
+
+    @pytest.mark.asyncio
+    async def test_no_session_terminates(self) -> None:
+        """check_auth terminates session when no session found."""
+        state = _StubLoginState()
+        state._last_auth_check = None
+        state.auth_token = "token"
+        state.user_id = 1
+        state.is_hydrated = True
+        state.router.url.path = "/dashboard"
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(return_value=None)
+            mock_repo.delete_by_user_and_session_id = AsyncMock()
+
+            result = await state.check_auth()
+
+        assert state.auth_token == ""
+
+    @pytest.mark.asyncio
+    async def test_exception_returns_none(self) -> None:
+        """check_auth returns None on exception."""
+        state = _StubLoginState()
+        state._last_auth_check = None
+        state.auth_token = "token"
+        state.user_id = 1
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(
+                f"{_PATCH}.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(
+                side_effect=RuntimeError("db crash")
+            )
+
+            result = await state.check_auth()
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_session_without_user(self) -> None:
+        """check_auth terminates when session has no user."""
+        state = _StubLoginState()
+        state._last_auth_check = None
+        state.auth_token = "token"
+        state.user_id = 1
+        state.is_hydrated = True
+        state.router.url.path = "/dashboard"
+
+        mock_user_session = MagicMock()
+        mock_user_session.is_expired.return_value = False
+        mock_user_session.user = None
+
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session") as mock_ctx,
+            patch(f"{_PATCH}.session_repo") as mock_repo,
+        ):
+            session = AsyncMock()
+            mock_ctx.return_value.__aenter__ = AsyncMock(return_value=session)
+            mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_repo.find_by_user_and_session_id = AsyncMock(
+                return_value=mock_user_session
+            )
+            mock_repo.delete_by_user_and_session_id = AsyncMock()
+
+            result = await state.check_auth()
+
+        assert state.auth_token == ""
