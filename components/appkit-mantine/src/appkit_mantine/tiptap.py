@@ -20,7 +20,7 @@ from reflex.vars.base import Var
 
 from appkit_mantine.base import MANTINE_VERSION, MemoizedMantineProvider
 
-TIPTAP_REACT_VERSION: Final[str] = "^2.10.4"
+TIPTAP_REACT_VERSION: Final[str] = "^3.20.0"
 TIPTAP_VERSION: Final[str] = (
     TIPTAP_REACT_VERSION  # Same version for all @tiptap packages
 )

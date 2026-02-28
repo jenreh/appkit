@@ -231,7 +231,7 @@ class TestAssistantMCPUserToken:
         self, async_session: AsyncSession, mcp_user_token_factory
     ) -> None:
         """AssistantMCPUserToken tracks token expiry."""
-        now_naive = datetime.now(tz=UTC)  # Use naive datetime for comparison
+        now_naive = datetime.now(tz=UTC).replace(tzinfo=None)
         expires_at = now_naive + timedelta(hours=2)
         token = await mcp_user_token_factory(expires_at=expires_at)
 

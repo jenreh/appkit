@@ -56,6 +56,21 @@ if not _registry.has(ReflexConfig):
         )
     )
 
+# AuthenticationConfiguration is needed at module level by
+# appkit_user.authentication.states (imported transitively by many modules).
+try:
+    from appkit_user.configuration import AuthenticationConfiguration
+
+    if not _registry.has(AuthenticationConfiguration):
+        _registry.register(
+            AuthenticationConfiguration(
+                server_url="http://localhost",
+                server_port=3031,
+            )
+        )
+except ImportError:
+    pass
+
 # ============================================================================
 # Pytest Configuration
 # ============================================================================
@@ -231,6 +246,35 @@ def temp_dir(tmp_path: Path) -> Path:
 # ============================================================================
 # Logging Fixtures
 # ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def _ensure_caplog_propagation() -> Generator[None, None, None]:
+    """Ensure log records propagate to root logger for caplog capture.
+
+    rxconfig.py calls init_logging() at import time, which loads
+    logging.yaml via dictConfig.  That config sets propagate=False on all
+    application loggers and adds StreamHandlers directing output to stdout.
+    This prevents pytest's caplog fixture from capturing log records.
+
+    This fixture temporarily enables propagation and removes direct
+    handlers so that caplog works correctly during every test.
+    """
+    saved: list[tuple[logging.Logger, bool, list[logging.Handler]]] = []
+
+    for _name, obj in list(logging.Logger.manager.loggerDict.items()):
+        if not isinstance(obj, logging.Logger):
+            continue
+        if not obj.propagate or obj.handlers:
+            saved.append((obj, obj.propagate, obj.handlers[:]))
+            obj.propagate = True
+            obj.handlers = []
+
+    yield
+
+    for lgr, propagate, handlers in saved:
+        lgr.propagate = propagate
+        lgr.handlers = handlers
 
 
 @pytest.fixture

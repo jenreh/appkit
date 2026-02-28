@@ -188,7 +188,7 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "I001"] # {name} imported but unused
 "server.py" = ["W605", "S104"] # invalid escape sequence
-"test_**.py" = ["S101", "PLR2004", "ANN001", "S106", "SLF001", "ARG002", "S105"]
+"test_**.py" = ["S101", "PLR2004", "ANN001", "S106", "SLF001", "ARG001", "ARG002", "S105"]
 "alembic/versions/*.py" = ["E501"]
 "indexer/main.py" = ["S104"]
 
@@ -261,7 +261,24 @@ exclude = [
 
 [tool.coverage.run]
 branch = true
-omit = ["*/tests/*", "*/__pycache__/*", "*/migrations/*"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    # Reflex UI component rendering — not unit-testable
+    "*/appkit_assistant/components/*.py",
+    "*/appkit_imagecreator/components/*.py",
+    "*/appkit_mantine/*.py",
+    "*/appkit_ui/components/*.py",
+    "*/appkit_user/authentication/components/*.py",
+    "*/appkit_user/authentication/templates/*.py",
+    "*/appkit_user/user_management/components/*.py",
+    # Route definitions & role constants
+    "*/pages.py",
+    "*/roles.py",
+    "*/styles.py",
+    "*/app.py",
+]
 source = [
     "components/appkit-commons/src/appkit_commons",
     "components/appkit-user/src/appkit_user",

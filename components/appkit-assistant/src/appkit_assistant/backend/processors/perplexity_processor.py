@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import re
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -109,16 +110,31 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
             Combined payload dictionary for the API request.
         """
         perplexity_payload = {
-            "search_domain_filter": model.search_domain_filter,
+            "search_domain_filter": getattr(model, "search_domain_filter", []),
             "return_images": True,
             "return_related_questions": True,
             "web_search_options": {
-                "search_context_size": model.search_context_size,
+                "search_context_size": getattr(model, "search_context_size", "medium"),
             },
         }
         if payload:
             perplexity_payload.update(payload)
         return perplexity_payload
+
+    def _format_citations(self, text: str, citations: list[str]) -> str:
+        """Replace [N] citations with markdown links if available."""
+
+        def replacement(match: re.Match) -> str:
+            try:
+                citation_index = int(match.group(1)) - 1
+                if 0 <= citation_index < len(citations):
+                    # Double brackets so markdown renders as [N]
+                    return f" [[{match.group(1)}]]({citations[citation_index]})"
+            except (ValueError, IndexError):
+                pass
+            return match.group(0)
+
+        return re.sub(r"\[(\d+)\]", replacement, text)
 
     async def _process_streaming_response(
         self,
@@ -157,7 +173,8 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
             if event.choices and event.choices[0].delta:
                 content = event.choices[0].delta.content
                 if content:
-                    yield self._create_chunk(
+                    content = self._format_citations(content, citations)
+                    yield self._create_text_chunk(
                         content, model.model, stream=True, message_id=event.id
                     )
 
@@ -199,7 +216,8 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
             )
 
         if content:
-            yield self._create_chunk(content, model.model, message_id=session.id)
+            content = self._format_citations(content, citations)
+            yield self._create_text_chunk(content, model.model, message_id=session.id)
 
         async for chunk in self._yield_citations(citations):
             yield chunk
@@ -229,8 +247,14 @@ class PerplexityProcessor(OpenAIChatCompletionsProcessor):
         logger.debug("Processing %d citations from Perplexity", len(citations))
 
         # Yield individual ANNOTATION chunks for citations display
-        for url in citations:
+        for index, url in enumerate(citations):
+            # Format text as full URL instead of just [N] reference number
+            # The UI handles URL formatting and linking automatically
             yield self._chunk_factory.annotation(
                 text=url,
-                annotation_data={"url": url, "source": "perplexity"},
+                annotation_data={
+                    "url": url,
+                    "source": "perplexity",
+                    "index": index + 1,
+                },
             )
