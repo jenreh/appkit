@@ -296,7 +296,7 @@ class TestGeminiMessageConverter:
             new_callable=AsyncMock,
             return_value="System: {mcp_prompts}",
         ):
-            contents, system_instruction = await converter.convert(messages)
+            contents, _system_instruction = await converter.convert(messages)
 
         assert len(contents) == 2
         assert contents[0].role == "user"

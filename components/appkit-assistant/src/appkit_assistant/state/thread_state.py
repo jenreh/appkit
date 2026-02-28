@@ -1345,7 +1345,7 @@ class ThreadState(rx.State):
             )
         return None
 
-    async def _begin_message_processing(
+    async def _begin_message_processing(  # noqa: PLR0912
         self,
     ) -> tuple[str, str, list[MCPServer], list[str], bool] | None:
         """Prepare state for sending a message. Returns None if no-op.

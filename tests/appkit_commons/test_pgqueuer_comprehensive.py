@@ -1,7 +1,9 @@
 """Comprehensive tests for PGQueuer scheduler implementation."""
 
 import asyncio
+import contextlib
 import logging
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,10 +23,10 @@ class MockScheduledService(ScheduledService):
     execute_count = 0
 
     @property
-    def trigger(self):
+    def trigger(self) -> Any:
         return IntervalTrigger(minutes=5)
 
-    async def execute(self):
+    async def execute(self) -> Any:
         MockScheduledService.execute_count += 1
 
 
@@ -382,10 +384,8 @@ class TestPGQueuerSchedulerRunLoop:
             task = asyncio.create_task(scheduler._run_loop())
             await asyncio.sleep(0.01)
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
         # Act & Assert - should handle cancellation
         await run_and_cancel()

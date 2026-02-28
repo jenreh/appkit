@@ -95,7 +95,7 @@ async def ai_model_repo() -> AIModelRepository:
 
 # Model factory fixtures
 @pytest_asyncio.fixture
-async def mcp_server_factory(async_session: AsyncSession, faker_instance: Faker):
+async def mcp_server_factory(async_session: AsyncSession, faker_instance: Faker) -> Any:
     """Factory for creating test MCPServer instances."""
 
     async def _create_server(**kwargs: Any) -> MCPServer:
@@ -103,7 +103,9 @@ async def mcp_server_factory(async_session: AsyncSession, faker_instance: Faker)
             "name": f"test-server-{faker_instance.uuid4()[:8]}",
             "description": faker_instance.sentence(),
             "url": f"https://{faker_instance.domain_name()}/mcp",
-            "headers": json.dumps({"Authorization": f"Bearer {faker_instance.uuid4()}"}),
+            "headers": json.dumps(
+                {"Authorization": f"Bearer {faker_instance.uuid4()}"}
+            ),
             "prompt": faker_instance.sentence(nb_words=10),
             "auth_type": MCPAuthType.NONE,
             "active": True,
@@ -120,7 +122,9 @@ async def mcp_server_factory(async_session: AsyncSession, faker_instance: Faker)
 
 
 @pytest_asyncio.fixture
-async def system_prompt_factory(async_session: AsyncSession, faker_instance: Faker):
+async def system_prompt_factory(
+    async_session: AsyncSession, faker_instance: Faker
+) -> Any:
     """Factory for creating test SystemPrompt instances."""
 
     async def _create_prompt(**kwargs: Any) -> SystemPrompt:
@@ -142,7 +146,7 @@ async def system_prompt_factory(async_session: AsyncSession, faker_instance: Fak
 
 
 @pytest_asyncio.fixture
-async def thread_factory(async_session: AsyncSession, faker_instance: Faker):
+async def thread_factory(async_session: AsyncSession, faker_instance: Faker) -> Any:
     """Factory for creating test AssistantThread instances."""
 
     async def _create_thread(**kwargs: Any) -> AssistantThread:
@@ -169,7 +173,9 @@ async def thread_factory(async_session: AsyncSession, faker_instance: Faker):
 
 
 @pytest_asyncio.fixture
-async def file_upload_factory(async_session: AsyncSession, faker_instance: Faker):
+async def file_upload_factory(
+    async_session: AsyncSession, faker_instance: Faker
+) -> Any:
     """Factory for creating test AssistantFileUpload instances."""
 
     async def _create_file(**kwargs: Any) -> AssistantFileUpload:
@@ -210,7 +216,9 @@ async def file_upload_factory(async_session: AsyncSession, faker_instance: Faker
 
 
 @pytest_asyncio.fixture
-async def user_prompt_factory(async_session: AsyncSession, faker_instance: Faker):
+async def user_prompt_factory(
+    async_session: AsyncSession, faker_instance: Faker
+) -> Any:
     """Factory for creating test UserPrompt instances."""
 
     async def _create_user_prompt(**kwargs: Any) -> UserPrompt:
@@ -235,7 +243,7 @@ async def user_prompt_factory(async_session: AsyncSession, faker_instance: Faker
 
 
 @pytest_asyncio.fixture
-async def skill_factory(async_session: AsyncSession, faker_instance: Faker):
+async def skill_factory(async_session: AsyncSession, faker_instance: Faker) -> Any:
     """Factory for creating test Skill instances."""
 
     async def _create_skill(**kwargs: Any) -> Skill:
@@ -263,7 +271,7 @@ async def skill_factory(async_session: AsyncSession, faker_instance: Faker):
 @pytest_asyncio.fixture
 async def user_skill_selection_factory(
     async_session: AsyncSession, faker_instance: Faker
-):
+) -> Any:
     """Factory for creating test UserSkillSelection instances."""
 
     async def _create_selection(**kwargs: Any) -> UserSkillSelection:
@@ -283,7 +291,7 @@ async def user_skill_selection_factory(
 
 
 @pytest_asyncio.fixture
-async def ai_model_factory(async_session: AsyncSession, faker_instance: Faker):
+async def ai_model_factory(async_session: AsyncSession, faker_instance: Faker) -> Any:
     """Factory for creating test AssistantAIModel instances."""
 
     async def _create_ai_model(**kwargs: Any) -> AssistantAIModel:
@@ -317,7 +325,9 @@ async def ai_model_factory(async_session: AsyncSession, faker_instance: Faker):
 
 
 @pytest_asyncio.fixture
-async def mcp_user_token_factory(async_session: AsyncSession, faker_instance: Faker):
+async def mcp_user_token_factory(
+    async_session: AsyncSession, faker_instance: Faker
+) -> Any:
     """Factory for creating test AssistantMCPUserToken instances."""
 
     async def _create_token(**kwargs: Any) -> AssistantMCPUserToken:

@@ -70,7 +70,7 @@ class TestMCPServer:
         """MCPServer name must be unique."""
         await mcp_server_factory(name="unique-server")
 
-        with pytest.raises(Exception):  # Integrity error
+        with pytest.raises(Exception):  # noqa: B017 - Integrity error
             await mcp_server_factory(name="unique-server")
             await async_session.commit()
 
@@ -141,7 +141,7 @@ class TestAssistantThread:
         """AssistantThread thread_id must be unique."""
         await thread_factory(thread_id="unique-thread")
 
-        with pytest.raises(Exception):  # Integrity error
+        with pytest.raises(Exception):  # noqa: B017 - Integrity error
             await thread_factory(thread_id="unique-thread")
             await async_session.commit()
 
@@ -231,7 +231,7 @@ class TestAssistantMCPUserToken:
         self, async_session: AsyncSession, mcp_user_token_factory
     ) -> None:
         """AssistantMCPUserToken tracks token expiry."""
-        now_naive = datetime.now()  # Use naive datetime for comparison
+        now_naive = datetime.now(tz=UTC)  # Use naive datetime for comparison
         expires_at = now_naive + timedelta(hours=2)
         token = await mcp_user_token_factory(expires_at=expires_at)
 
@@ -384,7 +384,7 @@ class TestSkill:
         """Skill openai_id must be unique."""
         await skill_factory(openai_id="unique-skill")
 
-        with pytest.raises(Exception):  # Integrity error
+        with pytest.raises(Exception):  # noqa: B017 - Integrity error
             await skill_factory(openai_id="unique-skill")
             await async_session.commit()
 
@@ -444,7 +444,7 @@ class TestUserSkillSelection:
         """UserSkillSelection enforces unique (user_id, skill_openai_id)."""
         await user_skill_selection_factory(user_id=1, skill_openai_id="skill-123")
 
-        with pytest.raises(Exception):  # Integrity error
+        with pytest.raises(Exception):  # noqa: B017 - Integrity error
             await user_skill_selection_factory(user_id=1, skill_openai_id="skill-123")
             await async_session.commit()
 
@@ -488,7 +488,7 @@ class TestAssistantAIModel:
         """AssistantAIModel model_id must be unique."""
         await ai_model_factory(model_id="unique-model")
 
-        with pytest.raises(Exception):  # Integrity error
+        with pytest.raises(Exception):  # noqa: B017 - Integrity error
             await ai_model_factory(model_id="unique-model")
             await async_session.commit()
 

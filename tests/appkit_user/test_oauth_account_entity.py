@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_user.authentication.backend.database.entities import OAuthAccountEntity
@@ -81,7 +82,7 @@ class TestOAuthAccountEntity:
         )
 
         # Act & Assert - same provider + account_id should fail
-        with pytest.raises(Exception):  # IntegrityError
+        with pytest.raises(Exception):  # noqa: B017 - IntegrityError
             await oauth_account_factory(
                 user=user2, provider="github", account_id=account_id
             )
@@ -117,7 +118,7 @@ class TestOAuthAccountEntity:
 
         # Assert
         assert oauth.expires_at is not None
-        # Compare timestamps instead of datetime objects to handle naive/aware differences
+        # Compare timestamps instead of datetime objects to handle tz differences
         # SQLite sometimes returns naive datetimes even when stored with timezone
         retrieved_ts = (
             oauth.expires_at.timestamp()
@@ -178,8 +179,6 @@ class TestOAuthAccountEntity:
         await async_session.flush()
 
         # Assert
-        from sqlalchemy import select
-
         result = await async_session.execute(
             select(OAuthAccountEntity).where(OAuthAccountEntity.id == oauth_id)
         )

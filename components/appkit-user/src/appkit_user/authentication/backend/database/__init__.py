@@ -21,7 +21,7 @@ from appkit_user.authentication.backend.database.password_reset_repository impor
     PasswordResetTokenRepository,
     password_reset_token_repo,
 )
-from appkit_user.authentication.backend.database.password_reset_request_repository import (
+from appkit_user.authentication.backend.database.password_reset_request_repository import (  # noqa: E501
     PasswordResetRequestRepository,
     password_reset_request_repo,
 )

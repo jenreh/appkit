@@ -473,7 +473,7 @@ class TestBaseRepository:
 
         created1 = await test_repository.create(async_session, entity1)
         created2 = await test_repository.create(async_session, entity2)
-        created3 = await test_repository.create(async_session, entity3)
+        await test_repository.create(async_session, entity3)
 
         # Act
         deleted_count = await test_repository.delete_all_by_ids(
