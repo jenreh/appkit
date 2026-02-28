@@ -558,3 +558,125 @@ class TestEdgeCases:
         assert acc.messages[-1].text == "Here is the answer."
         assert acc.show_thinking is False
         assert len(acc.thinking_items) >= 2
+
+
+# ============================================================================
+# MCP App View chunks
+# ============================================================================
+
+
+class TestMcpAppViewChunk:
+    def test_valid_mcp_app_view_chunk(self) -> None:
+        """Test processing a valid MCP_APP_VIEW chunk."""
+        acc = _acc_with_assistant_message()
+
+        chunk = _make_chunk(
+            ChunkType.MCP_APP_VIEW,
+            "",
+            {
+                "server_id": "1",
+                "server_name": "QR Server",
+                "resource_uri": "ui://qr_code/view",
+                "tool_name": "generate_qr",
+                "tool_input": '{"text": "hello"}',
+                "tool_result": '{"status": "ok"}',
+            },
+        )
+        acc.process_chunk(chunk)
+
+        assert len(acc.mcp_app_views) == 1
+        view = acc.mcp_app_views[0]
+        assert view.server_id == 1
+        assert view.server_name == "QR Server"
+        assert view.resource_uri == "ui://qr_code/view"
+        assert view.tool_name == "generate_qr"
+        assert view.tool_input == {"text": "hello"}
+        assert view.tool_result == {"status": "ok"}
+
+    def test_mcp_app_view_with_null_result(self) -> None:
+        """Test MCP_APP_VIEW chunk with null tool result."""
+        acc = _acc_with_assistant_message()
+
+        chunk = _make_chunk(
+            ChunkType.MCP_APP_VIEW,
+            "",
+            {
+                "server_id": "2",
+                "server_name": "Map Server",
+                "resource_uri": "ui://map/view",
+                "tool_name": "show_map",
+                "tool_input": "{}",
+                "tool_result": "null",
+            },
+        )
+        acc.process_chunk(chunk)
+
+        assert len(acc.mcp_app_views) == 1
+        view = acc.mcp_app_views[0]
+        assert view.tool_result is None
+
+    def test_multiple_mcp_app_views(self) -> None:
+        """Test accumulating multiple MCP App views."""
+        acc = _acc_with_assistant_message()
+
+        for i in range(3):
+            chunk = _make_chunk(
+                ChunkType.MCP_APP_VIEW,
+                "",
+                {
+                    "server_id": str(i),
+                    "server_name": f"Server {i}",
+                    "resource_uri": f"ui://tool_{i}/view",
+                    "tool_name": f"tool_{i}",
+                    "tool_input": "{}",
+                },
+            )
+            acc.process_chunk(chunk)
+
+        assert len(acc.mcp_app_views) == 3
+
+    def test_mcp_app_view_with_missing_metadata(self) -> None:
+        """Test MCP_APP_VIEW with minimal metadata."""
+        acc = _acc_with_assistant_message()
+
+        chunk = _make_chunk(
+            ChunkType.MCP_APP_VIEW,
+            "",
+            {
+                "server_id": "0",
+                "server_name": "",
+                "resource_uri": "",
+                "tool_name": "",
+            },
+        )
+        acc.process_chunk(chunk)
+
+        assert len(acc.mcp_app_views) == 1
+        view = acc.mcp_app_views[0]
+        assert view.server_id == 0
+        assert view.server_name == ""
+
+    def test_mcp_app_views_initially_empty(self) -> None:
+        """Test that mcp_app_views starts empty."""
+        acc = ResponseAccumulator()
+        assert acc.mcp_app_views == []
+
+    def test_mcp_app_view_with_malformed_json(self) -> None:
+        """Test MCP_APP_VIEW with invalid JSON in tool_input."""
+        acc = _acc_with_assistant_message()
+
+        chunk = _make_chunk(
+            ChunkType.MCP_APP_VIEW,
+            "",
+            {
+                "server_id": "1",
+                "server_name": "Server",
+                "resource_uri": "ui://test",
+                "tool_name": "tool",
+                "tool_input": "invalid json{",
+            },
+        )
+        acc.process_chunk(chunk)
+
+        # Should not crash, just log the error
+        assert len(acc.mcp_app_views) == 0

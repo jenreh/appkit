@@ -1,5 +1,6 @@
 import uuid
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel
 from sqlmodel import Field
@@ -22,6 +23,7 @@ class ChunkType(StrEnum):
     AUTH_REQUIRED = "auth_required"  # user needs to authenticate (MCP)
     ERROR = "error"  # when an error occurs
     LIFECYCLE = "lifecycle"
+    MCP_APP_VIEW = "mcp_app_view"  # MCP App interactive view
 
 
 class ProcessingStatistics(BaseModel):
@@ -65,6 +67,7 @@ class MessageType(StrEnum):
     ERROR = "error"
     INFO = "info"
     WARNING = "warning"
+    MCP_APP = "mcp_app"  # MCP App interactive view
 
 
 class Message(BaseModel):
@@ -162,3 +165,40 @@ class CommandDefinition(BaseModel):
     is_editable: bool = False  # True only for user's own prompts
     user_id: int = 0  # Owner user ID for prompts
     mcp_server_ids: list[int] = []  # MCP servers to auto-select
+
+
+class McpAppToolInfo(BaseModel):
+    """Metadata for an MCP tool that has a UI (App) view."""
+
+    tool_name: str
+    resource_uri: str
+    visibility: list[str] = []
+    server_id: int
+    server_label: str
+    input_schema: dict[str, Any] = {}
+
+
+class McpAppResource(BaseModel):
+    """Resource fetched from an MCP server for App rendering."""
+
+    uri: str
+    html_content: str
+    csp: dict[str, str] | None = None
+    permissions: dict[str, bool] | None = None
+    prefers_border: bool | None = None
+
+
+class McpAppViewData(BaseModel):
+    """Data for rendering an MCP App view in the conversation."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    server_id: int
+    server_name: str
+    resource_uri: str
+    tool_name: str
+    tool_input: dict[str, Any] = {}
+    tool_result: dict[str, Any] | None = None
+    html_content: str | None = None
+    csp: dict[str, str] | None = None
+    permissions: dict[str, bool] | None = None
+    prefers_border: bool | None = None
