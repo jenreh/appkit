@@ -22,16 +22,35 @@ from appkit_assistant.backend.database.repositories import mcp_server_repo
 from appkit_assistant.backend.services.mcp_apps_service import (
     McpAppsService,
 )
-from appkit_assistant.backend.services.mcp_token_service import MCPTokenService
+from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
+from appkit_assistant.backend.services.mcp_token_service import (
+    MCPTokenService,
+)
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mcp-apps", tags=["mcp-apps"])
 
-# Shared service instances
-_mcp_token_service = MCPTokenService()
-_mcp_apps_service = McpAppsService(token_service=_mcp_token_service)
+# Lazily initialized service instances
+_mcp_apps_service: McpAppsService | None = None
+
+# Default user ID when session token is not available
+_DEFAULT_USER_ID = 0
+
+
+def _get_mcp_apps_service() -> McpAppsService:
+    """Get or create the shared McpAppsService instance.
+
+    Lazily initializes the service with its dependencies
+    to avoid import-time instantiation issues.
+    """
+    global _mcp_apps_service  # noqa: PLW0603
+    if _mcp_apps_service is None:
+        auth_service = MCPAuthService()
+        token_service = MCPTokenService(mcp_auth_service=auth_service)
+        _mcp_apps_service = McpAppsService(token_service=token_service)
+    return _mcp_apps_service
 
 # Default user ID when session token is not available
 _DEFAULT_USER_ID = 0
@@ -55,10 +74,16 @@ def _extract_user_id(reflex_session: str | None) -> int:
         reflex_session: The Reflex session cookie value
 
     Returns:
-        The user ID (0 as default when no session)
+        The user ID (0 as default)
+
+    Raises:
+        HTTPException: If no valid session cookie is present (401)
     """
     if not reflex_session:
-        return _DEFAULT_USER_ID
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+        )
     return _DEFAULT_USER_ID
 
 
@@ -98,7 +123,9 @@ async def get_resource(
     user_id = _extract_user_id(reflex_session)
     server = await _get_server(server_id)
 
-    resource = await _mcp_apps_service.fetch_resource(server, user_id, uri)
+    resource = await _get_mcp_apps_service().fetch_resource(
+        server, user_id, uri
+    )
     if not resource:
         raise HTTPException(
             status_code=502,
@@ -127,7 +154,7 @@ async def call_tool(
     user_id = _extract_user_id(reflex_session)
     server = await _get_server(server_id)
 
-    return await _mcp_apps_service.proxy_tool_call(
+    return await _get_mcp_apps_service().proxy_tool_call(
         server, user_id, request.tool_name, request.arguments
     )
 
@@ -145,5 +172,5 @@ async def list_ui_tools(
     user_id = _extract_user_id(reflex_session)
     server = await _get_server(server_id)
 
-    tools = await _mcp_apps_service.discover_ui_tools(server, user_id)
+    tools = await _get_mcp_apps_service().discover_ui_tools(server, user_id)
     return [tool.model_dump() for tool in tools]

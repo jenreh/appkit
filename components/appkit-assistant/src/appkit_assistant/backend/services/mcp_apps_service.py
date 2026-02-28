@@ -7,6 +7,7 @@ UI-enabled tools, fetches ui:// HTML resources, and proxies tool
 calls from app iframes.
 """
 
+import json
 import logging
 import time
 from typing import Any
@@ -55,6 +56,9 @@ class McpAppsService:
     ) -> dict[str, str]:
         """Build authorization headers for a server request.
 
+        Handles both OAuth (via token service) and API_KEY (via
+        server.headers JSON field) authentication types.
+
         Args:
             server: The MCP server configuration
             user_id: The user's ID
@@ -64,6 +68,17 @@ class McpAppsService:
         """
         headers: dict[str, str] = {}
 
+        # Parse custom headers from server configuration (API_KEY etc.)
+        if server.headers and server.headers != "{}":
+            try:
+                headers_dict = json.loads(server.headers)
+                headers.update(headers_dict)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "Invalid headers JSON for server %s", server.name
+                )
+
+        # Override with OAuth token if available
         if server.auth_type == MCPAuthType.OAUTH_DISCOVERY and self._token_service:
             token = await self._token_service.get_valid_token(server, user_id)
             if token:

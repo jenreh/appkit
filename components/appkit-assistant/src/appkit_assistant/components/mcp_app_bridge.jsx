@@ -15,7 +15,9 @@ function postToIframe(iframe, method, params = {}, id = null) {
   if (!iframe || !iframe.contentWindow) return;
   const msg = { jsonrpc: "2.0", method, params };
   if (id !== null) msg.id = id;
-  iframe.contentWindow.postMessage(msg, window.location.origin);
+  // srcdoc iframes have an opaque ("null") origin, so we must use "*".
+  // Security is enforced by checking event.source on the receive side.
+  iframe.contentWindow.postMessage(msg, "*");
 }
 
 /**
@@ -23,9 +25,11 @@ function postToIframe(iframe, method, params = {}, id = null) {
  */
 function respondToIframe(iframe, id, result) {
   if (!iframe || !iframe.contentWindow) return;
+  // srcdoc iframes have an opaque ("null") origin, so we must use "*".
+  // Security is enforced by checking event.source on the receive side.
   iframe.contentWindow.postMessage(
     { jsonrpc: "2.0", id, result },
-    window.location.origin
+    "*"
   );
 }
 
