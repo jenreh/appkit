@@ -86,7 +86,7 @@ class TestAsyncSessionManager:
         # Note: SQLAlchemy allows creating new sessions after dispose(),
         # but the connection pool is cleared
         assert manager._engine is not None
-        # Verify we can still create a session (dispose doesn't prevent future connections)
+        # Verify we can still create a session (dispose doesn't prevent future use)
         async with manager.session() as session:
             result = await session.execute(text("SELECT 1"))
             assert result.scalar() == 1
@@ -220,7 +220,7 @@ class TestSessionManager:
         # Note: SQLAlchemy allows creating new sessions after dispose(),
         # but the connection pool is cleared
         assert manager._engine is not None
-        # Verify we can still create a session (dispose doesn't prevent future connections)
+        # Verify we can still create a session (dispose doesn't prevent future use)
         with manager.session() as session:
             result = session.execute(text("SELECT 1"))
             assert result.scalar() == 1

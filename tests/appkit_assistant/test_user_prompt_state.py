@@ -465,9 +465,7 @@ class TestSaveFromModal:
             f"{_PATCH}.validate_handle",
             return_value=(False, "bad"),
         ):
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
         assert state.modal_error == "bad"
 
     @pytest.mark.asyncio
@@ -479,9 +477,7 @@ class TestSaveFromModal:
             f"{_PATCH}.validate_handle",
             return_value=(True, ""),
         ):
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
         assert state.modal_error != ""
 
     @pytest.mark.asyncio
@@ -494,9 +490,7 @@ class TestSaveFromModal:
             f"{_PATCH}.validate_handle",
             return_value=(True, ""),
         ):
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
         assert state.modal_error != ""
 
     @pytest.mark.asyncio
@@ -521,9 +515,7 @@ class TestSaveFromModal:
             repo.validate_handle_unique = AsyncMock(return_value=True)
             repo.create_new_prompt = AsyncMock()
             ts.reload_commands = MagicMock()
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
 
         assert state.modal_open is False
         assert state.is_loading is False
@@ -546,9 +538,7 @@ class TestSaveFromModal:
             patch(f"{_PATCH}.user_prompt_repo") as repo,
         ):
             repo.validate_handle_unique = AsyncMock(return_value=False)
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
 
         assert "existiert" in state.modal_error
 
@@ -574,9 +564,7 @@ class TestSaveFromModal:
         ):
             repo.create_next_version = AsyncMock()
             ts.reload_commands = MagicMock()
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
 
         assert state.modal_open is False
         assert state.is_loading is False
@@ -604,9 +592,7 @@ class TestSaveFromModal:
             repo.update_handle = AsyncMock()
             repo.create_next_version = AsyncMock()
             ts.reload_commands = MagicMock()
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
 
         assert state.modal_open is False
         repo.update_handle.assert_awaited_once()
@@ -630,9 +616,7 @@ class TestSaveFromModal:
             patch(f"{_PATCH}.user_prompt_repo") as repo,
         ):
             repo.validate_handle_unique = AsyncMock(return_value=False)
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
 
         assert "existiert" in state.modal_error
 
@@ -651,9 +635,7 @@ class TestSaveFromModal:
                 side_effect=RuntimeError("db"),
             ),
         ):
-            results = []
-            async for r in state.save_from_modal():
-                results.append(r)
+            [r async for r in state.save_from_modal()]
 
         assert "fehlgeschlagen" in state.modal_error.lower()
         assert state.is_loading is False
@@ -670,9 +652,7 @@ class TestDeleteFromModal:
         state = _StubUserPromptState()
         state.modal_is_new = True
         state.modal_open = True
-        results = []
-        async for r in state.delete_from_modal():
-            results.append(r)
+        [r async for r in state.delete_from_modal()]
         assert state.modal_open is False
 
     @pytest.mark.asyncio
@@ -680,9 +660,7 @@ class TestDeleteFromModal:
         state = _StubUserPromptState()
         state.modal_is_new = False
         state.modal_handle = ""
-        results = []
-        async for r in state.delete_from_modal():
-            results.append(r)
+        [r async for r in state.delete_from_modal()]
         # Should return early
         assert state.is_loading is False
 
@@ -701,9 +679,7 @@ class TestDeleteFromModal:
         ):
             repo.delete_all_versions = AsyncMock()
             ts.reload_commands = MagicMock()
-            results = []
-            async for r in state.delete_from_modal():
-                results.append(r)
+            [r async for r in state.delete_from_modal()]
 
         assert state.modal_open is False
         assert state.is_loading is False
@@ -717,9 +693,7 @@ class TestDeleteFromModal:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.delete_from_modal():
-                results.append(r)
+            [r async for r in state.delete_from_modal()]
 
         assert "fehlgeschlagen" in state.modal_error.lower()
         assert state.is_loading is False

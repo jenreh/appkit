@@ -214,9 +214,7 @@ class TestSaveCurrent:
         state = _StubSystemPromptState()
         state.current_prompt = "same"
         state.last_saved_prompt = "same"
-        results = []
-        async for r in state.save_current():
-            results.append(r)
+        results = [r async for r in state.save_current()]
         assert len(results) >= 1  # toast.info
 
     @pytest.mark.asyncio
@@ -224,9 +222,7 @@ class TestSaveCurrent:
         state = _StubSystemPromptState()
         state.current_prompt = "   "
         state.last_saved_prompt = "old"
-        results = []
-        async for r in state.save_current():
-            results.append(r)
+        [r async for r in state.save_current()]
         assert state.error_message != ""
 
     @pytest.mark.asyncio
@@ -234,9 +230,7 @@ class TestSaveCurrent:
         state = _StubSystemPromptState()
         state.current_prompt = "x" * (MAX_PROMPT_LENGTH + 1)
         state.last_saved_prompt = "old"
-        results = []
-        async for r in state.save_current():
-            results.append(r)
+        [r async for r in state.save_current()]
         assert state.error_message != ""
 
     @pytest.mark.asyncio
@@ -257,9 +251,7 @@ class TestSaveCurrent:
         ):
             repo.create_next_version = AsyncMock()
             repo.find_all_ordered_by_version_desc = AsyncMock(return_value=[])
-            results = []
-            async for r in state.save_current():
-                results.append(r)
+            [r async for r in state.save_current()]
 
         assert state.last_saved_prompt == "new prompt"
         assert state.is_loading is False
@@ -273,9 +265,7 @@ class TestSaveCurrent:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.save_current():
-                results.append(r)
+            [r async for r in state.save_current()]
 
         assert "Fehler" in state.error_message
         assert state.is_loading is False
@@ -291,9 +281,7 @@ class TestDeleteVersion:
     async def test_no_selection(self) -> None:
         state = _StubSystemPromptState()
         state.selected_version_id = 0
-        results = []
-        async for r in state.delete_version():
-            results.append(r)
+        [r async for r in state.delete_version()]
         assert state.error_message != ""
 
     @pytest.mark.asyncio
@@ -315,9 +303,7 @@ class TestDeleteVersion:
             repo.find_by_id = AsyncMock(return_value=prompt_mock)
             repo.delete = AsyncMock(return_value=True)
             repo.find_all_ordered_by_version_desc = AsyncMock(return_value=[])
-            results = []
-            async for r in state.delete_version():
-                results.append(r)
+            [r async for r in state.delete_version()]
 
         assert state.selected_version_id == 0
         assert state.is_loading is False
@@ -334,9 +320,7 @@ class TestDeleteVersion:
             patch(f"{_PATCH}.system_prompt_repo") as repo,
         ):
             repo.find_by_id = AsyncMock(return_value=None)
-            results = []
-            async for r in state.delete_version():
-                results.append(r)
+            [r async for r in state.delete_version()]
 
         assert "nicht gefunden" in state.error_message
         assert state.is_loading is False
@@ -355,9 +339,7 @@ class TestDeleteVersion:
         ):
             repo.find_by_id = AsyncMock(return_value=prompt_mock)
             repo.delete = AsyncMock(return_value=False)
-            results = []
-            async for r in state.delete_version():
-                results.append(r)
+            [r async for r in state.delete_version()]
 
         assert "nicht gefunden" in state.error_message
         assert state.is_loading is False
@@ -370,9 +352,7 @@ class TestDeleteVersion:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.delete_version():
-                results.append(r)
+            [r async for r in state.delete_version()]
 
         assert "Fehler" in state.error_message
         assert state.is_loading is False

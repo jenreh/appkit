@@ -60,7 +60,8 @@ class UserEntity(Entity, Base):
         "OAuthStateEntity",
         back_populates="user",
         lazy="select",
-        cascade="save-update, merge",  # No delete: oauth_states use SET NULL on foreign key delete
+        # No delete: oauth_states use SET NULL on foreign key delete
+        cascade="save-update, merge",
     )
     sessions: Mapped[list["UserSessionEntity"]] = relationship(
         "UserSessionEntity",

@@ -1,6 +1,7 @@
 """Comprehensive tests for APScheduler implementation."""
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -523,18 +524,20 @@ class TestAPSchedulerStart:
         # Arrange
         scheduler = APScheduler()
 
-        with patch.object(
-            scheduler, "_configure_scheduler", new_callable=AsyncMock
-        ) as mock_configure:
-            with patch.object(scheduler, "_schedule_service", new_callable=AsyncMock):
-                mock_scheduler = AsyncMock()
-                scheduler._scheduler = mock_scheduler
+        with (
+            patch.object(
+                scheduler, "_configure_scheduler", new_callable=AsyncMock
+            ) as mock_configure,
+            patch.object(scheduler, "_schedule_service", new_callable=AsyncMock),
+        ):
+            mock_scheduler = AsyncMock()
+            scheduler._scheduler = mock_scheduler
 
-                # Act
-                await scheduler.start()
+            # Act
+            await scheduler.start()
 
-                # Assert
-                mock_configure.assert_called_once()
+            # Assert
+            mock_configure.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_start_adds_services(self) -> None:
@@ -548,14 +551,16 @@ class TestAPSchedulerStart:
         scheduler._scheduler = mock_scheduler
 
         # Act
-        with patch.object(scheduler, "_configure_scheduler", new_callable=AsyncMock):
-            with patch.object(
+        with (
+            patch.object(scheduler, "_configure_scheduler", new_callable=AsyncMock),
+            patch.object(
                 scheduler, "_schedule_service", new_callable=AsyncMock
-            ) as mock_schedule:
-                await scheduler.start()
+            ) as mock_schedule,
+        ):
+            await scheduler.start()
 
-                # Assert
-                mock_schedule.assert_called()
+            # Assert
+            mock_schedule.assert_called()
 
     @pytest.mark.asyncio
     async def test_start_sets_is_running(self) -> None:
@@ -567,9 +572,11 @@ class TestAPSchedulerStart:
         scheduler._scheduler = mock_scheduler
 
         # Act
-        with patch.object(scheduler, "_configure_scheduler", new_callable=AsyncMock):
-            with patch.object(scheduler, "_schedule_service", new_callable=AsyncMock):
-                await scheduler.start()
+        with (
+            patch.object(scheduler, "_configure_scheduler", new_callable=AsyncMock),
+            patch.object(scheduler, "_schedule_service", new_callable=AsyncMock),
+        ):
+            await scheduler.start()
 
         # Assert
         assert scheduler._is_running is True
@@ -702,12 +709,8 @@ class TestAPSchedulerShutdown:
 
         # Act - log message is still printed even when scheduler is None
         # but the function doesn't error
-        try:
+        with contextlib.suppress(AttributeError):
             await scheduler.shutdown()
-        except AttributeError:
-            # If scheduler._scheduler is None, __aexit__ will fail
-            # But the code should handle this - it checks _is_running first
-            pass
 
         # Assert - the _is_running should still be False if code reaches the end
         # If it's True, the code exited early due to no scheduler
@@ -797,7 +800,7 @@ class TestAPSchedulerAddService:
         # Act
         with patch.object(
             scheduler, "_schedule_service", new_callable=AsyncMock
-        ) as mock_schedule:
+        ):
             scheduler.add_service(service)
             # Give the background task time to start
             await asyncio.sleep(0.01)
@@ -837,13 +840,15 @@ class TestAPSchedulerIntegration:
         scheduler._scheduler = mock_scheduler
 
         # Act
-        with patch.object(scheduler, "_configure_scheduler", new_callable=AsyncMock):
-            with patch.object(scheduler, "_schedule_service", new_callable=AsyncMock):
-                await scheduler.start()
-                assert scheduler.is_running is True
+        with (
+            patch.object(scheduler, "_configure_scheduler", new_callable=AsyncMock),
+            patch.object(scheduler, "_schedule_service", new_callable=AsyncMock),
+        ):
+            await scheduler.start()
+            assert scheduler.is_running is True
 
-                await scheduler.shutdown()
-                assert scheduler.is_running is False
+            await scheduler.shutdown()
+            assert scheduler.is_running is False
 
         # Assert
         mock_scheduler.stop.assert_called_once()

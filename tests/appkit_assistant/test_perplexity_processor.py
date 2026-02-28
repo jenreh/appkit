@@ -104,7 +104,7 @@ class TestProcessValidation:
         mock_stream = AsyncMock()
         mock_stream.__aiter__ = MagicMock(return_value=iter([]))
 
-        async def _fake_create(**kwargs):
+        async def _fake_create(**_kwargs):
             return mock_stream
 
         with (
@@ -120,7 +120,7 @@ class TestProcessValidation:
             try:
                 async for _ in proc.process(_msgs(), "sonar", mcp_servers=[server]):
                     pass
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S110
                 pass
             mock_logger.warning.assert_called()
 

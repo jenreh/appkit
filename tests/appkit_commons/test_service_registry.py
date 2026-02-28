@@ -1,9 +1,11 @@
 """Tests for ServiceRegistry dependency injection container."""
 
+import contextlib
 import logging
 
 import pytest
 
+from appkit_commons.configuration.configuration import ApplicationConfig
 from appkit_commons.registry import ServiceRegistry, service_registry
 
 
@@ -321,9 +323,11 @@ class TestServiceRegistry:
         assert retrieved.do_work() == "working"
 
     def test_register_config_with_exception_during_attr_processing(
-        self, clean_service_registry: ServiceRegistry, caplog: pytest.LogCaptureFixture
+        self,
+        clean_service_registry: ServiceRegistry,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """_register_config_recursively handles exceptions during attribute processing."""
+        """_register_config_recursively handles exceptions during attr processing."""
 
         # Arrange
         class BadProperty:
@@ -407,8 +411,6 @@ class TestServiceRegistry:
         self, clean_service_registry: ServiceRegistry, caplog: pytest.LogCaptureFixture
     ) -> None:
         """configure() properly registers all nested configurations."""
-        from appkit_commons.configuration.configuration import ApplicationConfig
-
         # Arrange
         class NestedAppConfig(ApplicationConfig):
             class Config:
@@ -416,12 +418,11 @@ class TestServiceRegistry:
 
         # Mock env_file to avoid file access
         # Act
-        with caplog.at_level(logging.DEBUG):
-            try:
-                config = clean_service_registry.configure(NestedAppConfig, env_file="")
-            except Exception:
-                # Configuration may fail due to missing env, just test the logging occurred
-                pass
+        with (
+            caplog.at_level(logging.DEBUG),
+            contextlib.suppress(Exception),
+        ):
+            clean_service_registry.configure(NestedAppConfig, env_file="")
 
         # Assert - check logging occurred
         assert (
@@ -444,7 +445,7 @@ class TestServiceRegistry:
     ) -> None:
         """Registering multiple different instances tracks them correctly."""
         # Arrange
-        services = [DummyService(f"service-{i}") for i in range(5)]
+        [DummyService(f"service-{i}") for i in range(5)]
 
         # Subclass for each to make them different types
         class Service1(DummyService):

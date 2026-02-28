@@ -540,7 +540,7 @@ class TestLoadThreads:
 
         with (
             patch(f"{_PATCH}.get_asyncdb_session") as mock_session,
-            patch(f"{_PATCH}.thread_repo") as mock_repo,
+            patch(f"{_PATCH}.thread_repo"),
         ):
             mock_session.return_value.__aenter__ = AsyncMock(
                 side_effect=RuntimeError("DB down")

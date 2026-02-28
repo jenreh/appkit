@@ -148,7 +148,7 @@ class TestOAuthStateRepository:
 
         deleted_count = await oauth_state_repository.delete_expired(async_session)
 
-        # Expect 2 definitely expired + 1 boundary state (likely expired by execution time)
+        # Expect 2 definitely expired + 1 boundary (likely expired by execution time)
         assert deleted_count >= 2
 
         # Verify expired states are gone

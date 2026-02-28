@@ -984,7 +984,7 @@ class TestCheckAuth:
             )
             mock_repo.delete_by_user_and_session_id = AsyncMock()
 
-            result = await state.check_auth()
+            await state.check_auth()
 
         # Should have called terminate_session + redir
         assert state.auth_token == ""
@@ -1010,7 +1010,7 @@ class TestCheckAuth:
             mock_repo.find_by_user_and_session_id = AsyncMock(return_value=None)
             mock_repo.delete_by_user_and_session_id = AsyncMock()
 
-            result = await state.check_auth()
+            await state.check_auth()
 
         assert state.auth_token == ""
 
@@ -1067,6 +1067,6 @@ class TestCheckAuth:
             )
             mock_repo.delete_by_user_and_session_id = AsyncMock()
 
-            result = await state.check_auth()
+            await state.check_auth()
 
         assert state.auth_token == ""

@@ -7,11 +7,13 @@ MCP session creation, schema fixing, tool name parsing, and chunk handling.
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from google.genai import types
 
 from appkit_assistant.backend.processors.gemini_responses_processor import (
     GEMINI_FORBIDDEN_SCHEMA_FIELDS,
@@ -566,8 +568,6 @@ class TestStreamWithMcp:
 
         proc._stream_generation = _mock_gen
 
-        from google.genai import types
-
         chunks = [
             c
             async for c in proc._stream_with_mcp(
@@ -610,8 +610,6 @@ class TestStreamWithMcp:
 
         proc._stream_with_tool_loop = _mock_tool_loop
 
-        from google.genai import types
-
         wrapper = MCPSessionWrapper("https://test", {}, "TestServer")
         chunks = [
             c
@@ -635,8 +633,6 @@ class TestStreamWithToolLoop:
     @pytest.mark.asyncio
     async def test_text_only_no_tools(self) -> None:
         proc = _make_processor()
-
-        from google.genai import types
 
         # Mock stream that returns text only
         chunk_response = MagicMock()
@@ -675,8 +671,6 @@ class TestStreamWithToolLoop:
     @pytest.mark.asyncio
     async def test_with_function_calls(self) -> None:
         proc = _make_processor()
-
-        from google.genai import types
 
         # First round: model returns function call
         fc_part = types.Part(
@@ -744,12 +738,8 @@ class TestStreamWithToolLoop:
 
     @pytest.mark.asyncio
     async def test_cancellation_during_streaming(self) -> None:
-        import asyncio
-
         proc = _make_processor()
         cancel = asyncio.Event()
-
-        from google.genai import types
 
         text_part = MagicMock(text="answer", function_call=None)
         chunk = MagicMock()
@@ -781,8 +771,6 @@ class TestStreamWithToolLoop:
     @pytest.mark.asyncio
     async def test_empty_candidates_skipped(self) -> None:
         proc = _make_processor()
-
-        from google.genai import types
 
         chunk = MagicMock()
         chunk.usage_metadata = None
@@ -889,8 +877,6 @@ class TestStreamGeneration:
     async def test_basic_generation(self) -> None:
         proc = _make_processor()
 
-        from google.genai import types
-
         text_part = MagicMock(text="Hello world")
         chunk = MagicMock()
         chunk.usage_metadata = MagicMock(
@@ -919,13 +905,9 @@ class TestStreamGeneration:
 
     @pytest.mark.asyncio
     async def test_generation_with_cancellation(self) -> None:
-        import asyncio
-
         proc = _make_processor()
         cancel = asyncio.Event()
         cancel.set()
-
-        from google.genai import types
 
         text_part = MagicMock(text="Hello")
         chunk = MagicMock()

@@ -17,6 +17,7 @@ from appkit_assistant.backend.services.file_cleanup_service import (
     get_file_upload_config,
     run_cleanup,
 )
+from appkit_assistant.configuration import FileUploadConfig
 
 _PATCH = "appkit_assistant.backend.services.file_cleanup_service"
 
@@ -56,7 +57,6 @@ class TestGetFileUploadConfig:
         with patch(f"{_PATCH}.service_registry") as sr:
             sr.return_value.get.side_effect = RuntimeError("x")
             result = get_file_upload_config()
-        from appkit_assistant.configuration import FileUploadConfig
 
         assert isinstance(result, FileUploadConfig)
 
@@ -64,7 +64,6 @@ class TestGetFileUploadConfig:
         with patch(f"{_PATCH}.service_registry") as sr:
             sr.return_value.get.return_value = None
             result = get_file_upload_config()
-        from appkit_assistant.configuration import FileUploadConfig
 
         assert isinstance(result, FileUploadConfig)
 
@@ -379,7 +378,7 @@ class TestCleanupExpiredFiles:
             results: list[dict] = []
             with pytest.raises(RuntimeError, match="db"):
                 async for r in svc.cleanup_expired_files(client, fus):
-                    results.append(r)
+                    results.append(r)  # noqa: PERF401
         assert results[-1]["status"] == "error"
 
 

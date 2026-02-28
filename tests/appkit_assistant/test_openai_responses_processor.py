@@ -7,6 +7,7 @@ message conversion, annotation extraction, and file upload flow.
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -20,6 +21,9 @@ from appkit_assistant.backend.schemas import (
     ChunkType,
     Message,
     MessageType,
+)
+from appkit_assistant.backend.services.file_upload_service import (
+    FileUploadError,
 )
 
 # ============================================================================
@@ -834,8 +838,6 @@ class TestProcessFlow:
 
     @pytest.mark.asyncio
     async def test_streaming_with_cancellation(self) -> None:
-        import asyncio
-
         proc = _make_processor()
         msgs = [Message(type=MessageType.HUMAN, text="Hello")]
         cancel = asyncio.Event()
@@ -1031,11 +1033,6 @@ class TestProcessFileUploadsStreaming:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_thread
         mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(return_value=mock_result)
-
-        from appkit_assistant.backend.services.file_upload_service import (
-            FileUploadError,
-        )
 
         proc._file_upload_service = MagicMock()
         proc._file_upload_service.process_files = MagicMock(
@@ -1232,7 +1229,7 @@ class TestConvertMessagesToResponsesFormat:
 # ============================================================================
 
 
-class TestExtractResponsesContent:
+class TestExtractResponsesContentExtended:
     def test_normal_output(self) -> None:
         proc = _make_processor()
         session = SimpleNamespace(
@@ -1277,7 +1274,12 @@ def _model_no_stream() -> AIModel:
     )
 
 
-async def _no_file_uploads(files=None, payload=None, user_id=None, ai_model=""):
+async def _no_file_uploads(
+    files=None,
+    payload=None,
+    user_id=None,
+    ai_model="",  # noqa: ARG001
+):
     """No-op file upload replacement for process() tests."""
     return
     yield  # noqa: RET504

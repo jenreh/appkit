@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_assistant.backend.database.models import Skill
 from appkit_assistant.state.skill_admin_state import SkillAdminState
 
 _PATCH = "appkit_assistant.state.skill_admin_state"
@@ -256,7 +257,7 @@ class TestLoadSkillModels:
             patch(f"{_PATCH}.ai_model_repo") as repo,
             patch(
                 f"{_PATCH}.AssistantAIModel",
-                side_effect=lambda **kw: m,
+                side_effect=lambda **_kw: m,
             ),
         ):
             repo.find_all_skill_capable = AsyncMock(return_value=[m])
@@ -276,7 +277,7 @@ class TestLoadSkillModels:
             patch(f"{_PATCH}.ai_model_repo") as repo,
             patch(
                 f"{_PATCH}.AssistantAIModel",
-                side_effect=lambda **kw: m,
+                side_effect=lambda **_kw: m,
             ),
         ):
             repo.find_all_skill_capable = AsyncMock(return_value=[m])
@@ -309,7 +310,7 @@ class TestLoadSkills:
             ),
             patch(
                 f"{_PATCH}.Skill",
-                side_effect=lambda **kw: s,
+                side_effect=lambda **_kw: s,
             ),
         ):
             repo.find_all_by_api_key_hash = AsyncMock(return_value=[s])
@@ -328,7 +329,7 @@ class TestLoadSkills:
             patch(f"{_PATCH}.skill_repo") as repo,
             patch(
                 f"{_PATCH}.Skill",
-                side_effect=lambda **kw: s,
+                side_effect=lambda **_kw: s,
             ),
         ):
             repo.find_all_ordered_by_name = AsyncMock(return_value=[s])
@@ -404,10 +405,6 @@ class TestSyncSkills:
             ),
             patch(f"{_PATCH}.skill_repo") as repo,
         ):
-            from appkit_assistant.backend.database.models import (
-                Skill,
-            )
-
             repo.find_all_by_api_key_hash = AsyncMock(return_value=[])
             with (
                 patch(
@@ -417,7 +414,7 @@ class TestSyncSkills:
                 patch.object(
                     Skill,
                     "__init__",
-                    lambda self, **kw: None,
+                    lambda _self, **_kw: None,
                 ),
             ):
                 _ = [c async for c in state.sync_skills()]
@@ -494,10 +491,6 @@ class TestHandleUpload:
             ),
             patch(f"{_PATCH}.skill_repo") as repo,
         ):
-            from appkit_assistant.backend.database.models import (
-                Skill,
-            )
-
             repo.find_all_by_api_key_hash = AsyncMock(return_value=[])
             with (
                 patch(
@@ -507,7 +500,7 @@ class TestHandleUpload:
                 patch.object(
                     Skill,
                     "__init__",
-                    lambda self, **kw: None,
+                    lambda _self, **_kw: None,
                 ),
             ):
                 _ = [c async for c in state.handle_upload([upload])]
@@ -553,16 +546,12 @@ class TestUpdateSkillRole:
             ),
             patch(f"{_PATCH}.skill_repo") as repo,
         ):
-            from appkit_assistant.backend.database.models import (
-                Skill,
-            )
-
             repo.update_required_role = AsyncMock()
             repo.find_all_ordered_by_name = AsyncMock(return_value=[])
             with patch.object(
                 Skill,
                 "__init__",
-                lambda self, **kw: None,
+                lambda _self, **_kw: None,
             ):
                 _ = [c async for c in state.update_skill_role(1, "admin")]
         assert state.updating_role_skill_id is None
@@ -577,16 +566,12 @@ class TestUpdateSkillRole:
             ),
             patch(f"{_PATCH}.skill_repo") as repo,
         ):
-            from appkit_assistant.backend.database.models import (
-                Skill,
-            )
-
             repo.update_required_role = AsyncMock()
             repo.find_all_ordered_by_name = AsyncMock(return_value=[])
             with patch.object(
                 Skill,
                 "__init__",
-                lambda self, **kw: None,
+                lambda _self, **_kw: None,
             ):
                 _ = [c async for c in state.update_skill_role(1, "None")]
         repo.update_required_role.assert_called_once()
@@ -636,10 +621,6 @@ class TestDeleteSkill:
             ),
             patch(f"{_PATCH}.skill_repo") as repo,
         ):
-            from appkit_assistant.backend.database.models import (
-                Skill,
-            )
-
             repo.find_all_by_api_key_hash = AsyncMock(return_value=[])
             with (
                 patch(
@@ -649,7 +630,7 @@ class TestDeleteSkill:
                 patch.object(
                     Skill,
                     "__init__",
-                    lambda self, **kw: None,
+                    lambda _self, **_kw: None,
                 ),
             ):
                 _ = [c async for c in state.delete_skill(1)]

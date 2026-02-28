@@ -262,7 +262,7 @@ def _ensure_caplog_propagation() -> Generator[None, None, None]:
     """
     saved: list[tuple[logging.Logger, bool, list[logging.Handler]]] = []
 
-    for name, obj in list(logging.Logger.manager.loggerDict.items()):
+    for _name, obj in list(logging.Logger.manager.loggerDict.items()):
         if not isinstance(obj, logging.Logger):
             continue
         if not obj.propagate or obj.handlers:

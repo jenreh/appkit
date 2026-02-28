@@ -7,6 +7,7 @@ _get_current_user_id, _build_redirect_uri.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -85,8 +86,6 @@ class TestBuildRedirectUri:
 
 def _user_session(user_id: int | None):
     """Create a user session mock with awaitable property."""
-    import asyncio
-
     future: asyncio.Future[None] = asyncio.Future()
     future.set_result(None)
 
@@ -211,7 +210,7 @@ class TestHandleMcpOauthCallback:
 
         state._mock_user_session = _user_session(1)
 
-        async def fake_exchange(*a, **kw):
+        async def fake_exchange(*_a, **_kw):
             state.status = "success"
             yield
 

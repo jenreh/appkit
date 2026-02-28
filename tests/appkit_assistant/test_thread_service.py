@@ -1,6 +1,7 @@
 """Tests for ThreadService."""
 
 from contextlib import asynccontextmanager
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,7 +16,7 @@ from appkit_assistant.backend.schemas import (
 from appkit_assistant.backend.services.thread_service import ThreadService
 
 
-def mock_async_context_manager(return_value):
+def mock_async_context_manager(return_value) -> Any:
     """Create a mock async context manager that returns the given value."""
 
     @asynccontextmanager
@@ -38,12 +39,14 @@ class TestThreadService:
         """create_new_thread generates unique thread_id."""
         service = ThreadService()
 
-        with patch.object(service.model_manager, "get_all_models", return_value=[]):
-            with patch.object(
+        with (
+            patch.object(service.model_manager, "get_all_models", return_value=[]),
+            patch.object(
                 service.model_manager, "get_default_model", return_value="gpt-4"
-            ):
-                thread1 = service.create_new_thread("gpt-4")
-                thread2 = service.create_new_thread("gpt-4")
+            ),
+        ):
+            thread1 = service.create_new_thread("gpt-4")
+            thread2 = service.create_new_thread("gpt-4")
 
         assert thread1.thread_id != thread2.thread_id
         assert len(thread1.thread_id) > 0
@@ -131,11 +134,13 @@ class TestThreadService:
         """create_new_thread creates thread with correct initial state."""
         service = ThreadService()
 
-        with patch.object(service.model_manager, "get_all_models", return_value=[]):
-            with patch.object(
+        with (
+            patch.object(service.model_manager, "get_all_models", return_value=[]),
+            patch.object(
                 service.model_manager, "get_default_model", return_value="gpt-4"
-            ):
-                thread = service.create_new_thread("gpt-4")
+            ),
+        ):
+            thread = service.create_new_thread("gpt-4")
 
         assert thread.title == "Neuer Chat"
         assert thread.state == ThreadStatus.NEW
@@ -148,16 +153,18 @@ class TestThreadService:
         service = ThreadService()
         mock_session = MagicMock()
 
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+                ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=None,
-            ):
-                result = await service.load_thread("nonexistent", user_id=1)
+                ),
+        ):
+            result = await service.load_thread("nonexistent", user_id=1)
 
         assert result is None
 
@@ -168,15 +175,17 @@ class TestThreadService:
         mock_session = MagicMock()
         mock_find = AsyncMock(return_value=None)
 
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+                ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 mock_find,
-            ):
-                await service.load_thread("thread-123", user_id="42")
+                ),
+        ):
+            await service.load_thread("thread-123", user_id="42")
 
         # Verify it was called with int
         mock_find.assert_called_once()
@@ -208,16 +217,18 @@ class TestThreadService:
             skill_openai_ids=["skill-1"],
         )
 
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+                ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=db_thread,
-            ):
-                result = await service.load_thread("thread-123", user_id=1)
+                ),
+        ):
+            result = await service.load_thread("thread-123", user_id=1)
 
         assert result is not None
         assert isinstance(result, ThreadModel)
@@ -245,16 +256,18 @@ class TestThreadService:
             skill_openai_ids=None,
         )
 
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+                ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=db_thread,
-            ):
-                result = await service.load_thread("thread-123", user_id=1)
+                ),
+        ):
+            result = await service.load_thread("thread-123", user_id=1)
 
         assert result.mcp_server_ids == []
         assert result.skill_openai_ids == []
@@ -292,20 +305,22 @@ class TestThreadService:
         )
 
         mock_save = AsyncMock()
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+            ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=None,
-            ):
-                with patch(
-                    "appkit_assistant.backend.services.thread_service.thread_repo.save",
-                    mock_save,
-                ):
-                    await service.save_thread(thread, user_id=1)
+            ),
+            patch(
+                "appkit_assistant.backend.services.thread_service.thread_repo.save",
+                mock_save,
+            ),
+        ):
+            await service.save_thread(thread, user_id=1)
 
         # Verify save was called
         mock_save.assert_called_once()
@@ -343,20 +358,22 @@ class TestThreadService:
         )
 
         mock_save = AsyncMock()
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+            ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=existing,
-            ):
-                with patch(
-                    "appkit_assistant.backend.services.thread_service.thread_repo.save",
-                    mock_save,
-                ):
-                    await service.save_thread(thread, user_id=1)
+            ),
+            patch(
+                "appkit_assistant.backend.services.thread_service.thread_repo.save",
+                mock_save,
+            ),
+        ):
+            await service.save_thread(thread, user_id=1)
 
         # Verify existing was updated
         assert existing.title == "Updated Title"
@@ -382,19 +399,21 @@ class TestThreadService:
 
         mock_find = AsyncMock(return_value=None)
         mock_save = AsyncMock()
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+            ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 mock_find,
-            ):
-                with patch(
-                    "appkit_assistant.backend.services.thread_service.thread_repo.save",
-                    mock_save,
-                ):
-                    await service.save_thread(thread, user_id="42")
+            ),
+            patch(
+                "appkit_assistant.backend.services.thread_service.thread_repo.save",
+                mock_save,
+            ),
+        ):
+            await service.save_thread(thread, user_id="42")
 
         # Verify user_id was converted to int
         mock_find.assert_called_once()
@@ -415,20 +434,22 @@ class TestThreadService:
         )
 
         mock_save = AsyncMock()
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+            ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=None,
-            ):
-                with patch(
-                    "appkit_assistant.backend.services.thread_service.thread_repo.save",
-                    mock_save,
-                ):
-                    await service.save_thread(thread, user_id=1)
+            ),
+            patch(
+                "appkit_assistant.backend.services.thread_service.thread_repo.save",
+                mock_save,
+            ),
+        ):
+            await service.save_thread(thread, user_id=1)
 
         saved_thread = mock_save.call_args[0][1]
         # State should be string value, not enum
@@ -448,14 +469,16 @@ class TestThreadService:
             messages=[],
         )
 
-        with patch(
-            "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
-            return_value=mock_async_context_manager(mock_session),
-        ):
-            with patch(
+        with (
+            patch(
+                "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
+                return_value=mock_async_context_manager(mock_session),
+                ),
+            patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 side_effect=Exception("DB error"),
-            ):
-                # Should not raise
-                await service.save_thread(thread, user_id=1)
+                ),
+        ):
+            # Should not raise
+            await service.save_thread(thread, user_id=1)

@@ -32,8 +32,8 @@ dev = [
     "pytest==9.0.2",
     "pytest-asyncio==1.3.0",
     "pytest-cov==7.0.0",
-    "pytest-xdist==3.6.1",
-    "pytest-timeout==2.3.1",
+    "pytest-xdist==3.8.0",
+    "pytest-timeout==2.4.0",
     "aiosqlite==0.22.1",
     "httpx==0.28.1",
     "responses==0.26.0",
@@ -188,7 +188,7 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "I001"] # {name} imported but unused
 "server.py" = ["W605", "S104"] # invalid escape sequence
-"test_**.py" = ["S101", "PLR2004", "ANN001", "S106"]
+"test_**.py" = ["S101", "PLR2004", "ANN001", "S106", "SLF001", "ARG001", "ARG002", "S105"]
 "alembic/versions/*.py" = ["E501"]
 "indexer/main.py" = ["S104"]
 

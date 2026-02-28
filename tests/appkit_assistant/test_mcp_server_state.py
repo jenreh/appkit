@@ -179,9 +179,7 @@ class TestSimpleMethods:
     @pytest.mark.asyncio
     async def test_open_add_modal(self) -> None:
         state = _StubMCPServerState()
-        results = []
-        async for r in state.open_add_modal():
-            results.append(r)
+        [r async for r in state.open_add_modal()]
         assert state.add_modal_open is True
 
     @pytest.mark.asyncio
@@ -190,9 +188,7 @@ class TestSimpleMethods:
         s = MagicMock()
         s.id = 1
         state.servers = [s]
-        results = []
-        async for r in state.open_edit_modal(1):
-            results.append(r)
+        [r async for r in state.open_edit_modal(1)]
         assert state.edit_modal_open is True
         assert state.current_server is s
 
@@ -282,9 +278,7 @@ class TestLoadServers:
             patch(f"{_PATCH}.mcp_server_repo") as repo,
         ):
             repo.find_all_ordered_by_name = AsyncMock(return_value=[])
-            results = []
-            async for r in state.load_servers_with_toast():
-                results.append(r)
+            [r async for r in state.load_servers_with_toast()]
         assert state.loading is False
 
     @pytest.mark.asyncio
@@ -294,9 +288,7 @@ class TestLoadServers:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.load_servers_with_toast():
-                results.append(r)
+            results = [r async for r in state.load_servers_with_toast()]
         # Should yield toast error
         assert len(results) >= 1
 
@@ -366,9 +358,12 @@ class TestAddServer:
         ):
             repo.save = AsyncMock(return_value=saved)
             repo.find_all_ordered_by_name = AsyncMock(return_value=[saved])
-            results = []
-            async for r in state.add_server({"name": "New", "url": "https://new.test"}):
-                results.append(r)
+            [
+                r
+                async for r in state.add_server(
+                    {"name": "New", "url": "https://new.test"}
+                )
+            ]
         assert state.add_modal_open is False
         assert state.loading is False
 
@@ -383,11 +378,12 @@ class TestAddServer:
             patch(f"{_PATCH}.mcp_server_repo") as repo,
         ):
             repo.save = AsyncMock(side_effect=ValueError("bad data"))
-            results = []
-            async for r in state.add_server(
-                {"name": "X", "url": "x", "headers_json": "{}"}
-            ):
-                results.append(r)
+            [
+                r
+                async for r in state.add_server(
+                    {"name": "X", "url": "x", "headers_json": "{}"}
+                )
+            ]
         assert state.loading is False
 
     @pytest.mark.asyncio
@@ -397,9 +393,7 @@ class TestAddServer:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.add_server({"name": "X", "url": "x"}):
-                results.append(r)
+            [r async for r in state.add_server({"name": "X", "url": "x"})]
         assert state.loading is False
 
 
@@ -413,9 +407,7 @@ class TestModifyServer:
     async def test_no_current_server(self) -> None:
         state = _StubMCPServerState()
         state.current_server = None
-        results = []
-        async for r in state.modify_server({"name": "X", "url": "x"}):
-            results.append(r)
+        [r async for r in state.modify_server({"name": "X", "url": "x"})]
         assert state.loading is False
 
     @pytest.mark.asyncio
@@ -434,11 +426,12 @@ class TestModifyServer:
             repo.find_by_id = AsyncMock(return_value=s)
             repo.save = AsyncMock(return_value=updated)
             repo.find_all_ordered_by_name = AsyncMock(return_value=[updated])
-            results = []
-            async for r in state.modify_server(
-                {"name": "Updated", "url": "https://new.test"}
-            ):
-                results.append(r)
+            [
+                r
+                async for r in state.modify_server(
+                    {"name": "Updated", "url": "https://new.test"}
+                )
+            ]
         assert state.edit_modal_open is False
         assert state.loading is False
 
@@ -454,20 +447,19 @@ class TestModifyServer:
             patch(f"{_PATCH}.mcp_server_repo") as repo,
         ):
             repo.find_by_id = AsyncMock(return_value=None)
-            results = []
-            async for r in state.modify_server({"name": "X", "url": "x"}):
-                results.append(r)
+            [r async for r in state.modify_server({"name": "X", "url": "x"})]
         assert state.loading is False
 
     @pytest.mark.asyncio
     async def test_value_error(self) -> None:
         state = _StubMCPServerState()
         state.current_server = _server()
-        results = []
-        async for r in state.modify_server(
-            {"name": "X", "url": "x", "headers_json": "bad"}
-        ):
-            results.append(r)
+        [
+            r
+            async for r in state.modify_server(
+                {"name": "X", "url": "x", "headers_json": "bad"}
+            )
+        ]
         assert state.loading is False
 
     @pytest.mark.asyncio
@@ -478,9 +470,7 @@ class TestModifyServer:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.modify_server({"name": "X", "url": "x"}):
-                results.append(r)
+            [r async for r in state.modify_server({"name": "X", "url": "x"})]
         assert state.loading is False
 
 
@@ -504,9 +494,7 @@ class TestDeleteServer:
             repo.find_by_id = AsyncMock(return_value=s)
             repo.delete_by_id = AsyncMock(return_value=True)
             repo.find_all_ordered_by_name = AsyncMock(return_value=[])
-            results = []
-            async for r in state.delete_server(1):
-                results.append(r)
+            [r async for r in state.delete_server(1)]
         assert state.loading is False
 
     @pytest.mark.asyncio
@@ -520,9 +508,7 @@ class TestDeleteServer:
             patch(f"{_PATCH}.mcp_server_repo") as repo,
         ):
             repo.find_by_id = AsyncMock(return_value=None)
-            results = []
-            async for r in state.delete_server(999):
-                results.append(r)
+            [r async for r in state.delete_server(999)]
         assert state.loading is False
 
     @pytest.mark.asyncio
@@ -538,9 +524,7 @@ class TestDeleteServer:
         ):
             repo.find_by_id = AsyncMock(return_value=s)
             repo.delete_by_id = AsyncMock(return_value=False)
-            results = []
-            async for r in state.delete_server(1):
-                results.append(r)
+            [r async for r in state.delete_server(1)]
         assert state.loading is False
 
     @pytest.mark.asyncio
@@ -550,9 +534,7 @@ class TestDeleteServer:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.delete_server(1):
-                results.append(r)
+            [r async for r in state.delete_server(1)]
         assert state.loading is False
 
 
@@ -579,9 +561,7 @@ class TestToggleActive:
         ):
             repo.find_by_id = AsyncMock(return_value=s)
             repo.save = AsyncMock(return_value=s)
-            results = []
-            async for r in state.toggle_server_active(1, False):
-                results.append(r)
+            [r async for r in state.toggle_server_active(1, False)]
         assert state.updating_active_server_id is None
 
     @pytest.mark.asyncio
@@ -599,9 +579,7 @@ class TestToggleActive:
             patch(f"{_PATCH}.mcp_server_repo") as repo,
         ):
             repo.find_by_id = AsyncMock(return_value=None)
-            results = []
-            async for r in state.toggle_server_active(1, False):
-                results.append(r)
+            [r async for r in state.toggle_server_active(1, False)]
         assert state.updating_active_server_id is None
 
     @pytest.mark.asyncio
@@ -615,9 +593,7 @@ class TestToggleActive:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.toggle_server_active(1, False):
-                results.append(r)
+            [r async for r in state.toggle_server_active(1, False)]
         assert state.updating_active_server_id is None
 
 
@@ -645,9 +621,7 @@ class TestUpdateRole:
         ):
             repo.find_by_id = AsyncMock(return_value=s)
             repo.save = AsyncMock(return_value=s)
-            results = []
-            async for r in state.update_server_role(1, "admin"):
-                results.append(r)
+            [r async for r in state.update_server_role(1, "admin")]
         assert state.updating_role_server_id is None
 
     @pytest.mark.asyncio
@@ -666,9 +640,7 @@ class TestUpdateRole:
             patch(f"{_PATCH}.mcp_server_repo") as repo,
         ):
             repo.find_by_id = AsyncMock(return_value=None)
-            results = []
-            async for r in state.update_server_role(1, "admin"):
-                results.append(r)
+            [r async for r in state.update_server_role(1, "admin")]
         assert state.updating_role_server_id is None
 
     @pytest.mark.asyncio
@@ -683,7 +655,5 @@ class TestUpdateRole:
             f"{_PATCH}.get_asyncdb_session",
             side_effect=RuntimeError("db"),
         ):
-            results = []
-            async for r in state.update_server_role(1, "admin"):
-                results.append(r)
+            [r async for r in state.update_server_role(1, "admin")]
         assert state.updating_role_server_id is None

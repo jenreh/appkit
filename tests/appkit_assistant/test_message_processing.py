@@ -870,7 +870,7 @@ class TestProcessMessage:
         state = _make_state()
         state.prompt = "Hello"
 
-        async def _fake_process(**kwargs: object) -> AsyncGenerator:
+        async def _fake_process(**_kwargs: object) -> AsyncGenerator:
             yield Chunk(type=ChunkType.TEXT, text="Hi")
             yield Chunk(type=ChunkType.COMPLETION, text="")
 
@@ -914,7 +914,7 @@ class TestProcessMessage:
         state = _make_state()
         state.prompt = "Hello"
 
-        async def _fail_process(**kwargs: object) -> AsyncGenerator:
+        async def _fail_process(**_kwargs: object) -> AsyncGenerator:
             yield Chunk(type=ChunkType.TEXT, text="partial")
             raise RuntimeError("stream crashed")
 
@@ -967,7 +967,7 @@ class TestProcessMessage:
             ),
         ]
 
-        async def _empty_process(**kwargs: object) -> AsyncGenerator:
+        async def _empty_process(**_kwargs: object) -> AsyncGenerator:
             yield Chunk(type=ChunkType.COMPLETION, text="")
 
         processor = MagicMock()
@@ -1016,7 +1016,7 @@ class TestProcessMessage:
 
         captured_payload: dict = {}
 
-        async def _capture_process(*args: object, **kwargs: object) -> AsyncGenerator:
+        async def _capture_process(*_args: object, **kwargs: object) -> AsyncGenerator:
             nonlocal captured_payload
             captured_payload = kwargs.get("payload", {})
             yield Chunk(type=ChunkType.COMPLETION, text="")

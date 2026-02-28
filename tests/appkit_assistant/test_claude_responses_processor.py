@@ -8,6 +8,7 @@ content block start/delta/stop, and file content blocks.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -645,8 +646,6 @@ class TestProcessFlow:
 
     @pytest.mark.asyncio
     async def test_process_with_cancellation(self) -> None:
-        import asyncio
-
         proc = _make_processor()
         msgs = [Message(type=MessageType.HUMAN, text="Hello")]
         cancel = asyncio.Event()

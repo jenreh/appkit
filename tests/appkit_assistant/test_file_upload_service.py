@@ -543,7 +543,7 @@ class TestRecreateVectorStore:
             mock_client.vector_stores.create = AsyncMock(return_value=new_vs)
             mock_client.vector_stores.files.create = AsyncMock()
 
-            vs_id, vs_name = await service._recreate_vector_store(
+            vs_id, _vs_name = await service._recreate_vector_store(
                 session, thread, "uuid"
             )
 
@@ -788,7 +788,7 @@ class TestGetVectorStoreRecreate:
                 return_value=("new-vs", "Thread-u"),
             ) as recreate,
         ):
-            vs_id, vs_name = await service.get_vector_store(1, "u")
+            vs_id, _vs_name = await service.get_vector_store(1, "u")
 
         recreate.assert_awaited_once()
         assert vs_id == "new-vs"

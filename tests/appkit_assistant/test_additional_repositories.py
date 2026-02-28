@@ -445,6 +445,7 @@ class TestSkillRepository:
         """find_all_active_by_api_key_hash filters by active status."""
         active = await skill_factory(api_key_hash="hash-a", active=True)
         await skill_factory(api_key_hash="hash-a", active=False)
+        await skill_factory(api_key_hash="hash-a", active=False)
 
         results = await skill_repo.find_all_active_by_api_key_hash(
             async_session, "hash-a"

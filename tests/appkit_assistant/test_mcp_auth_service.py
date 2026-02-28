@@ -848,7 +848,7 @@ class TestBuildAuthorizationUrlWithRegistration:
         server.oauth_authorize_url = "https://auth.test/authz"
         server.oauth_scopes = None
 
-        url, state = await svc.build_authorization_url_with_registration(server)
+        url, _state = await svc.build_authorization_url_with_registration(server)
         assert "client_id=existing-client" in url
 
     @pytest.mark.asyncio
@@ -908,7 +908,7 @@ class TestBuildAuthUrlWithSession:
         server.id = 1
 
         session = MagicMock()
-        url, state = svc.build_authorization_url(
+        _url, _state = svc.build_authorization_url(
             server, state="s1", session=session, user_id=1
         )
 
@@ -924,7 +924,7 @@ class TestBuildAuthUrlWithSession:
         server.oauth_scopes = None
         server.id = 1
 
-        url, state = svc.build_authorization_url(server)
+        url, _state = svc.build_authorization_url(server)
         assert "client_id=client-1" in url
 
     def test_state_commit_failure(self) -> None:
@@ -939,7 +939,7 @@ class TestBuildAuthUrlWithSession:
         session = MagicMock()
         session.commit.side_effect = RuntimeError("db")
 
-        url, state = svc.build_authorization_url(server, session=session, user_id=1)
+        _url, _state = svc.build_authorization_url(server, session=session, user_id=1)
         session.rollback.assert_called_once()
 
 

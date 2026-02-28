@@ -566,7 +566,7 @@ class TestLoadOpenAIFiles:
             "_get_client",
             new=AsyncMock(return_value=None),
         ):
-            results = [c async for c in state.load_openai_files()]
+            [c async for c in state.load_openai_files()]
         assert state.loading is False
 
     @pytest.mark.asyncio
@@ -640,7 +640,7 @@ class TestDeleteFile:
             patch(f"{_PATCH}.file_upload_repo") as repo,
         ):
             repo.delete_file = AsyncMock(return_value=True)
-            results = [c async for c in state.delete_file(1)]
+            [c async for c in state.delete_file(1)]
         assert state.deleting_file_id is None
 
     @pytest.mark.asyncio
@@ -729,7 +729,7 @@ class TestDeleteOpenAIFile:
             "_get_client",
             new=AsyncMock(return_value=client),
         ):
-            results = [c async for c in state.delete_openai_file("file-1")]
+            [c async for c in state.delete_openai_file("file-1")]
         assert state.deleting_openai_file_id is None
 
     @pytest.mark.asyncio
