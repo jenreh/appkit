@@ -355,6 +355,6 @@ def _call_tool_result_to_dict(result: CallToolResult) -> dict[str, Any]:
     content_list = [item.model_dump() for item in result.content]
 
     return {
-        "isError": result.isError if result.isError else False,
+        "isError": bool(result.isError),
         "content": content_list,
     }

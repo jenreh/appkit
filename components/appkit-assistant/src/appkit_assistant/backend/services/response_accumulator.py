@@ -370,12 +370,8 @@ class ResponseAccumulator:
                 server_name=metadata.get("server_name", ""),
                 resource_uri=metadata.get("resource_uri", ""),
                 tool_name=metadata.get("tool_name", ""),
-                tool_input=json.loads(
-                    metadata.get("tool_input", "{}") or "{}"
-                ),
-                tool_result=json.loads(
-                    metadata.get("tool_result", "null") or "null"
-                ),
+                tool_input=json.loads(metadata.get("tool_input", "{}")),
+                tool_result=json.loads(metadata.get("tool_result", "null")),
             )
             self.mcp_app_views.append(view)
             logger.debug(

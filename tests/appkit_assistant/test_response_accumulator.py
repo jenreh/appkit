@@ -660,3 +660,23 @@ class TestMcpAppViewChunk:
         """Test that mcp_app_views starts empty."""
         acc = ResponseAccumulator()
         assert acc.mcp_app_views == []
+
+    def test_mcp_app_view_with_malformed_json(self) -> None:
+        """Test MCP_APP_VIEW with invalid JSON in tool_input."""
+        acc = _acc_with_assistant_message()
+
+        chunk = _make_chunk(
+            ChunkType.MCP_APP_VIEW,
+            "",
+            {
+                "server_id": "1",
+                "server_name": "Server",
+                "resource_uri": "ui://test",
+                "tool_name": "tool",
+                "tool_input": "invalid json{",
+            },
+        )
+        acc.process_chunk(chunk)
+
+        # Should not crash, just log the error
+        assert len(acc.mcp_app_views) == 0
