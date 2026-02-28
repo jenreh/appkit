@@ -6,8 +6,8 @@ from reflex.vars.base import Var
 
 from appkit_mantine.base import MantineComponentBase
 
-MANTINE_CHARTS_LIBRARY = "@mantine/charts@8.3.10"
-RECHARTS_LIBRARY = "recharts@^2.13.3"
+MANTINE_CHARTS_LIBRARY = "@mantine/charts@8.3.15"
+RECHARTS_LIBRARY = "recharts@^3.7.0"
 
 MantineCurveType = Literal[
     "linear",

@@ -13,7 +13,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import { Color } from '@tiptap/extension-color';
-import TextStyle from '@tiptap/extension-text-style';
+import { TextStyle } from '@tiptap/extension-text-style';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from "@tiptap/extension-image";
 
