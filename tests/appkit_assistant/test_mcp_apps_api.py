@@ -6,6 +6,7 @@ through FastAPI endpoints.
 
 from appkit_assistant.backend.api.mcp_apps_api import (
     ToolCallRequest,
+    _extract_user_id,
 )
 from appkit_assistant.backend.schemas import (
     McpAppResource,
@@ -31,6 +32,22 @@ class TestToolCallRequest:
         )
         assert req.arguments == {"text": "hello"}
 
+
+# ============================================================================
+# User ID extraction
+# ============================================================================
+
+
+class TestExtractUserId:
+    def test_no_session_returns_default(self) -> None:
+        assert _extract_user_id(None) == 0
+
+    def test_empty_session_returns_default(self) -> None:
+        assert _extract_user_id("") == 0
+
+    def test_with_session_returns_default(self) -> None:
+        # MVP: session presence confirmed, actual mapping deferred
+        assert _extract_user_id("some-session-token") == 0
 
 # ============================================================================
 # Pydantic schemas

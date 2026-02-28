@@ -15,7 +15,7 @@ function postToIframe(iframe, method, params = {}, id = null) {
   if (!iframe || !iframe.contentWindow) return;
   const msg = { jsonrpc: "2.0", method, params };
   if (id !== null) msg.id = id;
-  iframe.contentWindow.postMessage(msg, "*");
+  iframe.contentWindow.postMessage(msg, window.location.origin);
 }
 
 /**
@@ -25,12 +25,12 @@ function respondToIframe(iframe, id, result) {
   if (!iframe || !iframe.contentWindow) return;
   iframe.contentWindow.postMessage(
     { jsonrpc: "2.0", id, result },
-    "*"
+    window.location.origin
   );
 }
 
 export function McpAppBridge({
-  resource_url = "",
+  resource_uri = "",
   tool_input = "{}",
   tool_result = "null",
   server_id = 0,
@@ -39,13 +39,19 @@ export function McpAppBridge({
   theme = "light",
   max_height = 600,
   prefers_border = true,
-  on_tool_call,
   on_message,
   ...rest
 }) {
   const iframeRef = useRef(null);
   const [iframeHeight, setIframeHeight] = useState(300);
   const [ready, setReady] = useState(false);
+  const [htmlContent, setHtmlContent] = useState("");
+
+  // Build the resource URL with proper URI encoding
+  const resourceUrl = React.useMemo(() => {
+    if (!resource_uri) return "";
+    return `/api/mcp-apps/${server_id}/resource?uri=${encodeURIComponent(resource_uri)}`;
+  }, [server_id, resource_uri]);
 
   // Parse JSON props safely
   const parsedInput = React.useMemo(() => {
@@ -64,6 +70,21 @@ export function McpAppBridge({
     "--color-text-primary": theme === "dark" ? "#c1c2c5" : "#000000",
     "--color-border": theme === "dark" ? "#373a40" : "#dee2e6",
   }), [theme]);
+
+  // Fetch HTML content from the resource endpoint
+  useEffect(() => {
+    if (!resourceUrl) return;
+    fetch(resourceUrl, { credentials: "same-origin" })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then((html) => setHtmlContent(html))
+      .catch((err) => {
+        console.error("Failed to fetch MCP App resource:", err);
+        setHtmlContent("");
+      });
+  }, [resourceUrl]);
 
   // Handle messages from iframe
   const handleMessage = useCallback((event) => {
@@ -114,9 +135,10 @@ export function McpAppBridge({
     if (data.method === "tools/call" && data.id != null) {
       const reqId = data.id;
       const params = data.params || {};
-      fetch(`/api/mcp-apps/${server_id}/tools/call?user_id=0`, {
+      fetch(`/api/mcp-apps/${server_id}/tools/call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           tool_name: params.name || params.toolName,
           arguments: params.arguments || {},
@@ -191,7 +213,7 @@ export function McpAppBridge({
     });
   }, [ready, cssVars]);
 
-  if (!resource_url) return null;
+  if (!resourceUrl || !htmlContent) return null;
 
   const borderStyle = prefers_border
     ? `1px solid ${theme === "dark" ? "#373a40" : "#dee2e6"}`
@@ -210,14 +232,14 @@ export function McpAppBridge({
     >
       <iframe
         ref={iframeRef}
-        src={resource_url}
+        srcDoc={htmlContent}
         style={{
           width: "100%",
           height: `${iframeHeight}px`,
           border: "none",
           display: "block",
         }}
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        sandbox="allow-scripts allow-popups allow-forms"
         title={`MCP App: ${tool_name}`}
       />
     </div>

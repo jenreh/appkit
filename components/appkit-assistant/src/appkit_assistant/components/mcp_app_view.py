@@ -31,7 +31,7 @@ class McpAppBridge(NoSSRComponent):
     library = _JSX_IMPORT
     is_default = True
 
-    resource_url: Var[str] = ""
+    resource_uri: Var[str] = ""
     tool_input: Var[str] = "{}"
     tool_result: Var[str] = "null"
     server_id: Var[int] = 0
@@ -51,13 +51,6 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
     Returns:
         An McpAppBridge component configured with the view data
     """
-    resource_url = (
-        "/api/mcp-apps/"
-        + view_data.server_id.to(str)  # type: ignore[union-attr]
-        + "/resource?uri="
-        + view_data.resource_uri
-    )
-
     return rx.box(
         rx.hstack(
             rx.badge(
@@ -75,7 +68,7 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
             padding="4px 8px",
         ),
         McpAppBridge.create(
-            resource_url=resource_url,
+            resource_uri=view_data.resource_uri,
             tool_input=view_data.tool_input.to(str),  # type: ignore[union-attr]
             tool_result=view_data.tool_result.to(str),  # type: ignore[union-attr]
             server_id=view_data.server_id,

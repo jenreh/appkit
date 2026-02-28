@@ -27,8 +27,7 @@ from appkit_assistant.backend.services.mcp_token_service import (
 
 logger = logging.getLogger(__name__)
 
-# Default TTL for cached sessions and tool metadata (seconds)
-_SESSION_TTL_S = 300  # 5 minutes
+# Default TTL for cached tool metadata (seconds)
 _TOOL_CACHE_TTL_S = 300
 
 

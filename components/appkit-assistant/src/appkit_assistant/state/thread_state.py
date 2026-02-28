@@ -11,6 +11,7 @@ Method groups are split into mixins under ``state.thread``:
 - ModelSelectionMixin   - AI model listing and capability checks
 - CommandPaletteMixin   - slash-command palette navigation
 - McpToolsMixin         - MCP server tool selection
+- McpAppsMixin          - MCP App view management
 - SkillsMixin           - skill selection
 - FileUploadMixin       - file upload management
 - MessageEditMixin      - message editing / copy / download / retry
@@ -403,6 +404,8 @@ class ThreadState(
         self.image_chunks = []
         self.prompt = ""
         self.show_thinking = False
+        self.mcp_app_views = []
+        self._ui_tool_registry = {}
         logger.debug(
             "Created new empty thread: %s",
             self._thread.thread_id,
@@ -415,6 +418,8 @@ class ThreadState(
         self.messages = thread.messages
         self.selected_model = thread.ai_model
         self.thinking_items = []
+        self.mcp_app_views = []
+        self._ui_tool_registry = {}
         self.prompt = ""
         logger.debug("Set current thread: %s", thread.thread_id)
 
@@ -450,6 +455,8 @@ class ThreadState(
                 self.messages = full_thread.messages
                 self.selected_model = full_thread.ai_model
                 self.thinking_items = []
+                self.mcp_app_views = []
+                self._ui_tool_registry = {}
                 self.prompt = ""
                 self.web_search_enabled = False
 
@@ -546,6 +553,8 @@ class ThreadState(
 
         self.thinking_items = []
         self.image_chunks = []
+        self.mcp_app_views = []
+        self._ui_tool_registry = {}
         self.show_thinking = False
         self._clear_uploaded_files()
 
