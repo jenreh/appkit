@@ -164,6 +164,21 @@ Reflex serves the frontend on `http://localhost:3000` and backend API on port `3
 - **Docker export missing files**: the container expects `.web/build/client`. If `reflex export` moved paths in newer versions, adjust `start.sh` accordingly and keep Caddy root synced.
 - **Assistant models unavailable**: `app/pages/assitant/assistant.py` registers processors conditionally. Ensure `AssistantConfig` contains OpenAI & Perplexity keys; otherwise only the Lorem Ipsum processor is enabled.
 
+## Available Skills
+
+Skills are specialized instructional resources for domain-specific tasks. Agents automatically consult relevant skills when undertaking work in their domain. The following skills are available:
+
+| Skill | Purpose | When to Use |
+| - | - | - |
+| **writing-python-code** | Python 3.13 code style, logging rules, type annotations, design patterns, testing strategy | Writing, reviewing, or refactoring Python code; creating new modules or tests |
+| **applying-reflex-best-practices** | Reflex.dev architecture, state design, event handlers, component patterns | Writing Reflex components, state classes, event handlers; setting up new Reflex pages |
+| **using-appkit-mantine** | Mantine UI component API, inheritance hierarchy, event handler patterns | Creating pages, forms, layouts, modals, drawers, charts, inputs with Mantine components |
+| **testing-reflex-state** | Pytest unit tests for Reflex State logic — event handlers, computed vars, substates | Writing tests for Reflex State classes (use pytest, not Playwright/UI tests) |
+| **multi-stage-dockerfile** | Optimized multi-stage Dockerfiles, layer caching, security hardening, healthchecks | Building, reviewing, or refactoring Dockerfiles and Docker Compose configurations |
+| **find-skills** | Discovering and installing agent skills when extending capabilities | When asking "how do I do X?", "find a skill for X", or interested in extending capabilities |
+
+Skills are loaded automatically and transparently during development. To learn more about a skill or access its full documentation, agents can read the skill definition file (e.g., `.github/skills/<skill-name>/SKILL.md`).
+
 ## Reference Docs & Entry Points
 
 - `README.md` – high-level product overview and quick start.
