@@ -39,7 +39,6 @@ from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     CommandDefinition,
-    McpAppToolInfo,
     McpAppViewData,
     Message,
     MessageType,

@@ -17,9 +17,9 @@ from mcp.types import CallToolResult, Tool
 
 from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.backend.schemas import (
-    MCPAuthType,
     McpAppResource,
     McpAppToolInfo,
+    MCPAuthType,
 )
 from appkit_assistant.backend.services.mcp_token_service import (
     MCPTokenService,
@@ -45,13 +45,9 @@ class McpAppsService:
     ) -> None:
         self._token_service = token_service
         # Cache: (server_id, user_id) -> (tools, timestamp)
-        self._tool_cache: dict[
-            tuple[int, int], tuple[list[McpAppToolInfo], float]
-        ] = {}
+        self._tool_cache: dict[tuple[int, int], tuple[list[McpAppToolInfo], float]] = {}
         # Cache: (server_id, user_id) -> (supports_apps, timestamp)
-        self._apps_support_cache: dict[
-            tuple[int, int], tuple[bool, float]
-        ] = {}
+        self._apps_support_cache: dict[tuple[int, int], tuple[bool, float]] = {}
 
     async def _get_auth_headers(
         self,
@@ -69,13 +65,8 @@ class McpAppsService:
         """
         headers: dict[str, str] = {}
 
-        if (
-            server.auth_type == MCPAuthType.OAUTH_DISCOVERY
-            and self._token_service
-        ):
-            token = await self._token_service.get_valid_token(
-                server, user_id
-            )
+        if server.auth_type == MCPAuthType.OAUTH_DISCOVERY and self._token_service:
+            token = await self._token_service.get_valid_token(server, user_id)
             if token:
                 headers["Authorization"] = f"Bearer {token.access_token}"
                 logger.debug(
@@ -145,21 +136,21 @@ class McpAppsService:
         """
         ui_tools: list[McpAppToolInfo] = []
 
-        async with streamablehttp_client(
-            server.url, headers=headers
-        ) as (read_stream, write_stream, _):
-            async with ClientSession(
-                read_stream, write_stream
-            ) as session:
-                await session.initialize()
-                result = await session.list_tools()
+        async with (
+            streamablehttp_client(server.url, headers=headers) as (
+                read_stream,
+                write_stream,
+                _,
+            ),
+            ClientSession(read_stream, write_stream) as session,
+        ):
+            await session.initialize()
+            result = await session.list_tools()
 
-                for tool in result.tools:
-                    tool_info = self._extract_ui_tool_info(
-                        tool, server
-                    )
-                    if tool_info:
-                        ui_tools.append(tool_info)
+            for tool in result.tools:
+                tool_info = self._extract_ui_tool_info(tool, server)
+                if tool_info:
+                    ui_tools.append(tool_info)
 
         return ui_tools
 
@@ -192,9 +183,7 @@ class McpAppsService:
             visibility=visibility,
             server_id=server.id or 0,
             server_label=server.name,
-            input_schema=(
-                tool.inputSchema if tool.inputSchema else {}
-            ),
+            input_schema=(tool.inputSchema if tool.inputSchema else {}),
         )
 
     async def fetch_resource(
@@ -216,24 +205,26 @@ class McpAppsService:
         try:
             headers = await self._get_auth_headers(server, user_id)
 
-            async with streamablehttp_client(
-                server.url, headers=headers
-            ) as (read_stream, write_stream, _):
-                async with ClientSession(
-                    read_stream, write_stream
-                ) as session:
-                    await session.initialize()
-                    result = await session.read_resource(resource_uri)
+            async with (
+                streamablehttp_client(server.url, headers=headers) as (
+                    read_stream,
+                    write_stream,
+                    _,
+                ),
+                ClientSession(read_stream, write_stream) as session,
+            ):
+                await session.initialize()
+                result = await session.read_resource(resource_uri)
 
-                    html_content = ""
-                    for content in result.contents:
-                        if hasattr(content, "text"):
-                            html_content += content.text
+                html_content = ""
+                for content in result.contents:
+                    if hasattr(content, "text"):
+                        html_content += content.text
 
-                    return McpAppResource(
-                        uri=resource_uri,
-                        html_content=html_content,
-                    )
+                return McpAppResource(
+                    uri=resource_uri,
+                    html_content=html_content,
+                )
         except Exception:
             logger.exception(
                 "Failed to fetch resource %s from server %s",
@@ -270,18 +261,18 @@ class McpAppsService:
         try:
             headers = await self._get_auth_headers(server, user_id)
 
-            async with streamablehttp_client(
-                server.url, headers=headers
-            ) as (read_stream, write_stream, _):
-                async with ClientSession(
-                    read_stream, write_stream
-                ) as session:
-                    await session.initialize()
-                    result: CallToolResult = await session.call_tool(
-                        tool_name, arguments
-                    )
+            async with (
+                streamablehttp_client(server.url, headers=headers) as (
+                    read_stream,
+                    write_stream,
+                    _,
+                ),
+                ClientSession(read_stream, write_stream) as session,
+            ):
+                await session.initialize()
+                result: CallToolResult = await session.call_tool(tool_name, arguments)
 
-                    return _call_tool_result_to_dict(result)
+                return _call_tool_result_to_dict(result)
         except Exception:
             logger.exception(
                 "Failed to proxy tool call %s to server %s",
@@ -361,9 +352,7 @@ class McpAppsService:
 
 def _call_tool_result_to_dict(result: CallToolResult) -> dict[str, Any]:
     """Convert a CallToolResult to a serializable dictionary."""
-    content_list = []
-    for item in result.content:
-        content_list.append(item.model_dump())
+    content_list = [item.model_dump() for item in result.content]
 
     return {
         "isError": result.isError if result.isError else False,

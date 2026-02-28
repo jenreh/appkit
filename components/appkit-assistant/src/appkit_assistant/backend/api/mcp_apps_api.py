@@ -7,7 +7,7 @@ These endpoints are called by the McpAppBridge frontend component to:
 """
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -59,8 +59,8 @@ async def _get_server(server_id: int) -> MCPServer:
 @router.get("/{server_id}/resource")
 async def get_resource(
     server_id: int,
-    uri: str = Query(..., description="The ui:// resource URI"),
-    user_id: int = Query(0, description="User ID for auth"),
+    uri: Annotated[str, Query(description="The ui:// resource URI")],
+    user_id: Annotated[int, Query(description="User ID for auth")] = 0,
 ) -> dict[str, Any]:
     """Fetch an MCP App resource (HTML content) from a server.
 
@@ -69,9 +69,7 @@ async def get_resource(
     """
     server = await _get_server(server_id)
 
-    resource = await _mcp_apps_service.fetch_resource(
-        server, user_id, uri
-    )
+    resource = await _mcp_apps_service.fetch_resource(server, user_id, uri)
     if not resource:
         raise HTTPException(
             status_code=502,
@@ -91,7 +89,7 @@ async def get_resource(
 async def call_tool(
     server_id: int,
     request: ToolCallRequest,
-    user_id: int = Query(0, description="User ID for auth"),
+    user_id: Annotated[int, Query(description="User ID for auth")] = 0,
 ) -> dict[str, Any]:
     """Proxy a tool call from an MCP App iframe to the MCP server.
 
@@ -100,16 +98,15 @@ async def call_tool(
     """
     server = await _get_server(server_id)
 
-    result = await _mcp_apps_service.proxy_tool_call(
+    return await _mcp_apps_service.proxy_tool_call(
         server, user_id, request.tool_name, request.arguments
     )
-    return result
 
 
 @router.get("/{server_id}/tools")
 async def list_ui_tools(
     server_id: int,
-    user_id: int = Query(0, description="User ID for auth"),
+    user_id: Annotated[int, Query(description="User ID for auth")] = 0,
 ) -> list[dict[str, Any]]:
     """List UI-enabled tools for an MCP server.
 
@@ -118,7 +115,5 @@ async def list_ui_tools(
     """
     server = await _get_server(server_id)
 
-    tools = await _mcp_apps_service.discover_ui_tools(
-        server, user_id
-    )
+    tools = await _mcp_apps_service.discover_ui_tools(server, user_id)
     return [tool.model_dump() for tool in tools]

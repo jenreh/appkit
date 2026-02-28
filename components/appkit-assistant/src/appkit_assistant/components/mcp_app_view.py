@@ -5,7 +5,6 @@ postMessage protocol compliance for tool data push, tool call
 proxying, theme sync, and dynamic iframe sizing.
 """
 
-import json
 import logging
 
 import reflex as rx
