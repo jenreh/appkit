@@ -52,9 +52,6 @@ def _get_mcp_apps_service() -> McpAppsService:
         _mcp_apps_service = McpAppsService(token_service=token_service)
     return _mcp_apps_service
 
-# Default user ID when session token is not available
-_DEFAULT_USER_ID = 0
-
 
 class ToolCallRequest(BaseModel):
     """Request body for proxying a tool call."""
