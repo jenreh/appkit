@@ -8,10 +8,6 @@
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
 
-/** Unique message counter for JSON-RPC IDs */
-let _msgId = 0;
-const nextId = () => ++_msgId;
-
 /**
  * Post a JSON-RPC message to the iframe.
  */
