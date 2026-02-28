@@ -8,7 +8,6 @@ proxying, theme sync, and dynamic iframe sizing.
 import logging
 
 import reflex as rx
-from reflex.assets import asset
 from reflex.components.component import NoSSRComponent
 from reflex.vars.base import Var
 
@@ -16,7 +15,7 @@ from appkit_assistant.backend.schemas import McpAppViewData
 
 logger = logging.getLogger(__name__)
 
-_JSX = asset("mcp_app_bridge.jsx", subfolder="appkit_assistant")
+_JSX = rx.asset("mcp_app_bridge.jsx", shared=True)
 _JSX_IMPORT = f"$/public/{_JSX}"
 
 
@@ -76,7 +75,7 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
             tool_name=view_data.tool_name,
             theme=rx.color_mode_cond(light="light", dark="dark"),
             prefers_border=rx.cond(
-                view_data.prefers_border.is_not(None),
+                ~view_data.prefers_border.is_none(),
                 view_data.prefers_border.bool(),
                 True,
             ),
