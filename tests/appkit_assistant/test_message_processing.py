@@ -2,12 +2,14 @@
 """Tests for MessageProcessingMixin.
 
 Covers prompt parsing, command resolution, processing phases,
-chunk buffering, error handling, and cancellation.
+chunk buffering, error handling, cancellation, and the core
+_process_message pipeline.
 """
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncGenerator
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -588,3 +590,468 @@ class TestFlushChunkBuffer:
         assert result is True
         assert state._thread.state == ThreadStatus.ACTIVE
         assert state._thread.title == "What is AI?"
+
+
+# ============================================================================
+# Flush chunk buffer — auth_required path
+# ============================================================================
+
+
+class TestFlushChunkBufferAuthRequired:
+    @pytest.mark.asyncio
+    async def test_auth_required_calls_handler(self) -> None:
+        state = _make_state()
+        state.messages = [
+            Message(text="", type=MessageType.ASSISTANT),
+        ]
+        state._handle_auth_required_from_accumulator = MagicMock()
+
+        accumulator = MagicMock()
+        accumulator.thinking_items = []
+        accumulator.current_activity = ""
+        accumulator.show_thinking = False
+        accumulator.image_chunks = []
+        accumulator.auth_required = True
+        accumulator.process_chunk = MagicMock()
+
+        chunks = [Chunk(type=ChunkType.AUTH_REQUIRED, text="")]
+
+        await state._flush_chunk_buffer(
+            chunks=chunks,
+            accumulator=accumulator,
+            current_prompt="Test",
+            is_new_thread=False,
+            first_response_received=True,
+        )
+
+        state._handle_auth_required_from_accumulator.assert_called_once_with(
+            accumulator,
+        )
+
+    @pytest.mark.asyncio
+    async def test_show_thinking_flag(self) -> None:
+        state = _make_state()
+        state.messages = [
+            Message(text="", type=MessageType.ASSISTANT),
+        ]
+
+        accumulator = MagicMock()
+        accumulator.thinking_items = ["thought"]
+        accumulator.current_activity = "Reasoning"
+        accumulator.show_thinking = True
+        accumulator.image_chunks = ["img"]
+        accumulator.auth_required = False
+        accumulator.process_chunk = MagicMock()
+
+        chunks = [Chunk(type=ChunkType.THINKING, text="hmm")]
+
+        await state._flush_chunk_buffer(
+            chunks=chunks,
+            accumulator=accumulator,
+            current_prompt="Test",
+            is_new_thread=False,
+            first_response_received=True,
+        )
+
+        assert state.show_thinking is True
+        assert state.image_chunks == ["img"]
+        assert state.thinking_items == ["thought"]
+        assert state.current_activity == "Reasoning"
+
+
+# ============================================================================
+# Finalize successful response
+# ============================================================================
+
+
+class TestFinalizeSuccessfulResponse:
+    @pytest.mark.asyncio
+    async def test_saves_thread(self) -> None:
+        state = _make_state()
+        state.messages = [
+            Message(text="Hi", type=MessageType.HUMAN),
+            Message(text="Hello!", type=MessageType.ASSISTANT),
+        ]
+        state.selected_model = "gpt-4o"
+
+        accumulator = MagicMock()
+        accumulator.thinking_items = ["thought1"]
+
+        with patch(f"{_PATCH}.ThreadService") as mock_ts_cls:
+            mock_ts = AsyncMock()
+            mock_ts_cls.return_value = mock_ts
+            mock_ts.save_thread = AsyncMock()
+
+            await state._finalize_successful_response(accumulator)
+
+        assert state.show_thinking is False
+        assert state.thinking_items == ["thought1"]
+        assert state._thread.ai_model == "gpt-4o"
+        mock_ts.save_thread.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_no_user_id_skips_save(self) -> None:
+        state = _make_state()
+
+        async def _get_no_user(cls: type) -> MagicMock:
+            if cls.__name__ == "UserSession":
+                return MagicMock(user=None)
+            return MagicMock()
+
+        state.get_state = _get_no_user
+        state.messages = []
+
+        accumulator = MagicMock()
+        accumulator.thinking_items = []
+
+        with patch(f"{_PATCH}.ThreadService") as mock_ts_cls:
+            mock_ts = AsyncMock()
+            mock_ts_cls.return_value = mock_ts
+
+            await state._finalize_successful_response(accumulator)
+
+        mock_ts.save_thread.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_with_skills(self) -> None:
+        state = _make_state()
+        skill = MagicMock()
+        skill.openai_id = "skill-1"
+        state.selected_skills = [skill]
+        state.messages = []
+
+        accumulator = MagicMock()
+        accumulator.thinking_items = []
+
+        with patch(f"{_PATCH}.ThreadService") as mock_ts_cls:
+            mock_ts = AsyncMock()
+            mock_ts_cls.return_value = mock_ts
+            mock_ts.save_thread = AsyncMock()
+
+            await state._finalize_successful_response(accumulator)
+
+        assert state._thread.skill_openai_ids == ["skill-1"]
+
+
+# ============================================================================
+# Handle process error — additional branches
+# ============================================================================
+
+
+class TestHandleProcessErrorBranches:
+    @pytest.mark.asyncio
+    async def test_no_user_skips_save(self) -> None:
+        state = _make_state()
+
+        async def _get_no_user(cls: type) -> MagicMock:
+            if cls.__name__ == "UserSession":
+                return MagicMock(user=None)
+            return MagicMock()
+
+        state.get_state = _get_no_user
+        state.messages = [
+            Message(text="partial", type=MessageType.ASSISTANT),
+        ]
+
+        with patch(f"{_PATCH}.ThreadService") as mock_ts_cls:
+            mock_ts = AsyncMock()
+            mock_ts_cls.return_value = mock_ts
+
+            await state._handle_process_error(
+                ex=RuntimeError("err"),
+                current_prompt="Hello",
+                is_new_thread=False,
+                first_response_received=True,
+            )
+
+        mock_ts.save_thread.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_no_assistant_message_to_pop(self) -> None:
+        state = _make_state()
+        state.messages = [
+            Message(text="Hi", type=MessageType.HUMAN),
+        ]
+
+        with patch(f"{_PATCH}.ThreadService") as mock_ts_cls:
+            mock_ts = AsyncMock()
+            mock_ts_cls.return_value = mock_ts
+            mock_ts.save_thread = AsyncMock()
+
+            await state._handle_process_error(
+                ex=RuntimeError("err"),
+                current_prompt="Hello",
+                is_new_thread=False,
+                first_response_received=True,
+            )
+
+        assert state.messages[-1].type == MessageType.ERROR
+
+    @pytest.mark.asyncio
+    async def test_new_thread_with_existing_title(self) -> None:
+        state = _make_state()
+        state._thread.title = "Custom Title"
+        state.with_thread_list = True
+        state.messages = []
+
+        with patch(f"{_PATCH}.ThreadService") as mock_ts_cls:
+            mock_ts = AsyncMock()
+            mock_ts_cls.return_value = mock_ts
+            mock_ts.save_thread = AsyncMock()
+
+            await state._handle_process_error(
+                ex=RuntimeError("err"),
+                current_prompt="Hello",
+                is_new_thread=True,
+                first_response_received=False,
+            )
+
+        # Title kept, not overwritten
+        assert state._thread.title == "Custom Title"
+
+    @pytest.mark.asyncio
+    async def test_empty_messages_list(self) -> None:
+        state = _make_state()
+        state.messages = []
+
+        with patch(f"{_PATCH}.ThreadService") as mock_ts_cls:
+            mock_ts = AsyncMock()
+            mock_ts_cls.return_value = mock_ts
+            mock_ts.save_thread = AsyncMock()
+
+            await state._handle_process_error(
+                ex=RuntimeError("err"),
+                current_prompt="Hello",
+                is_new_thread=False,
+                first_response_received=True,
+            )
+
+        assert state.messages[-1].type == MessageType.ERROR
+
+
+# ============================================================================
+# Core _process_message pipeline
+# ============================================================================
+
+
+class TestProcessMessage:
+    @pytest.mark.asyncio
+    async def test_no_op_when_begin_returns_none(self) -> None:
+        state = _make_state()
+        state.prompt = "   "
+        await state._process_message()
+        assert state.processing is False
+
+    @pytest.mark.asyncio
+    async def test_no_processor_found(self) -> None:
+        state = _make_state()
+        state.prompt = "Hello"
+
+        with (
+            patch.object(
+                state,
+                "_resolve_command_segments",
+                new_callable=AsyncMock,
+            ),
+            patch(f"{_PATCH}.ModelManager") as mm_cls,
+            patch(f"{_PATCH}.file_manager"),
+        ):
+            mm = MagicMock()
+            mm.get_processor_for_model.return_value = None
+            mm_cls.return_value = mm
+
+            await state._process_message()
+
+        assert state.processing is False
+        assert any(m.type == MessageType.ERROR for m in state.messages)
+
+    @pytest.mark.asyncio
+    async def test_successful_stream(self) -> None:
+        state = _make_state()
+        state.prompt = "Hello"
+
+        async def _fake_process(**kwargs: object) -> AsyncGenerator:
+            yield Chunk(type=ChunkType.TEXT, text="Hi")
+            yield Chunk(type=ChunkType.COMPLETION, text="")
+
+        processor = MagicMock()
+        processor.process = _fake_process
+
+        with (
+            patch.object(
+                state,
+                "_resolve_command_segments",
+                new_callable=AsyncMock,
+            ),
+            patch(f"{_PATCH}.ModelManager") as mm_cls,
+            patch(f"{_PATCH}.ResponseAccumulator") as acc_cls,
+            patch(f"{_PATCH}.ThreadService") as ts_cls,
+            patch(f"{_PATCH}.file_manager"),
+        ):
+            mm = MagicMock()
+            mm.get_processor_for_model.return_value = processor
+            mm_cls.return_value = mm
+
+            acc = MagicMock()
+            acc.thinking_items = []
+            acc.current_activity = ""
+            acc.show_thinking = False
+            acc.image_chunks = []
+            acc.auth_required = False
+            acc_cls.return_value = acc
+
+            ts = AsyncMock()
+            ts_cls.return_value = ts
+            ts.save_thread = AsyncMock()
+
+            await state._process_message()
+
+        assert state.processing is False
+        ts.save_thread.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_stream_raises_exception(self) -> None:
+        state = _make_state()
+        state.prompt = "Hello"
+
+        async def _fail_process(**kwargs: object) -> AsyncGenerator:
+            yield Chunk(type=ChunkType.TEXT, text="partial")
+            raise RuntimeError("stream crashed")
+
+        processor = MagicMock()
+        processor.process = _fail_process
+
+        with (
+            patch.object(
+                state,
+                "_resolve_command_segments",
+                new_callable=AsyncMock,
+            ),
+            patch(f"{_PATCH}.ModelManager") as mm_cls,
+            patch(f"{_PATCH}.ResponseAccumulator") as acc_cls,
+            patch(f"{_PATCH}.ThreadService") as ts_cls,
+            patch(f"{_PATCH}.file_manager"),
+        ):
+            mm = MagicMock()
+            mm.get_processor_for_model.return_value = processor
+            mm_cls.return_value = mm
+
+            acc = MagicMock()
+            acc.thinking_items = []
+            acc.current_activity = ""
+            acc.show_thinking = False
+            acc.image_chunks = []
+            acc.auth_required = False
+            acc_cls.return_value = acc
+
+            ts = AsyncMock()
+            ts_cls.return_value = ts
+            ts.save_thread = AsyncMock()
+
+            await state._process_message()
+
+        assert state.processing is False
+        assert state._thread.state == ThreadStatus.ERROR
+        assert any(m.type == MessageType.ERROR for m in state.messages)
+
+    @pytest.mark.asyncio
+    async def test_new_thread_with_files_saves_early(self) -> None:
+        state = _make_state()
+        state.prompt = "Hello"
+        state.uploaded_files = [
+            UploadedFile(
+                filename="f.txt",
+                file_path="/tmp/f.txt",  # noqa: S108
+                content_type="text/plain",
+                size=10,
+            ),
+        ]
+
+        async def _empty_process(**kwargs: object) -> AsyncGenerator:
+            yield Chunk(type=ChunkType.COMPLETION, text="")
+
+        processor = MagicMock()
+        processor.process = _empty_process
+
+        with (
+            patch.object(
+                state,
+                "_resolve_command_segments",
+                new_callable=AsyncMock,
+            ),
+            patch(f"{_PATCH}.ModelManager") as mm_cls,
+            patch(f"{_PATCH}.ResponseAccumulator") as acc_cls,
+            patch(f"{_PATCH}.ThreadService") as ts_cls,
+            patch(f"{_PATCH}.file_manager"),
+        ):
+            mm = MagicMock()
+            mm.get_processor_for_model.return_value = processor
+            mm_cls.return_value = mm
+
+            acc = MagicMock()
+            acc.thinking_items = []
+            acc.current_activity = ""
+            acc.show_thinking = False
+            acc.image_chunks = []
+            acc.auth_required = False
+            acc_cls.return_value = acc
+
+            ts = AsyncMock()
+            ts_cls.return_value = ts
+            ts.save_thread = AsyncMock()
+
+            await state._process_message()
+
+        # save_thread called twice: early save + finalize
+        assert ts.save_thread.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_web_search_and_skills(self) -> None:
+        state = _make_state()
+        state.prompt = "Hello"
+        state.web_search_enabled = True
+        skill = MagicMock()
+        skill.openai_id = "s1"
+        state.selected_skills = [skill]
+
+        captured_payload: dict = {}
+
+        async def _capture_process(*args: object, **kwargs: object) -> AsyncGenerator:
+            nonlocal captured_payload
+            captured_payload = kwargs.get("payload", {})
+            yield Chunk(type=ChunkType.COMPLETION, text="")
+
+        processor = MagicMock()
+        processor.process = _capture_process
+
+        with (
+            patch.object(
+                state,
+                "_resolve_command_segments",
+                new_callable=AsyncMock,
+            ),
+            patch(f"{_PATCH}.ModelManager") as mm_cls,
+            patch(f"{_PATCH}.ResponseAccumulator") as acc_cls,
+            patch(f"{_PATCH}.ThreadService") as ts_cls,
+            patch(f"{_PATCH}.file_manager"),
+        ):
+            mm = MagicMock()
+            mm.get_processor_for_model.return_value = processor
+            mm_cls.return_value = mm
+
+            acc = MagicMock()
+            acc.thinking_items = []
+            acc.current_activity = ""
+            acc.show_thinking = False
+            acc.image_chunks = []
+            acc.auth_required = False
+            acc_cls.return_value = acc
+
+            ts = AsyncMock()
+            ts_cls.return_value = ts
+            ts.save_thread = AsyncMock()
+
+            await state._process_message()
+
+        assert captured_payload.get("web_search_enabled") is True
+        assert captured_payload.get("skill_openai_ids") == ["s1"]
