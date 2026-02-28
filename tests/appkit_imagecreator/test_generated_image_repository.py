@@ -36,7 +36,7 @@ class TestGeneratedImageRepository:
         """find_by_user excludes deleted images."""
         # Arrange
         active_image = await generated_image_factory(user_id=1, is_deleted=False)
-        deleted_image = await generated_image_factory(user_id=1, is_deleted=True)
+        await generated_image_factory(user_id=1, is_deleted=True)
 
         # Act
         results = await image_repo.find_by_user(async_session, user_id=1)

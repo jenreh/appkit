@@ -9,12 +9,13 @@ from appkit_commons.configuration.secret_provider import (
     SECRET,
     SecretNotFoundError,
     SecretProvider,
+    _get_azure_client,
     _get_secret_from_env,
     get_secret,
 )
 
 
-class TestSecretProvider:
+class TestSecretProviderEnv:
     """Test suite for SecretProvider."""
 
     def test_get_secret_from_env_direct_key(
@@ -357,10 +358,6 @@ class TestGetSecretAzureProvider:
 
         # Act & Assert
         with pytest.raises(RuntimeError, match="AZURE_KEY_VAULT_URL"):
-            from appkit_commons.configuration.secret_provider import (
-                _get_azure_client,
-            )
-
             _get_azure_client.cache_clear()
             _get_azure_client()
 
@@ -396,13 +393,15 @@ class TestGetSecretAzureProvider:
                 "SecretProvider.AZURE"
             )
 
-        with patch(
-            "appkit_commons.configuration.secret_provider._get_azure_client",
-            side_effect=mock_get_azure_client,
+        with (
+            patch(
+                "appkit_commons.configuration.secret_provider._get_azure_client",
+                side_effect=mock_get_azure_client,
+            ),
+            pytest.raises(RuntimeError, match="AZURE_KEY_VAULT_URL"),
         ):
             # Act & Assert
-            with pytest.raises(RuntimeError, match="AZURE_KEY_VAULT_URL"):
-                get_secret("any-key")
+            get_secret("any-key")
 
     def test_get_secret_with_empty_string_from_env(
         self, monkeypatch: pytest.MonkeyPatch

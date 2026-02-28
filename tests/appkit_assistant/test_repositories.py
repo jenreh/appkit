@@ -1,5 +1,7 @@
 """Tests for core repository classes."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,8 +31,6 @@ class TestThreadRepository:
         self, async_session: AsyncSession, thread_factory, thread_repo, faker_instance
     ) -> None:
         """find_by_user returns threads ordered by updated_at descending."""
-        from datetime import UTC, datetime, timedelta
-
         old_thread = await thread_factory(user_id=1)
         old_thread.updated_at = datetime.now(UTC) - timedelta(days=2)
 
@@ -99,7 +99,7 @@ class TestThreadRepository:
         self, async_session: AsyncSession, thread_factory, thread_repo
     ) -> None:
         """delete_by_thread_id_and_user deletes thread for correct user."""
-        thread = await thread_factory(thread_id="thread-123", user_id=1)
+        await thread_factory(thread_id="thread-123", user_id=1)
 
         success = await thread_repo.delete_by_thread_id_and_user(
             async_session, "thread-123", user_id=1
@@ -358,8 +358,6 @@ class TestFileUploadRepository:
         self, async_session: AsyncSession, file_upload_factory, file_upload_repo
     ) -> None:
         """find_by_vector_store orders by created_at descending."""
-        from datetime import UTC, datetime, timedelta
-
         old_file = await file_upload_factory(vector_store_id="vs-123")
         old_file.created_at = datetime.now(UTC) - timedelta(days=1)
 
@@ -419,7 +417,7 @@ class TestFileUploadRepository:
         """delete_by_vector_store deletes all files for a store."""
         file1 = await file_upload_factory(vector_store_id="vs-delete")
         file2 = await file_upload_factory(vector_store_id="vs-delete")
-        file3 = await file_upload_factory(vector_store_id="vs-keep")
+        await file_upload_factory(vector_store_id="vs-keep")
 
         deleted_files = await file_upload_repo.delete_by_vector_store(
             async_session, "vs-delete"

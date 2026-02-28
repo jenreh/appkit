@@ -305,7 +305,7 @@ class TestModelManager:
         manager = ModelManager()
         processor1 = MockProcessor(sample_models)
         manager.register_processor("openai", processor1)
-        original_default = manager.get_default_model()
+        manager.get_default_model()
 
         # Act
         manager.unregister_processors({"openai"})

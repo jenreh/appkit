@@ -40,7 +40,7 @@ async def generator_model_repo() -> ImageGeneratorModelRepository:
 @pytest_asyncio.fixture
 async def image_generator_model_factory(
     async_session: AsyncSession, faker_instance: Faker
-):
+) -> Any:
     """Factory for creating test ImageGeneratorModel instances."""
 
     async def _create_model(**kwargs: Any) -> ImageGeneratorModel:
@@ -48,7 +48,9 @@ async def image_generator_model_factory(
             "model_id": f"test-model-{faker_instance.uuid4()}",
             "model": "dall-e-3",
             "label": f"Test Generator {faker_instance.word()}",
-            "processor_type": "appkit_imagecreator.backend.generators.openai.OpenAIImageGenerator",
+            "processor_type": (
+                "appkit_imagecreator.backend.generators.openai.OpenAIImageGenerator"
+            ),
             "api_key": faker_instance.password(length=32),
             "base_url": None,
             "extra_config": {"output_format": "png", "quality": "standard"},
@@ -66,7 +68,9 @@ async def image_generator_model_factory(
 
 
 @pytest_asyncio.fixture
-async def generated_image_factory(async_session: AsyncSession, faker_instance: Faker):
+async def generated_image_factory(
+    async_session: AsyncSession, faker_instance: Faker
+) -> Any:
     """Factory for creating test GeneratedImage instances."""
 
     async def _create_image(**kwargs: Any) -> GeneratedImage:
@@ -106,7 +110,7 @@ async def generated_image_factory(async_session: AsyncSession, faker_instance: F
 def mock_openai_response_base64() -> dict[str, Any]:
     """Mock OpenAI API response with base64 encoded image."""
     # 1x1 pixel PNG
-    test_image_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    test_image_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="  # noqa: E501
 
     return {
         "created": int(datetime.now(UTC).timestamp()),
@@ -131,7 +135,7 @@ def mock_openai_response_url() -> dict[str, Any]:
 @pytest.fixture
 def mock_google_response() -> dict[str, Any]:
     """Mock Google Imagen API response."""
-    test_image_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    test_image_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="  # noqa: E501
 
     return {
         "predictions": [
