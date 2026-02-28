@@ -73,6 +73,11 @@ export function McpAppBridge({
   const handleMessage = useCallback((event) => {
     const data = event.data;
     if (!data || data.jsonrpc !== "2.0") return;
+
+    // Only accept messages from our own iframe (sandboxed iframes
+    // post with origin "null") or same origin
+    if (event.source !== iframeRef.current?.contentWindow) return;
+
     const iframe = iframeRef.current;
 
     // ui/initialize request from app
@@ -132,7 +137,9 @@ export function McpAppBridge({
     // ui/open-link from app
     if (data.method === "ui/open-link") {
       const url = data.params?.url;
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
+      if (url && (url.startsWith("https://") || url.startsWith("http://"))) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
       return;
     }
 
