@@ -1,4 +1,3 @@
-```skill
 ---
 name: using-appkit-mantine
 description: Builds UI with appkit_mantine — a Reflex wrapper library for Mantine v8.3 components. Use when creating pages, forms, layouts, modals, drawers, charts, inputs, buttons, navigation, or any Mantine-based UI in this project. Covers component API, inheritance hierarchy, event handler patterns, and common pitfalls.
@@ -149,4 +148,3 @@ mn.text_input(
 ```
 
 Available: `w`, `h`, `miw`, `maw`, `mih`, `mah`, `m`, `my`, `mx`, `mt`, `mb`, `ml`, `mr`, `p`, `py`, `px`, `pt`, `pb`, `pl`, `pr`, `bg`, `c`, `display`, `pos`, `flex`, `opacity`, `fz`, `fw`, `ta`, `td`, `bd`, `hidden_from`, `visible_from`.
-```

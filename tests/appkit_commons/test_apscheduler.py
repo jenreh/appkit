@@ -798,9 +798,7 @@ class TestAPSchedulerAddService:
         service = self._create_test_service()
 
         # Act
-        with patch.object(
-            scheduler, "_schedule_service", new_callable=AsyncMock
-        ):
+        with patch.object(scheduler, "_schedule_service", new_callable=AsyncMock):
             scheduler.add_service(service)
             # Give the background task time to start
             await asyncio.sleep(0.01)

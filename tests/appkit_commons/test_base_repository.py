@@ -164,7 +164,8 @@ class TestBaseRepository:
 
         # Act
         found = await test_repository.find_all_by_ids(
-            async_session, [created1.id, created2.id]  # type: ignore
+            async_session,
+            [created1.id, created2.id],  # type: ignore
         )
 
         # Assert
@@ -477,7 +478,8 @@ class TestBaseRepository:
 
         # Act
         deleted_count = await test_repository.delete_all_by_ids(
-            async_session, [created1.id, created2.id]  # type: ignore
+            async_session,
+            [created1.id, created2.id],  # type: ignore
         )
 
         # Assert

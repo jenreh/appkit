@@ -411,6 +411,7 @@ class TestServiceRegistry:
         self, clean_service_registry: ServiceRegistry, caplog: pytest.LogCaptureFixture
     ) -> None:
         """configure() properly registers all nested configurations."""
+
         # Arrange
         class NestedAppConfig(ApplicationConfig):
             class Config:

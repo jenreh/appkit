@@ -157,12 +157,12 @@ class TestThreadService:
             patch(
                 "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
                 return_value=mock_async_context_manager(mock_session),
-                ),
+            ),
             patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=None,
-                ),
+            ),
         ):
             result = await service.load_thread("nonexistent", user_id=1)
 
@@ -179,11 +179,11 @@ class TestThreadService:
             patch(
                 "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
                 return_value=mock_async_context_manager(mock_session),
-                ),
+            ),
             patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 mock_find,
-                ),
+            ),
         ):
             await service.load_thread("thread-123", user_id="42")
 
@@ -221,12 +221,12 @@ class TestThreadService:
             patch(
                 "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
                 return_value=mock_async_context_manager(mock_session),
-                ),
+            ),
             patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=db_thread,
-                ),
+            ),
         ):
             result = await service.load_thread("thread-123", user_id=1)
 
@@ -260,12 +260,12 @@ class TestThreadService:
             patch(
                 "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
                 return_value=mock_async_context_manager(mock_session),
-                ),
+            ),
             patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 return_value=db_thread,
-                ),
+            ),
         ):
             result = await service.load_thread("thread-123", user_id=1)
 
@@ -473,12 +473,12 @@ class TestThreadService:
             patch(
                 "appkit_assistant.backend.services.thread_service.get_asyncdb_session",
                 return_value=mock_async_context_manager(mock_session),
-                ),
+            ),
             patch(
                 "appkit_assistant.backend.services.thread_service.thread_repo.find_by_thread_id_and_user",
                 new_callable=AsyncMock,
                 side_effect=Exception("DB error"),
-                ),
+            ),
         ):
             # Should not raise
             await service.save_thread(thread, user_id=1)

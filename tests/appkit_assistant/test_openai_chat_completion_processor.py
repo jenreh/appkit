@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from openai import AsyncStream
 
 from appkit_assistant.backend.processors.openai_chat_completion_processor import (
     OpenAIChatCompletionsProcessor,
@@ -404,43 +405,48 @@ class TestProcess:
         proc = _make_processor()
         proc._reset_statistics("gpt-4o")
 
-        SimpleNamespace(
+        # Test streaming path by mocking the API and isinstance check
+        msg_chunk = SimpleNamespace(
             choices=[SimpleNamespace(delta=SimpleNamespace(content="Hi"))],
             id="msg-1",
             usage=None,
         )
-
-        # Create a mock AsyncStream that passes isinstance check
-        mock_stream = MagicMock()
-        mock_stream.__class__ = type(
-            "FakeAsyncStream",
-            (),
-            {"__aiter__": lambda s: s, "__anext__": None},
-        )
-
-        # Patch isinstance check and _handle_stream_response
-        with patch(f"{_PATCH}.isinstance", return_value=True, create=True):
-            # Just test the _handle_ methods which are already covered
-            pass
-
-        # More practical: test that process yields chunks by using
-        # _handle_stream_response directly (already tested above)
-        # and _handle_sync_response
-        proc._reset_statistics("gpt-4o")
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="Answer"))],
-            id="chatcmpl-1",
+        completion_choice = SimpleNamespace(delta=SimpleNamespace(content=None))
+        completion_chunk = SimpleNamespace(
+            choices=[completion_choice],
+            id="msg-1",
             usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
         )
-        # Simulate non-streaming path
-        proc.client.chat.completions.create = AsyncMock(return_value=response)
-        # Use non-streaming model
-        proc.models["gpt-4o-sync"] = _model("gpt-4o-sync", stream=False)
 
-        msgs = [Message(type=MessageType.HUMAN, text="Hello")]
-        chunks = []
-        async for chunk in proc.process(msgs, "gpt-4o-sync"):
-            chunks.append(chunk)
+        # Create an async generator simulating OpenAI stream
+        async def mock_stream_generator():
+            yield msg_chunk
+            yield completion_chunk
 
-        assert any(c.type == ChunkType.TEXT for c in chunks)
-        assert chunks[-1].type == ChunkType.COMPLETION
+        # Mock the client.chat.completions.create to return the generator
+        proc.client.chat.completions.create = AsyncMock(
+            return_value=mock_stream_generator()
+        )
+
+        # Patch isinstance to recognize our generator as AsyncStream
+        original_isinstance = isinstance
+
+        def mocked_isinstance(obj, classinfo):
+            # For AsyncStream checks on our mock generator, return True
+            if classinfo is AsyncStream and hasattr(obj, "__anext__"):
+                return True
+            return original_isinstance(obj, classinfo)
+
+        with patch(f"{_PATCH}.isinstance", side_effect=mocked_isinstance):
+            msgs = [Message(type=MessageType.HUMAN, text="Hello")]
+            chunks = []
+            async for chunk in proc.process(msgs, "gpt-4o"):
+                chunks.append(chunk)
+
+            # Verify streaming path was taken and produced chunks
+            assert any(c.type == ChunkType.TEXT for c in chunks), (
+                "Should have TEXT chunks from streaming"
+            )
+            assert chunks[-1].type == ChunkType.COMPLETION, (
+                "Last chunk should be COMPLETION"
+            )

@@ -1033,6 +1033,7 @@ class TestProcessFileUploadsStreaming:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_thread
         mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
 
         proc._file_upload_service = MagicMock()
         proc._file_upload_service.process_files = MagicMock(
