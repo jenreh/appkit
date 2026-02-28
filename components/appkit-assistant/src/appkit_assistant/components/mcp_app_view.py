@@ -82,7 +82,11 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
             server_name=view_data.server_name,
             tool_name=view_data.tool_name,
             theme=rx.color_mode_cond(light="light", dark="dark"),
-            prefers_border=view_data.prefers_border.bool(),  # type: ignore[union-attr]
+            prefers_border=rx.cond(
+                view_data.prefers_border.is_not(None),
+                view_data.prefers_border.bool(),
+                True,
+            ),
         ),
         width="100%",
         margin_top="8px",
