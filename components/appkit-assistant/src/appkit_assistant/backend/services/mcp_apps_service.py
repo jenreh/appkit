@@ -302,7 +302,7 @@ class McpAppsService:
         cached = self._apps_support_cache.get(cache_key)
         if cached:
             supported, ts = cached
-            if (time.monotonic() - ts) < _SESSION_TTL_S:
+            if (time.monotonic() - ts) < _TOOL_CACHE_TTL_S:
                 return supported
 
         tools = await self.discover_ui_tools(server, user_id)
