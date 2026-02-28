@@ -7,6 +7,7 @@ from typing import Any
 from appkit_assistant.backend.schemas import (
     Chunk,
     ChunkType,
+    McpAppViewData,
     Message,
     MessageType,
     Thinking,
@@ -72,6 +73,7 @@ class ResponseAccumulator:
         self.thinking_items: list[Thinking] = []
         self.image_chunks: list[Chunk] = []
         self.messages: list[Message] = []
+        self.mcp_app_views: list[McpAppViewData] = []
         self.show_thinking: bool = False
         self.current_activity: str = ""
 
@@ -132,6 +134,9 @@ class ResponseAccumulator:
         elif chunk.type == ChunkType.LIFECYCLE:
             # Just log lifecycle events for now
             logger.debug("Lifecycle event: %s", chunk.text)
+
+        elif chunk.type == ChunkType.MCP_APP_VIEW:
+            self._handle_mcp_app_view_chunk(chunk)
 
         elif chunk.type == ChunkType.ERROR:
             self._handle_error_chunk(chunk)
@@ -350,6 +355,36 @@ class ResponseAccumulator:
         self.pending_auth_server_name = chunk.chunk_metadata.get("server_name", "")
         self.pending_auth_url = chunk.chunk_metadata.get("auth_url", "")
         self.auth_required = True
+
+    def _handle_mcp_app_view_chunk(self, chunk: Chunk) -> None:
+        """Handle MCP App view chunk.
+
+        Creates an McpAppViewData entry from the chunk metadata
+        containing tool name, input/result, resource URI, and
+        server info.
+        """
+        metadata = chunk.chunk_metadata
+        try:
+            view = McpAppViewData(
+                server_id=int(metadata.get("server_id", "0") or "0"),
+                server_name=metadata.get("server_name", ""),
+                resource_uri=metadata.get("resource_uri", ""),
+                tool_name=metadata.get("tool_name", ""),
+                tool_input=json.loads(
+                    metadata.get("tool_input", "{}") or "{}"
+                ),
+                tool_result=json.loads(
+                    metadata.get("tool_result", "null") or "null"
+                ),
+            )
+            self.mcp_app_views.append(view)
+            logger.debug(
+                "Added MCP App view for tool %s on server %s",
+                view.tool_name,
+                view.server_name,
+            )
+        except Exception:
+            logger.exception("Failed to parse MCP App view chunk")
 
     def _handle_processing_chunk(self, chunk: Chunk) -> None:
         """Handle file processing progress chunks."""

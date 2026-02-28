@@ -39,6 +39,8 @@ from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     CommandDefinition,
+    McpAppToolInfo,
+    McpAppViewData,
     Message,
     MessageType,
     Suggestion,
@@ -53,6 +55,7 @@ from appkit_assistant.state.thread.command_palette import (
     CommandPaletteMixin,
 )
 from appkit_assistant.state.thread.file_upload import FileUploadMixin
+from appkit_assistant.state.thread.mcp_apps import McpAppsMixin
 from appkit_assistant.state.thread.mcp_tools import McpToolsMixin
 from appkit_assistant.state.thread.message_edit import MessageEditMixin
 from appkit_assistant.state.thread.message_processing import (
@@ -74,6 +77,7 @@ class ThreadState(
     ModelSelectionMixin,
     CommandPaletteMixin,
     McpToolsMixin,
+    McpAppsMixin,
     SkillsMixin,
     FileUploadMixin,
     MessageEditMixin,
@@ -122,6 +126,10 @@ class ThreadState(
     available_mcp_servers: list[MCPServer] = []
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
+
+    # MCP Apps state
+    mcp_app_views: list[McpAppViewData] = []
+    _ui_tool_registry: dict[str, dict] = {}
 
     # Skills selection state
     selected_skills: list[Skill] = []
@@ -298,6 +306,11 @@ class ThreadState(
                 return message.text
         return ""
 
+    @rx.var
+    def has_mcp_app_views(self) -> bool:
+        """Check if there are any MCP App views to display."""
+        return len(self.mcp_app_views) > 0
+
     # -----------------------------------------------------------------
     # Initialization and thread management
     # -----------------------------------------------------------------
@@ -361,6 +374,8 @@ class ThreadState(
         self.prompt = ""
         self.show_thinking = False
         self.available_commands = []
+        self.mcp_app_views = []
+        self._ui_tool_registry = {}
 
     @rx.event
     async def new_thread(self) -> None:

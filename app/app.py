@@ -9,6 +9,9 @@ from starlette.types import ASGIApp
 
 import appkit_mantine as mn
 from appkit_assistant.backend.ai_model_registry import ai_model_registry
+from appkit_assistant.backend.api.mcp_apps_api import (
+    router as mcp_apps_router,
+)
 from appkit_assistant.backend.services.file_cleanup_service import FileCleanupService
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
@@ -211,6 +214,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
 # Create FastAPI app for custom API routes
 api_app = FastAPI(title="AppKit API")
 api_app.include_router(image_api_router)
+api_app.include_router(mcp_apps_router)
 
 
 # Middleware transformer for HTTPS redirect

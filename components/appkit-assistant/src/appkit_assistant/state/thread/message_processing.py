@@ -434,6 +434,9 @@ class MessageProcessingMixin:
             if accumulator.auth_required:
                 self._handle_auth_required_from_accumulator(accumulator)
 
+            if accumulator.mcp_app_views:
+                self.mcp_app_views = list(accumulator.mcp_app_views)
+
             if not first_response_received and is_new_thread:
                 has_text = any(c.type == ChunkType.TEXT for c in chunks)
                 if has_text:
