@@ -75,6 +75,23 @@ class AvatarGroup(MantineLayoutComponentBase):
     spacing: Var[str | int]
 
 
+class Badge(MantineLayoutComponentBase):
+    """Mantine Badge component."""
+
+    tag = "Badge"
+
+    auto_contrast: Var[bool]
+    circle: Var[bool]
+    color: Var[str]
+    full_width: Var[bool]
+    gradient: Var[dict[str, Any]]
+    left_section: Var[Any]
+    radius: Var[str | int]
+    right_section: Var[Any]
+    size: Var[str | int]
+    variant: Var[str]  # filled, light, outline, dot, transparent, default, white
+
+
 class Card(MantineLayoutComponentBase):
     """Mantine Card component."""
 
@@ -220,6 +237,7 @@ class TimelineNamespace(rx.ComponentNamespace):
 
 accordion = AccordionNamespace()
 avatar = AvatarNamespace()
+badge = Badge.create
 card = CardNamespace()
 image = Image.create
 indicator = Indicator.create

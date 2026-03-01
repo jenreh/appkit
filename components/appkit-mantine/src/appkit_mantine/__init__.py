@@ -9,9 +9,11 @@ from appkit_mantine.base import (
 from appkit_mantine.button import button, action_icon
 from appkit_mantine.combobox import select, multi_select, autocomplete
 from appkit_mantine.rich_select import rich_select
+
 from appkit_mantine.data_display import (
     accordion,
     avatar,
+    badge,
     card,
     image,
     indicator,
@@ -160,6 +162,7 @@ __all__ = [
     "area_chart",
     "autocomplete",
     "avatar",
+    "badge",
     "bar_chart",
     "box",
     "breadcrumbs",

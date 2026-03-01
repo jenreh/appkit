@@ -49,6 +49,7 @@ where = [
     "components/appkit-commons/src",
     "components/appkit-imagecreator/src",
     "components/appkit-mantine/src",
+    "components/appkit-mcpapp/src",
     "components/appkit-ui/src",
     "components/appkit-user/src",
 ]
@@ -60,6 +61,7 @@ packages = [
     "appkit_commons",
     "appkit_imagecreator",
     "appkit_mantine",
+    "appkit_mcpapp",
     "appkit_ui",
     "appkit_user",
 ]
@@ -76,6 +78,7 @@ appkit-assistant = { workspace = true }
 appkit-commons = { workspace = true }
 appkit-imagecreator = { workspace = true }
 appkit-mantine = { workspace = true }
+appkit-mcpapp = { workspace = true }
 appkit-ui = { workspace = true }
 appkit-user = { workspace = true }
 
@@ -112,6 +115,11 @@ replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "components/appkit-mantine/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcpapp/pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 

@@ -78,20 +78,7 @@
   "github.copilot.chat.copilotDebugCommand.enabled": true,
   "github.copilot.chat.reviewSelection.enabled": true,
   "github.copilot.chat.terminalChatLocation": "quickChat",
-  "github.copilot.chat.azureModels": {
-    "gpt-5": {
-      "name": "GPT-5 (Azure)",
-      "url": "https://asy-nm-x-dia-openai.openai.azure.com",
-      "maxInputTokens": 256000,
-      "maxOutputTokens": 16000,
-      "toolCalling": true,
-      "vision": true
-    }
-  },
   "github.copilot.chat.newWorkspace.useContext7": true,
-  "[terraform]": {
-    "editor.defaultFormatter": "hashicorp.terraform"
-  },
   "[yaml]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },

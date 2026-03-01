@@ -60,6 +60,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
         # Tool name tracking: tool_id -> tool_name for MCP streaming events
         self._tool_name_map: dict[str, str] = {}
+        # Tool name without server prefix: tool_id -> tool_name
+        self._tool_name_only_map: dict[str, str] = {}
 
         # Store available MCP servers for lookup during error handling
         self._available_mcp_servers: list[MCPServer] = []
@@ -111,6 +113,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         model = self.models[model_id]
         self.current_user_id = user_id
         self.clear_pending_auth_servers()
+        self._tool_name_only_map.clear()
 
         # Process file uploads and yield progress in real-time
         vector_store_id: str | None = None
@@ -438,6 +441,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             server_label = getattr(item, "server_label", "unknown_server")
             # Store tool name mapping for streaming events
             self._tool_name_map[tool_id] = f"{server_label}.{tool_name}"
+            # Also store just the tool_name without server prefix for UI resolution
+            self._tool_name_only_map[tool_id] = tool_name
             logger.debug(
                 "MCP call started: %s.%s (id=%s)",
                 server_label,

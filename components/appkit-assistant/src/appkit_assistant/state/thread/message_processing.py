@@ -4,6 +4,7 @@ Core message submission, streaming, batching, and persistence pipeline.
 """
 
 import asyncio
+import json
 import logging
 import re
 import time
@@ -23,10 +24,12 @@ from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.schemas import (
     Chunk,
     ChunkType,
+    McpAppToolInfo,
     Message,
     MessageType,
 )
 from appkit_assistant.backend.services import file_manager
+from appkit_assistant.backend.services.mcp_apps_service import McpAppsService
 from appkit_assistant.backend.services.response_accumulator import (
     ResponseAccumulator,
 )
@@ -135,6 +138,21 @@ class MessageProcessingMixin:
                 thread_copy.thread_id,
             )
 
+        # Discover UI tools for MCP Apps injection
+        ui_tool_registry: dict[str, McpAppToolInfo] = {}
+        pending_tool_info: dict[str, dict] = {}
+        if mcp_servers:
+            _mcp_apps = McpAppsService()
+            for _server in mcp_servers:
+                _ui_tools = await _mcp_apps.discover_ui_tools(_server, user_id or 0)
+                for _tool in _ui_tools:
+                    ui_tool_registry[_tool.tool_name] = _tool
+            if ui_tool_registry:
+                logger.info(
+                    "Discovered %d UI tools for MCP Apps injection",
+                    len(ui_tool_registry),
+                )
+
         first_response_received = False
         try:
             skill_ids = [s.openai_id for s in self.selected_skills]
@@ -177,6 +195,8 @@ class MessageProcessingMixin:
                         current_prompt=current_prompt,
                         is_new_thread=is_new_thread,
                         first_response_received=(first_response_received),
+                        ui_tool_registry=ui_tool_registry,
+                        pending_tool_info=pending_tool_info,
                     )
                     chunk_buffer.clear()
                     last_flush = now
@@ -189,6 +209,8 @@ class MessageProcessingMixin:
                     current_prompt=current_prompt,
                     is_new_thread=is_new_thread,
                     first_response_received=first_response_received,
+                    ui_tool_registry=ui_tool_registry,
+                    pending_tool_info=pending_tool_info,
                 )
 
             await self._finalize_successful_response(accumulator)
@@ -415,6 +437,8 @@ class MessageProcessingMixin:
         current_prompt: str,
         is_new_thread: bool,
         first_response_received: bool,
+        ui_tool_registry: dict[str, McpAppToolInfo] | None = None,
+        pending_tool_info: dict[str, dict] | None = None,
     ) -> bool:
         """Process buffered chunks and sync UI state.
 
@@ -422,7 +446,70 @@ class MessageProcessingMixin:
         """
         async with self:
             for chunk in chunks:
+                # Track TOOL_CALL info (tool_name + server_label) by tool_id
+                if ui_tool_registry is not None and chunk.type == ChunkType.TOOL_CALL:
+                    tool_id = chunk.chunk_metadata.get("tool_id", "")
+                    tool_name = chunk.chunk_metadata.get("tool_name", "")
+                    server_label = chunk.chunk_metadata.get("server_label", "")
+                    # Normalise: strip "server_label." prefix when present
+                    bare_name = (
+                        tool_name.split(".", 1)[-1] if "." in tool_name else tool_name
+                    )
+                    if tool_id and bare_name and bare_name not in ("Unknown", ""):
+                        if pending_tool_info is not None:
+                            # Only set once (item_added fires first with bare name)
+                            pending_tool_info.setdefault(
+                                tool_id,
+                                {
+                                    "tool_name": bare_name,
+                                    "server_label": server_label,
+                                },
+                            )
+
                 accumulator.process_chunk(chunk)
+
+                # After TOOL_RESULT: inject MCP_APP_VIEW chunk if tool has UI
+                _err_val = chunk.chunk_metadata.get("error")
+                _is_tool_error = _err_val is True or _err_val == "True"
+                if (
+                    ui_tool_registry
+                    and chunk.type == ChunkType.TOOL_RESULT
+                    and not _is_tool_error
+                ):
+                    tool_id = chunk.chunk_metadata.get("tool_id", "")
+                    info = (
+                        pending_tool_info.pop(tool_id, {})
+                        if pending_tool_info is not None
+                        else {}
+                    )
+                    tool_name = info.get("tool_name", "")
+                    tool_info = ui_tool_registry.get(tool_name)
+                    if tool_info:
+                        view_chunk = Chunk(
+                            type=ChunkType.MCP_APP_VIEW,
+                            text="",
+                            chunk_metadata={
+                                "server_id": str(tool_info.server_id),
+                                "server_name": tool_info.server_label,
+                                "resource_uri": tool_info.resource_uri,
+                                "tool_name": tool_info.tool_name,
+                                "tool_input": "{}",
+                                "tool_result": json.dumps(
+                                    {
+                                        "content": [
+                                            {"type": "text", "text": chunk.text}
+                                        ],
+                                        "isError": False,
+                                    }
+                                ),
+                            },
+                        )
+                        accumulator.process_chunk(view_chunk)
+                        logger.debug(
+                            "Injected MCP_APP_VIEW for tool %s (server %s)",
+                            tool_name,
+                            tool_info.server_label,
+                        )
 
             self.thinking_items = list(accumulator.thinking_items)
             self.current_activity = accumulator.current_activity

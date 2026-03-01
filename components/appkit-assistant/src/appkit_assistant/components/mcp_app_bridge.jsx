@@ -1,15 +1,22 @@
 /**
  * McpAppBridge — Host-side React component for MCP Apps.
  *
- * Renders an MCP App in a sandboxed iframe and manages the
- * JSON-RPC postMessage protocol for tool input/result push,
- * tool call proxying, theme sync, and iframe sizing.
+ * Implements the MCP Apps spec lifecycle (2026-01-26):
+ *   Phase 1: Connection & Discovery (backend McpAppsService)
+ *   Phase 2: UI Initialization via ui/initialize ↔ McpUiInitializeResult
+ *   Phase 3: Interactive Phase (tools/call, resources/read, ui/open-link, etc.)
+ *   Phase 4: Cleanup via ui/resource-teardown on unmount
+ *
+ * Spec: https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx
  */
 
 import React, { useRef, useEffect, useState, useCallback } from "react";
 
+/** Protocol version as per spec. */
+const PROTOCOL_VERSION = "2026-01-26";
+
 /**
- * Post a JSON-RPC message to the iframe.
+ * Post a JSON-RPC notification to the iframe.
  */
 function postToIframe(iframe, method, params = {}, id = null) {
   if (!iframe || !iframe.contentWindow) return;
@@ -21,212 +28,424 @@ function postToIframe(iframe, method, params = {}, id = null) {
 }
 
 /**
- * Post a JSON-RPC response to the iframe.
+ * Post a JSON-RPC success response to the iframe.
  */
 function respondToIframe(iframe, id, result) {
   if (!iframe || !iframe.contentWindow) return;
-  // srcdoc iframes have an opaque ("null") origin, so we must use "*".
-  // Security is enforced by checking event.source on the receive side.
+  iframe.contentWindow.postMessage({ jsonrpc: "2.0", id, result }, "*");
+}
+
+/**
+ * Post a JSON-RPC error response to the iframe.
+ */
+function respondErrorToIframe(iframe, id, code, message) {
+  if (!iframe || !iframe.contentWindow) return;
   iframe.contentWindow.postMessage(
-    { jsonrpc: "2.0", id, result },
+    { jsonrpc: "2.0", id, error: { code, message } },
     "*"
   );
 }
 
 export function McpAppBridge({
-  resource_uri = "",
-  tool_input = "{}",
-  tool_result = "null",
-  server_id = 0,
-  server_name = "",
-  tool_name = "",
+  // Reflex may pass props as camelCase or snake_case depending on version.
+  // Accept both naming conventions with fallback.
+  resource_uri,
+  resourceUri,
+  tool_input,
+  toolInput,
+  tool_result,
+  toolResult,
+  server_id,
+  serverId,
+  server_name,
+  serverName,
+  tool_name,
+  toolName,
   theme = "light",
-  max_height = 600,
-  prefers_border = true,
+  max_height,
+  maxHeight,
+  prefers_border,
+  prefersBorder,
   on_message,
+  onMessage,
+  backend_url,
+  backendUrl,
   ...rest
 }) {
+  // Resolve props: prefer snake_case (Reflex custom component default), fall back to camelCase
+  const _resourceUri = resource_uri || resourceUri || "";
+  const _toolInput = tool_input ?? toolInput ?? "{}";
+  const _toolResult = tool_result ?? toolResult ?? "null";
+  const _serverId = server_id ?? serverId ?? 0;
+  const _serverName = server_name || serverName || "";
+  const _toolName = tool_name || toolName || "";
+  const _maxHeight = max_height ?? maxHeight ?? 600;
+  const _prefersBorder = prefers_border ?? prefersBorder ?? true;
+  const _onMessage = on_message || onMessage;
+  // Backend URL: strip trailing slash; fall back to same-origin (production)
+  const _backendUrl = (backend_url || backendUrl || "").replace(/\/+$/, "");
   const iframeRef = useRef(null);
   const [iframeHeight, setIframeHeight] = useState(300);
+  const [iframeWidth, setIframeWidth] = useState(null);
   const [ready, setReady] = useState(false);
   const [htmlContent, setHtmlContent] = useState("");
+  const [fetchError, setFetchError] = useState("");
+  // Resource metadata from X-MCP-* response headers (spec §UI Resource Format)
+  const [resourceCsp, setResourceCsp] = useState(null);
+  const [resourcePermissions, setResourcePermissions] = useState(null);
+  const [resourcePrefersBorder, setResourcePrefersBorder] = useState(null);
 
   // Build the resource URL with proper URI encoding
   const resourceUrl = React.useMemo(() => {
-    if (!resource_uri) return "";
-    return `/api/mcp-apps/${server_id}/resource?uri=${encodeURIComponent(resource_uri)}`;
-  }, [server_id, resource_uri]);
+    if (!_resourceUri) return "";
+    return `${_backendUrl}/api/mcp-apps/${_serverId}/resource?uri=${encodeURIComponent(_resourceUri)}`;
+  }, [_backendUrl, _serverId, _resourceUri]);
 
-  // Parse JSON props safely
-  const parsedInput = React.useMemo(() => {
-    try { return JSON.parse(tool_input); }
-    catch { return {}; }
-  }, [tool_input]);
+  // Debug: log resolved props on mount/change
+  useEffect(() => {
+    console.debug("[McpAppBridge] props:", {
+      resourceUri: _resourceUri,
+      serverId: _serverId,
+      toolName: _toolName,
+      resourceUrl,
+    });
+  }, [_resourceUri, _serverId, _toolName, resourceUrl]);
 
-  const parsedResult = React.useMemo(() => {
-    try { return JSON.parse(tool_result); }
-    catch { return null; }
-  }, [tool_result]);
+  // Parse JSON props safely.
+  // Props may arrive as a JSON string (when typed as Var[str]) OR as a
+  // plain JS object (when Reflex serialises a dict/None state field
+  // and the prop type coercion keeps it as an object).  Handle both.
+  const _parseOrUse = (v, fallback) => {
+    if (v === null || v === undefined) return fallback;
+    if (typeof v === "string") {
+      try { return JSON.parse(v); } catch { return fallback; }
+    }
+    return v; // already a JS object/array
+  };
 
-  // Build CSS variables from theme
+  const parsedInput = React.useMemo(
+    () => _parseOrUse(_toolInput, {}),
+    [_toolInput]
+  );
+
+  const parsedResult = React.useMemo(
+    () => _parseOrUse(_toolResult, null),
+    [_toolResult]
+  );
+
+  // Build CSS variables from theme (spec: HostContext.styles.variables)
   const cssVars = React.useMemo(() => ({
     "--color-background-primary": theme === "dark" ? "#1a1b1e" : "#ffffff",
+    "--color-background-secondary": theme === "dark" ? "#25262b" : "#f8f9fa",
     "--color-text-primary": theme === "dark" ? "#c1c2c5" : "#000000",
-    "--color-border": theme === "dark" ? "#373a40" : "#dee2e6",
+    "--color-text-secondary": theme === "dark" ? "#909296" : "#495057",
+    "--color-border-primary": theme === "dark" ? "#373a40" : "#dee2e6",
+    "--font-sans": "system-ui, sans-serif",
+    "--font-mono": "monospace",
+    "--border-radius-sm": "4px",
+    "--border-radius-md": "8px",
   }), [theme]);
 
   // Fetch HTML content from the resource endpoint
+  // Also reads X-MCP-* response headers for CSP/permissions metadata
   useEffect(() => {
     if (!resourceUrl) return;
-    fetch(resourceUrl, { credentials: "same-origin" })
+    setFetchError("");
+    fetch(resourceUrl, { credentials: "omit" })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        // Read spec metadata from response headers
+        const cspHeader = r.headers.get("X-MCP-CSP");
+        const permissionsHeader = r.headers.get("X-MCP-Permissions");
+        const prefersBorderHeader = r.headers.get("X-MCP-Prefers-Border");
+        if (cspHeader) {
+          try { setResourceCsp(JSON.parse(cspHeader)); } catch { /* ignore */ }
+        }
+        if (permissionsHeader) {
+          try { setResourcePermissions(JSON.parse(permissionsHeader)); } catch { /* ignore */ }
+        }
+        if (prefersBorderHeader !== null) {
+          setResourcePrefersBorder(prefersBorderHeader === "true");
+        }
         return r.text();
       })
       .then((html) => setHtmlContent(html))
       .catch((err) => {
         console.error("Failed to fetch MCP App resource:", err);
+        setFetchError(String(err));
         setHtmlContent("");
       });
   }, [resourceUrl]);
 
-  // Handle messages from iframe
+  // Handle messages from iframe (spec §Communication Protocol)
   const handleMessage = useCallback((event) => {
     const data = event.data;
     if (!data || data.jsonrpc !== "2.0") return;
 
-    // Only accept messages from our own iframe (sandboxed iframes
-    // post with origin "null") or same origin
+    // Only accept messages from our sandboxed iframe
     if (event.source !== iframeRef.current?.contentWindow) return;
 
     const iframe = iframeRef.current;
 
-    // ui/initialize request from app
+    // ── LIFECYCLE: Phase 2 ────────────────────────────────────────────────
+    // ui/initialize (View → Host): MCP-like handshake
+    // Host MUST respond with McpUiInitializeResult then send tool-input.
     if (data.method === "ui/initialize" && data.id != null) {
       setReady(true);
+
+      // Spec: McpUiInitializeResult
       respondToIframe(iframe, data.id, {
-        hostContext: {
-          displayMode: "inline",
-          platform: "web",
-          cssVariables: cssVars,
-          containerDimensions: {
-            maxHeight: max_height,
+        protocolVersion: PROTOCOL_VERSION,
+        hostInfo: { name: "appkit", version: "1.0.0" },
+        hostCapabilities: {
+          openLinks: {},
+          serverTools: { listChanged: false },
+          serverResources: { listChanged: false },
+          logging: {},
+          sandbox: {
+            csp: {
+              connectDomains: [],
+              resourceDomains: [],
+            },
           },
         },
-        capabilities: {
-          serverTools: true,
-          openLinks: true,
-          logging: true,
+        hostContext: {
+          theme,
+          displayMode: "inline",
+          availableDisplayModes: ["inline"],
+          platform: "web",
+          containerDimensions: { maxHeight: _maxHeight },
+          styles: { variables: cssVars },
         },
       });
-      // Push initial tool data after handshake
-      if (parsedInput && Object.keys(parsedInput).length > 0) {
-        postToIframe(iframe, "ui/notifications/tool-input", {
-          toolName: tool_name,
-          input: parsedInput,
-        });
-      }
-      if (parsedResult) {
-        postToIframe(iframe, "ui/notifications/tool-result", {
-          toolName: tool_name,
-          result: parsedResult,
-        });
+
+      // Spec: Host MUST send ui/notifications/tool-input after handshake
+      // Params: { arguments: Record<string, unknown> }
+      postToIframe(iframe, "ui/notifications/tool-input", {
+        arguments: parsedInput,
+      });
+
+      // Spec: Host MUST send ui/notifications/tool-result when available
+      if (parsedResult !== null) {
+        postToIframe(iframe, "ui/notifications/tool-result", parsedResult);
       }
       return;
     }
 
-    // tools/call request from app
+    // ping: Connection health check (spec §Standard MCP Messages)
+    if (data.method === "ping" && data.id != null) {
+      respondToIframe(iframe, data.id, {});
+      return;
+    }
+
+    // ── INTERACTIVE PHASE: Phase 3 ────────────────────────────────────────
+    // tools/call (View → Host): Proxy to MCP server
     if (data.method === "tools/call" && data.id != null) {
       const reqId = data.id;
       const params = data.params || {};
-      fetch(`/api/mcp-apps/${server_id}/tools/call`, {
+      fetch(`${_backendUrl}/api/mcp-apps/${_serverId}/tools/call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
+        credentials: "omit",
         body: JSON.stringify({
-          tool_name: params.name || params.toolName,
+          tool_name: params.name,
           arguments: params.arguments || {},
         }),
       })
-        .then((r) => r.json())
+        .then((r) => r.ok ? r.json() : Promise.reject(r.status))
         .then((result) => respondToIframe(iframe, reqId, result))
         .catch(() =>
-          respondToIframe(iframe, reqId, { isError: true, content: [] })
+          respondErrorToIframe(iframe, reqId, -32000, "Tool call failed")
         );
       return;
     }
 
-    // ui/open-link from app
+    // resources/read (View → Host): Proxy resource fetch to MCP server
+    if (data.method === "resources/read" && data.id != null) {
+      const reqId = data.id;
+      const uri = data.params?.uri;
+      if (!uri) {
+        respondErrorToIframe(iframe, reqId, -32602, "Missing uri parameter");
+        return;
+      }
+      fetch(
+        `${_backendUrl}/api/mcp-apps/${_serverId}/resource?uri=${encodeURIComponent(uri)}`,
+        { credentials: "omit" }
+      )
+        .then((r) => r.ok ? r.text() : Promise.reject(r.status))
+        .then((html) =>
+          respondToIframe(iframe, reqId, {
+            contents: [
+              { uri, mimeType: "text/html;profile=mcp-app", text: html },
+            ],
+          })
+        )
+        .catch(() =>
+          respondErrorToIframe(iframe, reqId, -32002, "Resource not found")
+        );
+      return;
+    }
+
+    // ui/open-link (View → Host): Open external URL in browser
     if (data.method === "ui/open-link") {
       const url = data.params?.url;
       if (url && (url.startsWith("https://") || url.startsWith("http://"))) {
         window.open(url, "_blank", "noopener,noreferrer");
+        if (data.id != null) respondToIframe(iframe, data.id, {});
+      } else if (data.id != null) {
+        respondErrorToIframe(iframe, data.id, -32000, "Invalid URL");
       }
       return;
     }
 
-    // ui/notifications/size-changed from app
+    // ui/notifications/size-changed (View → Host): Resize iframe
     if (data.method === "ui/notifications/size-changed") {
       const h = data.params?.height;
       if (typeof h === "number" && h > 0) {
-        setIframeHeight(Math.min(h, max_height));
+        setIframeHeight(Math.min(h, _maxHeight));
+      }
+      const w = data.params?.width;
+      if (typeof w === "number" && w > 0) {
+        setIframeWidth(w);
       }
       return;
     }
 
-    // ui/message from app
-    if (data.method === "ui/message" && on_message) {
-      on_message(JSON.stringify(data.params || {}));
+    // ui/message (View → Host): Insert message into chat
+    // Spec: respond with { isError: boolean }
+    if (data.method === "ui/message") {
+      if (data.id != null) respondToIframe(iframe, data.id, { isError: false });
+      if (_onMessage) {
+        _onMessage(JSON.stringify(data.params || {}));
+      }
+      return;
     }
-  }, [cssVars, max_height, parsedInput, parsedResult, server_id, tool_name, on_message]);
+
+    // ui/request-display-mode (View → Host): Change display mode
+    // We only support "inline"; return current mode.
+    if (data.method === "ui/request-display-mode" && data.id != null) {
+      respondToIframe(iframe, data.id, { mode: "inline" });
+      return;
+    }
+
+    // ui/update-model-context (View → Host): Update model context
+    // Accept and acknowledge; full model context piping is a future enhancement.
+    if (data.method === "ui/update-model-context" && data.id != null) {
+      respondToIframe(iframe, data.id, {});
+      return;
+    }
+
+    // notifications/message (View → Host): Log message
+    if (data.method === "notifications/message") {
+      const level = data.params?.level ?? "info";
+      const logger = data.params?.logger ?? "mcp-app";
+      const msg = data.params?.data ?? "";
+      console[level === "error" ? "error" : level === "warning" ? "warn" : "log"](
+        `[MCP App][${logger}]`, msg
+      );
+      return;
+    }
+  }, [cssVars, _maxHeight, parsedInput, parsedResult, _serverId, theme, _toolName, _onMessage]);
 
   useEffect(() => {
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [handleMessage]);
 
-  // Push updated tool data when props change and app is ready
+  // Push updated tool-input when props change and app is ready
+  // Spec: ui/notifications/tool-input params = { arguments }
   useEffect(() => {
     if (!ready) return;
     const iframe = iframeRef.current;
-    if (parsedInput && Object.keys(parsedInput).length > 0) {
-      postToIframe(iframe, "ui/notifications/tool-input", {
-        toolName: tool_name,
-        input: parsedInput,
-      });
-    }
-  }, [ready, tool_input, tool_name]);
+    postToIframe(iframe, "ui/notifications/tool-input", {
+      arguments: parsedInput,
+    });
+  }, [ready, _toolInput, _toolName]);
 
+  // Push tool-result when available and app is ready
+  // Spec: ui/notifications/tool-result params = CallToolResult
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || parsedResult === null) return;
     const iframe = iframeRef.current;
-    if (parsedResult) {
-      postToIframe(iframe, "ui/notifications/tool-result", {
-        toolName: tool_name,
-        result: parsedResult,
-      });
-    }
-  }, [ready, tool_result, tool_name]);
+    postToIframe(iframe, "ui/notifications/tool-result", parsedResult);
+  }, [ready, _toolResult]);
 
-  // Push theme changes
+  // Push theme/context changes via ui/notifications/host-context-changed
+  // Spec: params = Partial<HostContext>
   useEffect(() => {
     if (!ready) return;
     const iframe = iframeRef.current;
     postToIframe(iframe, "ui/notifications/host-context-changed", {
-      cssVariables: cssVars,
+      theme,
+      styles: { variables: cssVars },
     });
-  }, [ready, cssVars]);
+  }, [ready, theme, cssVars]);
 
-  if (!resourceUrl || !htmlContent) return null;
+  // Phase 4: Cleanup — send ui/resource-teardown before unmounting
+  // Spec: Host MUST send this before tearing down the View.
+  useEffect(() => {
+    return () => {
+      const iframe = iframeRef.current;
+      if (iframe && iframe.contentWindow && ready) {
+        postToIframe(
+          iframe,
+          "ui/resource-teardown",
+          { reason: "component unmounted" },
+          Date.now()
+        );
+      }
+    };
+  }, [ready]);
 
-  const borderStyle = prefers_border
+  if (!resourceUrl) return null;
+
+  // While loading or on fetch error, render a placeholder with defined height
+  // so the conversation layout doesn't collapse.
+  if (!htmlContent) {
+    const placeholderBorder = `1px solid ${theme === "dark" ? "#373a40" : "#dee2e6"}`;
+    return (
+      <div
+        style={{
+          width: "100%",
+          minHeight: "60px",
+          borderRadius: "8px",
+          border: placeholderBorder,
+          marginTop: "8px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: theme === "dark" ? "#909296" : "#868e96",
+          fontSize: "13px",
+          padding: "12px",
+        }}
+      >
+        {fetchError ? `⚠ MCP App: ${fetchError}` : "Loading MCP App…"}
+      </div>
+    );
+  }
+
+  const effectivePrefersBorder =
+    resourcePrefersBorder !== null ? resourcePrefersBorder : _prefersBorder;
+  const borderStyle = effectivePrefersBorder
     ? `1px solid ${theme === "dark" ? "#373a40" : "#dee2e6"}`
     : "none";
+
+  // Build iframe Permission-Policy allow attribute from resource permissions
+  // Spec §Host Behavior: Host MAY honor permissions by setting allow attribute
+  const allowParts = ["allow-scripts", "allow-popups", "allow-forms"];
+  if (resourcePermissions?.camera) allowParts.push("allow-camera");
+  if (resourcePermissions?.microphone) allowParts.push("allow-microphone");
+  if (resourcePermissions?.geolocation) allowParts.push("allow-geolocation");
+
+  // Build referrerPolicy: restrictive by default (no referrer to untrusted HTML)
+  const sandboxAttr = allowParts.join(" ");
+
+  const containerWidth = iframeWidth ? `${iframeWidth}px` : "100%";
 
   return (
     <div
       style={{
-        width: "100%",
+        width: containerWidth,
         maxWidth: "100%",
         borderRadius: "8px",
         overflow: "hidden",
@@ -243,8 +462,9 @@ export function McpAppBridge({
           border: "none",
           display: "block",
         }}
-        sandbox="allow-scripts allow-popups allow-forms"
-        title={`MCP App: ${tool_name}`}
+        sandbox={sandboxAttr}
+        referrerPolicy="no-referrer"
+        title={`MCP App: ${_toolName}`}
       />
     </div>
   );

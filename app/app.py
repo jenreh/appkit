@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 import reflex as rx
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
 from starlette.types import ASGIApp
 
 import appkit_mantine as mn
@@ -213,6 +214,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
 
 # Create FastAPI app for custom API routes
 api_app = FastAPI(title="AppKit API")
+api_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 api_app.include_router(image_api_router)
 api_app.include_router(mcp_apps_router)
 

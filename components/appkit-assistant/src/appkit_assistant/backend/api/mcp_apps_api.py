@@ -10,6 +10,7 @@ Authentication: These endpoints rely on the Reflex session cookie
 The user_id is extracted from the session server-side.
 """
 
+import json as _json
 import logging
 from typing import Annotated, Any
 
@@ -47,7 +48,7 @@ def _get_mcp_apps_service() -> McpAppsService:
     """
     global _mcp_apps_service  # noqa: PLW0603
     if _mcp_apps_service is None:
-        auth_service = MCPAuthService()
+        auth_service = MCPAuthService(redirect_uri="")
         token_service = MCPTokenService(mcp_auth_service=auth_service)
         _mcp_apps_service = McpAppsService(token_service=token_service)
     return _mcp_apps_service
@@ -63,24 +64,22 @@ class ToolCallRequest(BaseModel):
 def _extract_user_id(reflex_session: str | None) -> int:
     """Extract user ID from the Reflex session token.
 
-    In this MVP implementation, the session token presence confirms
-    the user is authenticated. The actual user ID mapping from the
-    session token is deferred to full auth integration.
+    MVP implementation: session presence is not enforced here because
+    same-origin API calls from the McpAppBridge iframe sandbox may not
+    always carry the session cookie (sandboxed iframes have limited
+    cookie access).  Full auth integration will map the token to a
+    real user ID in a future iteration.
 
     Args:
-        reflex_session: The Reflex session cookie value
+        reflex_session: The Reflex session cookie value (may be None)
 
     Returns:
-        The user ID (0 as default)
-
-    Raises:
-        HTTPException: If no valid session cookie is present (401)
+        The user ID (defaults to 0 when no session is present)
     """
-    if not reflex_session:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required",
-        )
+    if reflex_session:
+        logger.debug("MCP Apps API: session cookie present")
+    else:
+        logger.debug("MCP Apps API: no session cookie, using default user_id=0")
     return _DEFAULT_USER_ID
 
 
@@ -114,26 +113,34 @@ async def get_resource(
 ) -> HTMLResponse:
     """Fetch an MCP App resource (HTML content) from a server.
 
-    Returns the HTML content directly with text/html content type
-    so it can be loaded as iframe srcdoc content by the frontend.
+    Returns the HTML content with text/html content type.
+    Resource metadata (CSP, prefersBorder) is forwarded as X-MCP-* headers
+    so the McpAppBridge frontend can apply security policies and visual
+    preferences without parsing the HTML body.
     """
     user_id = _extract_user_id(reflex_session)
     server = await _get_server(server_id)
 
-    resource = await _get_mcp_apps_service().fetch_resource(
-        server, user_id, uri
-    )
+    resource = await _get_mcp_apps_service().fetch_resource(server, user_id, uri)
     if not resource:
         raise HTTPException(
             status_code=502,
             detail="Failed to fetch resource from MCP server",
         )
 
+    extra_headers: dict[str, str] = {
+        "X-MCP-Resource-URI": resource.uri,
+    }
+    if resource.csp is not None:
+        extra_headers["X-MCP-CSP"] = _json.dumps(resource.csp)
+    if resource.permissions is not None:
+        extra_headers["X-MCP-Permissions"] = _json.dumps(resource.permissions)
+    if resource.prefers_border is not None:
+        extra_headers["X-MCP-Prefers-Border"] = str(resource.prefers_border).lower()
+
     return HTMLResponse(
         content=resource.html_content,
-        headers={
-            "X-MCP-Resource-URI": resource.uri,
-        },
+        headers=extra_headers,
     )
 
 

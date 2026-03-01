@@ -2,9 +2,9 @@
 
 Provides a parallel direct MCP client connection to MCP servers,
 alongside the existing LLM-provider-mediated path. The direct client
-negotiates the io.modelcontextprotocol/ui extension, discovers
-UI-enabled tools, fetches ui:// HTML resources, and proxies tool
-calls from app iframes.
+negotiates the io.modelcontextprotocol/ui extension (SEP-1865 §Capability
+Negotiation), discovers UI-enabled tools, fetches ui:// HTML resources,
+and proxies tool calls from app iframes.
 """
 
 import json
@@ -12,9 +12,16 @@ import logging
 import time
 from typing import Any
 
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
-from mcp.types import CallToolResult, Tool
+import httpx
+from mcp import ClientSession  # noqa: F401 – kept for re-export / type hints
+from mcp.client.streamable_http import streamable_http_client
+from mcp.types import (
+    CallToolResult,
+    ClientCapabilities,
+    Implementation,
+    InitializeResult,
+    Tool,
+)
 
 from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.backend.schemas import (
@@ -30,6 +37,54 @@ logger = logging.getLogger(__name__)
 
 # Default TTL for cached tool metadata (seconds)
 _TOOL_CACHE_TTL_S = 300
+
+# Extension identifier per SEP-1865
+_EXTENSION_ID = "io.modelcontextprotocol/ui"
+_SUPPORTED_MIME_TYPE = "text/html;profile=mcp-app"
+
+# Client info sent to MCP servers
+_CLIENT_INFO = Implementation(name="appkit", version="1.0.0")
+
+
+class _McpAppsClientSession(ClientSession):
+    """ClientSession with MCP Apps capability advertised.
+
+    Overrides `initialize()` to include the ``io.modelcontextprotocol/ui``
+    extension in the ``experimental`` field of ``ClientCapabilities``.
+    This signals to the MCP server that this host supports MCP Apps,
+    so the server can register UI-enabled tools (spec §Capability Negotiation).
+    """
+
+    async def initialize(self) -> InitializeResult:
+        from mcp import types as t
+
+        result = await self.send_request(
+            t.ClientRequest(
+                t.InitializeRequest(
+                    params=t.InitializeRequestParams(
+                        protocolVersion=t.LATEST_PROTOCOL_VERSION,
+                        capabilities=ClientCapabilities(
+                            experimental={
+                                "extensions": {
+                                    _EXTENSION_ID: {
+                                        "mimeTypes": [_SUPPORTED_MIME_TYPE],
+                                    }
+                                }
+                            },
+                        ),
+                        clientInfo=_CLIENT_INFO,
+                    ),
+                )
+            ),
+            t.InitializeResult,
+        )
+        self._server_capabilities = result.capabilities  # type: ignore[attr-defined]
+        await self.send_notification(t.ClientNotification(t.InitializedNotification()))
+        logger.debug(
+            "MCP Apps session initialized (protocolVersion=%s)",
+            result.protocolVersion,
+        )
+        return result
 
 
 class McpAppsService:
@@ -74,9 +129,7 @@ class McpAppsService:
                 headers_dict = json.loads(server.headers)
                 headers.update(headers_dict)
             except json.JSONDecodeError:
-                logger.warning(
-                    "Invalid headers JSON for server %s", server.name
-                )
+                logger.warning("Invalid headers JSON for server %s", server.name)
 
         # Override with OAuth token if available
         if server.auth_type == MCPAuthType.OAUTH_DISCOVERY and self._token_service:
@@ -150,21 +203,24 @@ class McpAppsService:
         """
         ui_tools: list[McpAppToolInfo] = []
 
-        async with (
-            streamablehttp_client(server.url, headers=headers) as (
-                read_stream,
-                write_stream,
-                _,
-            ),
-            ClientSession(read_stream, write_stream) as session,
-        ):
-            await session.initialize()
-            result = await session.list_tools()
+        async with httpx.AsyncClient(headers=headers) as http_client:
+            async with (
+                streamable_http_client(server.url, http_client=http_client) as (
+                    read_stream,
+                    write_stream,
+                    _,
+                ),
+                # Use _McpAppsClientSession to advertise io.modelcontextprotocol/ui
+                # in the initialize request (spec §Capability Negotiation)
+                _McpAppsClientSession(read_stream, write_stream) as session,
+            ):
+                await session.initialize()
+                result = await session.list_tools()
 
-            for tool in result.tools:
-                tool_info = self._extract_ui_tool_info(tool, server)
-                if tool_info:
-                    ui_tools.append(tool_info)
+                for tool in result.tools:
+                    tool_info = self._extract_ui_tool_info(tool, server)
+                    if tool_info:
+                        ui_tools.append(tool_info)
 
         return ui_tools
 
@@ -219,25 +275,43 @@ class McpAppsService:
         try:
             headers = await self._get_auth_headers(server, user_id)
 
-            async with (
-                streamablehttp_client(server.url, headers=headers) as (
-                    read_stream,
-                    write_stream,
-                    _,
-                ),
-                ClientSession(read_stream, write_stream) as session,
-            ):
-                await session.initialize()
-                result = await session.read_resource(resource_uri)
+            async with httpx.AsyncClient(headers=headers) as http_client:
+                async with (
+                    streamable_http_client(server.url, http_client=http_client) as (
+                        read_stream,
+                        write_stream,
+                        _,
+                    ),
+                    _McpAppsClientSession(read_stream, write_stream) as session,
+                ):
+                    await session.initialize()
+                    result = await session.read_resource(resource_uri)
 
                 html_content = ""
+                csp: dict[str, Any] | None = None
+                permissions: dict[str, bool] | None = None
+                prefers_border: bool | None = None
+
                 for content in result.contents:
                     if hasattr(content, "text"):
                         html_content += content.text
+                    # Extract _meta.ui fields from resource content (spec §UI Resource Format)
+                    raw_meta: dict[str, Any] = getattr(content, "_meta", None) or {}
+                    ui_meta: dict[str, Any] = raw_meta.get("ui", {})
+                    if ui_meta:
+                        if "csp" in ui_meta:
+                            csp = ui_meta["csp"]
+                        if "permissions" in ui_meta:
+                            permissions = ui_meta["permissions"]
+                        if "prefersBorder" in ui_meta:
+                            prefers_border = bool(ui_meta["prefersBorder"])
 
                 return McpAppResource(
                     uri=resource_uri,
                     html_content=html_content,
+                    csp=csp,
+                    permissions=permissions,
+                    prefers_border=prefers_border,
                 )
         except Exception:
             logger.exception(
@@ -275,16 +349,19 @@ class McpAppsService:
         try:
             headers = await self._get_auth_headers(server, user_id)
 
-            async with (
-                streamablehttp_client(server.url, headers=headers) as (
-                    read_stream,
-                    write_stream,
-                    _,
-                ),
-                ClientSession(read_stream, write_stream) as session,
-            ):
-                await session.initialize()
-                result: CallToolResult = await session.call_tool(tool_name, arguments)
+            async with httpx.AsyncClient(headers=headers) as http_client:
+                async with (
+                    streamable_http_client(server.url, http_client=http_client) as (
+                        read_stream,
+                        write_stream,
+                        _,
+                    ),
+                    _McpAppsClientSession(read_stream, write_stream) as session,
+                ):
+                    await session.initialize()
+                    result: CallToolResult = await session.call_tool(
+                        tool_name, arguments
+                    )
 
                 return _call_tool_result_to_dict(result)
         except Exception:
@@ -366,7 +443,7 @@ class McpAppsService:
 
 def _call_tool_result_to_dict(result: CallToolResult) -> dict[str, Any]:
     """Convert a CallToolResult to a serializable dictionary."""
-    content_list = [item.model_dump() for item in result.content]
+    content_list = [item.model_dump(exclude_none=True) for item in result.content]
 
     return {
         "isError": bool(result.isError),
