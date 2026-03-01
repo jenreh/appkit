@@ -26,21 +26,12 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
         An McpAppBridge component configured with the view data
     """
     return mn.stack(
-        mn.group(
-            mn.badge(
-                view_data.server_name,
-                variant="light",
-                color="blue",
-                size="sm",
-                radius="sm",
-            ),
-            mn.text(
-                view_data.tool_name,
-                size="sm",
-                c="gray",
-            ),
-            spacing="xs",
-            p="0",
+        mn.badge(
+            view_data.server_name,
+            variant="light",
+            color="blue",
+            size="sm",
+            radius="sm",
         ),
         mn.card(
             mn.card.section(
@@ -56,10 +47,9 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
                     backend_url=rx.config.get_config().api_url,
                 ),
             ),
-            w="fit-content",
-            maw="100%",
+            w="100%",
             mt="0",
             shadow="sm",
         ),
-        gap="0",
+        gap="3px",
     )

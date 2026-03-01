@@ -85,11 +85,24 @@ export function McpAppBridge({
   // Backend URL: strip trailing slash; fall back to same-origin (production)
   const _backendUrl = (backend_url || backendUrl || "").replace(/\/+$/, "");
   const iframeRef = useRef(null);
-  const [iframeHeight, setIframeHeight] = useState(300);
-  const [iframeWidth, setIframeWidth] = useState(null);
+  const [iframeHeight, setIframeHeight] = useState(0);
   const [ready, setReady] = useState(false);
   const [htmlContent, setHtmlContent] = useState("");
   const [fetchError, setFetchError] = useState("");
+  // Lightweight auto-height script injected into MCP app HTML.
+  // Reports scrollHeight once on load and once after a short settle delay.
+  // Apps that need dynamic resizing should use ui/notifications/size-changed.
+  // No ResizeObserver/MutationObserver — those cause feedback loops.
+  const AUTO_SIZE_SCRIPT = `<script>
+(function(){
+  function report(){
+    var h=document.documentElement.scrollHeight;
+    if(h>0){window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/size-changed",params:{height:h}},"*");}
+  }
+  window.addEventListener("load",function(){report();setTimeout(report,300);});
+})();
+<\/script>`;
+
   // Resource metadata from X-MCP-* response headers (spec §UI Resource Format)
   const [resourceCsp, setResourceCsp] = useState(null);
   const [resourcePermissions, setResourcePermissions] = useState(null);
@@ -169,7 +182,17 @@ export function McpAppBridge({
         }
         return r.text();
       })
-      .then((html) => setHtmlContent(html))
+      .then((html) => {
+        // Inject auto-size reporter before </body>, </html>, or at the end
+        if (html.includes("</body>")) {
+          html = html.replace("</body>", AUTO_SIZE_SCRIPT + "</body>");
+        } else if (html.includes("</html>")) {
+          html = html.replace("</html>", AUTO_SIZE_SCRIPT + "</html>");
+        } else {
+          html = html + AUTO_SIZE_SCRIPT;
+        }
+        setHtmlContent(html);
+      })
       .catch((err) => {
         console.error("Failed to fetch MCP App resource:", err);
         setFetchError(String(err));
@@ -304,10 +327,9 @@ export function McpAppBridge({
       if (typeof h === "number" && h > 0) {
         setIframeHeight(Math.min(h, _maxHeight));
       }
-      const w = data.params?.width;
-      if (typeof w === "number" && w > 0) {
-        setIframeWidth(w);
-      }
+      // Width is intentionally ignored — the iframe always fills its
+      // container at 100%.  Tracking width causes feedback loops where
+      // the container shrinks → content reflows narrower → repeat → 0.
       return;
     }
 
@@ -440,13 +462,10 @@ export function McpAppBridge({
   // Build referrerPolicy: restrictive by default (no referrer to untrusted HTML)
   const sandboxAttr = allowParts.join(" ");
 
-  const containerWidth = iframeWidth ? `${iframeWidth}px` : "100%";
-
   return (
     <div
       style={{
-        width: containerWidth,
-        maxWidth: "100%",
+        width: "100%",
         borderRadius: "8px",
         overflow: "hidden",
         border: borderStyle,
