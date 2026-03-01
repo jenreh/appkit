@@ -107,6 +107,7 @@ dependencies = [
     { name = "appkit-commons", extra = ["apscheduler", "azure", "pgqueuer"] },
     { name = "appkit-imagecreator" },
     { name = "appkit-mantine" },
+    { name = "appkit-mcpapp" },
     { name = "appkit-ui" },
     { name = "appkit-user", extra = ["azure", "resend"] },
     { name = "psycopg" },
@@ -136,6 +137,7 @@ requires-dist = [
     { name = "appkit-commons", extras = ["apscheduler", "pgqueuer", "azure"], editable = "components/appkit-commons" },
     { name = "appkit-imagecreator", editable = "components/appkit-imagecreator" },
     { name = "appkit-mantine", editable = "components/appkit-mantine" },
+    { name = "appkit-mcpapp", editable = "components/appkit-mcpapp" },
     { name = "appkit-ui", editable = "components/appkit-ui" },
     { name = "appkit-user", extras = ["azure", "resend"], editable = "components/appkit-user" },
     { name = "psycopg", specifier = "==3.3.3" },
@@ -277,14 +279,20 @@ source = { editable = "components/appkit-mcpapp" }
 dependencies = [
     { name = "appkit-commons" },
     { name = "appkit-mantine" },
+    { name = "appkit-user" },
     { name = "fastmcp" },
+    { name = "openai" },
+    { name = "plotly" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "appkit-commons", editable = "components/appkit-commons" },
     { name = "appkit-mantine", editable = "components/appkit-mantine" },
-    { name = "fastmcp", specifier = ">=3.0.0" },
+    { name = "appkit-user", editable = "components/appkit-user" },
+    { name = "fastmcp", specifier = ">=3.0.2" },
+    { name = "openai", specifier = ">=2.24.0" },
+    { name = "plotly", specifier = ">=6.5.2" },
 ]
 
 [[package]]
@@ -1453,6 +1461,15 @@ wheels = [
 ]
 
 [[package]]
+name = "narwhals"
+version = "2.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/75/59/81d0f4cad21484083466f278e6b392addd9f4205b48d45b5c8771670ebf8/narwhals-2.17.0.tar.gz", hash = "sha256:ebd5bc95bcfa2f8e89a8ac09e2765a63055162837208e67b42d6eeb6651d5e67", size = 620306, upload-time = "2026-02-23T09:44:34.142Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4b/27/20770bd6bf8fbe1e16f848ba21da9df061f38d2e6483952c29d2bb5d1d8b/narwhals-2.17.0-py3-none-any.whl", hash = "sha256:2ac5307b7c2b275a7d66eeda906b8605e3d7a760951e188dcfff86e8ebe083dd", size = 444897, upload-time = "2026-02-23T09:44:32.006Z" },
+]
+
+[[package]]
 name = "oauthlib"
 version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1607,6 +1624,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/61/33/9611380c2bdb1225fdef633e2a9610622310fed35ab11dac9620972ee088/platformdirs-4.5.0.tar.gz", hash = "sha256:70ddccdd7c99fc5942e9fc25636a8b34d04c24b335100223152c2803e4063312", size = 21632, upload-time = "2025-10-08T17:44:48.791Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/73/cb/ac7874b3e5d58441674fb70742e6c374b28b0c7cb988d37d991cde47166c/platformdirs-4.5.0-py3-none-any.whl", hash = "sha256:e578a81bb873cbb89a41fcc904c7ef523cc18284b7e3b3ccf06aca1403b7ebd3", size = 18651, upload-time = "2025-10-08T17:44:47.223Z" },
+]
+
+[[package]]
+name = "plotly"
+version = "6.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "narwhals" },
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e3/4f/8a10a9b9f5192cb6fdef62f1d77fa7d834190b2c50c0cd256bd62879212b/plotly-6.5.2.tar.gz", hash = "sha256:7478555be0198562d1435dee4c308268187553cc15516a2f4dd034453699e393", size = 7015695, upload-time = "2026-01-14T21:26:51.222Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/67/f95b5460f127840310d2187f916cf0023b5875c0717fdf893f71e1325e87/plotly-6.5.2-py3-none-any.whl", hash = "sha256:91757653bd9c550eeea2fa2404dba6b85d1e366d54804c340b2c874e5a7eb4a4", size = 9895973, upload-time = "2026-01-14T21:26:47.135Z" },
 ]
 
 [[package]]

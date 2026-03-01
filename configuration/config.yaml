@@ -61,3 +61,7 @@ app:
   imagegenerator:
     tmp_dir: ./uploaded_files
     cleanup_days_threshold: 60
+    openai_model: gpt-4o-mini
+
+  mcpapp:
+    openai_model: gpt-5.2

@@ -9,6 +9,7 @@ dependencies = [
     "appkit-commons[apscheduler,pgqueuer,azure]",
     "appkit-imagecreator",
     "appkit-mantine",
+    "appkit-mcpapp",
     "appkit-ui",
     "appkit-user[azure,resend]",
     "psycopg==3.3.3",

@@ -2,7 +2,10 @@
 dependencies = [
     "appkit-commons",
     "appkit-mantine",
-    "fastmcp>=3.0.0",
+    "appkit-user",
+    "fastmcp>=3.0.2",
+    "openai>=2.24.0",
+    "plotly>=6.5.2",
 ]
 name = "appkit-mcpapp"
 version = "1.6.3"
