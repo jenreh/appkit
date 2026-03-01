@@ -40,6 +40,24 @@ Documentation = "https://github.com/jenreh/appkit/tree/main/docs"
 Repository = "https://github.com/jenreh/appkit"
 Issues = "https://github.com/jenreh/appkit/issues"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".cache", "__pycache__"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/appkit_assistant"]
+omit = [
+    "*/tests/*",
+    "*/components/*.py",
+    "pages.py",
+    "roles.py",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

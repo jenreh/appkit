@@ -1,5 +1,7 @@
 """Pytest fixtures for appkit-assistant tests."""
 
+pytest_plugins = ["appkit_commons.testing"]
+
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any

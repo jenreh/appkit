@@ -16,17 +16,6 @@ dependencies = [
     "reflex>=0.8.27",
 ]
 
-# [project.optional-dependencies]
-# apscheduler = [
-#     "appkit-commons[apscheduler]",
-# ]
-# pgqueuer = [
-#     "appkit-commons[pgqueuer]",
-# ]
-# azure = [
-#     "appkit-commons[azure]",
-# ]
-
 [dependency-groups]
 dev = [
     "pytest==9.0.2",
@@ -215,7 +204,14 @@ known-first-party = ["appkit_*"]
 
 [tool.pytest.ini_options]
 cache_dir = ".cache/pytest"
-testpaths = ["tests"]
+norecursedirs = [".cache", "__pycache__", ".venv*", "node_modules"]
+testpaths = [
+    "components/appkit-commons/tests",
+    "components/appkit-assistant/tests",
+    "components/appkit-imagecreator/tests",
+    "components/appkit-mcpapp/tests",
+    "components/appkit-user/tests",
+]
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = [

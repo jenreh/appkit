@@ -47,6 +47,25 @@ where = ["src"]
 appkit-commons = { workspace = true }
 appkit-ui = { workspace = true }
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".cache", "__pycache__"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/appkit_user"]
+omit = [
+    "*/tests/*",
+    "*/components/*.py",
+    "*/templates/*.py",
+    "*/pages.py",
+    "*/roles.py",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/appkit_user"]
 include = [

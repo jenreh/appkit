@@ -1,5 +1,7 @@
 """Package-specific fixtures for appkit-user tests."""
 
+pytest_plugins = ["appkit_commons.testing"]
+
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any

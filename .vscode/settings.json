@@ -60,7 +60,12 @@
   "python.testing.pytestEnabled": true,
   "python.testing.unittestEnabled": false,
   "python.testing.pytestArgs": [
-    "tests"
+    "tests",
+    "components/appkit-commons/tests",
+    "components/appkit-assistant/tests",
+    "components/appkit-imagecreator/tests",
+    "components/appkit-user/tests",
+    "components/appkit-mcpapp/tests",
   ],
   "terminal.integrated.defaultProfile.linux": "zsh",
   "terminal.integrated.defaultProfile.osx": "zsh",

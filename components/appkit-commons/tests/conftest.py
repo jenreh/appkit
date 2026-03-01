@@ -1,5 +1,7 @@
 """Package-specific fixtures for appkit-commons tests."""
 
+pytest_plugins = ["appkit_commons.testing"]
+
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
