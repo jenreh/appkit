@@ -86,6 +86,7 @@ export function McpAppBridge({
   const _backendUrl = (backend_url || backendUrl || "").replace(/\/+$/, "");
   const iframeRef = useRef(null);
   const [iframeHeight, setIframeHeight] = useState(0);
+  const [iframeWidth, setIframeWidth] = useState(null);
   const [ready, setReady] = useState(false);
   const [htmlContent, setHtmlContent] = useState("");
   const [fetchError, setFetchError] = useState("");
@@ -97,7 +98,9 @@ export function McpAppBridge({
 (function(){
   function report(){
     var h=document.documentElement.scrollHeight;
-    if(h>0){window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/size-changed",params:{height:h}},"*");}
+    var w=document.documentElement.scrollWidth;
+    var p={};if(h>0)p.height=h;if(w>0)p.width=w;
+    if(p.height||p.width){window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/size-changed",params:p},"*");}
   }
   window.addEventListener("load",function(){report();setTimeout(report,300);});
 })();
@@ -327,9 +330,10 @@ export function McpAppBridge({
       if (typeof h === "number" && h > 0) {
         setIframeHeight(Math.min(h, _maxHeight));
       }
-      // Width is intentionally ignored — the iframe always fills its
-      // container at 100%.  Tracking width causes feedback loops where
-      // the container shrinks → content reflows narrower → repeat → 0.
+      const w = data.params?.width;
+      if (typeof w === "number" && w > 0) {
+        setIframeWidth(w);
+      }
       return;
     }
 
@@ -462,10 +466,13 @@ export function McpAppBridge({
   // Build referrerPolicy: restrictive by default (no referrer to untrusted HTML)
   const sandboxAttr = allowParts.join(" ");
 
+  const containerWidth = iframeWidth ? `${iframeWidth}px` : "auto";
+
   return (
     <div
       style={{
-        width: "100%",
+        width: containerWidth,
+        maxWidth: "100%",
         borderRadius: "8px",
         overflow: "hidden",
         border: borderStyle,
@@ -476,7 +483,7 @@ export function McpAppBridge({
         ref={iframeRef}
         srcDoc={htmlContent}
         style={{
-          width: "100%",
+          width: iframeWidth ? `${iframeWidth}px` : "100%",
           height: `${iframeHeight}px`,
           border: "none",
           display: "block",

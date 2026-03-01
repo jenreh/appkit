@@ -25,7 +25,7 @@ from appkit_mcpapp.tools.visualize import visualize_users_as_barchart
 
 logger = logging.getLogger(__name__)
 
-VIEW_URI = "ui://appkit/bar_chart.html"
+VIEW_URI = "ui://appkit/chart_view.html"
 
 _PLOTLY_CDN = "https://cdn.plot.ly/plotly-latest.min.js"
 
@@ -34,7 +34,7 @@ _BAR_CHART_HTML = f"""\
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Bar Chart</title>
+<title>Chart View</title>
 <script src="{_PLOTLY_CDN}"></script>
 <style>
 html, body {{ margin:0; padding:0; width:100%; height:100%; }}
@@ -52,7 +52,7 @@ html, body {{ margin:0; padding:0; width:100%; height:100%; }}
     jsonrpc: "2.0", method: "ui/initialize", id: 1,
     params: {{
       protocolVersion: "2025-01-26",
-      clientInfo: {{ name: "bar-chart-view", version: "1.0.0" }},
+      clientInfo: {{ name: "chart-view", version: "1.0.0" }},
       capabilities: {{}}
     }}
   }}, "*");
@@ -123,61 +123,12 @@ def create_mcp_server(
 
     @mcp.resource(VIEW_URI)
     def bar_chart_view() -> str:
-        """MCP App resource that displays a Plotly barchart.
+        """Displays a Plotly barchart.
 
-        Loads the MCP Apps SDK, receives the tool result via
-        ``ontoolresult``, and renders the pre-built Plotly HTML
-        inside an embedded iframe.
+        Receives the tool result via ``ontoolresult``, and renders the pre-built
+        Plotly HTML inside an embedded iframe.
         """
         return _BAR_CHART_HTML
-
-    @mcp.tool()
-    async def query_users(
-        question: str,
-        ctx: Any = None,
-    ) -> str:
-        """Query the users table with a natural language question.
-
-        Dynamically generates a SQL query from the question,
-        validates it for safety, and executes it against the
-        auth_users table. Returns structured results.
-
-        Args:
-            question: Natural language question about users,
-                e.g. "How many active users are there?" or
-                "Show me users grouped by role".
-            ctx: MCP context (injected by FastMCP).
-
-        Returns:
-            JSON string with query results.
-        """
-        user_ctx = _get_user_context(ctx)
-        openai_client = _get_openai_client()
-        config = service_registry().get(McpAppConfig)
-
-        logger.info(
-            "Tool query_users_table called by user %d: %.200s",
-            user_ctx.user_id,
-            question,
-        )
-
-        result = await query_users_table(
-            question,
-            user_ctx,
-            openai_client=openai_client,
-            model=config.openai_model,
-        )
-
-        return json.dumps(
-            {
-                "success": result.success,
-                "data": result.data,
-                "columns": result.columns,
-                "row_count": result.row_count,
-                "error": result.error,
-            },
-            default=str,
-        )
 
     @mcp.tool(app=AppConfig(resource_uri=VIEW_URI))
     async def generate_barchart(
@@ -188,11 +139,7 @@ def create_mcp_server(
         data: list[dict[str, Any]] | None = None,
         ctx: Any = None,
     ) -> str:
-        """Visualize tabular data as an interactive barchart.
-
-        IMPORTANT: You MUST first call ``query_users`` to obtain
-        the data, then pass the ``data`` field from its JSON
-        response to this tool.
+        """Visualize tabular data as an interactive barchart using Plotly.
 
         Args:
             x_axis: Column name for the X-axis (e.g. "role").
@@ -200,9 +147,7 @@ def create_mcp_server(
             chart_title: Optional title for the chart.
             bar_mode: Display mode — "group" (side by side),
                 "stack", or "percent" (stacked to 100%).
-            data: List of row dicts from query_users. You MUST
-                call query_users first and pass its "data" field
-                here. If omitted the tool will fail.
+            data: List of row dicts in a format for Plotly.
             ctx: MCP context (injected by FastMCP).
 
         Returns:
@@ -241,6 +186,54 @@ def create_mcp_server(
             {
                 "success": result.success,
                 "html": result.html,
+                "error": result.error,
+            },
+            default=str,
+        )
+
+    @mcp.tool()
+    async def query_users(
+        question: str,
+        ctx: Any = None,
+    ) -> str:
+        """Query the Appkit users table with a natural language question.
+
+        Dynamically generates a SQL query from the question,
+        validates it for safety, and executes it against the
+        auth_users table. Returns structured results.
+
+        Args:
+            question: Natural language question about users,
+                e.g. "How many active users are there?" or
+                "Show me users grouped by role".
+            ctx: MCP context (injected by FastMCP).
+
+        Returns:
+            JSON string with query results.
+        """
+        user_ctx = _get_user_context(ctx)
+        openai_client = _get_openai_client()
+        config = service_registry().get(McpAppConfig)
+
+        logger.info(
+            "Tool query_users_table called by user %d: %.200s",
+            user_ctx.user_id,
+            question,
+        )
+
+        result = await query_users_table(
+            question,
+            user_ctx,
+            openai_client=openai_client,
+            model=config.openai_model,
+        )
+
+        return json.dumps(
+            {
+                "success": result.success,
+                "data": result.data,
+                "columns": result.columns,
+                "row_count": result.row_count,
                 "error": result.error,
             },
             default=str,

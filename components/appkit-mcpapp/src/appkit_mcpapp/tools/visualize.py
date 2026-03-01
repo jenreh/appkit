@@ -173,11 +173,39 @@ def _build_chart_html(
     fig.update_layout(
         title_text=title,
         xaxis_title=x_axis,
+        hovermode="x unified",  # shows all traces at the hovered x position
         barmode=plotly_barmode,
         barnorm=barnorm if barnorm else None,
-        height=500,
-        margin={"t": 50, "r": 20, "b": 80, "l": 60},
+        width=816,
+        height=480,
+        margin={"t": 50, "r": 60, "b": 80, "l": 60},
         autosize=True,
+        modebar={
+            "orientation": "v",
+            "bgcolor": "rgba(0,0,0,0.05)",
+            "color": "rgba(0,0,0,0.5)",
+            "activecolor": "rgba(0,0,0,0.9)",
+        },
     )
 
-    return fig.to_html(full_html=False, include_plotlyjs=False)
+    config = {
+        "displayModeBar": True,
+        "scrollZoom": True,  # enables scroll-wheel zoom
+        "modeBarButtonsToAdd": [
+            "v1hovermode",  # adds compare hover toggle button
+            "toggleSpikeLines",  # adds spike line toggle button
+        ],
+        "modeBarButtonsToRemove": [
+            "lasso2d",
+            "select2d",  # remove less useful selection tools
+        ],
+        "toImageButtonOptions": {
+            "format": "png",  # 'png', 'svg', 'jpeg', 'webp'
+            "filename": "my_chart",
+            "width": 1200,
+            "height": 600,
+            "scale": 2,  # retina quality
+        },
+    }
+
+    return fig.to_html(full_html=False, include_plotlyjs=False, config=config)
