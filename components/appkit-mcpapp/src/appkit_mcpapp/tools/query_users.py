@@ -94,11 +94,7 @@ def _execute_query(sql: str, user_ctx: UserContext) -> QueryResult:
                 )
             )
             rows = result.fetchall()
-
-            # Get column names - try multiple approaches for compatibility
-            columns = list(result.keys()) if hasattr(result, "keys") else []
-            if not columns and rows and result.cursor and result.cursor.description:
-                columns = [desc[0] for desc in result.cursor.description]
+            columns = list(result.keys())
 
             logger.debug(
                 "SQL execution returned %d rows, columns: %s",

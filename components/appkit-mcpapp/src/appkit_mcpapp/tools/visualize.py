@@ -1,19 +1,14 @@
-"""MCP tool: visualize_users_as_barchart.
+"""MCP tool: generate_barchart.
 
 Accepts tabular data and generates an interactive barchart
 visualization, returning an iframe-loadable HTML resource.
 """
 
 import logging
-import uuid
 
 import plotly.graph_objects as go
 
-from appkit_mcpapp.models.schemas import (
-    ChartConfig,
-    VisualizationResult,
-)
-from appkit_mcpapp.services.chart_cache import get_chart_cache
+from appkit_mcpapp.models.schemas import VisualizationResult
 
 logger = logging.getLogger(__name__)
 
@@ -28,20 +23,37 @@ SERIES_COLORS = [
     "#fd7e14",
 ]
 
+_PLOTLY_CONFIG = {
+    "displayModeBar": True,
+    "scrollZoom": True,  # enables scroll-wheel zoom
+    "modeBarButtonsToAdd": [
+        "v1hovermode",  # adds compare hover toggle button
+        "toggleSpikeLines",  # adds spike line toggle button
+    ],
+    "modeBarButtonsToRemove": [
+        "lasso2d",
+        "select2d",  # remove less useful selection tools
+    ],
+    "toImageButtonOptions": {
+        "format": "png",
+        "filename": "my_chart",
+        "width": 1200,
+        "height": 600,
+        "scale": 2,  # retina quality
+    },
+}
 
-async def visualize_users_as_barchart(
+
+async def generate_barchart(
     data: list[dict[str, object]],
     x_axis: str,
     y_axes: list[str],
     chart_title: str = "User Analytics",
     bar_mode: str = "group",
-    *,
-    base_url: str = "http://localhost:3000",
 ) -> VisualizationResult:
     """Generate a barchart visualization from tabular data.
 
-    Stores chart configuration in a cache and returns an HTML
-    iframe tag pointing to the Reflex chart rendering route.
+    Returns an HTML iframe tag pointing to the Reflex chart rendering route.
 
     Args:
         data: List of row dicts from the query tool.
@@ -50,7 +62,6 @@ async def visualize_users_as_barchart(
         chart_title: Title for the chart.
         bar_mode: Display mode — ``"group"`` (side by side),
             ``"stack"``, or ``"percent"`` (stacked to 100 %).
-        base_url: Base URL of the Reflex app.
 
     Returns:
         VisualizationResult with iframe HTML and preview URL.
@@ -92,36 +103,17 @@ async def visualize_users_as_barchart(
                 ),
             )
 
-    chart_id = str(uuid.uuid4())
-
-    config = ChartConfig(
-        chart_id=chart_id,
-        data=data,
-        x_axis=x_axis,
-        y_axes=y_axes,
-        bar_mode=bar_mode,
-        chart_title=chart_title,
-    )
-
-    cache = get_chart_cache()
-    cache.store(config)
-
-    preview_url = f"{base_url}/mcp/user-chart/{chart_id}"
-
     # Build embeddable HTML fragment (no full page, no bundled Plotly.js)
     html = _build_chart_html(data, x_axis, y_axes, chart_title, bar_mode)
 
     logger.info(
-        "Created barchart visualization: chart_id=%s, rows=%d",
-        chart_id,
+        "Created barchart visualization: rows=%d",
         len(data),
     )
 
     return VisualizationResult(
         success=True,
-        chart_id=chart_id,
         html=html,
-        preview_url=preview_url,
     )
 
 
@@ -188,24 +180,8 @@ def _build_chart_html(
         },
     )
 
-    config = {
-        "displayModeBar": True,
-        "scrollZoom": True,  # enables scroll-wheel zoom
-        "modeBarButtonsToAdd": [
-            "v1hovermode",  # adds compare hover toggle button
-            "toggleSpikeLines",  # adds spike line toggle button
-        ],
-        "modeBarButtonsToRemove": [
-            "lasso2d",
-            "select2d",  # remove less useful selection tools
-        ],
-        "toImageButtonOptions": {
-            "format": "png",  # 'png', 'svg', 'jpeg', 'webp'
-            "filename": "my_chart",
-            "width": 1200,
-            "height": 600,
-            "scale": 2,  # retina quality
-        },
-    }
-
-    return fig.to_html(full_html=False, include_plotlyjs=False, config=config)
+    return fig.to_html(
+        full_html=False,
+        include_plotlyjs=False,
+        config=_PLOTLY_CONFIG,
+    )

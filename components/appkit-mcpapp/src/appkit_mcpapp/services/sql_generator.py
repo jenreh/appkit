@@ -52,9 +52,6 @@ _USER_COLUMN_NOTE = (
     "Only return aggregated/statistical data."
 )
 
-# Query timeout in seconds
-QUERY_TIMEOUT_SECONDS = 10
-
 
 class SQLGenerationError(Exception):
     """Raised when SQL generation fails."""
@@ -127,20 +124,6 @@ async def generate_sql(
         raise SQLGenerationError(f"Failed to generate SQL: {e}") from e
 
 
-def get_safe_columns(*, is_admin: bool) -> list[str]:
-    """Return the list of columns accessible for the given role.
-
-    Args:
-        is_admin: Whether the user has admin privileges.
-
-    Returns:
-        List of accessible column names.
-    """
-    if is_admin:
-        return sorted(ALLOWED_COLUMNS)
-    return sorted(ALLOWED_COLUMNS - ADMIN_ONLY_COLUMNS)
-
-
 def _clean_sql_response(sql: str) -> str:
     """Remove markdown code blocks from LLM response.
 
@@ -158,3 +141,19 @@ def _clean_sql_response(sql: str) -> str:
     if sql.endswith("```"):
         sql = sql[:-3]
     return sql.strip()
+
+
+def get_safe_columns(is_admin: bool = False) -> list[str]:
+    """Get list of columns visible to the role.
+
+    Args:
+        is_admin: Whether the user has admin privileges.
+
+    Returns:
+        List of column names that can be queried.
+    """
+    if is_admin:
+        return sorted(list(ALLOWED_COLUMNS))
+
+    # Regular users cannot access PII columns
+    return sorted(list(ALLOWED_COLUMNS - ADMIN_ONLY_COLUMNS))

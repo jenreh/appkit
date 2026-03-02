@@ -2,7 +2,7 @@
 
 Provides a FastMCP server with user analytics tools:
 - query_users_table: Dynamic SQL generation and execution
-- visualize_users_as_barchart: Interactive chart generation
+- generate_barchart: Interactive chart generation
 """
 
 __version__ = "1.6.3"

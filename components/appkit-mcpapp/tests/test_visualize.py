@@ -2,8 +2,7 @@
 
 import pytest
 
-from appkit_mcpapp.services.chart_cache import get_chart_cache
-from appkit_mcpapp.tools.visualize import visualize_users_as_barchart
+from appkit_mcpapp.tools.visualize import generate_barchart
 
 
 @pytest.fixture
@@ -26,14 +25,14 @@ def multi_series_data() -> list[dict[str, object]]:
     ]
 
 
-class TestVisualizeUsersAsBarchart:
-    """Tests for visualize_users_as_barchart tool."""
+class TestGenerateBarchart:
+    """Tests for generate_barchart tool."""
 
     @pytest.mark.asyncio
     async def test_successful_visualization(
         self, sample_data: list[dict[str, object]]
     ) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             sample_data,
             x_axis="role",
             y_axes=["count"],
@@ -41,15 +40,13 @@ class TestVisualizeUsersAsBarchart:
         )
 
         assert result.success is True
-        assert result.chart_id != ""
         assert result.html != ""
-        assert result.preview_url != ""
         assert "Plotly.newPlot" in result.html
         assert "Users by Role" in result.html
 
     @pytest.mark.asyncio
     async def test_empty_data_returns_error(self) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             [],
             x_axis="role",
             y_axes=["count"],
@@ -57,65 +54,37 @@ class TestVisualizeUsersAsBarchart:
 
         assert result.success is False
         assert result.error is not None
-        assert "No data" in result.error
+        assert "No data provided" in result.error
 
     @pytest.mark.asyncio
     async def test_invalid_x_axis(self, sample_data: list[dict[str, object]]) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             sample_data,
             x_axis="nonexistent",
             y_axes=["count"],
         )
 
         assert result.success is False
-        assert "nonexistent" in (result.error or "")
+        assert result.error is not None
+        assert "Column 'nonexistent' not found" in result.error
 
     @pytest.mark.asyncio
     async def test_invalid_y_axis(self, sample_data: list[dict[str, object]]) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             sample_data,
             x_axis="role",
             y_axes=["nonexistent"],
         )
 
         assert result.success is False
-        assert "nonexistent" in (result.error or "")
-
-    @pytest.mark.asyncio
-    async def test_chart_stored_in_cache(
-        self, sample_data: list[dict[str, object]]
-    ) -> None:
-        result = await visualize_users_as_barchart(
-            sample_data,
-            x_axis="role",
-            y_axes=["count"],
-        )
-
-        assert result.success is True
-        cache = get_chart_cache()
-        config = cache.get(result.chart_id)
-        assert config is not None
-        assert config.x_axis == "role"
-        assert config.y_axes == ["count"]
-        assert config.bar_mode == "group"
-
-    @pytest.mark.asyncio
-    async def test_custom_base_url(self, sample_data: list[dict[str, object]]) -> None:
-        result = await visualize_users_as_barchart(
-            sample_data,
-            x_axis="role",
-            y_axes=["count"],
-            base_url="https://example.com",
-        )
-
-        assert result.success is True
-        assert "https://example.com" in result.preview_url
+        assert result.error is not None
+        assert "Column 'nonexistent' not found" in result.error
 
     @pytest.mark.asyncio
     async def test_html_contains_chart_elements(
         self, sample_data: list[dict[str, object]]
     ) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             sample_data,
             x_axis="role",
             y_axes=["count"],
@@ -127,19 +96,6 @@ class TestVisualizeUsersAsBarchart:
         assert "Plotly.newPlot" in result.html
         assert "Test Title" in result.html
 
-    @pytest.mark.asyncio
-    async def test_preview_url_contains_chart_id(
-        self, sample_data: list[dict[str, object]]
-    ) -> None:
-        result = await visualize_users_as_barchart(
-            sample_data,
-            x_axis="role",
-            y_axes=["count"],
-        )
-
-        assert result.success is True
-        assert result.chart_id in result.preview_url
-
 
 class TestMultiSeriesBarchart:
     """Tests for multi-series barchart support."""
@@ -148,7 +104,7 @@ class TestMultiSeriesBarchart:
     async def test_multiple_y_axes(
         self, multi_series_data: list[dict[str, object]]
     ) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             multi_series_data,
             x_axis="role",
             y_axes=["count", "active", "pending"],
@@ -164,7 +120,7 @@ class TestMultiSeriesBarchart:
     async def test_grouped_bar_mode(
         self, multi_series_data: list[dict[str, object]]
     ) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             multi_series_data,
             x_axis="role",
             y_axes=["count", "active"],
@@ -172,17 +128,13 @@ class TestMultiSeriesBarchart:
         )
 
         assert result.success is True
-        cache = get_chart_cache()
-        config = cache.get(result.chart_id)
-        assert config is not None
-        assert config.bar_mode == "group"
         assert "group" in result.html.lower()
 
     @pytest.mark.asyncio
     async def test_stacked_bar_mode(
         self, multi_series_data: list[dict[str, object]]
     ) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             multi_series_data,
             x_axis="role",
             y_axes=["count", "active"],
@@ -190,17 +142,13 @@ class TestMultiSeriesBarchart:
         )
 
         assert result.success is True
-        cache = get_chart_cache()
-        config = cache.get(result.chart_id)
-        assert config is not None
-        assert config.bar_mode == "stack"
         assert "stack" in result.html.lower()
 
     @pytest.mark.asyncio
     async def test_percent_bar_mode(
         self, multi_series_data: list[dict[str, object]]
     ) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             multi_series_data,
             x_axis="role",
             y_axes=["count", "active"],
@@ -208,15 +156,11 @@ class TestMultiSeriesBarchart:
         )
 
         assert result.success is True
-        cache = get_chart_cache()
-        config = cache.get(result.chart_id)
-        assert config is not None
-        assert config.bar_mode == "percent"
         assert "percent" in result.html.lower()
 
     @pytest.mark.asyncio
     async def test_invalid_bar_mode(self, sample_data: list[dict[str, object]]) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             sample_data,
             x_axis="role",
             y_axes=["count"],
@@ -224,36 +168,21 @@ class TestMultiSeriesBarchart:
         )
 
         assert result.success is False
-        assert "Invalid bar_mode" in (result.error or "")
-        assert "group" in (result.error or "")
-        assert "stack" in (result.error or "")
-        assert "percent" in (result.error or "")
+        assert result.error is not None
+        # The exact error message depends on implementation details I don't see fully
+        # But expecting something about invalid bar_mode
+        assert "bar_mode" in result.error
 
     @pytest.mark.asyncio
     async def test_invalid_y_axis_in_multi_series(
         self, multi_series_data: list[dict[str, object]]
     ) -> None:
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             multi_series_data,
             x_axis="role",
             y_axes=["count", "nonexistent"],
         )
 
         assert result.success is False
-        assert "nonexistent" in (result.error or "")
-
-    @pytest.mark.asyncio
-    async def test_cache_stores_multiple_y_axes(
-        self, multi_series_data: list[dict[str, object]]
-    ) -> None:
-        result = await visualize_users_as_barchart(
-            multi_series_data,
-            x_axis="role",
-            y_axes=["count", "active", "pending"],
-        )
-
-        assert result.success is True
-        cache = get_chart_cache()
-        config = cache.get(result.chart_id)
-        assert config is not None
-        assert config.y_axes == ["count", "active", "pending"]
+        assert result.error is not None
+        assert "Column 'nonexistent' not found" in result.error

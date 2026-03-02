@@ -2,7 +2,7 @@
 
 Exposes two MCP tools:
 - query_users_table: Dynamic SQL generation and execution
-- visualize_users_as_barchart: Interactive chart generation
+- generate_barchart: Interactive chart generation
 """
 
 import json
@@ -21,7 +21,6 @@ from appkit_mcpapp.services.auth_service import (
     authenticate_user,
 )
 from appkit_mcpapp.tools.query_users import query_users_table
-from appkit_mcpapp.tools.visualize import visualize_users_as_barchart
 
 logger = logging.getLogger(__name__)
 
@@ -108,13 +107,11 @@ html, body {{ margin:0; padding:0; width:100%; height:100%; }}
 def create_mcp_server(
     *,
     name: str = "user-analytics",
-    base_url: str = "http://localhost:3000",
 ) -> FastMCP:
     """Create and configure the FastMCP server for user analytics.
 
     Args:
         name: Server name for MCP registration.
-        base_url: Base URL of the Reflex app for chart URLs.
 
     Returns:
         Configured FastMCP server instance.
@@ -169,17 +166,16 @@ def create_mcp_server(
         user_ctx = _get_user_context(ctx)
 
         logger.info(
-            "Tool visualize_as_barchart called by user %d",
+            "Tool generate_barchart called by user %d",
             user_ctx.user_id,
         )
 
-        result = await visualize_users_as_barchart(
+        result = await generate_barchart(
             data,
             x_axis,
             y_axes,
             chart_title,
             bar_mode,
-            base_url=base_url,
         )
 
         return json.dumps(

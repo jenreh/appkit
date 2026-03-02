@@ -118,10 +118,14 @@ def _check_allowed_tables(sql: str) -> None:
     sql_upper = sql.upper()
 
     # Extract table references after FROM and JOIN keywords
-    table_pattern = r"\b(?:FROM|JOIN)\s+(\w+)"
+    # Match words, possibly quoted or with schema (e.g. "public"."users")
+    table_pattern = r"\b(?:FROM|JOIN)\s+([\"\w\.]+)"
     matches = re.findall(table_pattern, sql_upper)
 
-    for table in matches:
+    for table_ref in matches:
+        # Clean up quotes from the reference
+        table = table_ref.replace('"', "").strip()
+
         # Skip SQL keywords that appear after FROM/JOIN but are not table names
         if table in _SQL_KEYWORDS_IN_FROM:
             continue

@@ -87,8 +87,7 @@ class ChartCache:
 
 
 # Module-level singleton
-_chart_cache: ChartCache | None = None
-_cache_lock = threading.Lock()
+_chart_cache: ChartCache = ChartCache()
 
 
 def get_chart_cache() -> ChartCache:
@@ -97,9 +96,4 @@ def get_chart_cache() -> ChartCache:
     Returns:
         The shared ChartCache instance.
     """
-    global _chart_cache  # noqa: PLW0603
-    if _chart_cache is None:
-        with _cache_lock:
-            if _chart_cache is None:
-                _chart_cache = ChartCache()
     return _chart_cache
