@@ -244,11 +244,21 @@ class TestEnhancePrompt:
                 choices=[MagicMock(message=MagicMock(content="Enhanced"))]
             )
         )
-        with patch.object(
-            gen,
-            "_create_openai_client",
-            new_callable=AsyncMock,
-            return_value=mock_client,
+        mock_config = MagicMock()
+        mock_config.openai_model = "gpt-4.1-mini"
+        mock_registry = MagicMock()
+        mock_registry.get.return_value = mock_config
+        with (
+            patch.object(
+                gen,
+                "_create_openai_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "appkit_imagecreator.backend.generators.black_forest_labs.service_registry",
+                return_value=mock_registry,
+            ),
         ):
             result = await gen._enhance_prompt("test prompt")
         assert result == "Enhanced"
