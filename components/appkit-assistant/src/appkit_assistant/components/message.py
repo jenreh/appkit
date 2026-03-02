@@ -519,16 +519,12 @@ class MessageComponent:
                 MessageActionsBar.render(message),
                 rx.fragment(),
             ),
-            # MCP App views (only for the last assistant message)
+            # MCP App views (per-message, persisted in chat history)
             rx.cond(
-                (
-                    message.text
-                    == ThreadState.get_last_assistant_message_text
-                )
-                & ThreadState.has_mcp_app_views,
+                message.mcp_app_views.length() > 0,
                 rx.vstack(
                     rx.foreach(
-                        ThreadState.mcp_app_views,
+                        message.mcp_app_views,
                         mcp_app_view,
                     ),
                     width="100%",

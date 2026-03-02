@@ -697,12 +697,12 @@ class TestClear:
         fn = _unwrap("clear")
 
         with patch(f"{_PATCH}.ModelManager") as mock_mm:
-            mock_mm.return_value.get_default_model.return_value = "gpt-4o-mini"
+            mock_mm.return_value.get_default_model.return_value = "gpt-5-mini"
             fn(state)
 
         assert state._thread.messages == []
         assert state._thread.state == ThreadStatus.NEW
-        assert state._thread.ai_model == "gpt-4o-mini"
+        assert state._thread.ai_model == "gpt-5-mini"
         assert state._thread.active is True
         assert state._thread.prompt == ""
         assert state._thread.mcp_server_ids == []

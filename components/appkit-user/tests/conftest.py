@@ -1,7 +1,5 @@
 """Package-specific fixtures for appkit-user tests."""
 
-pytest_plugins = ["appkit_commons.testing"]
-
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -30,6 +28,8 @@ from appkit_user.authentication.backend.database import (
 from appkit_user.authentication.backend.types import (
     PasswordResetType,
 )
+
+pytest_plugins = ["appkit_commons.testing"]
 
 PasswordResetRequestRepository = (
     password_reset_request_repository.PasswordResetRequestRepository

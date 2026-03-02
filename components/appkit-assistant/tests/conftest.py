@@ -1,7 +1,5 @@
 """Pytest fixtures for appkit-assistant tests."""
 
-pytest_plugins = ["appkit_commons.testing"]
-
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -38,6 +36,8 @@ from appkit_assistant.backend.schemas import (
     MessageType,
     ThreadStatus,
 )
+
+pytest_plugins = ["appkit_commons.testing"]
 
 
 @pytest.fixture

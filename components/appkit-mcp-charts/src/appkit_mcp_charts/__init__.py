@@ -1,0 +1,1 @@
+"""AppKit MCP Charts component."""

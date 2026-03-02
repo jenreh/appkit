@@ -110,9 +110,6 @@ class TestInit:
 class TestMcpAppsClientSession:
     @pytest.mark.asyncio
     async def test_initialize_sends_request_and_notification(self) -> None:
-        read_stream = AsyncMock()
-        write_stream = AsyncMock()
-
         # Create a mock result for the initialize response
         init_result = MagicMock()
         init_result.capabilities = MagicMock()

@@ -1,7 +1,7 @@
 """Welcome to Reflex! This file outlines the steps to create a basic app."""
 
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import reflex as rx
 from fastapi import FastAPI
@@ -21,7 +21,8 @@ from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_imagecreator.backend.services.image_cleanup_service import (
     ImageCleanupService,
 )
-from appkit_mcpapp.server import create_mcp_server
+from appkit_mcp_charts.server import create_charts_mcp_server
+from appkit_mcp_user.server import create_user_mcp_server
 from appkit_user.authentication.backend.services import (
     SessionCleanupService,
 )
@@ -196,18 +197,26 @@ base_style = {
 
 
 # Mount FastMCP user analytics server (Must be created before lifespan)
-_mcp_server = create_mcp_server()
-# Create the ASGI app ONCE
-# Use transport="sse" to enable separate /sse and /messages endpoints
-# Default path for sse transport is "/sse"
-_mcp_http_app = _mcp_server.http_app(path="/mcp", transport="streamable-http")
+_user_mcp_server = create_user_mcp_server()
+_charts_mcp_server = create_charts_mcp_server()
+
+# Create the ASGI apps
+_user_mcp_app = _user_mcp_server.http_app(path="/mcp", transport="streamable-http")
+_charts_mcp_app = _charts_mcp_server.http_app(path="/mcp", transport="streamable-http")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """Handle application lifespan events (startup and shutdown)."""
     # Initialize FastMCP lifespan using the mounted app instance
-    async with _mcp_http_app.router.lifespan_context(_mcp_http_app):
+    async with AsyncExitStack() as stack:
+        await stack.enter_async_context(
+            _user_mcp_app.router.lifespan_context(_user_mcp_app)
+        )
+        await stack.enter_async_context(
+            _charts_mcp_app.router.lifespan_context(_charts_mcp_app)
+        )
+
         await ai_model_registry.initialize()
         await generator_registry.initialize()
 
@@ -231,8 +240,11 @@ api_app = FastAPI(title="AppKit API")
 api_app.include_router(image_api_router)
 api_app.include_router(mcp_apps_router)
 
-# Mount the pre-created MCP app
-api_app.mount("/appkit", _mcp_http_app)
+# Mount the pre-created MCP apps
+# /user/mcp -> appkit-mcp-user
+# /charts/mcp -> appkit-mcp-charts
+api_app.mount("/user", _user_mcp_app)
+api_app.mount("/charts", _charts_mcp_app)
 
 
 # Middleware transformer for HTTPS redirect

@@ -79,6 +79,7 @@ class Message(BaseModel):
     done: bool = False
     attachments: list[str] = []  # List of filenames for display
     annotations: list[str] = []  # List of file citations/annotations
+    mcp_app_views: list["McpAppViewData"] = []  # MCP App views for this message
 
 
 class ThinkingType(StrEnum):
@@ -202,3 +203,7 @@ class McpAppViewData(BaseModel):
     csp: dict[str, str] | None = None
     permissions: dict[str, bool] | None = None
     prefers_border: bool | None = None
+
+
+# Resolve forward reference in Message
+Message.model_rebuild()

@@ -100,6 +100,8 @@ from appkit_mantine.navigation import (
 from appkit_mantine.overlay import (
     hover_card,
     tooltip,
+    overlay,
+    loading_overlay,
 )
 from appkit_mantine.scroll_area import scroll_area
 from appkit_mantine.slider import slider, range_slider
@@ -196,6 +198,7 @@ __all__ = [
     "json_input",
     "line_chart",
     "list_",
+    "loading_overlay",
     "markdown_preview",
     "masked_input",
     "mermaid_zoom_script",
@@ -209,6 +212,7 @@ __all__ = [
     "notification",
     "number_formatter",
     "number_input",
+    "overlay",
     "pagination",
     "paper",
     "password_input",

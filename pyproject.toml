@@ -9,7 +9,8 @@ dependencies = [
     "appkit-commons[apscheduler,pgqueuer,azure]",
     "appkit-imagecreator",
     "appkit-mantine",
-    "appkit-mcpapp",
+    "appkit-mcp-charts",
+    "appkit-mcp-user",
     "appkit-ui",
     "appkit-user[azure,resend]",
     "psycopg==3.3.3",
@@ -27,8 +28,8 @@ dev = [
     "aiosqlite==0.22.1",
     "httpx==0.28.1",
     "responses==0.26.0",
-    "faker==40.4.0",
-    "ruff==0.15.2",
+    "faker==40.5.1",
+    "ruff==0.15.4",
     "bump-my-version==1.2.7",
     "detect-secrets==1.5.0",
 ]
@@ -39,7 +40,9 @@ where = [
     "components/appkit-commons/src",
     "components/appkit-imagecreator/src",
     "components/appkit-mantine/src",
-    "components/appkit-mcpapp/src",
+    "components/appkit-mcp-charts/src",
+    "components/appkit-mcp-commons/src",
+    "components/appkit-mcp-user/src",
     "components/appkit-ui/src",
     "components/appkit-user/src",
 ]
@@ -51,7 +54,9 @@ packages = [
     "appkit_commons",
     "appkit_imagecreator",
     "appkit_mantine",
-    "appkit_mcpapp",
+    "appkit_mcp_charts",
+    "appkit_mcp_commons",
+    "appkit_mcp_user",
     "appkit_ui",
     "appkit_user",
 ]
@@ -68,7 +73,9 @@ appkit-assistant = { workspace = true }
 appkit-commons = { workspace = true }
 appkit-imagecreator = { workspace = true }
 appkit-mantine = { workspace = true }
-appkit-mcpapp = { workspace = true }
+appkit-mcp-charts = { workspace = true }
+appkit-mcp-commons = { workspace = true }
+appkit-mcp-user = { workspace = true }
 appkit-ui = { workspace = true }
 appkit-user = { workspace = true }
 
@@ -109,7 +116,28 @@ search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
-filename = "components/appkit-mcpapp/pyproject.toml"
+filename = "components/appkit-mcp-charts/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-commons/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-user/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-user/pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-charts/pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-commons/pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
@@ -210,7 +238,9 @@ testpaths = [
     "components/appkit-commons/tests",
     "components/appkit-assistant/tests",
     "components/appkit-imagecreator/tests",
-    "components/appkit-mcpapp/tests",
+    "components/appkit-mcp-user/tests",
+    "components/appkit-mcp-charts/tests",
+    "components/appkit-mcp-commons/tests",
     "components/appkit-user/tests",
 ]
 

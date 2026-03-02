@@ -58,11 +58,15 @@ class MCPServerState(rx.State):
         self.add_modal_open = False
 
     async def open_edit_modal(self, server_id: int) -> AsyncGenerator[Any, Any]:
-        """Open the edit server modal."""
+        """Open the edit server modal.
+
+        Args:
+            server_id: ID of the server to edit.
+        """
         self.opening_edit_server_id = server_id
         yield
 
-        # Find server in list (sync operation but inside async loop)
+        # Find server in list
         for server in self.servers:
             if server.id == server_id:
                 self.current_server = server
@@ -104,6 +108,8 @@ class MCPServerState(rx.State):
 
     async def load_servers_with_toast(self) -> AsyncGenerator[Any, Any]:
         """Load servers and show an error toast on failure."""
+        self.loading = True
+        yield
         try:
             await self.load_servers()
         except Exception:

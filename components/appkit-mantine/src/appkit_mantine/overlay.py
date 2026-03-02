@@ -9,6 +9,30 @@ from reflex.vars.base import Var
 from appkit_mantine.base import MantineLayoutComponentBase
 
 
+class Overlay(MantineLayoutComponentBase):
+    """Mantine Overlay component."""
+
+    tag = "Overlay"
+
+    color: Var[str]
+    background_opacity: Var[float]
+    blur: Var[int | float]
+    gradient: Var[str]
+    z_index: Var[int | str]
+
+
+class LoadingOverlay(MantineLayoutComponentBase):
+    """Mantine LoadingOverlay component."""
+
+    tag = "LoadingOverlay"
+
+    visible: Var[bool]
+    z_index: Var[int | str]
+    loader_props: Var[dict[str, Any]]
+    overlay_props: Var[dict[str, Any]]
+    label: Var[str]
+
+
 class HoverCard(MantineLayoutComponentBase):
     """Mantine HoverCard component."""
 
@@ -94,3 +118,5 @@ class TooltipNamespace(rx.ComponentNamespace):
 
 hover_card = HoverCardNamespace()
 tooltip = TooltipNamespace()
+overlay = Overlay.create
+loading_overlay = LoadingOverlay.create

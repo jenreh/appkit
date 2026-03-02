@@ -13,6 +13,7 @@ from appkit_assistant.backend.api.mcp_apps_api import (
     ToolCallRequest,
     _extract_user_id,
     _get_mcp_apps_service,
+    _get_server,
     call_tool,
     get_resource,
     list_ui_tools,
@@ -310,8 +311,6 @@ class TestGetServer:
             mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_repo.find_by_id = AsyncMock(return_value=server_mock)
 
-            from appkit_assistant.backend.api.mcp_apps_api import _get_server
-
             result = await _get_server(1)
             assert result is not None
 
@@ -330,8 +329,6 @@ class TestGetServer:
             mock_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_repo.find_by_id = AsyncMock(return_value=None)
-
-            from appkit_assistant.backend.api.mcp_apps_api import _get_server
 
             await _get_server(999)
         assert exc_info.value.status_code == 404

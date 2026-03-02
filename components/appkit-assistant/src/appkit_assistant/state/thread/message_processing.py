@@ -139,19 +139,8 @@ class MessageProcessingMixin:
             )
 
         # Discover UI tools for MCP Apps injection
-        ui_tool_registry: dict[str, McpAppToolInfo] = {}
+        ui_tool_registry = await self._discover_ui_tools(mcp_servers, user_id)
         pending_tool_info: dict[str, dict] = {}
-        if mcp_servers:
-            _mcp_apps = McpAppsService()
-            for _server in mcp_servers:
-                _ui_tools = await _mcp_apps.discover_ui_tools(_server, user_id or 0)
-                for _tool in _ui_tools:
-                    ui_tool_registry[_tool.tool_name] = _tool
-            if ui_tool_registry:
-                logger.info(
-                    "Discovered %d UI tools for MCP Apps injection",
-                    len(ui_tool_registry),
-                )
 
         first_response_received = False
         try:
@@ -225,6 +214,27 @@ class MessageProcessingMixin:
 
         finally:
             await self._finalize_processing()
+
+    @staticmethod
+    async def _discover_ui_tools(
+        mcp_servers: list[MCPServer],
+        user_id: int | str | None,
+    ) -> dict[str, McpAppToolInfo]:
+        """Discover UI-enabled tools from MCP servers."""
+        registry: dict[str, McpAppToolInfo] = {}
+        if not mcp_servers:
+            return registry
+        apps = McpAppsService()
+        for server in mcp_servers:
+            tools = await apps.discover_ui_tools(server, user_id or 0)
+            for tool in tools:
+                registry[tool.tool_name] = tool
+        if registry:
+            logger.info(
+                "Discovered %d UI tools for MCP Apps injection",
+                len(registry),
+            )
+        return registry
 
     # ------------------------------------------------------------------
     # Prompt parsing
@@ -446,70 +456,11 @@ class MessageProcessingMixin:
         """
         async with self:
             for chunk in chunks:
-                # Track TOOL_CALL info (tool_name + server_label) by tool_id
-                if ui_tool_registry is not None and chunk.type == ChunkType.TOOL_CALL:
-                    tool_id = chunk.chunk_metadata.get("tool_id", "")
-                    tool_name = chunk.chunk_metadata.get("tool_name", "")
-                    server_label = chunk.chunk_metadata.get("server_label", "")
-                    # Normalise: strip "server_label." prefix when present
-                    bare_name = (
-                        tool_name.split(".", 1)[-1] if "." in tool_name else tool_name
-                    )
-                    if tool_id and bare_name and bare_name not in ("Unknown", ""):
-                        if pending_tool_info is not None:
-                            # Only set once (item_added fires first with bare name)
-                            pending_tool_info.setdefault(
-                                tool_id,
-                                {
-                                    "tool_name": bare_name,
-                                    "server_label": server_label,
-                                },
-                            )
-
+                self._track_tool_call_info(chunk, ui_tool_registry, pending_tool_info)
                 accumulator.process_chunk(chunk)
-
-                # After TOOL_RESULT: inject MCP_APP_VIEW chunk if tool has UI
-                _err_val = chunk.chunk_metadata.get("error")
-                _is_tool_error = _err_val is True or _err_val == "True"
-                if (
-                    ui_tool_registry
-                    and chunk.type == ChunkType.TOOL_RESULT
-                    and not _is_tool_error
-                ):
-                    tool_id = chunk.chunk_metadata.get("tool_id", "")
-                    info = (
-                        pending_tool_info.pop(tool_id, {})
-                        if pending_tool_info is not None
-                        else {}
-                    )
-                    tool_name = info.get("tool_name", "")
-                    tool_info = ui_tool_registry.get(tool_name)
-                    if tool_info:
-                        view_chunk = Chunk(
-                            type=ChunkType.MCP_APP_VIEW,
-                            text="",
-                            chunk_metadata={
-                                "server_id": str(tool_info.server_id),
-                                "server_name": tool_info.server_label,
-                                "resource_uri": tool_info.resource_uri,
-                                "tool_name": tool_info.tool_name,
-                                "tool_input": "{}",
-                                "tool_result": json.dumps(
-                                    {
-                                        "content": [
-                                            {"type": "text", "text": chunk.text}
-                                        ],
-                                        "isError": False,
-                                    }
-                                ),
-                            },
-                        )
-                        accumulator.process_chunk(view_chunk)
-                        logger.debug(
-                            "Injected MCP_APP_VIEW for tool %s (server %s)",
-                            tool_name,
-                            tool_info.server_label,
-                        )
+                self._inject_mcp_app_view(
+                    chunk, accumulator, ui_tool_registry, pending_tool_info
+                )
 
             self.thinking_items = list(accumulator.thinking_items)
             self.current_activity = accumulator.current_activity
@@ -523,6 +474,13 @@ class MessageProcessingMixin:
 
             self.mcp_app_views = list(accumulator.mcp_app_views)
 
+            # Embed views into the last assistant message for persistence
+            if accumulator.mcp_app_views and self.messages:
+                for msg in reversed(self.messages):
+                    if msg.type == MessageType.ASSISTANT:
+                        msg.mcp_app_views = list(accumulator.mcp_app_views)
+                        break
+
             if not first_response_received and is_new_thread:
                 has_text = any(c.type == ChunkType.TEXT for c in chunks)
                 if has_text:
@@ -534,6 +492,75 @@ class MessageProcessingMixin:
                         await self._notify_thread_created()
 
             return first_response_received
+
+    @staticmethod
+    def _track_tool_call_info(
+        chunk: Chunk,
+        ui_tool_registry: dict[str, McpAppToolInfo] | None,
+        pending_tool_info: dict[str, dict] | None,
+    ) -> None:
+        """Track TOOL_CALL info (tool_name + server_label) by tool_id."""
+        if ui_tool_registry is None or chunk.type != ChunkType.TOOL_CALL:
+            return
+        tool_id = chunk.chunk_metadata.get("tool_id", "")
+        tool_name = chunk.chunk_metadata.get("tool_name", "")
+        server_label = chunk.chunk_metadata.get("server_label", "")
+        bare_name = tool_name.split(".", 1)[-1] if "." in tool_name else tool_name
+        if (
+            tool_id
+            and bare_name
+            and bare_name not in ("Unknown", "")
+            and pending_tool_info is not None
+        ):
+            pending_tool_info.setdefault(
+                tool_id,
+                {"tool_name": bare_name, "server_label": server_label},
+            )
+
+    @staticmethod
+    def _inject_mcp_app_view(
+        chunk: Chunk,
+        accumulator: ResponseAccumulator,
+        ui_tool_registry: dict[str, McpAppToolInfo] | None,
+        pending_tool_info: dict[str, dict] | None,
+    ) -> None:
+        """After TOOL_RESULT: inject MCP_APP_VIEW chunk if tool has UI."""
+        if not ui_tool_registry or chunk.type != ChunkType.TOOL_RESULT:
+            return
+        err_val = chunk.chunk_metadata.get("error")
+        if err_val is True or err_val == "True":
+            return
+        tool_id = chunk.chunk_metadata.get("tool_id", "")
+        info = (
+            pending_tool_info.pop(tool_id, {}) if pending_tool_info is not None else {}
+        )
+        tool_name = info.get("tool_name", "")
+        tool_info = ui_tool_registry.get(tool_name)
+        if not tool_info:
+            return
+        view_chunk = Chunk(
+            type=ChunkType.MCP_APP_VIEW,
+            text="",
+            chunk_metadata={
+                "server_id": str(tool_info.server_id),
+                "server_name": tool_info.server_label,
+                "resource_uri": tool_info.resource_uri,
+                "tool_name": tool_info.tool_name,
+                "tool_input": "{}",
+                "tool_result": json.dumps(
+                    {
+                        "content": [{"type": "text", "text": chunk.text}],
+                        "isError": False,
+                    }
+                ),
+            },
+        )
+        accumulator.process_chunk(view_chunk)
+        logger.debug(
+            "Injected MCP_APP_VIEW for tool %s (server %s)",
+            tool_name,
+            tool_info.server_label,
+        )
 
     async def _finalize_successful_response(
         self, accumulator: ResponseAccumulator

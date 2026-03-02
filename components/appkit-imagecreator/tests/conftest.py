@@ -1,7 +1,5 @@
 """Pytest fixtures for appkit-imagecreator tests."""
 
-pytest_plugins = ["appkit_commons.testing"]
-
 import base64
 from datetime import UTC, datetime
 from typing import Any
@@ -19,6 +17,8 @@ from appkit_imagecreator.backend.models import (
     ImageGeneratorModel,
 )
 from appkit_imagecreator.backend.repository import GeneratedImageRepository
+
+pytest_plugins = ["appkit_commons.testing"]
 
 
 @pytest.fixture

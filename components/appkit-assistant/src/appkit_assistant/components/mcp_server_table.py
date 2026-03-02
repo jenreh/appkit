@@ -108,12 +108,25 @@ def mcp_server_table_row(server: MCPServer) -> rx.Component:
 def mcp_servers_table(
     role_labels: dict[str, str] | None = None,
     available_roles: list[dict[str, str]] | None = None,
+    load_on_mount: bool = False,
 ) -> rx.Component:
-    """Admin table for managing MCP servers."""
+    """Admin table for managing MCP servers.
+
+    Args:
+        role_labels: Mapping of role names to display labels.
+        available_roles: List of available roles for filtering.
+        load_on_mount: If True, load servers on component mount.
+            Default is False (lazy load via admin page).
+    """
     if role_labels is None:
         role_labels = {}
     if available_roles is None:
         available_roles = []
+
+    # Determine on_mount handlers based on load_on_mount parameter
+    mount_handlers = [MCPServerState.set_available_roles(available_roles, role_labels)]
+    if load_on_mount:
+        mount_handlers.append(MCPServerState.load_servers_with_toast)
 
     return mn.stack(
         add_mcp_server_modal(),
@@ -135,33 +148,38 @@ def mcp_servers_table(
             gap="12px",
             align="center",
         ),
-        mn.table(
-            mn.table.thead(
-                mn.table.tr(
-                    mn.table.th(mn.text("Name", size="sm", fw="700")),
-                    mn.table.th(mn.text("Beschreibung", size="sm", fw="700")),
-                    mn.table.th(mn.text("Rolle", size="sm", fw="700")),
-                    mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
-                    mn.table.th(mn.text("", size="sm")),
-                    style=sticky_header_style,
+        rx.box(
+            mn.loading_overlay(
+                visible=MCPServerState.loading,
+            ),
+            mn.table(
+                mn.table.thead(
+                    mn.table.tr(
+                        mn.table.th(mn.text("Name", size="sm", fw="700")),
+                        mn.table.th(mn.text("Beschreibung", size="sm", fw="700")),
+                        mn.table.th(mn.text("Rolle", size="sm", fw="700")),
+                        mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
+                        mn.table.th(mn.text("", size="sm")),
+                        style=sticky_header_style,
+                    ),
                 ),
+                mn.table.tbody(
+                    rx.foreach(MCPServerState.filtered_servers, mcp_server_table_row)
+                ),
+                sticky_header=True,
+                sticky_header_offset="0px",
+                striped=False,
+                highlight_on_hover=True,
+                highlight_on_hover_color=rx.color_mode_cond(
+                    light="gray.0",
+                    dark="dark.8",
+                ),
+                w="100%",
             ),
-            mn.table.tbody(
-                rx.foreach(MCPServerState.filtered_servers, mcp_server_table_row)
-            ),
-            sticky_header=True,
-            sticky_header_offset="0px",
-            striped=False,
-            highlight_on_hover=True,
-            highlight_on_hover_color=rx.color_mode_cond(
-                light="gray.0",
-                dark="dark.8",
-            ),
+            position="relative",
             w="100%",
+            min_height="200px",
         ),
         w="100%",
-        on_mount=[
-            MCPServerState.set_available_roles(available_roles, role_labels),
-            MCPServerState.load_servers_with_toast,
-        ],
+        on_mount=mount_handlers,
     )
