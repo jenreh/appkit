@@ -16,7 +16,14 @@ BPMN_VIEWER_HTML = f"""\
 <title>BPMN Diagram Viewer</title>
 <link rel="stylesheet" href="{_DIAGRAM_JS_CSS}" />
 <link rel="stylesheet" href="{_BPMN_FONT_CSS}" />
-<script src="{_BPMN_JS_CDN}"></script>
+<script src="{_BPMN_JS_CDN}"
+  onerror="document.getElementById('error-box').innerHTML=
+    '<div class=error-title>\u26a0\ufe0f Failed to load BPMN viewer</div>'
+    +'<div class=error-detail>Could not load bpmn-js from CDN. '
+    +'Check your internet connection.</div>';
+    document.getElementById('error-box').style.display='block';
+    document.getElementById('loading-box').style.display='none';"
+></script>
 <style>
 html, body {{
   margin: 0;
@@ -63,10 +70,27 @@ html, body {{
 }}
 #error-box {{
   display: none;
-  padding: 24px;
-  text-align: center;
+  margin: 24px;
+  padding: 24px 32px;
+  border: 1px solid #e03131;
+  border-radius: 8px;
+  background: #fff5f5;
   color: #c92a2a;
   font-size: 15px;
+  line-height: 1.5;
+  text-align: left;
+}}
+#error-box .error-title {{
+  font-weight: 600;
+  font-size: 17px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}}
+#error-box .error-detail {{
+  color: #862e2e;
+  word-break: break-word;
 }}
 </style>
 </head>
@@ -139,6 +163,7 @@ html, body {{
   }}
 
   function handleToolResult(result) {{
+    clearLoadTimeout();
     var s = JSON.stringify(result).substring(0, 500);
     console.log("[bpmn-viewer] handleToolResult:", s);
     try {{
@@ -165,6 +190,7 @@ html, body {{
   }}
 
   function fetchXmlViaTool(diagramId) {{
+    clearLoadTimeout();
     STATUS.textContent = "Fetching diagram\u2026";
     console.log("[bpmn-viewer] calling tools/call get_bpmn_xml", diagramId);
     callServerTool("get_bpmn_xml", {{ diagram_id: diagramId }})
@@ -217,10 +243,38 @@ html, body {{
     LOADING.style.display = "none";
     CANVAS.style.display = "none";
     ERROR.style.display = "block";
-    ERROR.textContent = msg;
+    ERROR.innerHTML =
+      '<div class="error-title">\u26a0\ufe0f Rendering failed</div>'
+      + '<div class="error-detail">'
+      + escapeHtml(String(msg)) + '</div>';
     STATUS.textContent = "Error";
     reportSize();
   }}
+
+  function escapeHtml(s) {{
+    var d = document.createElement("div");
+    d.appendChild(document.createTextNode(s));
+    return d.innerHTML;
+  }}
+
+  // Timeout: if nothing arrives within 60 s, show a message
+  var loadTimeout = setTimeout(function () {{
+    if (LOADING.style.display !== "none") {{
+      showError(
+        "Timed out waiting for diagram data. "
+        + "The generation may have failed silently."
+      );
+    }}
+  }}, 60000);
+
+  // Clear timeout once we successfully start processing
+  function clearLoadTimeout() {{
+    if (loadTimeout) {{ clearTimeout(loadTimeout); loadTimeout = null; }}
+  }}
+
+  window.addEventListener("error", function (e) {{
+    showError("Unexpected error: " + (e.message || e));
+  }});
 
   document.getElementById("btn-zoom-fit").addEventListener("click", function () {{
     try {{ viewer.get("canvas").zoom("fit-viewport"); }} catch (e) {{}}
