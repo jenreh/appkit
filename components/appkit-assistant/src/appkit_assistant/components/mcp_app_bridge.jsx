@@ -90,6 +90,10 @@ export function McpAppBridge({
   const [ready, setReady] = useState(false);
   const [htmlContent, setHtmlContent] = useState("");
   const [fetchError, setFetchError] = useState("");
+  const [isMaximized, setIsMaximized] = useState(false);
+  const isMaximizedRef = useRef(false);
+  // Keep ref in sync so handleMessage callback can access current value
+  useEffect(() => { isMaximizedRef.current = isMaximized; }, [isMaximized]);
   // Lightweight auto-height script injected into MCP app HTML.
   // Reports scrollHeight once on load and once after a short settle delay.
   // Apps that need dynamic resizing should use ui/notifications/size-changed.
@@ -343,7 +347,9 @@ export function McpAppBridge({
     }
 
     // ui/notifications/size-changed (View → Host): Resize iframe
+    // Skip size updates while maximized to avoid inflating stored dimensions
     if (data.method === "ui/notifications/size-changed") {
+      if (isMaximizedRef.current) return;
       const h = data.params?.height;
       if (typeof h === "number" && h > 0) {
         setIframeHeight(Math.min(h, _maxHeight));
@@ -352,6 +358,13 @@ export function McpAppBridge({
       if (typeof w === "number" && w > 0) {
         setIframeWidth(w);
       }
+      return;
+    }
+
+    // ui/notifications/maximize (View → Host): Toggle maximized overlay
+    if (data.method === "ui/notifications/maximize") {
+      const maximize = data.params?.maximized;
+      setIsMaximized(typeof maximize === "boolean" ? maximize : (prev) => !prev);
       return;
     }
 
@@ -390,6 +403,21 @@ export function McpAppBridge({
       return;
     }
   }, [cssVars, _maxHeight, parsedInput, parsedResult, _serverId, theme, _toolName, _onMessage]);
+
+  // ESC key to exit maximized mode
+  useEffect(() => {
+    if (!isMaximized) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        setIsMaximized(false);
+        // Notify the iframe that maximize was cancelled
+        const iframe = iframeRef.current;
+        postToIframe(iframe, "ui/notifications/maximize-changed", { maximized: false });
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isMaximized]);
 
   useEffect(() => {
     window.addEventListener("message", handleMessage);
@@ -486,26 +514,49 @@ export function McpAppBridge({
 
   const containerWidth = iframeWidth ? `${iframeWidth}px` : "auto";
 
-  return (
-    <div
-      style={{
+  const containerStyle = isMaximized
+    ? {
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        zIndex: 9999,
+        borderRadius: 0,
+        overflow: "hidden",
+        border: "none",
+        margin: 0,
+        background: "#fff",
+      }
+    : {
         width: containerWidth,
         maxWidth: "100%",
         borderRadius: "8px",
         overflow: "hidden",
         border: borderStyle,
         marginTop: "8px",
-      }}
-    >
+      };
+
+  const iframeStyle = isMaximized
+    ? {
+        width: "100%",
+        height: "100%",
+        border: "none",
+        display: "block",
+      }
+    : {
+        width: iframeWidth ? `${iframeWidth}px` : "100%",
+        height: `${iframeHeight}px`,
+        border: "none",
+        display: "block",
+      };
+
+  return (
+    <div style={containerStyle}>
       <iframe
         ref={iframeRef}
         srcDoc={htmlContent}
-        style={{
-          width: iframeWidth ? `${iframeWidth}px` : "100%",
-          height: `${iframeHeight}px`,
-          border: "none",
-          display: "block",
-        }}
+        style={iframeStyle}
         sandbox={sandboxAttr}
         referrerPolicy="no-referrer"
         title={`MCP App: ${_toolName}`}

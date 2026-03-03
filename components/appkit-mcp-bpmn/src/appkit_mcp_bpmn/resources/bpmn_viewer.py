@@ -57,24 +57,25 @@ html, body {{
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid rgb(0, 144, 255);
+  gap: 0px;
+  padding: 6px 6px;
+  border: none;
   border-radius: 4px;
-  background: rgb(0, 144, 255);
-  color: #fff;
+  background: transparent;
+  color: #333;
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s;
   white-space: nowrap;
 }}
 #toolbar button:hover {{
-  background: rgb(0, 115, 204);
+  background: rgba(0, 0, 0, 0.06);
 }}
 #toolbar button svg {{
   width: 18px;
   height: 18px;
-  stroke-width: 2;
+  stroke-width: 1;
+  color: #333;
 }}
 .toolbar-separator {{
   width: 1px;
@@ -111,27 +112,13 @@ html, body {{
   color: #862e2e;
   word-break: break-word;
 }}
-body.fullscreen #canvas {{
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 100;
-  background: white;
-}}
-body.fullscreen #toolbar {{
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 5px;
-  border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}}
-body.fullscreen {{
+body.maximized {{
+  margin: 0;
   overflow: hidden;
+}}
+body.maximized #canvas {{
+  width: 100vw;
+  height: calc(100vh - 48px);
 }}
 </style>
 </head>
@@ -335,7 +322,7 @@ body.fullscreen {{
     viewer.importXML(xml)
       .then(function () {{
         try {{
-          viewer.get("canvas").zoom("fit-viewport");
+          fitWithPadding();
         }} catch (zoomErr) {{
           console.warn(
             "[bpmn-viewer] fit-viewport failed, " +
@@ -405,6 +392,22 @@ body.fullscreen {{
     showError("Unexpected error: " + (e.message || e));
   }});
 
+  function fitWithPadding() {{
+    var c = viewer.get("canvas");
+    c.zoom("fit-viewport");
+    var vb = c.viewbox();
+    var padRight = vb.width * 0.06;
+    var padTop = vb.height * 0.06;
+    var padBottom = padTop;
+    var padLeft = vb.width * 0.21;
+    c.viewbox({{
+      x: vb.x - padLeft,
+      y: vb.y - padTop,
+      width: vb.width + padLeft + padRight,
+      height: vb.height + padTop + padBottom
+    }});
+  }}
+
   document.getElementById("btn-zoom-in").addEventListener("click", function () {{
     try {{
       const c = viewer.get("canvas");
@@ -427,7 +430,7 @@ body.fullscreen {{
 
   document.getElementById("btn-zoom-fit").addEventListener("click", function () {{
     try {{
-      viewer.get("canvas").zoom("fit-viewport");
+      fitWithPadding();
     }} catch (e) {{
       /* ignore */
     }}
@@ -459,26 +462,75 @@ body.fullscreen {{
         }});
     }});
 
+  let maximized = false;
+
+  function setMaximized(val) {{
+    maximized = val;
+    if (maximized) {{
+      document.body.classList.add("maximized");
+    }} else {{
+      document.body.classList.remove("maximized");
+    }}
+    const icon = document.querySelector("#btn-fullscreen i");
+    if (icon) {{
+      icon.setAttribute("data-lucide", maximized ? "minimize" : "maximize");
+      if (window.lucide && window.lucide.createIcons) {{
+        window.lucide.createIcons();
+      }}
+    }}
+    // Tell the parent to maximize/restore the iframe
+    window.parent.postMessage(
+      {{
+        jsonrpc: "2.0",
+        method: "ui/notifications/maximize",
+        params: {{ maximized: maximized }},
+      }},
+      "*"
+    );
+    // Re-fit viewport after layout change.
+    // Use longer delay when restoring from maximized so the parent
+    // iframe resize has time to settle.
+    var delay = maximized ? 150 : 350;
+    setTimeout(function () {{
+      try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
+    }}, delay);
+  }}
+
+  // Listen for parent telling us maximize state changed (e.g. ESC pressed)
+  window.addEventListener("message", function (event) {{
+    const msg = event.data;
+    if (!msg || msg.jsonrpc !== "2.0") return;
+    if (msg.method === "ui/notifications/maximize-changed") {{
+      const val = msg.params && msg.params.maximized;
+      if (typeof val === "boolean" && val !== maximized) {{
+        maximized = val;
+        if (maximized) {{
+          document.body.classList.add("maximized");
+        }} else {{
+          document.body.classList.remove("maximized");
+        }}
+        const icon = document.querySelector("#btn-fullscreen i");
+        if (icon) {{
+          icon.setAttribute("data-lucide", maximized ? "minimize" : "maximize");
+          if (window.lucide && window.lucide.createIcons) {{
+            window.lucide.createIcons();
+          }}
+        }}
+        var delay2 = maximized ? 150 : 350;
+        setTimeout(function () {{
+          try {{
+            fitWithPadding();
+          }} catch (e) {{ /* ignore */ }}
+        }}, delay2);
+      }}
+    }}
+  }});
+
   document
     .getElementById("btn-fullscreen")
     .addEventListener("click", function () {{
-      if (!document.fullscreenElement) {{
-        document.body.classList.add("fullscreen");
-        document.documentElement.requestFullscreen().catch((err) => {{
-          /* fallback */
-        }});
-      }} else if (document.exitFullscreen) {{
-        document.exitFullscreen();
-      }}
+      setMaximized(!maximized);
     }});
-
-  document.addEventListener("fullscreenchange", function () {{
-    if (!document.fullscreenElement) {{
-      document.body.classList.remove("fullscreen");
-    }} else {{
-      document.body.classList.add("fullscreen");
-    }}
-  }});
 
   document
     .getElementById("btn-download-svg")
