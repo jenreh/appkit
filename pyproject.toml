@@ -11,6 +11,7 @@ dependencies = [
     "appkit-mantine",
     "appkit-mcp-bpmn",
     "appkit-mcp-charts",
+    "appkit-mcp-image",
     "appkit-mcp-user",
     "appkit-ui",
     "appkit-user[azure,resend]",
@@ -44,6 +45,7 @@ where = [
     "components/appkit-mcp-bpmn/src",
     "components/appkit-mcp-charts/src",
     "components/appkit-mcp-commons/src",
+    "components/appkit-mcp-image/src",
     "components/appkit-mcp-user/src",
     "components/appkit-ui/src",
     "components/appkit-user/src",
@@ -59,6 +61,7 @@ packages = [
     "appkit_mcp_bpmn",
     "appkit_mcp_charts",
     "appkit_mcp_commons",
+    "appkit_mcp_image",
     "appkit_mcp_user",
     "appkit_ui",
     "appkit_user",
@@ -79,6 +82,7 @@ appkit-mantine = { workspace = true }
 appkit-mcp-bpmn = { workspace = true }
 appkit-mcp-charts = { workspace = true }
 appkit-mcp-commons = { workspace = true }
+appkit-mcp-image = { workspace = true }
 appkit-mcp-user = { workspace = true }
 appkit-ui = { workspace = true }
 appkit-user = { workspace = true }
@@ -131,6 +135,11 @@ replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "components/appkit-mcp-commons/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-image/pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
@@ -252,6 +261,7 @@ testpaths = [
     "components/appkit-mcp-charts/tests",
     "components/appkit-mcp-bpmn/tests",
     "components/appkit-mcp-commons/tests",
+    "components/appkit-mcp-image/tests",
     "components/appkit-user/tests",
 ]
 

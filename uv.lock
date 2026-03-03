@@ -12,6 +12,7 @@ members = [
     "appkit-mcp-bpmn",
     "appkit-mcp-charts",
     "appkit-mcp-commons",
+    "appkit-mcp-image",
     "appkit-mcp-user",
     "appkit-ui",
     "appkit-user",
@@ -112,6 +113,7 @@ dependencies = [
     { name = "appkit-mantine" },
     { name = "appkit-mcp-bpmn" },
     { name = "appkit-mcp-charts" },
+    { name = "appkit-mcp-image" },
     { name = "appkit-mcp-user" },
     { name = "appkit-ui" },
     { name = "appkit-user", extra = ["azure", "resend"] },
@@ -144,6 +146,7 @@ requires-dist = [
     { name = "appkit-mantine", editable = "components/appkit-mantine" },
     { name = "appkit-mcp-bpmn", editable = "components/appkit-mcp-bpmn" },
     { name = "appkit-mcp-charts", editable = "components/appkit-mcp-charts" },
+    { name = "appkit-mcp-image", editable = "components/appkit-mcp-image" },
     { name = "appkit-mcp-user", editable = "components/appkit-mcp-user" },
     { name = "appkit-ui", editable = "components/appkit-ui" },
     { name = "appkit-user", extras = ["azure", "resend"], editable = "components/appkit-user" },
@@ -332,6 +335,21 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=3.1.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "starlette", specifier = ">=0.52.1" },
+]
+
+[[package]]
+name = "appkit-mcp-image"
+version = "1.6.3"
+source = { editable = "components/appkit-mcp-image" }
+dependencies = [
+    { name = "appkit-commons" },
+    { name = "appkit-mcp-commons" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "appkit-commons", editable = "components/appkit-commons" },
+    { name = "appkit-mcp-commons", editable = "components/appkit-mcp-commons" },
 ]
 
 [[package]]
