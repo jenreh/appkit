@@ -392,8 +392,22 @@ body.maximized #canvas {{
     showError("Unexpected error: " + (e.message || e));
   }});
 
+  var pendingFitAfterResize = false;
+
+  // Listen for window resize (fired when parent resizes the iframe)
+  window.addEventListener("resize", function () {{
+    if (pendingFitAfterResize) {{
+      pendingFitAfterResize = false;
+      // Small delay so the layout engine finishes reflow
+      setTimeout(function () {{
+        try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
+      }}, 50);
+    }}
+  }});
+
   function fitWithPadding() {{
     var c = viewer.get("canvas");
+    c.resized();
     c.zoom("fit-viewport");
     var vb = c.viewbox();
     var padRight = vb.width * 0.06;
@@ -488,12 +502,23 @@ body.maximized #canvas {{
       "*"
     );
     // Re-fit viewport after layout change.
-    // Use longer delay when restoring from maximized so the parent
-    // iframe resize has time to settle.
-    var delay = maximized ? 150 : 350;
-    setTimeout(function () {{
-      try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
-    }}, delay);
+    if (maximized) {{
+      // Maximizing: overlay appears quickly, short delay is fine.
+      setTimeout(function () {{
+        try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
+      }}, 150);
+    }} else {{
+      // Restoring: wait for the parent to resize the iframe.
+      // The window resize event will trigger fitWithPadding.
+      pendingFitAfterResize = true;
+      // Fallback: if no resize event fires within 600ms, fit anyway.
+      setTimeout(function () {{
+        if (pendingFitAfterResize) {{
+          pendingFitAfterResize = false;
+          try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
+        }}
+      }}, 600);
+    }}
   }}
 
   // Listen for parent telling us maximize state changed (e.g. ESC pressed)
@@ -516,12 +541,19 @@ body.maximized #canvas {{
             window.lucide.createIcons();
           }}
         }}
-        var delay2 = maximized ? 150 : 350;
-        setTimeout(function () {{
-          try {{
-            fitWithPadding();
-          }} catch (e) {{ /* ignore */ }}
-        }}, delay2);
+        if (maximized) {{
+          setTimeout(function () {{
+            try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
+          }}, 150);
+        }} else {{
+          pendingFitAfterResize = true;
+          setTimeout(function () {{
+            if (pendingFitAfterResize) {{
+              pendingFitAfterResize = false;
+              try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
+            }}
+          }}, 600);
+        }}
       }}
     }}
   }});

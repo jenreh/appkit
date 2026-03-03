@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from appkit_mcp_commons.models import BaseResult
 
@@ -78,6 +78,20 @@ BpmnBranch.model_rebuild()
 BpmnElement.model_rebuild()
 
 
+def _collect_all_elements(
+    elements: list[BpmnElement],
+    depth: int = 0,
+) -> list[tuple[BpmnElement, int]]:
+    """Recursively collect all elements with their nesting depth."""
+    result: list[tuple[BpmnElement, int]] = []
+    for elem in elements:
+        result.append((elem, depth))
+        if elem.branches:
+            for branch in elem.branches:
+                result.extend(_collect_all_elements(branch.path, depth + 1))
+    return result
+
+
 class BpmnProcessJson(BaseModel):
     """Root model for the BPMN process JSON produced by the LLM.
 
@@ -88,6 +102,46 @@ class BpmnProcessJson(BaseModel):
     process: list[BpmnElement] = Field(
         description="Ordered list of BPMN elements describing the workflow.",
     )
+
+    @model_validator(mode="after")
+    def validate_no_dangling_events(self) -> BpmnProcessJson:
+        """Ensure exactly one startEvent (first) and at least one endEvent."""
+        if not self.process:
+            raise ValueError("Process must contain at least one element.")
+
+        # --- startEvent checks ---
+        if self.process[0].type != "startEvent":
+            raise ValueError(
+                f"First element must be a startEvent, got '{self.process[0].type}'.",
+            )
+
+        all_elements = _collect_all_elements(self.process)
+
+        start_events = [e for e, depth in all_elements if e.type == "startEvent"]
+        if len(start_events) != 1:
+            raise ValueError(
+                f"Exactly one startEvent required, found {len(start_events)}.",
+            )
+
+        # --- endEvent checks ---
+        end_events = [e for e, depth in all_elements if e.type == "endEvent"]
+        if not end_events:
+            raise ValueError("At least one endEvent is required.")
+
+        # No endEvent inside a branch that uses has_join (dangling — flow
+        # continues after the merge gateway so the endEvent is unreachable).
+        for elem in self.process:
+            if elem.branches and elem.has_join:
+                for branch in elem.branches:
+                    for child in branch.path:
+                        if child.type == "endEvent":
+                            raise ValueError(
+                                f"endEvent '{child.id}' inside a branch of "
+                                f"gateway '{elem.id}' with has_join=true is "
+                                f"dangling — remove it or set has_join=false.",
+                            )
+
+        return self
 
 
 # ---------------------------------------------------------------------------

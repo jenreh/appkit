@@ -253,9 +253,10 @@ To create loops (e.g., rework) or jumps, use `target_ref` on an element or a gat
 3. **Use `has_join: true`** when branches should converge before continuing.
 4. **Use `has_join: false`** when each branch ends independently (e.g. different end events).
 5. **Match gateway types.** A parallel split uses parallel join, exclusive split uses exclusive join.
-6. **One start event.** Every process begins with exactly one `startEvent`.
+6. **Exactly one start event.** The process array must begin with exactly one `startEvent` as its first element. Never place a `startEvent` inside a gateway branch or anywhere else in the array.
 7. **At least one end event.** Every path must eventually reach an `endEvent`.
-8. **Unique IDs.** All element IDs must be unique across the entire process.
+8. **No dangling end events.** Do not place an `endEvent` inside a branch when `has_join: true` — the flow continues after the merge gateway, making the branch-level `endEvent` unreachable. Use `endEvent` inside branches only when `has_join: false`.
+9. **Unique IDs.** All element IDs must be unique across the entire process.
 
 ---
 
@@ -263,8 +264,11 @@ To create loops (e.g., rework) or jumps, use `target_ref` on an element or a gat
 
 | Pitfall | Impact | Fix |
 |---------|--------|-----|
-| Missing `startEvent` | Invalid process | Always start with a `startEvent` |
+| Missing `startEvent` | Invalid process | Always start with a `startEvent` as the first element |
+| Multiple `startEvent`s | Validation error | Use exactly one `startEvent` at the beginning of the process |
+| `startEvent` inside a branch | Dangling event | Only place `startEvent` as the very first top-level element |
 | Missing `endEvent` | Incomplete flow | Ensure every path reaches an `endEvent` |
+| `endEvent` inside a `has_join: true` branch | Dangling event, unreachable | Use `endEvent` in branches only when `has_join: false`; otherwise let the flow continue after the merge gateway |
 | Duplicate element IDs | Build failure | Make all `id` values unique |
 | Forgetting `has_join` | Branches never merge | Set `has_join: true` if flow should continue after branches |
 | Including sequence flows | Rejected by parser | Let the system generate flows automatically |
