@@ -2,6 +2,7 @@
 
 import logging
 
+import httpx
 from openai import AsyncOpenAI
 
 from appkit_commons.registry import service_registry
@@ -126,18 +127,40 @@ def _build_client(
     Returns:
         Configured AsyncOpenAI client.
     """
+    # Extended timeout for long LLM operations like BPMN generation (60+ seconds).
+    # OpenAI SDK accepts timeout directly via httpx.Timeout object.
+    # - connect: 10s (TCP connection establishment)
+    # - read: 600s (full request/response for complex LLM operations)
+    # - write: 60s (request body upload)
+    # - pool: 10s (connection pool timeout)
+    timeout = httpx.Timeout(
+        timeout=600.0,  # Overall timeout fallback
+        connect=10.0,  # TCP connection
+        read=600.0,  # Receiving response
+        write=60.0,  # Sending request
+        pool=10.0,  # Connection pool
+    )
+
     if base_url and on_azure:
-        logger.debug("Creating Azure OpenAI client")
+        logger.debug("Creating Azure OpenAI client with extended timeout")
+        logger.debug("Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s")
         return AsyncOpenAI(
             api_key=api_key,
             base_url=f"{base_url}/openai/v1",
             default_query={"api-version": "preview"},
+            timeout=timeout,
         )
     if base_url:
-        logger.debug("Creating OpenAI client with custom base URL")
-        return AsyncOpenAI(api_key=api_key, base_url=base_url)
-    logger.debug("Creating standard OpenAI client")
-    return AsyncOpenAI(api_key=api_key)
+        logger.debug("Creating OpenAI client with custom base URL and extended timeout")
+        logger.debug("Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s")
+        return AsyncOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout,
+        )
+    logger.debug("Creating standard OpenAI client with extended timeout")
+    logger.debug("Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s")
+    return AsyncOpenAI(api_key=api_key, timeout=timeout)
 
 
 def get_openai_client_service() -> OpenAIClientService:
