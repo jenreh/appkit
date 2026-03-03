@@ -324,6 +324,24 @@ export function McpAppBridge({
       return;
     }
 
+    // ui/notifications/download (View → Host): Trigger file download
+    if (data.method === "ui/notifications/download") {
+      const { filename, content, mimeType } = data.params || {};
+      if (filename && content) {
+        const blob = new Blob([content], { type: mimeType || "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Delay revoke to give the browser time to start the download
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      return;
+    }
+
     // ui/notifications/size-changed (View → Host): Resize iframe
     if (data.method === "ui/notifications/size-changed") {
       const h = data.params?.height;
@@ -458,7 +476,7 @@ export function McpAppBridge({
 
   // Build iframe Permission-Policy allow attribute from resource permissions
   // Spec §Host Behavior: Host MAY honor permissions by setting allow attribute
-  const allowParts = ["allow-scripts", "allow-popups", "allow-forms"];
+  const allowParts = ["allow-scripts", "allow-popups", "allow-forms", "allow-downloads", "allow-same-origin"];
   if (resourcePermissions?.camera) allowParts.push("allow-camera");
   if (resourcePermissions?.microphone) allowParts.push("allow-microphone");
   if (resourcePermissions?.geolocation) allowParts.push("allow-geolocation");

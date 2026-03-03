@@ -218,6 +218,7 @@ def _flatten_process(
         elem_id = item.get("id", "")
         label = item.get("label", "")
         branches = item.get("branches")
+        target_ref = item.get("target_ref")
 
         if elem_type in _GATEWAY_TYPES and branches:
             prev_id = _flatten_gateway(item, flat, flows, prev_id, next_flow_id)
@@ -225,6 +226,10 @@ def _flatten_process(
             flat.append({"type": elem_type, "id": elem_id, "label": label})
             if prev_id:
                 flows.append(_flow(next_flow_id(), prev_id, elem_id))
+
+            if target_ref:
+                flows.append(_flow(next_flow_id(), elem_id, target_ref))
+
             prev_id = elem_id
 
     return flat, flows
@@ -276,34 +281,49 @@ def _flatten_branches(
     for branch in branches:
         condition = branch.get("condition", "")
         path = branch.get("path", [])
-        if not path:
+        target_ref = branch.get("target_ref")
+
+        if not path and not target_ref:
             continue
 
-        first_in_branch = path[0]
-        flows.append(
-            _flow(
-                next_flow_id(),
-                gateway_id,
-                first_in_branch["id"],
-                condition,
+        if path:
+            first_in_branch = path[0]
+            flows.append(
+                _flow(
+                    next_flow_id(),
+                    gateway_id,
+                    first_in_branch["id"],
+                    condition,
+                )
             )
-        )
 
-        branch_prev: str | None = None
-        for step in path:
-            flat.append(
-                {
-                    "type": step.get("type", "task"),
-                    "id": step["id"],
-                    "label": step.get("label", ""),
-                }
-            )
-            if branch_prev:
-                flows.append(_flow(next_flow_id(), branch_prev, step["id"]))
-            branch_prev = step["id"]
+            branch_prev: str | None = None
+            for step in path:
+                flat.append(
+                    {
+                        "type": step.get("type", "task"),
+                        "id": step["id"],
+                        "label": step.get("label", ""),
+                    }
+                )
+                if branch_prev:
+                    flows.append(_flow(next_flow_id(), branch_prev, step["id"]))
 
-        if branch_prev:
-            branch_end_ids.append(branch_prev)
+                step_target_ref = step.get("target_ref")
+                if step_target_ref:
+                    flows.append(_flow(next_flow_id(), step["id"], step_target_ref))
+
+                branch_prev = step["id"]
+
+            if target_ref:
+                if branch_prev:
+                    flows.append(_flow(next_flow_id(), branch_prev, target_ref))
+            elif branch_prev:
+                branch_end_ids.append(branch_prev)
+
+        elif target_ref:
+            # Direct connection from gateway to target (no intermediate steps)
+            flows.append(_flow(next_flow_id(), gateway_id, target_ref, condition))
 
     return branch_end_ids
 

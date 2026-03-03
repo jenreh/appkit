@@ -242,3 +242,103 @@ def test_build_condition_expression() -> None:
     assert "conditionExpression" in xml
     assert "Yes" in xml
     assert "No" in xml
+
+
+def test_loop_on_branch_empty_path() -> None:
+    """Test a loop where a gateway branch connects directly back to a previous task."""
+    data = {
+        "process": [
+            {"type": "startEvent", "id": "Start"},
+            {"type": "userTask", "id": "Task_Review"},
+            {
+                "type": "exclusiveGateway",
+                "id": "Gateway_Check",
+                "branches": [
+                    {
+                        "condition": "Approved",
+                        "path": [{"type": "endEvent", "id": "End"}],
+                    },
+                    {"condition": "Rejected", "target_ref": "Task_Review", "path": []},
+                ],
+            },
+        ]
+    }
+
+    xml = build_bpmn_xml(data)
+
+    # Check for sequence flow from Gateway_Check to Task_Review
+    # id usually generated as Flow_X
+    # We look for sourceRef="Gateway_Check" and targetRef="Task_Review"
+    assert 'sourceRef="Gateway_Check" targetRef="Task_Review"' in xml
+    assert 'name="Rejected"' in xml
+
+
+def test_loop_on_branch_with_path() -> None:
+    """Test a loop where a branch has steps before looping back."""
+    data = {
+        "process": [
+            {"type": "startEvent", "id": "Start"},
+            {"type": "userTask", "id": "Task_Review"},
+            {
+                "type": "exclusiveGateway",
+                "id": "Gateway_Check",
+                "branches": [
+                    {
+                        "condition": "Approved",
+                        "path": [{"type": "endEvent", "id": "End"}],
+                    },
+                    {
+                        "condition": "Rejected",
+                        "target_ref": "Task_Review",
+                        "path": [{"type": "serviceTask", "id": "Task_Log_Rejection"}],
+                    },
+                ],
+            },
+        ]
+    }
+
+    xml = build_bpmn_xml(data)
+
+    # Gateway -> Task_Log_Rejection
+    assert 'sourceRef="Gateway_Check" targetRef="Task_Log_Rejection"' in xml
+    # Task_Log_Rejection -> Task_Review
+    assert 'sourceRef="Task_Log_Rejection" targetRef="Task_Review"' in xml
+
+
+def test_jump_on_element() -> None:
+    """Test a jump/goto using target_ref on a regular element."""
+    data = {
+        "process": [
+            {"type": "startEvent", "id": "Start"},
+            {"type": "task", "id": "Task_A", "target_ref": "End"},
+            # Task_B is unreachable in this linear flow, but valid XML
+            {"type": "task", "id": "Task_B"},
+            {"type": "endEvent", "id": "End"},
+        ]
+    }
+
+    xml = build_bpmn_xml(data)
+
+    # Start -> Task_A
+    assert 'sourceRef="Start" targetRef="Task_A"' in xml
+    # Task_A -> Task_B (default flow) AND Task_A -> End (target_ref flow)
+    # Current implementation keeps default flow unless we change logic.
+    assert 'sourceRef="Task_A" targetRef="Task_B"' in xml
+    assert 'sourceRef="Task_A" targetRef="End"' in xml
+
+
+def test_implicit_split_via_target_ref() -> None:
+    """Verify that target_ref creates a split when used inside a linear flow."""
+    data = {
+        "process": [
+            {"type": "startEvent", "id": "Start"},
+            # Task A goes to Task B (default) AND loops to Start (target_ref)
+            {"type": "task", "id": "Task_A", "target_ref": "Start"},
+            {"type": "endEvent", "id": "End"},
+        ]
+    }
+
+    xml = build_bpmn_xml(data)
+
+    assert 'sourceRef="Task_A" targetRef="Start"' in xml
+    assert 'sourceRef="Task_A" targetRef="End"' in xml

@@ -154,6 +154,36 @@ def _build_graph(
     return nodes, outgoing, incoming, flows
 
 
+def _identify_back_edges(
+    nodes: dict[str, str],
+    outgoing: dict[str, list[str]],
+) -> set[tuple[str, str]]:
+    """Identify back-edges that create cycles in the graph using DFS."""
+    back_edges: set[tuple[str, str]] = set()
+    state: dict[str, int] = {}  # 0: unvisited, 1: visiting, 2: visited
+
+    def dfs(u: str) -> None:
+        state[u] = 1
+        for v in outgoing.get(u, []):
+            if state.get(v, 0) == 1:
+                back_edges.add((u, v))
+            elif state.get(v, 0) == 0:
+                dfs(v)
+        state[u] = 2
+
+    # Start DFS from all nodes to handle disconnected components
+    for n in nodes:
+        if state.get(n, 0) == 0:
+            dfs(n)
+
+    if back_edges:
+        logger.debug(
+            "Identified %d back-edges to break cycles: %s", len(back_edges), back_edges
+        )
+
+    return back_edges
+
+
 def _assign_layers(
     nodes: dict[str, str],
     outgoing: dict[str, list[str]],
@@ -166,16 +196,32 @@ def _assign_layers(
     if not start_ids:
         start_ids = [next(iter(nodes))]
 
+    # Break cycles by identifying back-edges
+    back_edges = _identify_back_edges(nodes, outgoing)
+
     layer_of: dict[str, int] = {}
     queue: deque[str] = deque()
     for sid in start_ids:
         layer_of[sid] = 0
         queue.append(sid)
 
+    visited_count: dict[str, int] = defaultdict(int)
+
     while queue:
         nid = queue.popleft()
+
+        # Safety valve: prevent infinite processing if unexpected cycle logic failure
+        visited_count[nid] += 1
+        if visited_count[nid] > len(nodes) * 2:
+            logger.warning("Breaking potential infinite loop at node %s", nid)
+            continue
+
         current_layer = layer_of[nid]
         for target in outgoing.get(nid, []):
+            # Skip back-edges for layering purposes to treat graph as DAG
+            if (nid, target) in back_edges:
+                continue
+
             new_layer = current_layer + 1
             if target not in layer_of or layer_of[target] < new_layer:
                 layer_of[target] = new_layer
@@ -194,13 +240,20 @@ def _assign_layers(
 def _compute_positions(
     nodes: dict[str, str],
     layer_of: dict[str, int],
-) -> dict[str, tuple[int, int, int, int]]:
-    """Compute ``(x, y, width, height)`` for every node."""
+) -> tuple[dict[str, tuple[int, int, int, int]], int]:
+    """Compute ``(x, y, width, height)`` for every node.
+
+    Returns:
+        Tuple of ``(positions, max_y)``, where ``max_y`` is the bottom-most
+        coordinate in the diagram (used for routing back-edges).
+    """
     layers: dict[int, list[str]] = defaultdict(list)
     for nid, layer in layer_of.items():
         layers[layer].append(nid)
 
     positions: dict[str, tuple[int, int, int, int]] = {}
+    max_y = 0
+
     for layer_idx in sorted(layers):
         layer_nodes = layers[layer_idx]
         x = LEFT_MARGIN + layer_idx * HORIZONTAL_SPACING
@@ -215,8 +268,9 @@ def _compute_positions(
             w, h = _element_size(nodes[nid])
             positions[nid] = (x, y_cursor, w, h)
             y_cursor += h + (VERTICAL_SPACING - 50)
+            max_y = max(max_y, y_cursor)
 
-    return positions
+    return positions, max_y
 
 
 def _build_diagram_xml(
@@ -225,6 +279,7 @@ def _build_diagram_xml(
     nodes: dict[str, str],
     positions: dict[str, tuple[int, int, int, int]],
     flows: list[dict[str, str]],
+    max_y: int,
 ) -> None:
     """Append ``<bpmndi:BPMNDiagram>`` with shapes and edges to *root*."""
     nsmap = {
@@ -245,7 +300,7 @@ def _build_diagram_xml(
     )
 
     _add_shapes(plane, nodes, positions)
-    _add_edges(plane, positions, flows)
+    _add_edges(plane, positions, flows, max_y)
 
 
 def _add_shapes(
@@ -279,6 +334,7 @@ def _add_edges(
     plane: etree._Element,
     positions: dict[str, tuple[int, int, int, int]],
     flows: list[dict[str, str]],
+    max_y: int,
 ) -> None:
     """Append ``<bpmndi:BPMNEdge>`` elements for every sequence flow."""
     for flow in flows:
@@ -292,8 +348,10 @@ def _add_edges(
         sx, sy, sw, sh = positions[src]
         tx, ty, _tw, th = positions[tgt]
 
+        # Use right-center for source anchor
         src_x = sx + sw
         src_y = sy + sh // 2
+        # Use left-center for target anchor
         tgt_x = tx
         tgt_y = ty + th // 2
 
@@ -303,7 +361,26 @@ def _add_edges(
             attrib={"id": f"{fid}_di", "bpmnElement": fid},
         )
 
-        if abs(src_y - tgt_y) < SNAP_TOLERANCE:
+        if tgt_x < src_x:
+            # Back edge: Route below the entire graph
+            # 1. Out right
+            _add_waypoint(edge, src_x, src_y)
+            _add_waypoint(edge, src_x + 20, src_y)
+
+            # 2. Down to bottom gutter
+            gutter_y = max_y + 40
+            _add_waypoint(edge, src_x + 20, gutter_y)
+
+            # 3. Left to target column
+            _add_waypoint(edge, tgt_x - 20, gutter_y)
+
+            # 4. Up to target height
+            _add_waypoint(edge, tgt_x - 20, tgt_y)
+
+            # 5. In left to target
+            _add_waypoint(edge, tgt_x, tgt_y)
+
+        elif abs(src_y - tgt_y) < SNAP_TOLERANCE:
             _add_waypoint(edge, src_x, src_y)
             _add_waypoint(edge, tgt_x, tgt_y)
         else:
@@ -351,8 +428,8 @@ def add_diagram_layout(xml: str) -> str:
         return xml
 
     layer_of = _assign_layers(nodes, outgoing, incoming)
-    positions = _compute_positions(nodes, layer_of)
-    _build_diagram_xml(root, process_id, nodes, positions, flows)
+    positions, max_y = _compute_positions(nodes, layer_of)
+    _build_diagram_xml(root, process_id, nodes, positions, flows, max_y)
 
     result = etree.tostring(
         root, pretty_print=True, xml_declaration=True, encoding="UTF-8"

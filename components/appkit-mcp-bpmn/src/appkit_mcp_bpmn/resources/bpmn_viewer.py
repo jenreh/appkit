@@ -2,19 +2,20 @@
 
 VIEW_URI = "ui://appkit/bpmn_viewer.html"
 
-_BPMN_JS_CDN = "https://unpkg.com/bpmn-js@18.6.3/dist/bpmn-viewer.production.min.js"
-_DIAGRAM_JS_CSS = "https://unpkg.com/bpmn-js@18.6.3/dist/assets/diagram-js.css"
-_BPMN_FONT_CSS = (
-    "https://unpkg.com/bpmn-js@18.6.3/dist/assets/bpmn-font/css/bpmn-embedded.css"
-)
+_BPMN_JS_CDN = "https://unpkg.com/bpmn-js@18.12.1/dist/bpmn-modeler.production.min.js"
+_DIAGRAM_JS_CSS = "https://unpkg.com/bpmn-js@18.12.1/dist/assets/diagram-js.css"
+_BPMN_JS_CSS = "https://unpkg.com/bpmn-js@18.12.1/dist/assets/bpmn-js.css"
+_BPMN_FONT_CSS = "https://unpkg.com/bpmn-js@18.12.1/dist/assets/bpmn-font/css/bpmn.css"
+_LUCIDE_CDN = "https://unpkg.com/lucide@latest"
 
 BPMN_VIEWER_HTML = f"""\
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>BPMN Diagram Viewer</title>
+<title>BPMN Diagram Editor</title>
 <link rel="stylesheet" href="{_DIAGRAM_JS_CSS}" />
+<link rel="stylesheet" href="{_BPMN_JS_CSS}" />
 <link rel="stylesheet" href="{_BPMN_FONT_CSS}" />
 <script src="{_BPMN_JS_CDN}"
   onerror="document.getElementById('error-box').innerHTML=
@@ -24,19 +25,18 @@ BPMN_VIEWER_HTML = f"""\
     document.getElementById('error-box').style.display='block';
     document.getElementById('loading-box').style.display='none';"
 ></script>
+<script src="{_LUCIDE_CDN}"></script>
 <style>
 html, body {{
   margin: 0;
   padding: 0;
   width: 100%;
-  height: 100%;
-  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: #fff;
 }}
 #canvas {{
-  width: 100%;
-  height: calc(100% - 48px);
+  width: 816px;
+  height: 500px;
   display: none;
 }}
 #toolbar {{
@@ -49,19 +49,38 @@ html, body {{
   box-sizing: border-box;
   border-bottom: 1px solid #e0e0e0;
   background: #fafafa;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }}
 #toolbar button {{
-  padding: 6px 16px;
-  border: 1px solid #228be6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgb(0, 144, 255);
   border-radius: 4px;
-  background: #228be6;
+  background: rgb(0, 144, 255);
   color: #fff;
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s;
+  white-space: nowrap;
 }}
 #toolbar button:hover {{
-  background: #1c7ed6;
+  background: rgb(0, 115, 204);
+}}
+#toolbar button svg {{
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}}
+.toolbar-separator {{
+  width: 1px;
+  height: 24px;
+  background: #dee2e6;
+  margin: 0 4px;
 }}
 #status {{
   flex: 1;
@@ -92,52 +111,113 @@ html, body {{
   color: #862e2e;
   word-break: break-word;
 }}
+body.fullscreen #canvas {{
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 100;
+  background: white;
+}}
+body.fullscreen #toolbar {{
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 5px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}}
+body.fullscreen {{
+  overflow: hidden;
+}}
 </style>
 </head>
 <body>
 <div id="toolbar">
   <span id="status">Loading diagram&hellip;</span>
-  <button id="btn-zoom-fit" title="Fit to viewport">Fit</button>
-  <button id="btn-download" title="Download .bpmn file">Download</button>
-</div>
+  <button id="btn-zoom-in" title="Zoom in">
+    <i data-lucide="zoom-in"></i>
+  </button>
+  <button id="btn-zoom-out" title="Zoom out">
+    <i data-lucide="zoom-out"></i>
+  </button>
+  <button id="btn-zoom-fit" title="Fit to viewport">
+    <i data-lucide="fullscreen"></i>
+  </button>
+  <span class="toolbar-separator"></span>
+  <button id="btn-download-xml" title="Download .bpmn file">
+    <i data-lucide="file-down"></i>
+  </button>
+  <button id="btn-download-svg" title="Download as SVG">
+    <i data-lucide="image-down"></i>
+  </button>  <span class="toolbar-separator"></span>
+  <button id="btn-fullscreen" title="Toggle Fullscreen">
+    <i data-lucide="maximize"></i>
+  </button></div>
 <div id="canvas"></div>
 <div id="error-box"></div>
 <div id="loading-box"
  style="display:flex;align-items:center;justify-content:center;
- height:calc(100% - 48px);font-size:18px;color:#228be6;">
+ height:300px;font-size:18px;color:rgb(0, 144, 255);">
  BPMN loading&hellip;</div>
 
 <script>
-(function () {{
-  var CANVAS = document.getElementById("canvas");
-  var STATUS = document.getElementById("status");
-  var ERROR  = document.getElementById("error-box");
-  var LOADING = document.getElementById("loading-box");
-  var currentXml = null;
+  function initializeIcons() {{
+    if (window.lucide && window.lucide.createIcons) {{
+      window.lucide.createIcons();
+    }}
+  }}
 
-  var viewer = new BpmnJS({{ container: CANVAS }});
-  var rpcId = 10;
-  var pendingCalls = {{}};
+  if (document.readyState === 'loading') {{
+    document.addEventListener('DOMContentLoaded', initializeIcons);
+  }} else {{
+    initializeIcons();
+  }}
+</script>
+<script>
+(function () {{
+  const CANVAS = document.getElementById("canvas");
+  const STATUS = document.getElementById("status");
+  const ERROR = document.getElementById("error-box");
+  const LOADING = document.getElementById("loading-box");
+  let currentXml = null;
+  let diagramRendered = false;
+  let fetchStarted = false;
+
+  const viewer = new BpmnJS({{
+    container: CANVAS,
+    keyboard: {{ bindTo: window }}
+  }});
+  let rpcId = 10;
+  const pendingCalls = {{}};
 
   // Send ui/initialize handshake to host
-  window.parent.postMessage({{
-    jsonrpc: "2.0", method: "ui/initialize", id: 1,
-    params: {{
-      protocolVersion: "2025-01-26",
-      clientInfo: {{ name: "bpmn-viewer", version: "1.0.0" }},
-      capabilities: {{}}
-    }}
-  }}, "*");
+  window.parent.postMessage(
+    {{
+      jsonrpc: "2.0",
+      method: "ui/initialize",
+      id: 1,
+      params: {{
+        protocolVersion: "2025-01-26",
+        clientInfo: {{ name: "bpmn-viewer", version: "1.0.0" }},
+        capabilities: {{}},
+      }},
+    }},
+    "*"
+  );
 
   window.addEventListener("message", function (event) {{
-    var msg = event.data;
+    const msg = event.data;
     if (!msg || msg.jsonrpc !== "2.0") return;
 
     if (msg.method === "ui/notifications/tool-result") {{
       handleToolResult(msg.params);
     }} else if (msg.id != null && !msg.method && pendingCalls[msg.id]) {{
       // JSON-RPC response for a tools/call we sent
-      var cb = pendingCalls[msg.id];
+      const cb = pendingCalls[msg.id];
       delete pendingCalls[msg.id];
       if (msg.error) {{
         cb.reject(new Error(msg.error.message || "RPC error"));
@@ -146,34 +226,50 @@ html, body {{
       }}
     }} else if (msg.method === "ping" && msg.id != null) {{
       window.parent.postMessage(
-        {{ jsonrpc: "2.0", id: msg.id, result: {{}} }}, "*"
+        {{ jsonrpc: "2.0", id: msg.id, result: {{}} }},
+        "*"
       );
     }}
   }});
 
   function callServerTool(name, args) {{
     return new Promise(function (resolve, reject) {{
-      var id = ++rpcId;
+      const id = ++rpcId;
       pendingCalls[id] = {{ resolve: resolve, reject: reject }};
-      window.parent.postMessage({{
-        jsonrpc: "2.0", method: "tools/call", id: id,
-        params: {{ name: name, arguments: args || {{}} }}
-      }}, "*");
+      window.parent.postMessage(
+        {{
+          jsonrpc: "2.0",
+          method: "tools/call",
+          id: id,
+          params: {{ name: name, arguments: args || {{}} }},
+        }},
+        "*"
+      );
     }});
   }}
 
   function handleToolResult(result) {{
     clearLoadTimeout();
-    var s = JSON.stringify(result).substring(0, 500);
+    if (diagramRendered || fetchStarted) {{
+      console.log(
+        "[bpmn-viewer] ignoring tool-result,",
+        diagramRendered ? "diagram rendered" : "fetch in progress"
+      );
+      return;
+    }}
+    const s = JSON.stringify(result).substring(0, 500);
     console.log("[bpmn-viewer] handleToolResult:", s);
     try {{
-      var text = result && result.content && result.content[0]
-                 && result.content[0].text;
+      const text =
+        result &&
+        result.content &&
+        result.content[0] &&
+        result.content[0].text;
       if (!text) {{
         showError("No diagram data received.");
         return;
       }}
-      var payload = JSON.parse(text);
+      const payload = JSON.parse(text);
       if (!payload.success) {{
         showError(payload.error || "Unknown error");
         return;
@@ -191,28 +287,34 @@ html, body {{
 
   function fetchXmlViaTool(diagramId) {{
     clearLoadTimeout();
-    STATUS.textContent = "Fetching diagram\u2026";
+    fetchStarted = true;
+    STATUS.textContent = "Fetching diagram…";
     console.log("[bpmn-viewer] calling tools/call get_bpmn_xml", diagramId);
     callServerTool("get_bpmn_xml", {{ diagram_id: diagramId }})
       .then(function (result) {{
-        var s = JSON.stringify(result).substring(0, 500);
+        const s = JSON.stringify(result).substring(0, 500);
         console.log("[bpmn-viewer] get_bpmn_xml response:", s);
         // result is CallToolResult: {{ content: [{{ text: "<xml>" }}] }}
-        var xml = result && result.content && result.content[0]
-                  && result.content[0].text;
+        const xml =
+          result &&
+          result.content &&
+          result.content[0] &&
+          result.content[0].text;
         if (!xml) {{
           showError("No XML returned from get_bpmn_xml");
           return;
         }}
         // Check if it's a JSON error response
-        if (xml.charAt(0) === '{{') {{
+        if (xml.charAt(0) === "{{") {{
           try {{
-            var err = JSON.parse(xml);
+            const err = JSON.parse(xml);
             if (!err.success) {{
               showError(err.error || "Failed to load diagram");
               return;
             }}
-          }} catch (e) {{ /* not JSON, treat as XML */ }}
+          }} catch (e) {{
+            /* not JSON, treat as XML */
+          }}
         }}
         renderXml(xml);
       }})
@@ -223,84 +325,201 @@ html, body {{
   }}
 
   function renderXml(xml) {{
+    if (diagramRendered) {{
+      return;
+    }}
     currentXml = xml;
     LOADING.style.display = "none";
+    ERROR.style.display = "none";
     CANVAS.style.display = "block";
-    viewer.importXML(xml).then(function (result) {{
-      if (result.warnings && result.warnings.length) {{
-        console.warn("BPMN import warnings:", result.warnings);
-      }}
-      viewer.get("canvas").zoom("fit-viewport");
-      STATUS.textContent = "Diagram loaded";
-      reportSize();
-    }}).catch(function (err) {{
-      showError("Failed to render: " + err.message);
-    }});
+    viewer.importXML(xml)
+      .then(function () {{
+        try {{
+          viewer.get("canvas").zoom("fit-viewport");
+        }} catch (zoomErr) {{
+          console.warn(
+            "[bpmn-viewer] fit-viewport failed, " +
+              "falling back to zoom(1):",
+            zoomErr.message
+          );
+          try {{
+            viewer.get("canvas").zoom(1);
+          }} catch (e) {{
+            /* ignore */
+          }}
+        }}
+        diagramRendered = true;
+        STATUS.textContent = "Diagram loaded";
+        reportSize();
+      }})
+      .catch(function (err) {{
+        showError("Failed to render: " + err.message);
+      }});
   }}
 
   function showError(msg) {{
     console.error("[bpmn-viewer] showError:", msg);
+    if (diagramRendered) {{
+      console.warn(
+        "[bpmn-viewer] suppressing error, diagram already rendered"
+      );
+      return;
+    }}
     LOADING.style.display = "none";
     CANVAS.style.display = "none";
     ERROR.style.display = "block";
     ERROR.innerHTML =
-      '<div class="error-title">\u26a0\ufe0f Rendering failed</div>'
-      + '<div class="error-detail">'
-      + escapeHtml(String(msg)) + '</div>';
+      '<div class="error-title">⚠️ Rendering failed</div>' +
+      '<div class="error-detail">' +
+      escapeHtml(String(msg)) +
+      "</div>";
     STATUS.textContent = "Error";
     reportSize();
   }}
 
   function escapeHtml(s) {{
-    var d = document.createElement("div");
+    const d = document.createElement("div");
     d.appendChild(document.createTextNode(s));
     return d.innerHTML;
   }}
 
   // Timeout: if nothing arrives within 60 s, show a message
-  var loadTimeout = setTimeout(function () {{
+  let loadTimeout = setTimeout(function () {{
     if (LOADING.style.display !== "none") {{
       showError(
-        "Timed out waiting for diagram data. "
-        + "The generation may have failed silently."
+        "Timed out waiting for diagram data. " +
+          "The generation may have failed silently."
       );
     }}
   }}, 60000);
 
   // Clear timeout once we successfully start processing
   function clearLoadTimeout() {{
-    if (loadTimeout) {{ clearTimeout(loadTimeout); loadTimeout = null; }}
+    if (loadTimeout) {{
+      clearTimeout(loadTimeout);
+      loadTimeout = null;
+    }}
   }}
 
   window.addEventListener("error", function (e) {{
     showError("Unexpected error: " + (e.message || e));
   }});
 
-  document.getElementById("btn-zoom-fit").addEventListener("click", function () {{
-    try {{ viewer.get("canvas").zoom("fit-viewport"); }} catch (e) {{}}
+  document.getElementById("btn-zoom-in").addEventListener("click", function () {{
+    try {{
+      const c = viewer.get("canvas");
+      c.zoom(Math.min(c.zoom() * 1.2, 4.0));
+    }} catch (e) {{
+      /* ignore */
+    }}
   }});
 
-  document.getElementById("btn-download").addEventListener("click", function () {{
-    if (!currentXml) return;
-    var blob = new Blob([currentXml], {{ type: "application/xml" }});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "diagram.bpmn";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  document
+    .getElementById("btn-zoom-out")
+    .addEventListener("click", function () {{
+      try {{
+        const c = viewer.get("canvas");
+        c.zoom(Math.max(c.zoom() * 0.8, 0.2));
+      }} catch (e) {{
+        /* ignore */
+      }}
+    }});
+
+  document.getElementById("btn-zoom-fit").addEventListener("click", function () {{
+    try {{
+      viewer.get("canvas").zoom("fit-viewport");
+    }} catch (e) {{
+      /* ignore */
+    }}
   }});
+
+  document
+    .getElementById("btn-download-xml")
+    .addEventListener("click", function () {{
+      if (!diagramRendered) return;
+      viewer.saveXML({{ format: true }})
+        .then(function (result) {{
+          if (result.xml) {{
+            window.parent.postMessage(
+              {{
+                jsonrpc: "2.0",
+                method: "ui/notifications/download",
+                params: {{
+                  filename: "diagram.bpmn",
+                  content: result.xml,
+                  mimeType: "application/xml",
+                }},
+              }},
+              "*"
+            );
+          }}
+        }})
+        .catch(function (err) {{
+          console.error("[bpmn-editor] saveXML failed:", err);
+        }});
+    }});
+
+  document
+    .getElementById("btn-fullscreen")
+    .addEventListener("click", function () {{
+      if (!document.fullscreenElement) {{
+        document.body.classList.add("fullscreen");
+        document.documentElement.requestFullscreen().catch((err) => {{
+          /* fallback */
+        }});
+      }} else if (document.exitFullscreen) {{
+        document.exitFullscreen();
+      }}
+    }});
+
+  document.addEventListener("fullscreenchange", function () {{
+    if (!document.fullscreenElement) {{
+      document.body.classList.remove("fullscreen");
+    }} else {{
+      document.body.classList.add("fullscreen");
+    }}
+  }});
+
+  document
+    .getElementById("btn-download-svg")
+    .addEventListener("click", function () {{
+      if (!diagramRendered) return;
+      viewer.saveSVG()
+        .then(function (result) {{
+          const svg = typeof result === "string" ? result : result.svg;
+          window.parent.postMessage(
+            {{
+              jsonrpc: "2.0",
+              method: "ui/notifications/download",
+              params: {{
+                filename: "diagram.svg",
+                content: svg,
+                mimeType: "image/svg+xml",
+              }},
+            }},
+            "*"
+          );
+        }})
+        .catch(function (err) {{
+          console.error("[bpmn-viewer] SVG export failed:", err);
+        }});
+    }});
 
   function reportSize() {{
-    var h = Math.max(document.body.scrollHeight, 500);
-    window.parent.postMessage({{
-      jsonrpc: "2.0", method: "ui/notifications/resize",
-      params: {{ height: h }}
-    }}, "*");
+    const h = Math.max(document.body.scrollHeight, 500);
+    const w = Math.max(document.body.scrollWidth, 816);
+    window.parent.postMessage(
+      {{
+        jsonrpc: "2.0",
+        method: "ui/notifications/size-changed",
+        params: {{ height: h, width: w }},
+      }},
+      "*"
+    );
   }}
-  new ResizeObserver(function () {{ reportSize(); }}).observe(document.body);
+  new ResizeObserver(function () {{
+    reportSize();
+  }}).observe(document.body);
 }})();
 </script>
 </body>

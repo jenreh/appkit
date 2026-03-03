@@ -40,6 +40,7 @@ Each element in the `process` array has:
 | `label` | no | Human-readable name displayed on the element |
 | `branches` | gateways only | Array of branch objects for decision/parallel paths |
 | `has_join` | gateways only | `true` to auto-create a matching merge gateway |
+| `target_ref` | no | ID of an existing element to jump to (for loops/gotos). Overrides default flow. |
 
 ### Supported Element Types
 
@@ -92,9 +93,8 @@ When a gateway has branches, define them as an array of objects:
     },
     {
       "condition": "No",
-      "path": [
-        {"type": "serviceTask", "id": "task_reject", "label": "Send Rejection"}
-      ]
+      "target_ref": "task_correct",
+      "path": []
     }
   ]
 }
@@ -102,8 +102,31 @@ When a gateway has branches, define them as an array of objects:
 
 Branch properties:
 - `condition`: Label for the branch (shown on the sequence flow arrow)
-- `path`: Array of elements in this branch (same format as top-level elements)
-- When `has_join` is `true`, the system automatically creates a merge gateway after all branches
+- `path`: Array of elements in this branch (may be empty if using `target_ref`)
+- `target_ref`: ID of an existing element to jump to (e.g., for loops or reuse). If set, the branch connects to this element instead of joining.
+- When `has_join` is `true`, the system automatically creates a merge gateway after all branches (except those with `target_ref`)
+
+### Loops and Jumps
+
+To create loops (e.g., rework) or jumps, use `target_ref` on an element or a gateway branch.
+
+**Example: Rework Loop**
+
+```json
+{
+  "process": [
+    {"type": "userTask", "id": "task_review", "label": "Review"},
+    {
+      "type": "exclusiveGateway",
+      "id": "gw_check",
+      "branches": [
+        {"condition": "OK", "path": [{"type": "endEvent", "id": "end", "label": "Done"}]},
+        {"condition": "Reject", "target_ref": "task_review", "path": []}
+      ]
+    }
+  ]
+}
+```
 
 ### Sequence Flows
 

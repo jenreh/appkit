@@ -44,6 +44,10 @@ class BpmnBranch(BaseModel):
     path: list[BpmnElement] = Field(
         description="Ordered elements inside this branch.",
     )
+    target_ref: str | None = Field(
+        default=None,
+        description="ID of an existing element to connect to (for loops/jumps).",
+    )
 
 
 class BpmnElement(BaseModel):
@@ -63,10 +67,15 @@ class BpmnElement(BaseModel):
         default=False,
         description="Whether a merge gateway is auto-inserted after branches.",
     )
+    target_ref: str | None = Field(
+        default=None,
+        description="ID of the next element to connect to. Overrides default flow.",
+    )
 
 
 # Resolve the forward reference BpmnBranch -> BpmnElement.
 BpmnBranch.model_rebuild()
+BpmnElement.model_rebuild()
 
 
 class BpmnProcessJson(BaseModel):

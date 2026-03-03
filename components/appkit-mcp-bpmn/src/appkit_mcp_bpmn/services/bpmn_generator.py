@@ -110,6 +110,7 @@ class BPMNGenerator:
         )
 
         try:
+            logger.info("Sending request to LLM (model=%s, json_mode=True)...", model)
             response = await client.beta.chat.completions.parse(
                 model=model,
                 messages=[
@@ -118,6 +119,7 @@ class BPMNGenerator:
                 ],
                 response_format=BpmnProcessJson,
             )
+            logger.info("LLM request finished")
         except Exception as exc:
             logger.exception("LLM generation failed")
             raise RuntimeError("Failed to generate BPMN diagram via LLM") from exc
