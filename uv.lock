@@ -284,7 +284,7 @@ requires-dist = [{ name = "reflex", specifier = "==0.8.27" }]
 
 [[package]]
 name = "appkit-mcp-bpmn"
-version = "1.6.3"
+version = "0.0.3"
 source = { editable = "components/appkit-mcp-bpmn" }
 dependencies = [
     { name = "appkit-commons" },
@@ -303,7 +303,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mcp-charts"
-version = "1.6.3"
+version = "1.0.0"
 source = { editable = "components/appkit-mcp-charts" }
 dependencies = [
     { name = "appkit-commons" },
@@ -320,7 +320,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mcp-commons"
-version = "1.6.3"
+version = "1.0.0"
 source = { editable = "components/appkit-mcp-commons" }
 dependencies = [
     { name = "appkit-commons" },
@@ -354,7 +354,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mcp-user"
-version = "1.6.3"
+version = "0.0.1"
 source = { editable = "components/appkit-mcp-user" }
 dependencies = [
     { name = "appkit-commons" },

@@ -6,7 +6,7 @@ dependencies = [
     "openai>=2.24.0",
 ]
 name = "appkit-mcp-bpmn"
-version = "1.6.3"
+version = "0.0.3"
 description = "MCP BPMN 2.0 Diagram Server"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
