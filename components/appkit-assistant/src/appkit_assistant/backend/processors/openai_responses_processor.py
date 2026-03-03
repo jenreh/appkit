@@ -550,6 +550,13 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
         if error:
             error_text = self._extract_error_text(error)
+            logger.warning(
+                "MCP call %s.%s failed (id=%s): %s",
+                server_label,
+                tool_name,
+                tool_id,
+                error_text,
+            )
 
             # Check for authentication errors (401/403)
             if self.auth_detector.is_auth_error(error):
@@ -579,12 +586,22 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         )
 
     def _extract_error_text(self, error: Any) -> str:
-        """Extract readable error text from error object."""
+        """Extract readable error text from an MCP call error.
+
+        The OpenAI Responses API returns ``mcp_call.error`` as
+        ``Optional[str]``.  Legacy or third-party wrappers may
+        pass a dict with ``{"content": [{"text": "..."}]}``.
+        This method handles both formats gracefully.
+        """
+        if isinstance(error, str):
+            return error
         if isinstance(error, dict):
             content = error.get("content", [])
             if isinstance(content, list) and content:
                 return content[0].get("text", str(error))
-        return "Unknown error"
+            return error.get("message", error.get("text", str(error)))
+        # Fallback: stringify whatever we received
+        return str(error)
 
     def _handle_mcp_events(  # noqa: PLR0911, PLR0912, PLR0915
         self, event_type: str, event: Any

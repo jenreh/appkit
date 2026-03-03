@@ -419,7 +419,7 @@ class TestItemEvents:
         assert chunk is not None
         assert chunk.text == "result"
 
-    def test_mcp_call_done_error(self) -> None:
+    def test_mcp_call_done_error_dict(self) -> None:
         proc = _make_processor()
         item = SimpleNamespace(
             type="mcp_call",
@@ -432,6 +432,22 @@ class TestItemEvents:
         chunk = proc._handle_item_done(item)
         assert chunk is not None
         assert "timeout" in chunk.text
+        assert chunk.chunk_metadata["error"] == "True"
+
+    def test_mcp_call_done_error_string(self) -> None:
+        """OpenAI Responses API returns mcp_call.error as Optional[str]."""
+        proc = _make_processor()
+        item = SimpleNamespace(
+            type="mcp_call",
+            id="t1",
+            name="generate_bpmn",
+            server_label="BPMN",
+            error="Tool execution timed out",
+            output=None,
+        )
+        chunk = proc._handle_item_done(item)
+        assert chunk is not None
+        assert "Tool execution timed out" in chunk.text
         assert chunk.chunk_metadata["error"] == "True"
 
     def test_function_call_done(self) -> None:
@@ -708,11 +724,23 @@ class TestExtractErrorText:
     def test_dict_empty_content(self) -> None:
         proc = _make_processor()
         error = {"content": []}
-        assert proc._extract_error_text(error) == "Unknown error"
+        assert proc._extract_error_text(error) == str(error)
 
-    def test_non_dict(self) -> None:
+    def test_dict_with_message_key(self) -> None:
         proc = _make_processor()
-        assert proc._extract_error_text("some error") == "Unknown error"
+        error = {"message": "Internal server error"}
+        assert proc._extract_error_text(error) == "Internal server error"
+
+    def test_string_error(self) -> None:
+        """OpenAI Responses API returns mcp_call.error as Optional[str]."""
+        proc = _make_processor()
+        assert proc._extract_error_text("Tool execution timed out") == (
+            "Tool execution timed out"
+        )
+
+    def test_non_dict_non_str(self) -> None:
+        proc = _make_processor()
+        assert proc._extract_error_text(42) == "42"
 
 
 # ============================================================================

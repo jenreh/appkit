@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-AppKit is a production-ready Reflex application and component workspace that packages Mantine UI wrappers, AI assistant tooling (MCP, multi-model chat), enterprise authentication, and supporting infrastructure (database, logging, Docker, CI). The repo contains both the demo app in `app/` and six publishable Python packages under `components/` that can be installed independently via `uv`/PyPI. Core stack: Python 3.13 (repo pins 3.13 via `.python-version`), Reflex 0.8.26, React 18, Mantine 8.3.3, SQLAlchemy/Alembic, FastAPI, uv as the package manager, and PostgreSQL/pgvector.
+AppKit is a production-ready Reflex application and component workspace that packages Mantine UI wrappers, AI assistant tooling (MCP, multi-model chat), enterprise authentication, and supporting infrastructure (database, logging, Docker, CI). The repo contains both the demo app in `app/` and the publishable Python packages under `components/` that can be installed independently via `uv`/PyPI. Core stack: Python 3.13 (repo pins 3.13 via `.python-version`), Reflex 0.8.26, React 18, Mantine 8.3.3, SQLAlchemy/Alembic, FastAPI, uv as the package manager, and PostgreSQL/pgvector.
 
 ## Architecture Snapshot
 
@@ -13,6 +13,7 @@ AppKit is a production-ready Reflex application and component workspace that pac
   - `appkit-assistant`: Model Manager, LLM processors (OpenAI, Perplexity, Lorem Ipsum fallback), MCP server management.
   - `appkit-imagecreator`: multi-provider image generation workflows.
   - `appkit-mantine`: Mantine UI component wrappers + Tailwind/Mantine providers.
+  - `appkit-mcp-bpmn`: BPMN 2.0 diagram generation server. Tools: `generate_bpmn_diagram` (LLM-powered), `save_bpmn_diagram`. Resource: bpmn-js Viewer.
   - `appkit-ui`: shared layouts, dialogs, headers, navigation.
 - `configuration/`: YAML profiles (`config.yaml`, `config.local.yaml`, `config.devcontainer.yaml`, etc.), logging configs.
 - `alembic/`: database migrations (PostgreSQL + pgvector) driven by `alembic.ini`.
@@ -175,6 +176,7 @@ Skills are specialized instructional resources for domain-specific tasks. Agents
 | **using-appkit-mantine** | Mantine UI component API, inheritance hierarchy, event handler patterns | Creating pages, forms, layouts, modals, drawers, charts, inputs with Mantine components |
 | **testing-reflex-state** | Pytest unit tests for Reflex State logic — event handlers, computed vars, substates | Writing tests for Reflex State classes (use pytest, not Playwright/UI tests) |
 | **multi-stage-dockerfile** | Optimized multi-stage Dockerfiles, layer caching, security hardening, healthchecks | Building, reviewing, or refactoring Dockerfiles and Docker Compose configurations |
+| **BPMN-Generation** | BPMN 2.0 XML generation via LLM, element reference, example workflows | Generating BPMN diagrams from natural language descriptions |
 | **find-skills** | Discovering and installing agent skills when extending capabilities | When asking "how do I do X?", "find a skill for X", or interested in extending capabilities |
 
 Skills are loaded automatically and transparently during development. To learn more about a skill or access its full documentation, agents can read the skill definition file (e.g., `.github/skills/<skill-name>/SKILL.md`).

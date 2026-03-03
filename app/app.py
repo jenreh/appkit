@@ -21,6 +21,7 @@ from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_imagecreator.backend.services.image_cleanup_service import (
     ImageCleanupService,
 )
+from appkit_mcp_bpmn.server import create_bpmn_mcp_server
 from appkit_mcp_charts.server import create_charts_mcp_server
 from appkit_mcp_user.server import create_user_mcp_server
 from appkit_user.authentication.backend.services import (
@@ -199,10 +200,12 @@ base_style = {
 # Mount FastMCP user analytics server (Must be created before lifespan)
 _user_mcp_server = create_user_mcp_server()
 _charts_mcp_server = create_charts_mcp_server()
+_bpmn_mcp_server = create_bpmn_mcp_server()
 
 # Create the ASGI apps
 _user_mcp_app = _user_mcp_server.http_app(path="/mcp", transport="streamable-http")
 _charts_mcp_app = _charts_mcp_server.http_app(path="/mcp", transport="streamable-http")
+_bpmn_mcp_app = _bpmn_mcp_server.http_app(path="/mcp", transport="streamable-http")
 
 
 @asynccontextmanager
@@ -215,6 +218,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
         )
         await stack.enter_async_context(
             _charts_mcp_app.router.lifespan_context(_charts_mcp_app)
+        )
+        await stack.enter_async_context(
+            _bpmn_mcp_app.router.lifespan_context(_bpmn_mcp_app)
         )
 
         await ai_model_registry.initialize()
@@ -243,8 +249,10 @@ api_app.include_router(mcp_apps_router)
 # Mount the pre-created MCP apps
 # /user/mcp -> appkit-mcp-user
 # /charts/mcp -> appkit-mcp-charts
+# /bpmn/mcp -> appkit-mcp-bpmn
 api_app.mount("/user", _user_mcp_app)
 api_app.mount("/charts", _charts_mcp_app)
+api_app.mount("/bpmn", _bpmn_mcp_app)
 
 
 # Middleware transformer for HTTPS redirect

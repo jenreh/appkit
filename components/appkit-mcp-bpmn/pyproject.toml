@@ -1,13 +1,13 @@
 [project]
 dependencies = [
     "appkit-commons",
-    "pydantic>=2.12.5",
-    "starlette>=0.52.1",
-    "fastmcp>=3.1.0",
+    "appkit-mcp-commons",
+    "lxml>=6.0.2",
+    "openai>=2.24.0",
 ]
-name = "appkit-mcp-commons"
+name = "appkit-mcp-bpmn"
 version = "1.6.3"
-description = "Shared base classes and utilities for appkit MCP servers"
+description = "MCP BPMN 2.0 Diagram Server"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
 requires-python = ">=3.13"
@@ -16,6 +16,9 @@ keywords = [
     "reflex",
     "mcp",
     "fastmcp",
+    "bpmn",
+    "workflow",
+    "diagram",
 ]
 classifiers = [
     "Intended Audience :: Developers",
@@ -36,14 +39,15 @@ norecursedirs = [".cache", "__pycache__"]
 
 [tool.coverage.run]
 branch = true
-source = ["src/appkit_mcp_commons"]
+source = ["src/appkit_mcp_bpmn"]
 fail_under = 80
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/appkit_mcp_commons"]
+packages = ["src/appkit_mcp_bpmn"]
+artifacts = ["src/appkit_mcp_bpmn/resources/SKILL.md"]
 
 [build-system]
 requires = ["hatchling"]

@@ -12,3 +12,9 @@ class ToolResult[T](BaseResult):
     """Generic tool execution result."""
 
     data: T | None = Field(default=None, description="Tool execution data payload")
+
+
+class VisualizationResult(BaseResult):
+    """Result from a visualization tool."""
+
+    html: str = Field(..., description="HTML content for rendering the visualization")

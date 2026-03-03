@@ -9,6 +9,7 @@ dependencies = [
     "appkit-commons[apscheduler,pgqueuer,azure]",
     "appkit-imagecreator",
     "appkit-mantine",
+    "appkit-mcp-bpmn",
     "appkit-mcp-charts",
     "appkit-mcp-user",
     "appkit-ui",
@@ -40,6 +41,7 @@ where = [
     "components/appkit-commons/src",
     "components/appkit-imagecreator/src",
     "components/appkit-mantine/src",
+    "components/appkit-mcp-bpmn/src",
     "components/appkit-mcp-charts/src",
     "components/appkit-mcp-commons/src",
     "components/appkit-mcp-user/src",
@@ -54,6 +56,7 @@ packages = [
     "appkit_commons",
     "appkit_imagecreator",
     "appkit_mantine",
+    "appkit_mcp_bpmn",
     "appkit_mcp_charts",
     "appkit_mcp_commons",
     "appkit_mcp_user",
@@ -73,6 +76,7 @@ appkit-assistant = { workspace = true }
 appkit-commons = { workspace = true }
 appkit-imagecreator = { workspace = true }
 appkit-mantine = { workspace = true }
+appkit-mcp-bpmn = { workspace = true }
 appkit-mcp-charts = { workspace = true }
 appkit-mcp-commons = { workspace = true }
 appkit-mcp-user = { workspace = true }
@@ -112,6 +116,11 @@ replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "components/appkit-mantine/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-bpmn/pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
@@ -232,6 +241,7 @@ known-local-folder = ["app", "alembic"]
 known-first-party = ["appkit_*"]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 cache_dir = ".cache/pytest"
 norecursedirs = [".cache", "__pycache__", ".venv*", "node_modules"]
 testpaths = [
@@ -240,6 +250,7 @@ testpaths = [
     "components/appkit-imagecreator/tests",
     "components/appkit-mcp-user/tests",
     "components/appkit-mcp-charts/tests",
+    "components/appkit-mcp-bpmn/tests",
     "components/appkit-mcp-commons/tests",
     "components/appkit-user/tests",
 ]
