@@ -15,7 +15,7 @@ from appkit_assistant.backend.database.repositories import (
     thread_repo,
 )
 from appkit_assistant.backend.services.file_cleanup_service import run_cleanup
-from appkit_assistant.backend.services.openai_client_service import (
+from appkit_commons.ai.openai_client_service import (
     OpenAIClientService,
 )
 from appkit_commons.database.session import get_asyncdb_session

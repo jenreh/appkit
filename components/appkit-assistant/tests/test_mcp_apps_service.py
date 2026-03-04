@@ -94,7 +94,6 @@ class TestInit:
         service = McpAppsService()
         assert service._token_service is None
         assert service._tool_cache == {}
-        assert service._apps_support_cache == {}
 
     def test_with_token_service(self) -> None:
         token_service = MagicMock()
@@ -283,15 +282,20 @@ class TestDiscoverUiTools:
             time.monotonic() - 400,
         )
 
-        with patch.object(
-            service,
-            "_fetch_ui_tools",
-            new_callable=AsyncMock,
-            return_value=[],
-        ) as mock_fetch:
+        with (
+            patch.object(
+                service,
+                "_list_ui_tools",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as mock_list,
+            patch.object(service, "_connect_for_apps") as mock_connect,
+        ):
+            mock_connect.return_value.__aenter__.return_value = AsyncMock()
+
             result = await service.discover_ui_tools(_make_server(), user_id=1)
             assert result == []
-            mock_fetch.assert_called_once()
+            mock_list.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handles_connection_error(self) -> None:
@@ -299,8 +303,7 @@ class TestDiscoverUiTools:
 
         with patch.object(
             service,
-            "_fetch_ui_tools",
-            new_callable=AsyncMock,
+            "_connect_for_apps",
             side_effect=ConnectionError("fail"),
         ):
             result = await service.discover_ui_tools(_make_server(), user_id=1)
@@ -318,12 +321,17 @@ class TestDiscoverUiTools:
             )
         ]
 
-        with patch.object(
-            service,
-            "_fetch_ui_tools",
-            new_callable=AsyncMock,
-            return_value=tools,
+        with (
+            patch.object(
+                service,
+                "_list_ui_tools",
+                new_callable=AsyncMock,
+                return_value=tools,
+            ),
+            patch.object(service, "_connect_for_apps") as mock_connect,
         ):
+            mock_connect.return_value.__aenter__.return_value = AsyncMock()
+
             result = await service.discover_ui_tools(_make_server(), user_id=1)
             assert len(result) == 1
             # Verify cache was populated
@@ -374,7 +382,7 @@ class TestFetchUiTools:
             mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
             mock_session_cls.return_value = mock_session_ctx
 
-            result = await service._fetch_ui_tools(server, {})
+            result = await service.discover_ui_tools(server, 1)
 
         assert len(result) == 1
         assert result[0].tool_name == "qr_code"
@@ -414,7 +422,7 @@ class TestFetchUiTools:
             mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
             mock_session_cls.return_value = mock_session_ctx
 
-            result = await service._fetch_ui_tools(server, {})
+            result = await service.discover_ui_tools(server, 1)
 
         assert result == []
 
@@ -685,84 +693,30 @@ class TestIsAppsSupported:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_returns_cached_result(self) -> None:
-        service = McpAppsService()
-        service._apps_support_cache[(1, 1)] = (
-            True,
-            time.monotonic(),
-        )
-
-        result = await service.is_apps_supported(_make_server(), user_id=1)
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_returns_cached_false(self) -> None:
-        service = McpAppsService()
-        service._apps_support_cache[(1, 1)] = (
-            False,
-            time.monotonic(),
-        )
-
-        result = await service.is_apps_supported(_make_server(), user_id=1)
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_expired_cache_triggers_recheck(self) -> None:
-        service = McpAppsService()
-        service._apps_support_cache[(1, 1)] = (
-            True,
-            time.monotonic() - 400,
-        )
-
-        with patch.object(
-            service,
-            "discover_ui_tools",
-            new_callable=AsyncMock,
-            return_value=[],
-        ):
-            result = await service.is_apps_supported(_make_server(), user_id=1)
-            assert result is False
-
-    @pytest.mark.asyncio
-    async def test_checks_ui_tools(self) -> None:
+    async def test_returns_true_if_tools_found(self) -> None:
         service = McpAppsService()
 
         with patch.object(
-            service,
-            "discover_ui_tools",
-            new_callable=AsyncMock,
-            return_value=[
+            service, "discover_ui_tools", new_callable=AsyncMock
+        ) as mock_disc:
+            mock_disc.return_value = [
                 McpAppToolInfo(
-                    tool_name="tool",
-                    resource_uri="ui://test",
-                    server_id=1,
-                    server_label="Test",
+                    tool_name="x", resource_uri="y", server_id=1, server_label="z"
                 )
-            ],
-        ):
+            ]
             result = await service.is_apps_supported(_make_server(), user_id=1)
             assert result is True
-            # Verify result is cached
-            assert (1, 1) in service._apps_support_cache
-            cached_val, _ = service._apps_support_cache[(1, 1)]
-            assert cached_val is True
 
     @pytest.mark.asyncio
-    async def test_caches_false_when_no_tools(self) -> None:
+    async def test_returns_false_if_no_tools(self) -> None:
         service = McpAppsService()
 
         with patch.object(
-            service,
-            "discover_ui_tools",
-            new_callable=AsyncMock,
-            return_value=[],
-        ):
+            service, "discover_ui_tools", new_callable=AsyncMock
+        ) as mock_disc:
+            mock_disc.return_value = []
             result = await service.is_apps_supported(_make_server(), user_id=1)
             assert result is False
-            # Verify False is cached
-            assert (1, 1) in service._apps_support_cache
-            cached_val, _ = service._apps_support_cache[(1, 1)]
-            assert cached_val is False
 
 
 # ============================================================================

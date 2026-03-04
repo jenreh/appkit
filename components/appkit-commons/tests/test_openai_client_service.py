@@ -8,9 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from appkit_assistant.backend.services.openai_client_service import (
+from appkit_commons.ai.openai_client_service import (
     OpenAIClientService,
-    _build_client,
     get_openai_client_service,
 )
 
@@ -21,15 +20,19 @@ from appkit_assistant.backend.services.openai_client_service import (
 
 class TestBuildClient:
     def test_standard_client(self) -> None:
-        client = _build_client("sk-test", None, False)
+        client = OpenAIClientService._build_client("sk-test", None, False)
         assert client is not None
 
     def test_custom_base_url(self) -> None:
-        client = _build_client("sk-test", "https://custom.api.com", False)
+        client = OpenAIClientService._build_client(
+            "sk-test", "https://custom.api.com", False
+        )
         assert client is not None
 
     def test_azure_client(self) -> None:
-        client = _build_client("key", "https://myazure.openai.azure.com", True)
+        client = OpenAIClientService._build_client(
+            "key", "https://myazure.openai.azure.com", True
+        )
         assert client is not None
 
 
@@ -175,7 +178,7 @@ class TestGetOpenaiClientService:
     def test_returns_service_from_registry(self) -> None:
         svc = OpenAIClientService(api_key="sk-test")
         with patch(
-            "appkit_assistant.backend.services.openai_client_service.service_registry"
+            "appkit_commons.ai.openai_client_service.service_registry"
         ) as mock_reg:
             mock_reg.return_value.get.return_value = svc
             result = get_openai_client_service()
@@ -183,7 +186,7 @@ class TestGetOpenaiClientService:
 
     def test_returns_default_when_not_registered(self) -> None:
         with patch(
-            "appkit_assistant.backend.services.openai_client_service.service_registry"
+            "appkit_commons.ai.openai_client_service.service_registry"
         ) as mock_reg:
             mock_reg.return_value.get.side_effect = KeyError
             result = get_openai_client_service()

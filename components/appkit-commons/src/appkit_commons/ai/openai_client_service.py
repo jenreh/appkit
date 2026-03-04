@@ -52,6 +52,63 @@ class OpenAIClientService:
         self._base_url = base_url
         self._on_azure = on_azure
 
+    @staticmethod
+    def _build_client(
+        api_key: str,
+        base_url: str | None,
+        on_azure: bool,
+    ) -> AsyncOpenAI:
+        """Build an AsyncOpenAI client from explicit credentials.
+
+        Args:
+            api_key: API key (required).
+            base_url: Optional base URL override.
+            on_azure: Whether to use Azure OpenAI endpoint conventions.
+
+        Returns:
+            Configured AsyncOpenAI client.
+        """
+        # Extended timeout for long LLM operations like BPMN generation (60+ seconds).
+        # OpenAI SDK accepts timeout directly via httpx.Timeout object.
+        # - connect: 10s (TCP connection establishment)
+        # - read: 600s (full request/response for complex LLM operations)
+        # - write: 60s (request body upload)
+        # - pool: 10s (connection pool timeout)
+        timeout = httpx.Timeout(
+            timeout=600.0,  # Overall timeout fallback
+            connect=10.0,  # TCP connection
+            read=600.0,  # Receiving response
+            write=60.0,  # Sending request
+            pool=10.0,  # Connection pool
+        )
+
+        if base_url and on_azure:
+            logger.debug("Creating Azure OpenAI client with extended timeout")
+            logger.debug(
+                "Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s"
+            )
+            return AsyncOpenAI(
+                api_key=api_key,
+                base_url=f"{base_url}/openai/v1",
+                default_query={"api-version": "preview"},
+                timeout=timeout,
+            )
+        if base_url:
+            logger.debug(
+                "Creating OpenAI client with custom base URL and extended timeout"
+            )
+            logger.debug(
+                "Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s"
+            )
+            return AsyncOpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                timeout=timeout,
+            )
+        logger.debug("Creating standard OpenAI client with extended timeout")
+        logger.debug("Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s")
+        return AsyncOpenAI(api_key=api_key, timeout=timeout)
+
     @classmethod
     def from_config(cls) -> "OpenAIClientService":
         """Deprecated: use the service registry instance set by AIModelRegistry."""
@@ -61,18 +118,6 @@ class OpenAIClientService:
     def is_available(self) -> bool:
         """Check if the service is properly configured with an API key."""
         return self._api_key is not None
-
-    def create_client(self) -> AsyncOpenAI | None:
-        """Create an AsyncOpenAI client with the configured settings.
-
-        Returns:
-            Configured AsyncOpenAI client, or None if API key is not available.
-        """
-        if not self._api_key:
-            logger.warning("OpenAI API key not configured")
-            return None
-
-        return _build_client(self._api_key, self._base_url, self._on_azure)
 
     @staticmethod
     async def create_client_for_model(
@@ -102,7 +147,9 @@ class OpenAIClientService:
                 if not model or not model.api_key:
                     logger.warning("No API key for model %s", ai_model)
                     return None
-                return _build_client(model.api_key, model.base_url, model.on_azure)
+                return OpenAIClientService._build_client(
+                    model.api_key, model.base_url, model.on_azure
+                )
         except Exception as e:
             logger.error(
                 "Failed to create client for model %s: %s",
@@ -111,56 +158,19 @@ class OpenAIClientService:
             )
             return None
 
+    def create_client(self) -> AsyncOpenAI | None:
+        """Create an AsyncOpenAI client with the configured settings.
 
-def _build_client(
-    api_key: str,
-    base_url: str | None,
-    on_azure: bool,
-) -> AsyncOpenAI:
-    """Build an AsyncOpenAI client from explicit credentials.
+        Returns:
+            Configured AsyncOpenAI client, or None if API key is not available.
+        """
+        if not self._api_key:
+            logger.warning("OpenAI API key not configured")
+            return None
 
-    Args:
-        api_key: API key (required).
-        base_url: Optional base URL override.
-        on_azure: Whether to use Azure OpenAI endpoint conventions.
-
-    Returns:
-        Configured AsyncOpenAI client.
-    """
-    # Extended timeout for long LLM operations like BPMN generation (60+ seconds).
-    # OpenAI SDK accepts timeout directly via httpx.Timeout object.
-    # - connect: 10s (TCP connection establishment)
-    # - read: 600s (full request/response for complex LLM operations)
-    # - write: 60s (request body upload)
-    # - pool: 10s (connection pool timeout)
-    timeout = httpx.Timeout(
-        timeout=600.0,  # Overall timeout fallback
-        connect=10.0,  # TCP connection
-        read=600.0,  # Receiving response
-        write=60.0,  # Sending request
-        pool=10.0,  # Connection pool
-    )
-
-    if base_url and on_azure:
-        logger.debug("Creating Azure OpenAI client with extended timeout")
-        logger.debug("Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s")
-        return AsyncOpenAI(
-            api_key=api_key,
-            base_url=f"{base_url}/openai/v1",
-            default_query={"api-version": "preview"},
-            timeout=timeout,
+        return OpenAIClientService._build_client(
+            self._api_key, self._base_url, self._on_azure
         )
-    if base_url:
-        logger.debug("Creating OpenAI client with custom base URL and extended timeout")
-        logger.debug("Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s")
-        return AsyncOpenAI(
-            api_key=api_key,
-            base_url=base_url,
-            timeout=timeout,
-        )
-    logger.debug("Creating standard OpenAI client with extended timeout")
-    logger.debug("Timeout: connect=10s, read=600s, write=60s, pool=10s, total=600s")
-    return AsyncOpenAI(api_key=api_key, timeout=timeout)
 
 
 def get_openai_client_service() -> OpenAIClientService:

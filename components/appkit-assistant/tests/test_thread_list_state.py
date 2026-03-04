@@ -333,7 +333,7 @@ class TestCleanupOpenAIFiles:
 
         # Locally imported inside cleanup_thread_openai_files
         with patch(
-            "appkit_assistant.backend.services.openai_client_service.get_openai_client_service",
+            "appkit_commons.ai.openai_client_service.get_openai_client_service",
         ) as mock_svc:
             mock_svc.return_value.is_available = False
             chunks = [c async for c in fn(state, ["file-1"], None)]
@@ -351,7 +351,7 @@ class TestCleanupOpenAIFiles:
         # Both are locally imported inside cleanup_thread_openai_files
         with (
             patch(
-                "appkit_assistant.backend.services.openai_client_service.get_openai_client_service",
+                "appkit_commons.ai.openai_client_service.get_openai_client_service",
             ) as mock_svc,
             patch(
                 "appkit_assistant.backend.services.file_upload_service.FileUploadService",
@@ -375,8 +375,7 @@ class TestCleanupOpenAIFiles:
         fn = _unwrap("cleanup_thread_openai_files")
 
         with patch(
-            "appkit_assistant.backend.services.openai_client_service"
-            ".get_openai_client_service",
+            "appkit_commons.ai.openai_client_service.get_openai_client_service",
         ) as mock_svc:
             mock_svc.return_value.is_available = True
             mock_svc.return_value.create_client.return_value = None
@@ -392,8 +391,7 @@ class TestCleanupOpenAIFiles:
         mock_client = MagicMock()
         with (
             patch(
-                "appkit_assistant.backend.services.openai_client_service"
-                ".get_openai_client_service",
+                "appkit_commons.ai.openai_client_service.get_openai_client_service",
             ) as mock_svc,
             patch(
                 "appkit_assistant.backend.services.file_upload_service"
@@ -418,8 +416,7 @@ class TestCleanupOpenAIFiles:
         mock_client = MagicMock()
         with (
             patch(
-                "appkit_assistant.backend.services.openai_client_service"
-                ".get_openai_client_service",
+                "appkit_commons.ai.openai_client_service.get_openai_client_service",
             ) as mock_svc,
             patch(
                 "appkit_assistant.backend.services.file_upload_service"

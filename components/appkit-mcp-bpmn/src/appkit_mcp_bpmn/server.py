@@ -15,6 +15,9 @@ from typing import Any
 from fastmcp import FastMCP
 from fastmcp.server.apps import AppConfig, ResourceCSP
 
+from appkit_commons.ai.openai_client_service import (
+    get_openai_client_service,
+)
 from appkit_mcp_bpmn.configuration import BPMNConfig
 from appkit_mcp_bpmn.models import DiagramResult
 from appkit_mcp_bpmn.resources.bpmn_viewer import BPMN_VIEWER_HTML, VIEW_URI
@@ -240,10 +243,6 @@ def _get_openai_client() -> Any:
         AsyncOpenAI client instance or None.
     """
     try:
-        from appkit_assistant.backend.services.openai_client_service import (  # noqa: PLC0415
-            get_openai_client_service,
-        )
-
         service = get_openai_client_service()
         return service.create_client()
     except Exception as e:

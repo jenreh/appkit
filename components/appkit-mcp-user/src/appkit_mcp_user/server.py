@@ -10,6 +10,9 @@ from typing import Any
 
 from fastmcp import FastMCP
 
+from appkit_commons.ai.openai_client_service import (
+    get_openai_client_service,
+)
 from appkit_commons.registry import service_registry
 from appkit_mcp_commons.context import (
     UserContext,
@@ -128,10 +131,6 @@ def _get_openai_client() -> Any:
         AsyncOpenAI client instance or None.
     """
     try:
-        from appkit_assistant.backend.services.openai_client_service import (  # noqa: PLC0415
-            get_openai_client_service,
-        )
-
         service = get_openai_client_service()
         return service.create_client()
     except Exception as e:
