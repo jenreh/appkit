@@ -12,8 +12,51 @@ CHART_HTML = f"""\
 <title>Chart View</title>
 <script src="{_PLOTLY_CDN}"></script>
 <style>
-html, body {{ margin:0; padding:0; width:100%; height:100%; }}
-#chart {{ width:100%; height:100%; }}
+:root {{
+  /* Light mode (default) */
+  --bg-primary: #fff;
+  --text-primary: #333;
+  --border-color: #e0e0e0;
+}}
+
+@media (prefers-color-scheme: dark) {{
+  :root {{
+    /* Dark mode */
+    --bg-primary: #0d0d0d;
+    --text-primary: #e0e0e0;
+    --border-color: #333;
+  }}
+}}
+
+html, body {{
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background 0.2s, color 0.2s;
+}}
+#chart {{
+  width: 100%;
+  height: 100%;
+}}
+
+/* Plotly modebar dark mode */
+@media (prefers-color-scheme: dark) {{
+  .modebar-btn svg {{
+    fill: #a0a0a0 !important;
+  }}
+  .modebar-btn:hover svg {{
+    fill: #e0e0e0 !important;
+  }}
+  .modebar-btn.active svg {{
+    fill: #fff !important;
+  }}
+  .modebar {{
+    background: rgba(255,255,255,0.05) !important;
+  }}
+}}
 </style>
 </head>
 <body>
@@ -21,6 +64,14 @@ html, body {{ margin:0; padding:0; width:100%; height:100%; }}
 <script>
 (function () {{
   var CHART = document.getElementById("chart");
+  var isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  var darkModeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+  // Listen for theme changes
+  darkModeQuery.addListener(function (e) {{
+    isDarkMode = e.matches;
+    applyPlotlyTemplate();
+  }});
 
   // Send ui/initialize handshake to host
   window.parent.postMessage({{
@@ -60,9 +111,57 @@ html, body {{ margin:0; padding:0; width:100%; height:100%; }}
         s.textContent = old.textContent;
         old.parentNode.replaceChild(s, old);
       }});
+      // Apply Plotly template after chart renders
+      if (window.Plotly) {{
+        setTimeout(function () {{
+          applyPlotlyTemplate();
+        }}, 300);
+      }}
       reportSize();
     }} catch (e) {{
       CHART.innerHTML = "<p>Error: " + e.message + "</p>";
+    }}
+  }}
+
+  function applyPlotlyTemplate() {{
+    // Find Plotly graph divs - they have class "js-plotly-plot"
+    var gd = CHART.querySelector(".js-plotly-plot");
+    if (!gd || !window.Plotly) return;
+    var bg = isDarkMode ? "#111" : "#fff";
+    var fg = isDarkMode ? "#e0e0e0" : "#333";
+    var grid = isDarkMode ? "#333" : "#eee";
+    var modebarBg = isDarkMode
+      ? "rgba(255,255,255,0.05)"
+      : "rgba(0,0,0,0.05)";
+    var modebarFg = isDarkMode
+      ? "rgba(255,255,255,0.5)"
+      : "rgba(0,0,0,0.5)";
+    var modebarActive = isDarkMode
+      ? "rgba(255,255,255,0.9)"
+      : "rgba(0,0,0,0.9)";
+    try {{
+      window.Plotly.relayout(gd, {{
+        "paper_bgcolor": bg,
+        "plot_bgcolor": bg,
+        "font.color": fg,
+        "title.font.color": fg,
+        "xaxis.gridcolor": grid,
+        "yaxis.gridcolor": grid,
+        "xaxis.zerolinecolor": grid,
+        "yaxis.zerolinecolor": grid,
+        "xaxis.linecolor": grid,
+        "yaxis.linecolor": grid,
+        "xaxis.tickfont.color": fg,
+        "yaxis.tickfont.color": fg,
+        "xaxis.title.font.color": fg,
+        "yaxis.title.font.color": fg,
+        "legend.font.color": fg,
+        "modebar.bgcolor": modebarBg,
+        "modebar.color": modebarFg,
+        "modebar.activecolor": modebarActive
+      }});
+    }} catch (e) {{
+      console.warn("Plotly relayout failed:", e);
     }}
   }}
 
