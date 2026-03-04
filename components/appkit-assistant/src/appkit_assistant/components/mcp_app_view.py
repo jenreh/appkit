@@ -45,6 +45,7 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
                     theme=rx.color_mode_cond(light="light", dark="dark"),
                     prefers_border=True,
                     backend_url=rx.config.get_config().api_url,
+                    key=view_data.id,
                 ),
             ),
             w="100%",
@@ -52,4 +53,5 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
             shadow="sm",
         ),
         gap="3px",
+        key=view_data.id,
     )

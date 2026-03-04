@@ -33,19 +33,16 @@ async def test_generate_raises_without_client() -> None:
 
 
 @pytest.mark.asyncio
-async def test_generate_calls_openai_parse() -> None:
-    """generate() uses structured output via beta.chat.completions.parse."""
+async def test_generate_calls_openai_responses() -> None:
+    """generate() uses responses.parse() API with text_format."""
     gen = BPMNGenerator()
 
-    mock_message = MagicMock()
-    mock_message.parsed = SIMPLE_PROCESS
-    mock_message.refusal = None
+    # Mock response.output_parsed
     mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message = mock_message
+    mock_response.output_parsed = SIMPLE_PROCESS
 
     mock_client = AsyncMock()
-    mock_client.beta.chat.completions.parse = AsyncMock(
+    mock_client.responses.parse = AsyncMock(
         return_value=mock_response,
     )
 
@@ -54,48 +51,43 @@ async def test_generate_calls_openai_parse() -> None:
     assert isinstance(result, BpmnProcessJson)
     assert len(result.process) == 3
     assert result.process[0].type == "startEvent"
-    mock_client.beta.chat.completions.parse.assert_called_once()
+    mock_client.responses.parse.assert_called_once()
 
-    call_args = mock_client.beta.chat.completions.parse.call_args
+    call_args = mock_client.responses.parse.call_args
     assert call_args.kwargs["model"] == "gpt-4o"
-    assert call_args.kwargs["response_format"] is BpmnProcessJson
+    assert "input" in call_args.kwargs
+    assert call_args.kwargs["text_format"] is BpmnProcessJson
 
 
 @pytest.mark.asyncio
-async def test_generate_refusal() -> None:
-    """generate() raises RuntimeError when the LLM refuses."""
+async def test_generate_empty_output() -> None:
+    """generate() raises RuntimeError when output_parsed is None."""
     gen = BPMNGenerator()
 
-    mock_message = MagicMock()
-    mock_message.parsed = None
-    mock_message.refusal = "I cannot generate that diagram"
     mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message = mock_message
+    mock_response.output_parsed = None
 
     mock_client = AsyncMock()
-    mock_client.beta.chat.completions.parse = AsyncMock(
+    mock_client.responses.parse = AsyncMock(
         return_value=mock_response,
     )
 
-    with pytest.raises(RuntimeError, match="refused"):
+    with pytest.raises(RuntimeError, match="empty structured response"):
         await gen.generate("Bad workflow", client=mock_client)
 
 
 @pytest.mark.asyncio
-async def test_generate_empty_parsed() -> None:
-    """generate() raises RuntimeError when parsed result is None."""
+async def test_generate_invalid_json() -> None:
+    """generate() raises RuntimeError when Pydantic validation fails."""
     gen = BPMNGenerator()
 
-    mock_message = MagicMock()
-    mock_message.parsed = None
-    mock_message.refusal = None
+    # Mock a response with invalid data that fails Pydantic validation
     mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message = mock_message
+    # Return something that's not a valid BpmnProcessJson
+    mock_response.output_parsed = None
 
     mock_client = AsyncMock()
-    mock_client.beta.chat.completions.parse = AsyncMock(
+    mock_client.responses.parse = AsyncMock(
         return_value=mock_response,
     )
 
@@ -109,7 +101,7 @@ async def test_generate_llm_exception() -> None:
     gen = BPMNGenerator()
 
     mock_client = AsyncMock()
-    mock_client.beta.chat.completions.parse = AsyncMock(
+    mock_client.responses.parse = AsyncMock(
         side_effect=Exception("API error"),
     )
 
@@ -122,21 +114,17 @@ async def test_generate_uses_diagram_type() -> None:
     """generate() includes diagram_type in the prompt."""
     gen = BPMNGenerator()
 
-    mock_message = MagicMock()
-    mock_message.parsed = SIMPLE_PROCESS
-    mock_message.refusal = None
     mock_response = MagicMock()
-    mock_response.choices = [MagicMock()]
-    mock_response.choices[0].message = mock_message
+    mock_response.output_parsed = SIMPLE_PROCESS
 
     mock_client = AsyncMock()
-    mock_client.beta.chat.completions.parse = AsyncMock(
+    mock_client.responses.parse = AsyncMock(
         return_value=mock_response,
     )
 
     await gen.generate("Test", diagram_type="collaboration", client=mock_client)
 
-    call_args = mock_client.beta.chat.completions.parse.call_args
-    messages = call_args.kwargs["messages"]
+    call_args = mock_client.responses.parse.call_args
+    messages = call_args.kwargs["input"]
     user_msg = messages[1]["content"]
     assert "collaboration" in user_msg

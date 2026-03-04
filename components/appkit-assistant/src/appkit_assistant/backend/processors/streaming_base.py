@@ -117,7 +117,7 @@ class StreamingProcessorBase(ProcessorBase, ABC):
         if handler:
             return handler(event)
 
-        logger.debug("Unhandled event type: %s", event_type)
+        # logger.debug("Unhandled event type: %s", event_type)
         return None
 
     async def _process_stream_with_cancellation(

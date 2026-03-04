@@ -86,3 +86,11 @@ loggers:
     level: WARNING
     handlers: [console]
     propagate: 0
+  mcp.server:
+    level: WARNING
+    handlers: [console]
+    propagate: 0
+  mcp.client:
+    level: WARNING
+    handlers: [console]
+    propagate: 0

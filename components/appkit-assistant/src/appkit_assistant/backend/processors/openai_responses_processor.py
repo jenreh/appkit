@@ -313,7 +313,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         }:
             return None
 
-        logger.debug("Unhandled event type: %s", event_type)
+        # logger.debug("Unhandled event type: %s", event_type)
         return None
 
     def _handle_search_events(self, event_type: str, event: Any) -> Chunk | None:

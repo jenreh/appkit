@@ -27,12 +27,56 @@ BPMN_VIEWER_HTML = f"""\
 ></script>
 <script src="{_LUCIDE_CDN}"></script>
 <style>
+:root {{
+  /* Light mode (default) */
+  --bg-primary: #fff;
+  --bg-secondary: #fafafa;
+  --text-primary: #333;
+  --text-secondary: #666;
+  --border-color: #e0e0e0;
+  --border-color-secondary: #dee2e6;
+  --button-hover: rgba(0, 0, 0, 0.06);
+  --error-bg: #fff5f5;
+  --error-text: #c92a2a;
+  --error-text-secondary: #862e2e;
+  --error-border: #e03131;
+  --loading-text: rgb(0, 144, 255);
+  --canvas-bg: #fff;
+  --diagram-text: #000;
+  --diagram-stroke: #000;
+  --diagram-fill: #fff;
+}}
+
+@media (prefers-color-scheme: dark) {{
+  :root {{
+    /* Dark mode */
+    --bg-primary: #0d0d0d;
+    --bg-secondary: #1a1a1a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --border-color: #333;
+    --border-color-secondary: #444;
+    --button-hover: rgba(255, 255, 255, 0.08);
+    --error-bg: #2d1515;
+    --error-text: #ff6b6b;
+    --error-text-secondary: #ff9999;
+    --error-border: #c92a2a;
+    --loading-text: #4da6ff;
+    --canvas-bg: #1a1a1a;
+    --diagram-text: #e0e0e0;
+    --diagram-stroke: #ccc;
+    --diagram-fill: #2a2a2a;
+  }}
+}}
+
 html, body {{
   margin: 0;
   padding: 0;
   width: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #fff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background 0.2s, color 0.2s;
 }}
 #canvas {{
   width: 816px;
@@ -47,8 +91,8 @@ html, body {{
   padding: 8px 16px;
   height: 48px;
   box-sizing: border-box;
-  border-bottom: 1px solid #e0e0e0;
-  background: #fafafa;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -62,40 +106,40 @@ html, body {{
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #333;
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s;
   white-space: nowrap;
 }}
 #toolbar button:hover {{
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--button-hover);
 }}
 #toolbar button svg {{
   width: 18px;
   height: 18px;
   stroke-width: 1;
-  color: #333;
+  color: var(--text-primary);
 }}
 .toolbar-separator {{
   width: 1px;
   height: 24px;
-  background: #dee2e6;
+  background: var(--border-color-secondary);
   margin: 0 4px;
 }}
 #status {{
   flex: 1;
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
 }}
 #error-box {{
   display: none;
   margin: 24px;
   padding: 24px 32px;
-  border: 1px solid #e03131;
+  border: 1px solid var(--error-border);
   border-radius: 8px;
-  background: #fff5f5;
-  color: #c92a2a;
+  background: var(--error-bg);
+  color: var(--error-text);
   font-size: 15px;
   line-height: 1.5;
   text-align: left;
@@ -109,7 +153,7 @@ html, body {{
   gap: 8px;
 }}
 #error-box .error-detail {{
-  color: #862e2e;
+  color: var(--error-text-secondary);
   word-break: break-word;
 }}
 body.maximized {{
@@ -120,6 +164,146 @@ body.maximized #canvas {{
   width: 100vw;
   height: calc(100vh - 48px);
 }}
+
+/* Canvas and diagram styling for dark mode */
+#canvas {{
+  background: var(--canvas-bg);
+}}
+
+#canvas svg {{
+  background: var(--canvas-bg);
+}}
+
+#canvas text {{
+  fill: var(--diagram-text);
+  color: var(--diagram-text);
+}}
+
+#canvas .djs-shape {{
+  stroke: var(--diagram-stroke);
+}}
+
+#canvas .djs-connection > .djs-visual > polyline {{
+  stroke: var(--diagram-stroke);
+}}
+
+#canvas tspan {{
+  fill: var(--diagram-text);
+}}
+
+/* BPMN element styles for dark mode */
+@media (prefers-color-scheme: dark) {{
+  /* Shape styling - all BPMN shapes */
+  #canvas .djs-shape > .djs-visual {{
+    fill: var(--diagram-fill) !important;
+    stroke: var(--diagram-stroke) !important;
+  }}
+  #canvas .djs-shape:not(.djs-frame) > .djs-visual circle,
+  #canvas .djs-shape:not(.djs-frame) > .djs-visual ellipse,
+  #canvas .djs-shape:not(.djs-frame) > .djs-visual path,
+  #canvas .djs-shape:not(.djs-frame) > .djs-visual polygon,
+  #canvas .djs-shape:not(.djs-frame) > .djs-visual rect {{
+    fill: var(--diagram-fill) !important;
+    stroke: var(--diagram-stroke) !important;
+  }}
+  /* Connection lines */
+  #canvas .djs-connection > .djs-visual > path,
+  #canvas .djs-connection > .djs-visual > polyline {{
+    stroke: var(--diagram-stroke) !important;
+  }}
+  /* Arrowhead markers */
+  #canvas svg defs marker path,
+  #canvas svg defs marker polygon,
+  #canvas svg marker path,
+  #canvas svg marker polygon {{
+    fill: var(--diagram-stroke) !important;
+    stroke: var(--diagram-stroke) !important;
+  }}
+  /* All text in canvas - remove white stroke halo */
+  #canvas .djs-label text,
+  #canvas text,
+  #canvas tspan {{
+    fill: var(--diagram-text) !important;
+    stroke: none !important;
+    stroke-width: 0 !important;
+    paint-order: normal !important;
+    filter: none !important;
+  }}
+  /* Remove white background rects behind labels */
+  #canvas .djs-label .djs-visual rect,
+  #canvas .djs-label rect {{
+    fill: transparent !important;
+    stroke: none !important;
+  }}
+  /* Remove any SVG text filters (white halos) */
+  #canvas svg defs filter {{
+    display: none !important;
+  }}
+  #canvas .djs-element.selected > .djs-visual {{
+    stroke: #4da6ff !important;
+  }}
+  /* Palette styling - container */
+  .djs-palette {{
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+  }}
+  /* Palette entries use bpmn-font (icon font, not SVG) */
+  .djs-palette .entry,
+  .djs-palette .djs-palette-entries .entry,
+  .djs-palette-entry,
+  .djs-palette [class*="entry"] {{
+    color: var(--text-primary) !important;
+    background: transparent !important;
+  }}
+  .djs-palette .entry:hover,
+  .djs-palette-entry:hover {{
+    background: var(--button-hover) !important;
+  }}
+  /* Palette separator */
+  .djs-palette .separator,
+  .djs-palette hr {{
+    border-color: var(--border-color) !important;
+  }}
+  /* Palette icons - both font icons and any SVG icons */
+  .djs-palette .entry svg,
+  .djs-palette-entry svg {{
+    color: var(--text-primary) !important;
+  }}
+  .djs-palette .entry svg *,
+  .djs-palette-entry svg * {{
+    stroke: var(--text-primary) !important;
+    fill: none !important;
+  }}
+  /* Context pad */
+  .djs-popup,
+  .djs-context-pad {{
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  }}
+  .djs-context-pad .entry,
+  .djs-context-pad-item {{
+    color: var(--text-primary) !important;
+    background: var(--bg-secondary) !important;
+  }}
+  .djs-context-pad .entry:hover,
+  .djs-context-pad-item:hover {{
+    background: var(--button-hover) !important;
+  }}
+  .djs-context-pad .entry svg *,
+  .djs-context-pad-item svg * {{
+    color: var(--text-primary) !important;
+    fill: none !important;
+    stroke: var(--text-primary) !important;
+  }}
+  /* Connection preview */
+  #canvas .djs-connection.djs-preview > .djs-visual > polyline {{
+    stroke: var(--diagram-stroke) !important;
+    opacity: 0.6;
+  }}
+}}
+
 </style>
 </head>
 <body>
@@ -148,7 +332,7 @@ body.maximized #canvas {{
 <div id="error-box"></div>
 <div id="loading-box"
  style="display:flex;align-items:center;justify-content:center;
- height:300px;font-size:18px;color:rgb(0, 144, 255);">
+ height:300px;font-size:18px;color:var(--loading-text);">
  BPMN loading&hellip;</div>
 
 <script>
@@ -337,6 +521,7 @@ body.maximized #canvas {{
         }}
         diagramRendered = true;
         STATUS.textContent = "Diagram loaded";
+        applyDarkModeToSvg();
         reportSize();
       }})
       .catch(function (err) {{
@@ -419,6 +604,85 @@ body.maximized #canvas {{
       y: vb.y - padTop,
       width: vb.width + padLeft + padRight,
       height: vb.height + padTop + padBottom
+    }});
+  }}
+
+  function applyDarkModeToSvg() {{
+    if (!window.matchMedia ||
+        !window.matchMedia("(prefers-color-scheme: dark)").matches) {{
+      return;
+    }}
+    var strokeColor = "#ccc";
+    var fillColor = "#2a2a2a";
+    var textColor = "#e0e0e0";
+
+    /* Style all SVG markers (arrowheads) */
+    var svgEl = document.querySelector("#canvas svg");
+    if (!svgEl) return;
+
+    svgEl.querySelectorAll("defs marker path, defs marker polygon")
+      .forEach(function(el) {{
+        el.setAttribute("fill", strokeColor);
+        el.setAttribute("stroke", strokeColor);
+      }});
+
+    /* Style connection lines (sequence flows, message flows) */
+    document.querySelectorAll(
+      "#canvas .djs-connection .djs-visual path, " +
+      "#canvas .djs-connection .djs-visual polyline"
+    ).forEach(function(el) {{
+      el.setAttribute("stroke", strokeColor);
+    }});
+
+    /* Style shape elements */
+    document.querySelectorAll(
+      "#canvas .djs-shape:not(.djs-frame) .djs-visual rect, " +
+      "#canvas .djs-shape:not(.djs-frame) .djs-visual circle, " +
+      "#canvas .djs-shape:not(.djs-frame) .djs-visual ellipse, " +
+      "#canvas .djs-shape:not(.djs-frame) .djs-visual polygon, " +
+      "#canvas .djs-shape:not(.djs-frame) .djs-visual path"
+    ).forEach(function(el) {{
+      var currentFill = el.getAttribute("fill");
+      if (currentFill && currentFill !== "none"
+          && currentFill !== "transparent") {{
+        el.setAttribute("fill", fillColor);
+      }}
+      el.setAttribute("stroke", strokeColor);
+    }});
+
+    /* Style text labels - remove white stroke halo */
+    document.querySelectorAll("#canvas text, #canvas tspan")
+      .forEach(function(el) {{
+        el.setAttribute("fill", textColor);
+        el.setAttribute("stroke", "none");
+        el.setAttribute("stroke-width", "0");
+        el.setAttribute("paint-order", "normal");
+        el.removeAttribute("filter");
+        el.style.filter = "none";
+        el.style.paintOrder = "normal";
+        el.style.stroke = "none";
+        el.style.strokeWidth = "0";
+      }});
+
+    /* Remove white background rects behind labels */
+    document.querySelectorAll(
+      "#canvas .djs-label rect, #canvas .djs-label .djs-visual rect"
+    ).forEach(function(el) {{
+      el.setAttribute("fill", "transparent");
+      el.setAttribute("stroke", "none");
+    }});
+
+    /* Disable SVG filters (white text halos) */
+    svgEl.querySelectorAll("defs filter").forEach(function(el) {{
+      el.setAttribute("width", "0");
+      el.setAttribute("height", "0");
+    }});
+
+    /* Style palette entries (bpmn-font icon font) */
+    document.querySelectorAll(
+      ".djs-palette .entry, .djs-palette-entry"
+    ).forEach(function(el) {{
+      el.style.color = textColor;
     }});
   }}
 

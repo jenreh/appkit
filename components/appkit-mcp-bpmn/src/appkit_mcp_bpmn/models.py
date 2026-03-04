@@ -128,19 +128,6 @@ class BpmnProcessJson(BaseModel):
         if not end_events:
             raise ValueError("At least one endEvent is required.")
 
-        # No endEvent inside a branch that uses has_join (dangling — flow
-        # continues after the merge gateway so the endEvent is unreachable).
-        for elem in self.process:
-            if elem.branches and elem.has_join:
-                for branch in elem.branches:
-                    for child in branch.path:
-                        if child.type == "endEvent":
-                            raise ValueError(
-                                f"endEvent '{child.id}' inside a branch of "
-                                f"gateway '{elem.id}' with has_join=true is "
-                                f"dangling — remove it or set has_join=false.",
-                            )
-
         return self
 
 

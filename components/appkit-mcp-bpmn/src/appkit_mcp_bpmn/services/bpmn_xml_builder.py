@@ -298,6 +298,7 @@ def _flatten_branches(
             )
 
             branch_prev: str | None = None
+            branch_prev_type: str | None = None
             for step in path:
                 flat.append(
                     {
@@ -314,11 +315,12 @@ def _flatten_branches(
                     flows.append(_flow(next_flow_id(), step["id"], step_target_ref))
 
                 branch_prev = step["id"]
+                branch_prev_type = step.get("type", "task")
 
             if target_ref:
                 if branch_prev:
                     flows.append(_flow(next_flow_id(), branch_prev, target_ref))
-            elif branch_prev:
+            elif branch_prev and branch_prev_type != "endEvent":
                 branch_end_ids.append(branch_prev)
 
         elif target_ref:

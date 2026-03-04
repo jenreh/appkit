@@ -472,15 +472,6 @@ class MessageProcessingMixin:
             if accumulator.auth_required:
                 self._handle_auth_required_from_accumulator(accumulator)
 
-            self.mcp_app_views = list(accumulator.mcp_app_views)
-
-            # Embed views into the last assistant message for persistence
-            if accumulator.mcp_app_views and self.messages:
-                for msg in reversed(self.messages):
-                    if msg.type == MessageType.ASSISTANT:
-                        msg.mcp_app_views = list(accumulator.mcp_app_views)
-                        break
-
             if not first_response_received and is_new_thread:
                 has_text = any(c.type == ChunkType.TEXT for c in chunks)
                 if has_text:
@@ -579,6 +570,15 @@ class MessageProcessingMixin:
             ]
             self._thread.skill_openai_ids = [s.openai_id for s in self.selected_skills]
 
+            # Embed only the LAST MCP App view into the message for persistence
+            # (only once, after response is complete, avoid showing multiple errors)
+            if accumulator.mcp_app_views and self.messages:
+                for msg in reversed(self.messages):
+                    if msg.type == MessageType.ASSISTANT:
+                        # Keep only the final/last view (typically the successful one)
+                        msg.mcp_app_views = [accumulator.mcp_app_views[-1]]
+                        break
+
             user_session: UserSession = await self.get_state(UserSession)
             user_id = user_session.user.user_id if user_session.user else None
             thread_copy = self._thread.model_copy()
@@ -630,6 +630,7 @@ class MessageProcessingMixin:
             self.cancellation_requested = False
             self.current_activity = ""
             self._cancel_event = None
+            self.mcp_app_views = []  # Clear state views after embedding
 
             if self._pending_file_cleanup:
                 pending_files = list(self._pending_file_cleanup)

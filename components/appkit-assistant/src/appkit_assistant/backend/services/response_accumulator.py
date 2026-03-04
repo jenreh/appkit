@@ -260,15 +260,15 @@ class ResponseAccumulator:
         else:
             display_name = tool_name
 
-        logger.debug(
-            "Tool chunk received: type=%s, tool_id=%s, tool_name=%s, "
-            "server_label=%s, display_name=%s",
-            chunk.type,
-            tool_id,
-            tool_name,
-            server_label,
-            display_name,
-        )
+        # logger.debug(
+        #     "Tool chunk received: type=%s, tool_id=%s, tool_name=%s, "
+        #     "server_label=%s, display_name=%s",
+        #     chunk.type,
+        #     tool_id,
+        #     tool_name,
+        #     server_label,
+        #     display_name,
+        # )
 
         # Only update activity display if we have a real tool name
         if (

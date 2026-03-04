@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 from openai import AsyncOpenAI
+from pydantic import ValidationError
 
 from appkit_mcp_bpmn.models import BpmnProcessJson
 
@@ -110,29 +111,37 @@ class BPMNGenerator:
         )
 
         try:
-            logger.info("Sending request to LLM (model=%s, json_mode=True)...", model)
-            response = await client.beta.chat.completions.parse(
+            logger.info(
+                "Sending request to LLM (model=%s, structured_output=True)...",
+                model,
+            )
+            response = await client.responses.parse(
                 model=model,
-                messages=[
+                input=[
                     {"role": "system", "content": self._system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format=BpmnProcessJson,
+                text_format=BpmnProcessJson,
             )
+
             logger.info("LLM request finished")
+
+        except ValidationError as exc:
+            # Pydantic schema/validator failed (most common in structured output setups)
+            logger.exception(
+                "LLM returned invalid BPMN JSON (schema validation failed)"
+            )
+            raise RuntimeError(
+                "LLM returned invalid BPMN JSON (schema validation failed)"
+            ) from exc
+
         except Exception as exc:
             logger.exception("LLM generation failed")
             raise RuntimeError("Failed to generate BPMN diagram via LLM") from exc
 
-        message = response.choices[0].message
-
-        if message.refusal:
-            raise RuntimeError(
-                "LLM refused to generate BPMN diagram: %s",
-                message.refusal,
-            )
-
-        if not message.parsed:
+        # ---- Extract parsed result ----
+        parsed = getattr(response, "output_parsed", None)
+        if parsed is None:
             raise RuntimeError("LLM returned empty structured response")
 
-        return message.parsed
+        return parsed

@@ -450,44 +450,9 @@ class ThreadState(
             for msg in full_thread.messages:
                 msg.done = True
 
+            # Populate with new thread content.
             async with self:
-                self._thread = full_thread
-                self.messages = full_thread.messages
-                self.selected_model = full_thread.ai_model
-                self.thinking_items = []
-                self.mcp_app_views = []
-                self._ui_tool_registry = {}
-                self.prompt = ""
-                self.web_search_enabled = False
-
-                model = ModelManager().get_model(full_thread.ai_model)
-
-                if model and model.supports_tools:
-                    self._restore_mcp_selection(full_thread.mcp_server_ids)
-                else:
-                    self._restore_mcp_selection([])
-
-                if model and model.supports_skills:
-                    self._restore_skill_selection(full_thread.skill_openai_ids or [])
-                else:
-                    self._restore_skill_selection([])
-
-                threadlist_state: ThreadListState = await self.get_state(
-                    ThreadListState
-                )
-                threadlist_state.threads = [
-                    ThreadModel(
-                        **{
-                            **t.model_dump(),
-                            "active": t.thread_id == thread_id,
-                        }
-                    )
-                    for t in threadlist_state.threads
-                ]
-                threadlist_state.active_thread_id = thread_id
-                threadlist_state.loading_thread_id = ""
-
-                logger.debug("Loaded thread: %s", thread_id)
+                await self._apply_loaded_thread(full_thread, thread_id)
             yield
 
         except Exception as e:
@@ -495,6 +460,50 @@ class ThreadState(
             async with self:
                 await self._stop_loading_state()
             yield
+
+    async def _apply_loaded_thread(
+        self, full_thread: ThreadModel, thread_id: str
+    ) -> None:
+        """Apply a loaded thread to the current state.
+
+        Must be called within an ``async with self`` block.
+        """
+        self._thread = full_thread
+        self.messages = full_thread.messages
+        self.selected_model = full_thread.ai_model
+        self.thinking_items = []
+        self.image_chunks = []
+        self.mcp_app_views = []
+        self._ui_tool_registry = {}
+        self.prompt = ""
+        self.web_search_enabled = False
+
+        model = ModelManager().get_model(full_thread.ai_model)
+
+        if model and model.supports_tools:
+            self._restore_mcp_selection(full_thread.mcp_server_ids)
+        else:
+            self._restore_mcp_selection([])
+
+        if model and model.supports_skills:
+            self._restore_skill_selection(full_thread.skill_openai_ids or [])
+        else:
+            self._restore_skill_selection([])
+
+        threadlist_state: ThreadListState = await self.get_state(ThreadListState)
+        threadlist_state.threads = [
+            ThreadModel(
+                **{
+                    **t.model_dump(),
+                    "active": t.thread_id == thread_id,
+                }
+            )
+            for t in threadlist_state.threads
+        ]
+        threadlist_state.active_thread_id = thread_id
+        threadlist_state.loading_thread_id = ""
+
+        logger.debug("Loaded thread: %s", thread_id)
 
     # -----------------------------------------------------------------
     # Prompt and simple setters

@@ -20,6 +20,6 @@ class BPMNConfig:
     """
 
     storage_dir: str = "uploaded_files"
-    default_model: str = "gpt-5-mini"
+    default_model: str = "gpt-5.3-codex"
     max_file_size_mb: int = 10
     diagram_types: list[str] = field(default_factory=lambda: list(VALID_DIAGRAM_TYPES))

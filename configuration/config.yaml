@@ -68,7 +68,7 @@ app:
 
   mcp_bpmn:
     storage_dir: ./uploaded_files
-    default_model: gpt-5-mini
+    default_model: gpt-5.3-codex
     max_file_size_mb: 10
     diagram_types:
       - process
