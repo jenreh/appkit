@@ -1,4 +1,4 @@
-"""BPMN component configuration."""
+"""MCP Image Generator component configuration."""
 
 from typing import Literal
 
@@ -25,8 +25,8 @@ class MCPTokenConfig(BaseConfig):
     """Configuration for MCP token authentication.
 
     Attributes:
-    id: Unique identifier for the token configuration.
-    token: MCPToken instance containing the token and its scopes.
+        id: Unique identifier for the token configuration.
+        token: MCPToken instance containing the token and its scopes.
     """
 
     id: str
@@ -48,9 +48,6 @@ class MCPImageGeneratorConfig(BaseConfig):
         google_prompt_optimizer: LLM model name for Google prompt optimization.
         google_image_model: LLM model name for Google image generation.
         google_api_key: Google API key for accessing Google services.
-        google_api_key: Google API key for accessing Google services.
-        google_prompt_optimizer: LLM model name for Google prompt optimization.
-        google_image_model: LLM model name for Google image generation.
     """
 
     backend_server: str = "http://localhost:8000"
