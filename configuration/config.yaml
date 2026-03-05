@@ -85,7 +85,7 @@ app:
     azure_api_key: secret:mn-azure-api-key
     azure_base_url: secret:mn-azure-endpoint
     azure_prompt_optimizer: "gpt-5-mini"
-    azure_image_model: "FLUX.1-Kontext-pro"
+    azure_image_model: "FLUX.1-Kontext-pro" # "gpt-image-1.5" | "gpt-image-1-mini"
 
     google_api_key: secret:mn-google-api-key
     google_prompt_optimizer: "gemini-3.1-flash-lite-preview"
