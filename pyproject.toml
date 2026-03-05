@@ -150,12 +150,6 @@ search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
-filename = "components/appkit-mcp-user/pyproject.toml"
-
-[[tool.bumpversion.files]]
-filename = "components/appkit-mcp-charts/pyproject.toml"
-
-[[tool.bumpversion.files]]
 filename = "components/appkit-mcp-commons/pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
