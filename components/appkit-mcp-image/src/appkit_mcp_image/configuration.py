@@ -1,4 +1,4 @@
-"""BPMN component configuration."""
+"""MCP Image Generator component configuration."""
 
 from typing import Literal
 
@@ -45,9 +45,6 @@ class MCPImageGeneratorConfig(BaseConfig):
         azure_image_model: LLM model name for Azure image generation.
         azure_api_key: Azure API key for accessing Azure services.
         azure_base_url: Azure base URL for accessing Azure services.
-        google_prompt_optimizer: LLM model name for Google prompt optimization.
-        google_image_model: LLM model name for Google image generation.
-        google_api_key: Google API key for accessing Google services.
         google_api_key: Google API key for accessing Google services.
         google_prompt_optimizer: LLM model name for Google prompt optimization.
         google_image_model: LLM model name for Google image generation.
