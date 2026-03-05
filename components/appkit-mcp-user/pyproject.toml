@@ -35,6 +35,7 @@ Repository = "https://github.com/jenreh/appkit"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = [".cache", "__pycache__"]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true

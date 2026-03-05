@@ -7,7 +7,6 @@ from fastmcp.server.apps import AppConfig
 from fastmcp.server.auth.auth import AuthProvider
 from pydantic import Field
 
-from appkit_commons.registry import service_registry
 from appkit_mcp_image.backend.generators import (
     GoogleImageGenerator,
     OpenAIImageGenerator,
@@ -25,7 +24,6 @@ from appkit_mcp_image.resources.image_viewer import IMAGE_VIEWER_HTML, VIEW_URI
 logger = logging.getLogger(__name__)
 
 _generators: dict[str, ImageGenerator] = {}
-config: MCPImageGeneratorConfig = service_registry().get(MCPImageGeneratorConfig)
 
 
 def _success_result(

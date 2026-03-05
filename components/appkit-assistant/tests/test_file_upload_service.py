@@ -19,7 +19,20 @@ from appkit_assistant.configuration import FileUploadConfig
 _PATCH = "appkit_assistant.backend.services.file_upload_service"
 
 
-def _db_context(session: AsyncMock | None = None):
+def _mock_session(**overrides: object) -> MagicMock:
+    """Create a mock session with sync add() and async commit/flush/refresh."""
+    s = MagicMock()
+    s.commit = AsyncMock()
+    s.flush = AsyncMock()
+    s.refresh = AsyncMock()
+    s.execute = AsyncMock()
+    s.expunge_all = MagicMock()
+    for k, v in overrides.items():
+        setattr(s, k, v)
+    return s
+
+
+def _db_context(session: MagicMock | None = None):
     s = session or AsyncMock()
     cm = AsyncMock()
     cm.__aenter__ = AsyncMock(return_value=s)
@@ -107,7 +120,7 @@ class TestUploadFileValidation:
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [MagicMock()] * 5
 
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         with patch(
@@ -133,7 +146,7 @@ class TestUploadFileValidation:
 
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         with patch(
@@ -251,7 +264,7 @@ class TestGetVectorStore:
         mock_thread = MagicMock(vector_store_id=None)
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_thread
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         mock_client.vector_stores.create.return_value = SimpleNamespace(
@@ -278,7 +291,7 @@ class TestGetVectorStore:
         mock_thread = MagicMock(vector_store_id="vs-existing")
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_thread
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         mock_client.vector_stores.retrieve.return_value = MagicMock(name="Thread-uuid1")
@@ -297,7 +310,7 @@ class TestGetVectorStore:
     async def test_thread_not_found_raises(self, service: FileUploadService) -> None:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         with patch(
@@ -330,7 +343,7 @@ class TestDeleteFiles:
         db_file = MagicMock(openai_file_id="file-1", vector_store_id="vs-1")
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = [db_file]
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.execute = AsyncMock(return_value=mock_result)
 
         with patch(
@@ -448,7 +461,7 @@ class TestDeleteVectorStore:
         service: FileUploadService,
         mock_client: MagicMock,
     ) -> None:
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = []
         mock_session.execute = AsyncMock(return_value=mock_result)
@@ -525,7 +538,7 @@ class TestRecreateVectorStore:
         mock_client: MagicMock,
     ) -> None:
         """_recreate_vector_store creates new VS and migrates files."""
-        session = AsyncMock()
+        session = _mock_session()
         thread = MagicMock()
         thread.vector_store_id = "old-vs"
 
@@ -559,7 +572,7 @@ class TestRecreateVectorStore:
         mock_client: MagicMock,
     ) -> None:
         """_recreate_vector_store continues when one file fails to add."""
-        session = AsyncMock()
+        session = _mock_session()
         thread = MagicMock()
         thread.vector_store_id = "old-vs"
 
@@ -593,7 +606,7 @@ class TestAddFilesToVectorStore:
     ) -> None:
         """_add_files_to_vector_store adds files and writes DB records."""
         mock_client.vector_stores.files.create = AsyncMock()
-        session = AsyncMock()
+        session = _mock_session()
 
         with patch(
             f"{_PATCH}.get_asyncdb_session",
@@ -679,7 +692,7 @@ class TestProcessFiles:
             return_value=SimpleNamespace(data=[vs_file])
         )
 
-        session = AsyncMock()
+        session = _mock_session()
         session.add = MagicMock()
 
         with (
@@ -721,7 +734,7 @@ class TestProcessFiles:
 
         mock_client.files.create = AsyncMock(return_value=SimpleNamespace(id="file-1"))
 
-        session = AsyncMock()
+        session = _mock_session()
         session.add = MagicMock()
         with (
             patch(
@@ -755,7 +768,7 @@ class TestProcessFiles:
 class TestGetVectorStoreRecreate:
     @staticmethod
     def _mock_session_with_thread(thread: MagicMock) -> AsyncMock:
-        session = AsyncMock()
+        session = _mock_session()
         result = MagicMock()
         result.scalar_one_or_none.return_value = thread
         session.execute = AsyncMock(return_value=result)

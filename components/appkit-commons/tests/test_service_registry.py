@@ -4,6 +4,7 @@ import contextlib
 import logging
 
 import pytest
+from pydantic import ConfigDict
 
 from appkit_commons.configuration.configuration import ApplicationConfig
 from appkit_commons.registry import ServiceRegistry, service_registry
@@ -414,8 +415,7 @@ class TestServiceRegistry:
 
         # Arrange
         class NestedAppConfig(ApplicationConfig):
-            class Config:
-                env_prefix = "TEST_"
+            model_config = ConfigDict(env_prefix="TEST_")
 
         # Mock env_file to avoid file access
         # Act

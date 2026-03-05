@@ -2,95 +2,17 @@
 
 import base64
 from pathlib import Path
-from unittest.mock import patch
 
 import httpx
 import pytest
 import respx
-import server.backend.utils as utils_module
-from fastmcp.utilities.types import Image
 from httpx import Response
-from server.backend.utils import generate_response, url_to_base64, url_to_bytes
 
-
-class TestGenerateResponse:
-    """Test generate_response function."""
-
-    @pytest.mark.asyncio
-    async def test_generate_response_image_format(
-        self, sample_image_bytes: bytes
-    ) -> None:
-        """Test generate_response with image format returns MCP Image object."""
-        with patch("server.backend.utils.url_to_bytes") as mock_url_to_bytes:
-            mock_url_to_bytes.return_value = sample_image_bytes
-
-            response = await generate_response(
-                image_url="http://example.com/image.png",
-                response_format="image",
-                prompt="Test prompt",
-                output_format="png",
-            )
-
-            assert isinstance(response, Image)
-            assert response.data == sample_image_bytes
-
-    @pytest.mark.asyncio
-    async def test_generate_response_markdown_format(self) -> None:
-        """Test generate_response with markdown format."""
-        with patch("server.backend.utils.url_to_bytes"):
-            response = await generate_response(
-                image_url="http://example.com/image.png",
-                response_format="markdown",
-                prompt="Beautiful sunset",
-                output_format="jpeg",
-            )
-
-            assert isinstance(response, str)
-            assert "![Generated Image]" in response
-            assert "http://example.com/image.png" in response
-            assert "Beautiful sunset" in response
-
-    @pytest.mark.asyncio
-    async def test_generate_response_adaptive_card_format(self) -> None:
-        """Test generate_response with adaptive_card format."""
-        response = await generate_response(
-            image_url="http://example.com/image.png",
-            response_format="adaptive_card",
-            prompt="Landscape photo",
-            output_format="webp",
-        )
-
-        assert isinstance(response, str)
-        # Adaptive card should be JSON-like
-        assert "http://example.com/image.png" in response
-        assert "Landscape photo" in response
-
-    @pytest.mark.asyncio
-    async def test_generate_response_invalid_format(self) -> None:
-        """Test generate_response with invalid format raises ValueError."""
-        with pytest.raises(ValueError) as exc_info:
-            await generate_response(
-                image_url="http://example.com/image.png",
-                response_format="invalid_format",  # type: ignore
-                prompt="Test",
-            )
-
-        assert "Unknown response format" in str(exc_info.value)
-
-    @pytest.mark.asyncio
-    async def test_generate_response_image_format_with_conversion_error(self) -> None:
-        """Test generate_response image format handles conversion errors."""
-        with patch("server.backend.utils.url_to_bytes") as mock_url_to_bytes:
-            mock_url_to_bytes.side_effect = Exception("Download failed")
-
-            with pytest.raises(ValueError) as exc_info:
-                await generate_response(
-                    image_url="http://example.com/invalid.png",
-                    response_format="image",
-                    prompt="Test",
-                )
-
-            assert "Failed to convert image URL" in str(exc_info.value)
+import appkit_mcp_image.backend.utils as utils_module
+from appkit_mcp_image.backend.utils import (
+    url_to_base64,
+    url_to_bytes,
+)
 
 
 class TestUrlToBytes:

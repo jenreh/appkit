@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from appkit_assistant.backend.database.models import ThreadStatus
+from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.schemas import (
     AIModel,
     Message,
@@ -24,6 +25,20 @@ from appkit_assistant.backend.schemas import (
     ThreadModel,
 )
 from appkit_assistant.state.thread_state import ThreadState
+
+
+class _Awaitable:
+    """Thin awaitable wrapper — can be awaited multiple times without warnings."""
+
+    __slots__ = ("_value",)
+
+    def __init__(self, value: object) -> None:
+        self._value = value
+
+    def __await__(self):
+        yield
+        return self._value
+
 
 _PATCH = "appkit_assistant.state.thread_state"
 
@@ -182,16 +197,10 @@ class _StubThreadState:
                 else None
             )
 
-            async def _is_auth():
-                return self._authenticated
-
-            async def _auth_user():
-                return user
-
             mock = MagicMock()
             mock.user = user
-            mock.is_authenticated = _is_auth()
-            mock.authenticated_user = _auth_user()
+            mock.is_authenticated = _Awaitable(self._authenticated)
+            mock.authenticated_user = _Awaitable(user)
             return mock
         if name == "ThreadListState":
             mock = MagicMock()
@@ -232,6 +241,32 @@ class _StubThreadState:
 
     async def _stop_loading_state(self) -> None:
         """Stub _stop_loading_state."""
+
+    async def _apply_loaded_thread(
+        self, full_thread: ThreadModel, thread_id: str
+    ) -> None:
+        """Stub _apply_loaded_thread — mirrors real ThreadState logic."""
+        self._thread = full_thread
+        self.messages = full_thread.messages
+        self.selected_model = full_thread.ai_model
+        self.thinking_items = []
+        self.image_chunks = []
+        self.mcp_app_views = []
+        self._ui_tool_registry = {}
+        self.prompt = ""
+        self.web_search_enabled = False
+
+        model = ModelManager().get_model(full_thread.ai_model)
+
+        if model and model.supports_tools:
+            self._restore_mcp_selection(full_thread.mcp_server_ids)
+        else:
+            self._restore_mcp_selection([])
+
+        if model and model.supports_skills:
+            self._restore_skill_selection(full_thread.skill_openai_ids or [])
+        else:
+            self._restore_skill_selection([])
 
     def _load_config(self) -> None:
         """Stub _load_config."""

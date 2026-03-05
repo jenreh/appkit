@@ -15,6 +15,20 @@ from appkit_assistant.backend.services.skill_service import (
     get_skill_service,
 )
 
+
+def _mock_session(**overrides: object) -> MagicMock:
+    """Create a mock session with sync add() and async commit/flush/refresh."""
+    s = MagicMock()
+    s.commit = AsyncMock()
+    s.flush = AsyncMock()
+    s.refresh = AsyncMock()
+    s.execute = AsyncMock()
+    s.expunge_all = MagicMock()
+    for k, v in overrides.items():
+        setattr(s, k, v)
+    return s
+
+
 # ============================================================================
 # compute_api_key_hash
 # ============================================================================
@@ -276,7 +290,7 @@ class TestUpsertSkill:
     @pytest.mark.asyncio
     async def test_insert_new_skill(self) -> None:
         svc = SkillService()
-        session = AsyncMock()
+        session = _mock_session()
         remote = {
             "id": "sk-new",
             "name": "New",
@@ -298,7 +312,7 @@ class TestUpsertSkill:
     @pytest.mark.asyncio
     async def test_update_existing_skill(self) -> None:
         svc = SkillService()
-        session = AsyncMock()
+        session = _mock_session()
         existing = MagicMock()
         remote = {
             "id": "sk-1",
@@ -321,7 +335,7 @@ class TestUpsertSkill:
     @pytest.mark.asyncio
     async def test_upsert_with_api_key_hash(self) -> None:
         svc = SkillService()
-        session = AsyncMock()
+        session = _mock_session()
         existing = MagicMock()
         remote = {
             "id": "sk-1",
@@ -349,7 +363,7 @@ class TestSyncAllSkills:
     @pytest.mark.asyncio
     async def test_sync_deactivates_stale(self) -> None:
         svc = SkillService()
-        session = AsyncMock()
+        session = _mock_session()
 
         remote_skills = [
             {
@@ -391,7 +405,7 @@ class TestDeleteSkillFull:
     @pytest.mark.asyncio
     async def test_delete_not_found_raises(self) -> None:
         svc = SkillService()
-        session = AsyncMock()
+        session = _mock_session()
 
         with patch(
             "appkit_assistant.backend.services.skill_service.skill_repo"
@@ -403,7 +417,7 @@ class TestDeleteSkillFull:
     @pytest.mark.asyncio
     async def test_delete_full_cascade(self) -> None:
         svc = SkillService()
-        session = AsyncMock()
+        session = _mock_session()
         skill = SimpleNamespace(name="TestSkill", openai_id="sk-1", id=1)
 
         with (

@@ -3,8 +3,9 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from server.backend.image_service import edit_image_impl, generate_image_impl
-from server.backend.models import (
+
+from appkit_mcp_image.backend.image_service import edit_image_impl, generate_image_impl
+from appkit_mcp_image.backend.models import (
     EditImageInput,
     GenerationInput,
     ImageGeneratorResponse,

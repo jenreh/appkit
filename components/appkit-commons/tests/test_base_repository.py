@@ -7,8 +7,8 @@ from sqlmodel import Field, SQLModel
 from appkit_commons.database.base_repository import BaseRepository
 
 
-# Test models
-class TestEntity(SQLModel, table=True):
+# Test models — prefixed to avoid PytestCollectionWarning
+class SampleEntity(SQLModel, table=True):
     """Test entity for repository testing."""
 
     __tablename__ = "test_entities"  # type: ignore
@@ -19,19 +19,19 @@ class TestEntity(SQLModel, table=True):
     description: str | None = None
 
 
-class TestEntityRepository(BaseRepository[TestEntity, AsyncSession]):
-    """Repository for TestEntity."""
+class SampleEntityRepository(BaseRepository[SampleEntity, AsyncSession]):
+    """Repository for SampleEntity."""
 
     @property
-    def model_class(self) -> type[TestEntity]:
-        """Return the TestEntity model class."""
-        return TestEntity
+    def model_class(self) -> type[SampleEntity]:
+        """Return the SampleEntity model class."""
+        return SampleEntity
 
 
 @pytest.fixture
-def test_repository() -> TestEntityRepository:
-    """Provide a TestEntityRepository instance."""
-    return TestEntityRepository()
+def test_repository() -> SampleEntityRepository:
+    """Provide a SampleEntityRepository instance."""
+    return SampleEntityRepository()
 
 
 class TestBaseRepository:
@@ -41,11 +41,11 @@ class TestBaseRepository:
     async def test_create_entity_success(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Creating a new entity succeeds and assigns an ID."""
         # Arrange
-        entity = TestEntity(name="test-entity", value=42)
+        entity = SampleEntity(name="test-entity", value=42)
 
         # Act
         created = await test_repository.create(async_session, entity)
@@ -59,12 +59,12 @@ class TestBaseRepository:
     async def test_create_multiple_entities(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Creating multiple entities assigns unique IDs."""
         # Arrange
-        entity1 = TestEntity(name="entity-1", value=1)
-        entity2 = TestEntity(name="entity-2", value=2)
+        entity1 = SampleEntity(name="entity-1", value=1)
+        entity2 = SampleEntity(name="entity-2", value=2)
 
         # Act
         created1 = await test_repository.create(async_session, entity1)
@@ -79,11 +79,11 @@ class TestBaseRepository:
     async def test_find_by_id_exists(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Finding an existing entity by ID returns the entity."""
         # Arrange
-        entity = TestEntity(name="findable", value=100)
+        entity = SampleEntity(name="findable", value=100)
         created = await test_repository.create(async_session, entity)
 
         # Act
@@ -98,7 +98,7 @@ class TestBaseRepository:
     async def test_find_by_id_not_exists(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Finding a non-existent entity by ID returns None."""
         # Act
@@ -111,7 +111,7 @@ class TestBaseRepository:
     async def test_find_all_empty(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Finding all entities when none exist returns empty list."""
         # Act
@@ -124,13 +124,13 @@ class TestBaseRepository:
     async def test_find_all_returns_all(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Finding all entities returns all created entities."""
         # Arrange
-        entity1 = TestEntity(name="entity-1", value=1)
-        entity2 = TestEntity(name="entity-2", value=2)
-        entity3 = TestEntity(name="entity-3", value=3)
+        entity1 = SampleEntity(name="entity-1", value=1)
+        entity2 = SampleEntity(name="entity-2", value=2)
+        entity3 = SampleEntity(name="entity-3", value=3)
 
         await test_repository.create(async_session, entity1)
         await test_repository.create(async_session, entity2)
@@ -150,13 +150,13 @@ class TestBaseRepository:
     async def test_find_all_by_ids(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Finding entities by list of IDs returns matching entities."""
         # Arrange
-        entity1 = TestEntity(name="entity-1", value=1)
-        entity2 = TestEntity(name="entity-2", value=2)
-        entity3 = TestEntity(name="entity-3", value=3)
+        entity1 = SampleEntity(name="entity-1", value=1)
+        entity2 = SampleEntity(name="entity-2", value=2)
+        entity3 = SampleEntity(name="entity-3", value=3)
 
         created1 = await test_repository.create(async_session, entity1)
         created2 = await test_repository.create(async_session, entity2)
@@ -178,7 +178,7 @@ class TestBaseRepository:
     async def test_find_all_by_ids_empty_list(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Finding entities with empty ID list returns empty list."""
         # Act
@@ -191,11 +191,11 @@ class TestBaseRepository:
     async def test_exists_by_id_true(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """exists_by_id returns True for existing entity."""
         # Arrange
-        entity = TestEntity(name="exists", value=1)
+        entity = SampleEntity(name="exists", value=1)
         created = await test_repository.create(async_session, entity)
 
         # Act
@@ -208,7 +208,7 @@ class TestBaseRepository:
     async def test_exists_by_id_false(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """exists_by_id returns False for non-existent entity."""
         # Act
@@ -221,7 +221,7 @@ class TestBaseRepository:
     async def test_count_empty(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Counting entities when none exist returns 0."""
         # Act
@@ -234,12 +234,12 @@ class TestBaseRepository:
     async def test_count_returns_correct_count(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Counting entities returns correct count."""
         # Arrange
         for i in range(5):
-            entity = TestEntity(name=f"entity-{i}", value=i)
+            entity = SampleEntity(name=f"entity-{i}", value=i)
             await test_repository.create(async_session, entity)
 
         # Act
@@ -252,11 +252,11 @@ class TestBaseRepository:
     async def test_update_existing_entity(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Updating an existing entity succeeds."""
         # Arrange
-        entity = TestEntity(name="original", value=1)
+        entity = SampleEntity(name="original", value=1)
         created = await test_repository.create(async_session, entity)
 
         # Act
@@ -273,11 +273,11 @@ class TestBaseRepository:
     async def test_update_without_id_raises(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Updating an entity without ID raises ValueError."""
         # Arrange
-        entity = TestEntity(name="no-id", value=1)
+        entity = SampleEntity(name="no-id", value=1)
         entity.id = None
 
         # Act & Assert
@@ -288,11 +288,11 @@ class TestBaseRepository:
     async def test_update_nonexistent_entity_raises(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Updating a non-existent entity raises ValueError."""
         # Arrange
-        entity = TestEntity(name="ghost", value=1)
+        entity = SampleEntity(name="ghost", value=1)
         entity.id = 99999
 
         # Act & Assert
@@ -303,11 +303,11 @@ class TestBaseRepository:
     async def test_save_creates_new_entity(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """save() creates a new entity when ID is None."""
         # Arrange
-        entity = TestEntity(name="new-via-save", value=10)
+        entity = SampleEntity(name="new-via-save", value=10)
 
         # Act
         saved = await test_repository.save(async_session, entity)
@@ -320,11 +320,11 @@ class TestBaseRepository:
     async def test_save_updates_existing_entity(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """save() updates an existing entity when ID exists."""
         # Arrange
-        entity = TestEntity(name="original", value=1)
+        entity = SampleEntity(name="original", value=1)
         created = await test_repository.create(async_session, entity)
 
         # Act
@@ -339,14 +339,14 @@ class TestBaseRepository:
     async def test_save_all_mixed_create_update(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """save_all() handles both new and existing entities."""
         # Arrange
-        existing = TestEntity(name="existing", value=1)
+        existing = SampleEntity(name="existing", value=1)
         created = await test_repository.create(async_session, existing)
 
-        new_entity = TestEntity(name="new", value=2)
+        new_entity = SampleEntity(name="new", value=2)
         created.value = 100
 
         # Act
@@ -365,11 +365,11 @@ class TestBaseRepository:
     async def test_delete_by_id_success(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Deleting an existing entity by ID succeeds."""
         # Arrange
-        entity = TestEntity(name="to-delete", value=1)
+        entity = SampleEntity(name="to-delete", value=1)
         created = await test_repository.create(async_session, entity)
 
         # Act
@@ -384,7 +384,7 @@ class TestBaseRepository:
     async def test_delete_by_id_nonexistent_returns_false(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Deleting a non-existent entity by ID returns False."""
         # Act
@@ -397,11 +397,11 @@ class TestBaseRepository:
     async def test_delete_entity_success(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Deleting an existing entity succeeds."""
         # Arrange
-        entity = TestEntity(name="to-delete", value=1)
+        entity = SampleEntity(name="to-delete", value=1)
         created = await test_repository.create(async_session, entity)
 
         # Act
@@ -414,11 +414,11 @@ class TestBaseRepository:
     async def test_delete_entity_without_id_returns_false(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """Deleting an entity without ID returns False."""
         # Arrange
-        entity = TestEntity(name="no-id", value=1)
+        entity = SampleEntity(name="no-id", value=1)
         entity.id = None
 
         # Act
@@ -431,12 +431,12 @@ class TestBaseRepository:
     async def test_delete_all_removes_all_entities(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """delete_all() removes all entities."""
         # Arrange
         for i in range(3):
-            entity = TestEntity(name=f"entity-{i}", value=i)
+            entity = SampleEntity(name=f"entity-{i}", value=i)
             await test_repository.create(async_session, entity)
 
         # Act
@@ -451,7 +451,7 @@ class TestBaseRepository:
     async def test_delete_all_empty_table(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """delete_all() on empty table returns 0."""
         # Act
@@ -464,13 +464,13 @@ class TestBaseRepository:
     async def test_delete_all_by_ids(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """delete_all_by_ids() deletes only specified entities."""
         # Arrange
-        entity1 = TestEntity(name="entity-1", value=1)
-        entity2 = TestEntity(name="entity-2", value=2)
-        entity3 = TestEntity(name="entity-3", value=3)
+        entity1 = SampleEntity(name="entity-1", value=1)
+        entity2 = SampleEntity(name="entity-2", value=2)
+        entity3 = SampleEntity(name="entity-3", value=3)
 
         created1 = await test_repository.create(async_session, entity1)
         created2 = await test_repository.create(async_session, entity2)
@@ -492,7 +492,7 @@ class TestBaseRepository:
     async def test_delete_all_by_ids_empty_list(
         self,
         async_session: AsyncSession,
-        test_repository: TestEntityRepository,
+        test_repository: SampleEntityRepository,
     ) -> None:
         """delete_all_by_ids() with empty list returns 0."""
         # Act

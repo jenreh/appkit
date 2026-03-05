@@ -4,7 +4,8 @@ import base64
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from server.backend.image_processor import ImageProcessor
+
+from appkit_mcp_image.backend.image_processor import ImageProcessor
 
 
 class TestImageProcessor:
@@ -150,7 +151,7 @@ class TestImageProcessor:
         mock_img = MagicMock()
         mock_img.b64_json = base64.b64encode(b"image_data").decode()
 
-        mock_generator._save_image_to_tmp_and_get_url = AsyncMock(  # noqa: SLF001
+        mock_generator.save_image = AsyncMock(
             return_value="http://localhost:8000/image1.png"
         )
 
@@ -173,7 +174,7 @@ class TestImageProcessor:
         mock_img2 = MagicMock()
         mock_img2.b64_json = base64.b64encode(b"image2_data").decode()
 
-        mock_generator._save_image_to_tmp_and_get_url = AsyncMock(  # noqa: SLF001
+        mock_generator.save_image = AsyncMock(
             side_effect=[
                 "http://localhost:8000/image1.png",
                 "http://localhost:8000/image2.png",
@@ -200,7 +201,7 @@ class TestImageProcessor:
         mock_img_empty = MagicMock()
         mock_img_empty.b64_json = None
 
-        mock_generator._save_image_to_tmp_and_get_url = AsyncMock(  # noqa: SLF001
+        mock_generator.save_image = AsyncMock(
             return_value="http://localhost:8000/image1.png"
         )
 
@@ -221,7 +222,7 @@ class TestImageProcessor:
         mock_img = MagicMock()
         mock_img.b64_json = base64.b64encode(b"image_data").decode()
 
-        mock_generator._save_image_to_tmp_and_get_url = AsyncMock(  # noqa: SLF001
+        mock_generator.save_image = AsyncMock(
             side_effect=RuntimeError("Storage unavailable")
         )
 
@@ -254,7 +255,7 @@ class TestImageProcessor:
             mock_img = MagicMock()
             mock_img.b64_json = base64.b64encode(b"image_data").decode()
 
-            mock_generator._save_image_to_tmp_and_get_url = AsyncMock(  # noqa: SLF001
+            mock_generator.save_image = AsyncMock(
                 return_value=f"http://localhost:8000/image.{output_format}"
             )
 
@@ -265,7 +266,5 @@ class TestImageProcessor:
 
             assert len(result) == 1
             # Verify the correct format was passed
-            call_kwargs = (
-                mock_generator._save_image_to_tmp_and_get_url.call_args.kwargs  # noqa: SLF001
-            )
+            call_kwargs = mock_generator.save_image.call_args.kwargs
             assert call_kwargs["output_format"] == output_format

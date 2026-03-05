@@ -4,7 +4,6 @@ from typing import Any, Final
 from google import genai
 from google.genai import types
 
-from appkit_commons.registry import service_registry
 from appkit_mcp_image.backend.image_processor import ImageProcessor
 from appkit_mcp_image.backend.models import (
     EditImageInput,
@@ -13,9 +12,7 @@ from appkit_mcp_image.backend.models import (
     ImageGeneratorResponse,
     ImageResponseState,
 )
-from appkit_mcp_image.configuration import MCPImageGeneratorConfig
 
-config = service_registry().get(MCPImageGeneratorConfig)
 logger = logging.getLogger(__name__)
 
 TMP_IMG_FILE: Final[str] = "nano-image"

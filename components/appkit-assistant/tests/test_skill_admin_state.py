@@ -25,12 +25,25 @@ def _unwrap(name: str):
     return entry.fn if hasattr(entry, "fn") else entry
 
 
-def _db_context(session: AsyncMock | None = None):
-    s = session or AsyncMock()
+def _db_context(session: MagicMock | None = None):
+    s = session or _mock_session()
     cm = AsyncMock()
     cm.__aenter__ = AsyncMock(return_value=s)
     cm.__aexit__ = AsyncMock(return_value=False)
     return cm
+
+
+def _mock_session(**overrides: object) -> MagicMock:
+    """Create a mock session with sync add/expunge_all and async commit/flush."""
+    s = MagicMock()
+    s.commit = AsyncMock()
+    s.flush = AsyncMock()
+    s.refresh = AsyncMock()
+    s.execute = AsyncMock()
+    s.expunge_all = MagicMock()
+    for k, v in overrides.items():
+        setattr(s, k, v)
+    return s
 
 
 def _mock_model(

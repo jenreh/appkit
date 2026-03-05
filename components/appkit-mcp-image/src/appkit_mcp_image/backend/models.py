@@ -11,10 +11,8 @@ from pydantic import BaseModel, Field
 from appkit_commons.registry import service_registry
 from appkit_mcp_image.configuration import MCPImageGeneratorConfig
 
-config = service_registry().get(MCPImageGeneratorConfig)
 logger = logging.getLogger(__name__)
 TMP_PATH: Final[str] = "uploaded_files/images"
-MAX_IMAGES_TO_KEEP: Final[int] = config.max_images_to_keep
 
 
 class ImageResponseState(StrEnum):
@@ -145,7 +143,7 @@ class ImageGenerator(ABC):
             )
 
         tmp_dir = anyio.Path(TMP_PATH)
-        tmp_dir.mkdir(parents=True, exist_ok=True)  # Ensure base temp directory exists
+        await tmp_dir.mkdir(parents=True, exist_ok=True)
 
         random_id = uuid.uuid4().hex
         filename = f"{tmp_file_prefix}-{random_id}.{output_format}"
@@ -211,7 +209,7 @@ class ImageGenerator(ABC):
         raise NotImplementedError("Subclasses must implement the _perform_edit method.")
 
     def clean_tmp_path(self, prefix: str) -> Path:
-        """Keep only the last MAX_IMAGES_TO_KEEP images with the given prefix.
+        """Keep only the last max_images_to_keep images with the given prefix.
 
         Deletes oldest images when the count exceeds the limit.
         """
@@ -234,14 +232,16 @@ class ImageGenerator(ABC):
             key=lambda f: f.stat().st_mtime,  # Oldest first
         )
 
-        # Keep only the last MAX_IMAGES_TO_KEEP images
-        if len(files_with_prefix) > MAX_IMAGES_TO_KEEP:
-            files_to_delete = files_with_prefix[:-MAX_IMAGES_TO_KEEP]
+        # Keep only the last max_images_to_keep images
+        config = service_registry().get(MCPImageGeneratorConfig)
+        max_images_to_keep = config.max_images_to_keep
+        if len(files_with_prefix) > max_images_to_keep:
+            files_to_delete = files_with_prefix[:-max_images_to_keep]
             for file in files_to_delete:
                 logger.debug(
                     "Removing old image: %s (keeping last %d images)",
                     file,
-                    MAX_IMAGES_TO_KEEP,
+                    max_images_to_keep,
                 )
                 file.unlink()
 

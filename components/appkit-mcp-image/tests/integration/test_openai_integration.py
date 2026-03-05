@@ -13,8 +13,9 @@ from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
-from server.backend.generators.openai import OpenAIImageGenerator
-from server.backend.models import (
+
+from appkit_mcp_image.backend.generators.openai import OpenAIImageGenerator
+from appkit_mcp_image.backend.models import (
     EditImageInput,
     GenerationInput,
 )

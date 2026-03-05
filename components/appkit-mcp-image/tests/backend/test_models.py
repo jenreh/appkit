@@ -4,7 +4,8 @@ import os
 
 import pytest
 from pydantic import ValidationError
-from server.backend.models import (
+
+from appkit_mcp_image.backend.models import (
     EditImageInput,
     GenerationInput,
     ImageGenerator,
@@ -54,9 +55,9 @@ class TestGenerationInput:
         input_data = GenerationInput(prompt="Test prompt")
 
         # Base class defaults
-        assert input_data.size == "auto"
+        assert input_data.size == "1536x1024"
         assert input_data.output_format == "jpeg"
-        assert input_data.background == "auto"
+        assert input_data.background == "opaque"
 
         # GenerationInput specific defaults
         assert input_data.prompt == "Test prompt"
@@ -109,9 +110,9 @@ class TestEditImageInput:
         input_data = EditImageInput(prompt="Edit prompt", image_paths=["test.png"])
 
         # Base class defaults
-        assert input_data.size == "auto"
+        assert input_data.size == "1536x1024"
         assert input_data.output_format == "jpeg"
-        assert input_data.background == "auto"
+        assert input_data.background == "opaque"
 
         # EditImageInput specific defaults
         assert input_data.prompt == "Edit prompt"
@@ -176,6 +177,7 @@ class TestImageGenerator:
             id="test-gen",
             label="Test Generator",
             model="test-model",
+            optimizer_model="opt-model",
             api_key="test-key",
             backend_server="http://localhost:8000",
         )
@@ -192,6 +194,7 @@ class TestImageGenerator:
             id="test-gen",
             label="Test Generator",
             model="test-model",
+            optimizer_model="opt-model",
             api_key="test-key",
         )
 
@@ -199,7 +202,9 @@ class TestImageGenerator:
 
     def test_format_prompt_without_negative_prompt(self) -> None:
         """Test _format_prompt without negative prompt."""
-        generator = ImageGenerator(id="test", label="Test", model="test", api_key="key")
+        generator = ImageGenerator(
+            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
+        )
 
         prompt = "A beautiful sunset"
         result = generator._format_prompt(prompt)  # noqa: SLF001
@@ -208,7 +213,9 @@ class TestImageGenerator:
 
     def test_format_prompt_with_negative_prompt(self) -> None:
         """Test _format_prompt with negative prompt."""
-        generator = ImageGenerator(id="test", label="Test", model="test", api_key="key")
+        generator = ImageGenerator(
+            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
+        )
 
         prompt = "A beautiful sunset"
         negative = "blurry, low quality"
@@ -221,7 +228,9 @@ class TestImageGenerator:
 
     def test_aspect_ratio_square(self) -> None:
         """Test _aspect_ratio for square dimensions."""
-        generator = ImageGenerator(id="test", label="Test", model="test", api_key="key")
+        generator = ImageGenerator(
+            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
+        )
 
         assert generator._aspect_ratio(1024, 1024) == "1:1"  # noqa: SLF001
         assert generator._aspect_ratio(512, 512) == "1:1"  # noqa: SLF001
@@ -229,7 +238,9 @@ class TestImageGenerator:
 
     def test_aspect_ratio_landscape(self) -> None:
         """Test _aspect_ratio for landscape dimensions (width > height)."""
-        generator = ImageGenerator(id="test", label="Test", model="test", api_key="key")
+        generator = ImageGenerator(
+            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
+        )
 
         assert generator._aspect_ratio(1536, 1024) == "4:3"  # noqa: SLF001
         assert generator._aspect_ratio(2048, 1024) == "4:3"  # noqa: SLF001
@@ -237,25 +248,28 @@ class TestImageGenerator:
 
     def test_aspect_ratio_portrait(self) -> None:
         """Test _aspect_ratio for portrait dimensions (width < height)."""
-        generator = ImageGenerator(id="test", label="Test", model="test", api_key="key")
+        generator = ImageGenerator(
+            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
+        )
 
         assert generator._aspect_ratio(1024, 1536) == "3:4"  # noqa: SLF001
         assert generator._aspect_ratio(512, 1024) == "3:4"  # noqa: SLF001
         assert generator._aspect_ratio(1024, 2048) == "3:4"  # noqa: SLF001
 
     @pytest.mark.asyncio
-    async def test_save_image_to_tmp_without_backend_server(self) -> None:
-        """Test _save_image_to_tmp_and_get_url raises when backend_server unset."""
+    async def test_save_image_without_backend_server(self) -> None:
+        """Test save_image raises when backend_server unset."""
         generator = ImageGenerator(
             id="test",
             label="Test",
             model="test",
+            optimizer_model="opt",
             api_key="key",
             # backend_server not provided
         )
 
         with pytest.raises(ValueError) as exc_info:
-            await generator._save_image_to_tmp_and_get_url(  # noqa: SLF001
+            await generator.save_image(
                 image_bytes=b"test_image",
                 tmp_file_prefix="test",
                 output_format="png",
@@ -264,12 +278,13 @@ class TestImageGenerator:
         assert "backend_server" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
-    async def test_save_image_to_tmp_with_backend_server(self, tmp_path) -> None:
-        """Test _save_image_to_tmp_and_get_url saves image and returns URL."""
+    async def test_save_image_with_backend_server(self, tmp_path) -> None:
+        """Test save_image saves image and returns URL."""
         generator = ImageGenerator(
             id="test",
             label="Test",
             model="test",
+            optimizer_model="opt",
             api_key="key",
             backend_server="http://localhost:8000",
         )
@@ -279,7 +294,7 @@ class TestImageGenerator:
         os.environ["TMP_PATH"] = str(tmp_path)
 
         try:
-            url = await generator._save_image_to_tmp_and_get_url(  # noqa: SLF001
+            url = await generator.save_image(
                 image_bytes=b"test_image_data",
                 tmp_file_prefix="test",
                 output_format="png",

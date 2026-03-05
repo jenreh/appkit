@@ -8,12 +8,9 @@ from urllib.parse import urlparse
 import anyio
 import httpx
 
-from appkit_commons.registry import service_registry
 from appkit_mcp_image.backend.models import TMP_PATH
-from appkit_mcp_image.configuration import MCPImageGeneratorConfig
 
 logger = logging.getLogger(__name__)
-config: MCPImageGeneratorConfig = service_registry().get(MCPImageGeneratorConfig)
 
 
 async def url_to_bytes(url_or_path: str) -> bytes:

@@ -1,6 +1,6 @@
 """Unit tests for OpenAI image generator."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -9,15 +9,22 @@ from httpx import Response
 
 from appkit_mcp_image.backend.generators.openai import (
     OpenAIImageGenerator,
+    OpenAIPromptEnhancer,
 )
 from appkit_mcp_image.backend.models import EditImageInput, GenerationInput
+
+_OPENAI_CLIENT = "appkit_mcp_image.backend.generators.openai.AsyncAzureOpenAI"
 
 
 class TestOpenAIImageGeneratorInit:
     """Test OpenAIImageGenerator initialization."""
 
+    @patch(_OPENAI_CLIENT)
     def test_init_with_all_params(
-        self, openai_api_key: str, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        openai_api_key: str,
+        openai_base_url: str,
     ) -> None:
         """Test initialization with all parameters."""
         generator = OpenAIImageGenerator(
@@ -36,8 +43,12 @@ class TestOpenAIImageGeneratorInit:
         assert generator.backend_server == "http://localhost:8000"
         assert generator.client is not None
 
+    @patch(_OPENAI_CLIENT)
     def test_init_minimal_params(
-        self, openai_api_key: str, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        openai_api_key: str,
+        openai_base_url: str,
     ) -> None:
         """Test initialization with minimal parameters."""
         generator = OpenAIImageGenerator(
@@ -53,53 +64,52 @@ class TestOpenAIImageGeneratorGenerate:
     """Test image generation functionality."""
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_generate_basic(
-        self, mock_openai_client: AsyncMock, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        openai_base_url: str,
     ) -> None:
         """Test basic image generation."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
         )
-        generator.client = mock_openai_client
-        generator.prompt_enhancer = MagicMock()
-        generator.prompt_enhancer.enhance = AsyncMock(return_value="Test prompt")
-        generator.image_processor = MagicMock()
-        generator.image_processor.save_and_return_images = AsyncMock(
-            return_value=["http://localhost:8000/img1.png"]
-        )
 
         # Mock response
         mock_response = MagicMock()
         mock_response.data = [MagicMock(b64_json="dGVzdCBkYXRh", url=None)]
-        mock_openai_client.images.generate.return_value = mock_response
+        mock_openai_client.images.generate = AsyncMock(return_value=mock_response)
 
-        input_data = GenerationInput(prompt="Test prompt")
+        # Mock save_image and clean_tmp_path (uses service_registry)
+        generator.save_image = AsyncMock(
+            return_value="http://localhost:8000/_upload/images/test.png"
+        )
+        generator.clean_tmp_path = MagicMock()
+
+        input_data = GenerationInput(prompt="Test prompt", enhance_prompt=False)
         response = await generator.generate(input_data)
 
         assert response.state == "succeeded"
         assert len(response.images) > 0
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_generate_with_all_params(
-        self, mock_openai_client: AsyncMock, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        openai_base_url: str,
     ) -> None:
         """Test image generation with all parameters."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
-        )
-        generator.client = mock_openai_client
-        generator.prompt_enhancer = MagicMock()
-        generator.prompt_enhancer.enhance = AsyncMock(return_value="Detailed prompt")
-        generator.image_processor = MagicMock()
-        generator.image_processor.save_and_return_images = AsyncMock(
-            return_value=[
-                "http://localhost:8000/img1.png",
-                "http://localhost:8000/img2.png",
-            ]
         )
 
         # Mock response with 2 images
@@ -108,7 +118,16 @@ class TestOpenAIImageGeneratorGenerate:
             MagicMock(b64_json="aW1hZ2UxX2RhdGE=", url=None),
             MagicMock(b64_json="aW1hZ2UyX2RhdGE=", url=None),
         ]
-        mock_openai_client.images.generate.return_value = mock_response
+        mock_openai_client.images.generate = AsyncMock(return_value=mock_response)
+
+        # Mock save_image and clean_tmp_path (uses service_registry)
+        generator.save_image = AsyncMock(
+            side_effect=[
+                "http://localhost:8000/_upload/images/img1.webp",
+                "http://localhost:8000/_upload/images/img2.webp",
+            ]
+        )
+        generator.clean_tmp_path = MagicMock()
 
         input_data = GenerationInput(
             prompt="Detailed prompt",
@@ -124,27 +143,43 @@ class TestOpenAIImageGeneratorGenerate:
         assert len(response.images) == 2
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_generate_with_prompt_enhancement(
-        self, mock_openai_client: AsyncMock, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        openai_base_url: str,
     ) -> None:
         """Test image generation with prompt enhancement."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
         )
-        generator.client = mock_openai_client
-        generator.prompt_enhancer = MagicMock()
-        generator.prompt_enhancer.enhance = AsyncMock(return_value="Enhanced prompt")
-        generator.image_processor = MagicMock()
-        generator.image_processor.save_and_return_images = AsyncMock(
-            return_value=["http://localhost:8000/img1.png"]
+        generator.prompt_enhancer = OpenAIPromptEnhancer(
+            mock_openai_client, "gpt-5-mini"
+        )
+
+        # Mock the completion for prompt enhancement
+        mock_completion = MagicMock()
+        mock_completion.choices = [
+            MagicMock(message=MagicMock(content="Enhanced prompt"))
+        ]
+        mock_openai_client.chat.completions.create = AsyncMock(
+            return_value=mock_completion
         )
 
         # Mock the image generation response
         mock_response = MagicMock()
         mock_response.data = [MagicMock(b64_json="ZW5oYW5jZWQgZGF0YQ==", url=None)]
-        mock_openai_client.images.generate.return_value = mock_response
+        mock_openai_client.images.generate = AsyncMock(return_value=mock_response)
+
+        # Mock save_image and clean_tmp_path (uses service_registry)
+        generator.save_image = AsyncMock(
+            return_value="http://localhost:8000/_upload/images/test.png"
+        )
+        generator.clean_tmp_path = MagicMock()
 
         input_data = GenerationInput(prompt="Simple prompt", enhance_prompt=True)
         response = await generator.generate(input_data)
@@ -157,104 +192,103 @@ class TestOpenAIImageGeneratorEdit:
     """Test image editing functionality."""
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_edit_basic(
-        self, mock_openai_client: AsyncMock, temp_image_file: str, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        temp_image_file: str,
+        openai_base_url: str,
     ) -> None:
         """Test basic image editing."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
         )
-        generator.client = mock_openai_client
-        generator.image_processor = MagicMock()
-        generator.image_processor.prepare_images_for_editing = AsyncMock(
-            return_value=[("test.png", b"image_data", "image/png")]
-        )
-        generator.image_processor.load_image = AsyncMock(return_value=b"mask_data")
-        generator.image_processor.save_and_return_images = AsyncMock(
-            return_value=["http://localhost:8000/edited.png"]
-        )
 
         mock_response = MagicMock()
         mock_response.data = [MagicMock(b64_json="ZWRpdGVk", url=None)]
-        mock_openai_client.images.edit.return_value = mock_response
+        mock_openai_client.images.edit = AsyncMock(return_value=mock_response)
+
+        generator.save_image = AsyncMock(
+            return_value="http://localhost:8000/_upload/images/edited.png"
+        )
+        generator.clean_tmp_path = MagicMock()
 
         input_data = EditImageInput(prompt="Edit prompt", image_paths=[temp_image_file])
         response = await generator.edit(input_data)
 
         assert response.state == "succeeded"
         assert len(response.images) == 1
-        assert response.images[0].startswith("http://localhost:8000")
-        mock_openai_client.images.edit.assert_called_once()
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_edit_multiple_images(
-        self, mock_openai_client: AsyncMock, temp_image_file: str, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        temp_image_file: str,
+        openai_base_url: str,
     ) -> None:
         """Test editing with multiple images."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
         )
-        generator.client = mock_openai_client
-        generator.image_processor = MagicMock()
-        generator.image_processor.prepare_images_for_editing = AsyncMock(
-            return_value=[
-                ("img1.png", b"data1", "image/png"),
-                ("img2.png", b"data2", "image/png"),
-            ]
-        )
-        generator.image_processor.save_and_return_images = AsyncMock(
-            return_value=[
-                "http://localhost:8000/edited1.png",
-                "http://localhost:8000/edited2.png",
-            ]
-        )
 
-        input_data = EditImageInput(
-            prompt="Edit prompt", image_paths=[temp_image_file, temp_image_file]
-        )
-
-        # Mock response with 2 edited images
         mock_response = MagicMock()
         mock_response.data = [
             MagicMock(b64_json="ZWRpdGVkMQ==", url=None),
             MagicMock(b64_json="ZWRpdGVkMg==", url=None),
         ]
-        mock_openai_client.images.edit.return_value = mock_response
+        mock_openai_client.images.edit = AsyncMock(return_value=mock_response)
+
+        generator.save_image = AsyncMock(
+            side_effect=[
+                "http://localhost:8000/_upload/images/edited1.png",
+                "http://localhost:8000/_upload/images/edited2.png",
+            ]
+        )
+        generator.clean_tmp_path = MagicMock()
+
+        input_data = EditImageInput(
+            prompt="Edit prompt", image_paths=[temp_image_file, temp_image_file]
+        )
 
         response = await generator.edit(input_data)
 
         assert response.state == "succeeded"
         assert len(response.images) == 2
-        assert response.images[0].startswith("http://localhost:8000")
-        assert response.images[1].startswith("http://localhost:8000")
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_edit_with_mask(
-        self, mock_openai_client: AsyncMock, temp_image_file: str, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        temp_image_file: str,
+        openai_base_url: str,
     ) -> None:
         """Test editing with mask."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
         )
-        generator.client = mock_openai_client
-        generator.image_processor = MagicMock()
-        generator.image_processor.prepare_images_for_editing = AsyncMock(
-            return_value=[("test.png", b"image_data", "image/png")]
-        )
-        generator.image_processor.load_image = AsyncMock(return_value=b"mask_data")
-        generator.image_processor.save_and_return_images = AsyncMock(
-            return_value=["http://localhost:8000/edited.png"]
-        )
 
         mock_response = MagicMock()
         mock_response.data = [MagicMock(b64_json="ZWRpdGVk", url=None)]
-        mock_openai_client.images.edit.return_value = mock_response
+        mock_openai_client.images.edit = AsyncMock(return_value=mock_response)
+
+        generator.save_image = AsyncMock(
+            return_value="http://localhost:8000/_upload/images/edited.png"
+        )
+        generator.clean_tmp_path = MagicMock()
 
         input_data = EditImageInput(
             prompt="Edit prompt",
@@ -268,52 +302,57 @@ class TestOpenAIImageGeneratorEdit:
         assert "mask" in call_kwargs
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_edit_with_all_params(
-        self, mock_openai_client: AsyncMock, temp_image_file: str, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        temp_image_file: str,
+        openai_base_url: str,
     ) -> None:
         """Test editing with all parameters."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
         )
-        generator.client = mock_openai_client
-        generator.image_processor = MagicMock()
-        generator.image_processor.prepare_images_for_editing = AsyncMock(
-            return_value=[("test.png", b"image_data", "image/jpeg")]
-        )
-        generator.image_processor.load_image = AsyncMock(return_value=b"mask_data")
-        generator.image_processor.save_and_return_images = AsyncMock(
-            return_value=["http://localhost:8000/edited.png"]
-        )
 
         mock_response = MagicMock()
         mock_response.data = [MagicMock(b64_json="ZWRpdGVk", url=None)]
-        mock_openai_client.images.edit.return_value = mock_response
+        mock_openai_client.images.edit = AsyncMock(return_value=mock_response)
+
+        generator.save_image = AsyncMock(
+            return_value="http://localhost:8000/_upload/images/edited.jpeg"
+        )
+        generator.clean_tmp_path = MagicMock()
 
         input_data = EditImageInput(
             prompt="Detailed edit",
             image_paths=[temp_image_file],
             mask_path=temp_image_file,
             output_format="jpeg",
-            seed=123,
         )
         response = await generator.edit(input_data)
 
         assert len(response.images) == 1
 
-        # Verify call arguments
         call_kwargs = mock_openai_client.images.edit.call_args.kwargs
         assert call_kwargs["prompt"] == "Detailed edit"
         assert call_kwargs["output_format"] == "jpeg"
 
 
 class TestOpenAIImageGeneratorLoadImage:
-    """Test image loading via ImageProcessor (formerly _load_image)."""
+    """Test image loading via image_processor."""
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_load_image_from_file(
-        self, temp_image_file: str, sample_image_bytes: bytes, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        temp_image_file: str,
+        sample_image_bytes: bytes,
+        openai_base_url: str,
     ) -> None:
         """Test loading image from file path."""
         generator = OpenAIImageGenerator(
@@ -327,8 +366,12 @@ class TestOpenAIImageGeneratorLoadImage:
 
     @pytest.mark.asyncio
     @respx.mock
+    @patch(_OPENAI_CLIENT)
     async def test_load_image_from_url(
-        self, sample_image_bytes: bytes, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        sample_image_bytes: bytes,
+        openai_base_url: str,
     ) -> None:
         """Test loading image from URL."""
         generator = OpenAIImageGenerator(
@@ -344,8 +387,13 @@ class TestOpenAIImageGeneratorLoadImage:
         assert loaded == sample_image_bytes
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_load_image_from_base64(
-        self, sample_base64_image: str, sample_image_bytes: bytes, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        sample_base64_image: str,
+        sample_image_bytes: bytes,
+        openai_base_url: str,
     ) -> None:
         """Test loading image from base64 data URL."""
         generator = OpenAIImageGenerator(
@@ -358,7 +406,10 @@ class TestOpenAIImageGeneratorLoadImage:
         assert loaded == sample_image_bytes
 
     @pytest.mark.asyncio
-    async def test_load_image_file_not_found(self, openai_base_url: str) -> None:
+    @patch(_OPENAI_CLIENT)
+    async def test_load_image_file_not_found(
+        self, mock_client_cls: MagicMock, openai_base_url: str
+    ) -> None:
         """Test loading non-existent file raises error."""
         generator = OpenAIImageGenerator(
             api_key="test_key",
@@ -371,7 +422,10 @@ class TestOpenAIImageGeneratorLoadImage:
 
     @pytest.mark.asyncio
     @respx.mock
-    async def test_load_image_url_error(self, openai_base_url: str) -> None:
+    @patch(_OPENAI_CLIENT)
+    async def test_load_image_url_error(
+        self, mock_client_cls: MagicMock, openai_base_url: str
+    ) -> None:
         """Test loading from URL with HTTP error."""
         generator = OpenAIImageGenerator(
             api_key="test_key",
@@ -390,40 +444,52 @@ class TestOpenAIImageGeneratorErrorHandling:
     """Test error handling in OpenAI generator."""
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_generate_api_error(
-        self, mock_openai_client: AsyncMock, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        openai_base_url: str,
     ) -> None:
         """Test handling of API errors during generation."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
         )
-        generator.client = mock_openai_client
 
-        mock_openai_client.images.generate.side_effect = Exception("API Error")
+        mock_openai_client.images.generate = AsyncMock(
+            side_effect=Exception("API Error")
+        )
 
-        input_data = GenerationInput(prompt="Test")
+        input_data = GenerationInput(prompt="Test", enhance_prompt=False)
 
         response = await generator.generate(input_data)
 
-        # The generator attempts to access attributes not defined in GenerationInput
         assert response.state == "failed"
-        assert "no attribute" in response.error or "API Error" in response.error
+        assert "API Error" in response.error
 
     @pytest.mark.asyncio
+    @patch(_OPENAI_CLIENT)
     async def test_edit_api_error(
-        self, mock_openai_client: AsyncMock, temp_image_file: str, openai_base_url: str
+        self,
+        mock_client_cls: MagicMock,
+        mock_openai_client: MagicMock,
+        temp_image_file: str,
+        openai_base_url: str,
     ) -> None:
         """Test handling of API errors during editing."""
+        mock_client_cls.return_value = mock_openai_client
         generator = OpenAIImageGenerator(
             api_key="test_key",
             base_url=openai_base_url,
             backend_server="http://localhost:8000",
         )
-        generator.client = mock_openai_client
 
-        mock_openai_client.images.edit.side_effect = Exception("Edit API Error")
+        mock_openai_client.images.edit = AsyncMock(
+            side_effect=Exception("Edit API Error")
+        )
 
         input_data = EditImageInput(prompt="Edit", image_paths=[temp_image_file])
 

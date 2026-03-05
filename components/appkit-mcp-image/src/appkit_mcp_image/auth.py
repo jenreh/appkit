@@ -7,11 +7,10 @@ from appkit_mcp_image.configuration import MCPImageGeneratorConfig
 
 logger = logging.getLogger(__name__)
 
-config = service_registry().get(MCPImageGeneratorConfig)
-
 
 def _load_tokens() -> dict:
     """Load token configuration from configuration."""
+    config = service_registry().get(MCPImageGeneratorConfig)
     tokens = config.auth_tokens
     if not tokens:
         return {}
@@ -28,7 +27,8 @@ def _load_tokens() -> dict:
     return token_dict
 
 
-verifier = StaticTokenVerifier(
-    tokens=_load_tokens(),
-    required_scopes=["image:generate", "image:edit"],
-)
+def get_verifier() -> StaticTokenVerifier:
+    return StaticTokenVerifier(
+        tokens=_load_tokens(),
+        required_scopes=["image:generate", "image:edit"],
+    )
