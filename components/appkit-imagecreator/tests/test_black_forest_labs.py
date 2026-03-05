@@ -287,6 +287,36 @@ class TestEnhancePrompt:
             result = await gen._enhance_prompt("original")
         assert result == "original"
 
+    @pytest.mark.asyncio
+    async def test_config_not_registered_uses_default(self) -> None:
+        """Falls back to ImageGeneratorConfig() when config not in registry."""
+        gen = _gen()
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(
+            return_value=MagicMock(
+                choices=[MagicMock(message=MagicMock(content="Enhanced"))]
+            )
+        )
+        mock_registry = MagicMock()
+        mock_registry.get.side_effect = KeyError("ImageGeneratorConfig not found")
+        with (
+            patch.object(
+                gen,
+                "_create_openai_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "appkit_imagecreator.backend.generators.black_forest_labs.service_registry",
+                return_value=mock_registry,
+            ),
+        ):
+            result = await gen._enhance_prompt("test prompt")
+        assert result == "Enhanced"
+        # Verify the default model was used
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        assert call_kwargs["model"] == "gpt-4.1-mini"
+
 
 # ============================================================================
 # _execute (central error handler)

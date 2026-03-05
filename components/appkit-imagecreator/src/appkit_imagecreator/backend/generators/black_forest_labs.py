@@ -172,7 +172,10 @@ class BlackForestLabsImageGenerator(ImageGenerator):
                 logger.warning("No OpenAI client available for prompt enhancement")
                 return prompt
 
-            config = service_registry().get(ImageGeneratorConfig)
+            try:
+                config = service_registry().get(ImageGeneratorConfig)
+            except KeyError:
+                config = ImageGeneratorConfig()
             response = await client.chat.completions.create(
                 model=config.openai_model,
                 stream=False,
