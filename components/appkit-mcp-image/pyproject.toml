@@ -1,0 +1,65 @@
+[project]
+dependencies = [
+    "appkit-commons",
+    "appkit-mcp-commons",
+    "fastapi>=0.135.1",
+    "fastmcp>=3.1.0",
+    "google-genai>=1.66.0",
+    "httpx>=0.28.1",
+    "openai>=2.24.0",
+    "python-dotenv>=1.2.2",
+    "uvicorn>=0.41.0",
+]
+name = "appkit-mcp-image"
+version = "0.5.0"
+description = "MCP Image Generation Server"
+readme = "README.md"
+authors = [{ name = "Jens Rehpöhler" }]
+requires-python = ">=3.13"
+license = { text = "MIT" }
+keywords = [
+    "reflex",
+    "mcp",
+    "fastmcp",
+    "image",
+    "generation",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/jenreh/appkit"
+Documentation = "https://github.com/jenreh/appkit/tree/main/docs"
+Repository = "https://github.com/jenreh/appkit"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+norecursedirs = [".cache", "__pycache__"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/appkit_mcp_image"]
+fail_under = 80
+omit = [
+    "*/tests/*",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/appkit_mcp_image"]
+
+[tool.uv.sources]
+appkit-commons = { workspace = true }
+appkit-mcp-commons = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

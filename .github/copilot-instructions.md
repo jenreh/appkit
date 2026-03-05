@@ -23,6 +23,7 @@ description: "Main Copilot instructions for the appkit project - Reflex-Mantine 
 7. Do NOT generate extensive documentation, summaries or comments unless explicitly requested.
 8. Do NOT use `--autogenerate` for new Alembic migrations; write them manually.
 9. Do NOT use `cat` to create new files; ALWAYS use the available tools!
+10. When logging, user **logger.debug** as the default level; use logger.info for important runtime events; reserve logger.warning/error for actual issues. **NEVER use `print` for logging.**
 
 > Rule of thumb: prefer *local* changes over cross-module refactors.
 

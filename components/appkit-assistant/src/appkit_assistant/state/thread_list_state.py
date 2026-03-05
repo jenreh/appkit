@@ -340,7 +340,7 @@ class ThreadListState(rx.State):
         from appkit_assistant.backend.services.file_upload_service import (  # noqa: PLC0415
             FileUploadService,
         )
-        from appkit_assistant.backend.services.openai_client_service import (  # noqa: PLC0415
+        from appkit_commons.ai.openai_client_service import (  # noqa: PLC0415
             get_openai_client_service,
         )
 

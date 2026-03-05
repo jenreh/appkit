@@ -1,1 +1,0 @@
-"""AppKit commons tests."""

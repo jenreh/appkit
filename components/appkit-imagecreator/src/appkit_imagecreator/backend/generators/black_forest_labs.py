@@ -6,6 +6,7 @@ import httpx
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from appkit_commons.configuration import get_secret
+from appkit_commons.registry import service_registry
 from appkit_imagecreator.backend.models import (
     GeneratedImageData,
     GenerationInput,
@@ -14,6 +15,7 @@ from appkit_imagecreator.backend.models import (
     ImageModel,
     ImageResponseState,
 )
+from appkit_imagecreator.configuration import ImageGeneratorConfig
 
 logger = logging.getLogger(__name__)
 
@@ -170,8 +172,9 @@ class BlackForestLabsImageGenerator(ImageGenerator):
                 logger.warning("No OpenAI client available for prompt enhancement")
                 return prompt
 
+            config = service_registry().get(ImageGeneratorConfig)
             response = await client.chat.completions.create(
-                model="gpt-4o-mini",  # Using a standard model available on azure/openai
+                model=config.openai_model,
                 stream=False,
                 messages=[
                     {

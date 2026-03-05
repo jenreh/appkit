@@ -6,6 +6,8 @@ class ImageGeneratorConfig(BaseConfig):
     """temp directory for storing generated images, default Reflex.dev upload dir"""
     cleanup_days_threshold: int = 60
     """days threshold for automatic cleanup of old images"""
+    openai_model: str = "gpt-4.1-mini"
+    """OpenAI model for prompt enhancement"""
 
 
 styles_preset = {

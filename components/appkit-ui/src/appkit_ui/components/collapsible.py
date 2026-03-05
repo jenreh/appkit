@@ -58,19 +58,30 @@ def collapsible(
             on_click=on_toggle,
             p="xs",
             w="100%",
-            style={"cursor": "pointer"},
-            _hover={"background_color": "var(--mantine-color-gray-1)"},
+            style={
+                "cursor": "pointer",
+                "border_radius": "6px",
+            },
+            _hover={
+                "bg": rx.color_mode_cond(
+                    light="var(--mantine-color-gray-1)",
+                    dark="var(--mantine-color-dark-8)",
+                ),
+            },
         ),
         rx.cond(
             expanded,
             mn.stack(*children, gap="sm"),
         ),
-        # Container Styling
+        # Container Styling with Mantine colors that auto-adapt to theme
         gap="xs",
         w="calc(90% + 18px)",
-        bg="gray.0",
+        bd=rx.color_mode_cond(
+            light="1px solid gray.3",
+            dark="1px solid gray.7",
+        ),
+        # bg="gray.0",
         style={
-            "border": "1px solid var(--mantine-color-gray-3)",  # gray 6 roughly
             "border_radius": "8px",
             "opacity": rx.cond(show_condition, "1", "0"),
             "transform": rx.cond(show_condition, "translateY(0)", "translateY(-20px)"),
@@ -80,7 +91,7 @@ def collapsible(
             "margin_top": rx.cond(show_condition, "16px", "-16px"),
             "overflow": "hidden",
             "pointer_events": rx.cond(show_condition, "auto", "none"),
-            # transition="all 1s ease-out",
+            "transition": "all 0.2s ease",
         },
         **props,
     )

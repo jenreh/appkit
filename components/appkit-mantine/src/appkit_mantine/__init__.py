@@ -9,9 +9,11 @@ from appkit_mantine.base import (
 from appkit_mantine.button import button, action_icon
 from appkit_mantine.combobox import select, multi_select, autocomplete
 from appkit_mantine.rich_select import rich_select
+
 from appkit_mantine.data_display import (
     accordion,
     avatar,
+    badge,
     card,
     image,
     indicator,
@@ -98,6 +100,8 @@ from appkit_mantine.navigation import (
 from appkit_mantine.overlay import (
     hover_card,
     tooltip,
+    overlay,
+    loading_overlay,
 )
 from appkit_mantine.scroll_area import scroll_area
 from appkit_mantine.slider import slider, range_slider
@@ -160,6 +164,7 @@ __all__ = [
     "area_chart",
     "autocomplete",
     "avatar",
+    "badge",
     "bar_chart",
     "box",
     "breadcrumbs",
@@ -193,6 +198,7 @@ __all__ = [
     "json_input",
     "line_chart",
     "list_",
+    "loading_overlay",
     "markdown_preview",
     "masked_input",
     "mermaid_zoom_script",
@@ -206,6 +212,7 @@ __all__ = [
     "notification",
     "number_formatter",
     "number_input",
+    "overlay",
     "pagination",
     "paper",
     "password_input",

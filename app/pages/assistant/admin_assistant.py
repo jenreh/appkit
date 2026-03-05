@@ -1,5 +1,8 @@
 """Consolidated assistant administration page with tabbed layout."""
 
+from collections.abc import AsyncGenerator
+from typing import Any
+
 import reflex as rx
 
 import appkit_mantine as mn
@@ -14,7 +17,10 @@ from appkit_assistant.roles import (
     ASSISTANT_PERPLEXITY_MODEL_ROLE,
     ASSISTANT_USER_ROLE,
 )
+from appkit_assistant.state.ai_model_admin_state import AIModelAdminState
 from appkit_assistant.state.file_manager_state import FileManagerState
+from appkit_assistant.state.mcp_server_state import MCPServerState
+from appkit_assistant.state.skill_admin_state import SkillAdminState
 from appkit_assistant.state.system_prompt_state import SystemPromptState
 from appkit_ui.components.header import header
 from appkit_user.authentication.components.components import (
@@ -68,22 +74,50 @@ class AdminAssistantState(rx.State):
     """State for managing admin assistant page tabs."""
 
     active_tab: str = "mcp"
+    mcp_loaded: bool = False
+    skills_loaded: bool = False
+    models_loaded: bool = False
     system_prompt_loaded: bool = False
     file_manager_loaded: bool = False
 
-    async def on_tab_change(self, value: str) -> None:
+    async def on_tab_change(self, value: str) -> AsyncGenerator[Any, Any]:
         """Handle tab changes and load data when needed."""
         self.active_tab = value
-        if value == "system_prompt" and not self.system_prompt_loaded:
+
+        # MCP Servers
+        if value == "mcp" and not self.mcp_loaded:
+            mcp_state = await self.get_state(MCPServerState)
+            async for event in mcp_state.load_servers_with_toast():
+                yield event
+            self.mcp_loaded = True
+
+        # Skills
+        elif value == "skills" and not self.skills_loaded:
+            skill_state = await self.get_state(SkillAdminState)
+            await skill_state.load_skill_models()
+            async for event in skill_state.load_skills_with_toast():
+                yield event
+            self.skills_loaded = True
+
+        # AI Models
+        elif value == "models" and not self.models_loaded:
+            model_state = await self.get_state(AIModelAdminState)
+            async for event in model_state.load_models_with_toast():
+                yield event
+            self.models_loaded = True
+
+        # System Prompt
+        elif value == "system_prompt" and not self.system_prompt_loaded:
             system_prompt_state = await self.get_state(SystemPromptState)
             await system_prompt_state.load_versions()
             self.system_prompt_loaded = True
+
+        # File Manager
         elif value == "file_manager" and not self.file_manager_loaded:
             file_manager_state = await self.get_state(FileManagerState)
-            async for _ in file_manager_state.load_vector_stores():
-                pass
+            async for event in file_manager_state.load_vector_stores():
+                yield event
             self.file_manager_loaded = True
-        # "models" tab loads data via on_mount of the table component
 
 
 @authenticated(
@@ -150,5 +184,6 @@ def admin_assistant_page() -> rx.Component:
             mn.box(h="3rem"),
             w="100%",
             p="2rem",
+            on_mount=AdminAssistantState.on_tab_change("mcp"),
         ),
     )

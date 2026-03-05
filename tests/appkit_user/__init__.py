@@ -1,1 +1,0 @@
-"""AppKit user authentication tests."""

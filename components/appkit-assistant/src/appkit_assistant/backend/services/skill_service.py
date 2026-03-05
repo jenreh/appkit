@@ -12,7 +12,7 @@ from appkit_assistant.backend.database.repositories import (
     skill_repo,
     user_skill_repo,
 )
-from appkit_assistant.backend.services.openai_client_service import (
+from appkit_commons.ai.openai_client_service import (
     get_openai_client_service,
 )
 

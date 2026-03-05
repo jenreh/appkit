@@ -21,7 +21,7 @@ from appkit_assistant.backend.processors import (
     PerplexityProcessor,
 )
 from appkit_assistant.backend.processors.processor_base import ProcessorBase
-from appkit_assistant.backend.services.openai_client_service import OpenAIClientService
+from appkit_commons.ai.openai_client_service import OpenAIClientService
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 

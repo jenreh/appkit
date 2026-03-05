@@ -9,23 +9,16 @@ dependencies = [
     "appkit-commons[apscheduler,pgqueuer,azure]",
     "appkit-imagecreator",
     "appkit-mantine",
+    "appkit-mcp-bpmn",
+    "appkit-mcp-charts",
+    "appkit-mcp-image",
+    "appkit-mcp-user",
     "appkit-ui",
     "appkit-user[azure,resend]",
     "psycopg==3.3.3",
     "psycopg-binary==3.3.3",
     "reflex>=0.8.27",
 ]
-
-# [project.optional-dependencies]
-# apscheduler = [
-#     "appkit-commons[apscheduler]",
-# ]
-# pgqueuer = [
-#     "appkit-commons[pgqueuer]",
-# ]
-# azure = [
-#     "appkit-commons[azure]",
-# ]
 
 [dependency-groups]
 dev = [
@@ -37,10 +30,11 @@ dev = [
     "aiosqlite==0.22.1",
     "httpx==0.28.1",
     "responses==0.26.0",
-    "faker==40.4.0",
-    "ruff==0.15.2",
+    "faker==40.5.1",
+    "ruff==0.15.4",
     "bump-my-version==1.2.7",
     "detect-secrets==1.5.0",
+    "respx>=0.22.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -49,6 +43,11 @@ where = [
     "components/appkit-commons/src",
     "components/appkit-imagecreator/src",
     "components/appkit-mantine/src",
+    "components/appkit-mcp-bpmn/src",
+    "components/appkit-mcp-charts/src",
+    "components/appkit-mcp-commons/src",
+    "components/appkit-mcp-image/src",
+    "components/appkit-mcp-user/src",
     "components/appkit-ui/src",
     "components/appkit-user/src",
 ]
@@ -60,6 +59,11 @@ packages = [
     "appkit_commons",
     "appkit_imagecreator",
     "appkit_mantine",
+    "appkit_mcp_bpmn",
+    "appkit_mcp_charts",
+    "appkit_mcp_commons",
+    "appkit_mcp_image",
+    "appkit_mcp_user",
     "appkit_ui",
     "appkit_user",
 ]
@@ -76,6 +80,11 @@ appkit-assistant = { workspace = true }
 appkit-commons = { workspace = true }
 appkit-imagecreator = { workspace = true }
 appkit-mantine = { workspace = true }
+appkit-mcp-bpmn = { workspace = true }
+appkit-mcp-charts = { workspace = true }
+appkit-mcp-commons = { workspace = true }
+appkit-mcp-image = { workspace = true }
+appkit-mcp-user = { workspace = true }
 appkit-ui = { workspace = true }
 appkit-user = { workspace = true }
 
@@ -112,6 +121,42 @@ replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "components/appkit-mantine/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-bpmn/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-charts/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-commons/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-image/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-user/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-user/pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-charts/pyproject.toml"
+
+[[tool.bumpversion.files]]
+filename = "components/appkit-mcp-commons/pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
@@ -206,8 +251,20 @@ known-local-folder = ["app", "alembic"]
 known-first-party = ["appkit_*"]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 cache_dir = ".cache/pytest"
-testpaths = ["tests"]
+norecursedirs = [".cache", "__pycache__", ".venv*", "node_modules"]
+testpaths = [
+    "components/appkit-commons/tests",
+    "components/appkit-assistant/tests",
+    "components/appkit-imagecreator/tests",
+    "components/appkit-mcp-user/tests",
+    "components/appkit-mcp-charts/tests",
+    "components/appkit-mcp-bpmn/tests",
+    "components/appkit-mcp-commons/tests",
+    "components/appkit-mcp-image/tests",
+    "components/appkit-user/tests",
+]
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = [

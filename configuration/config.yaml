@@ -61,3 +61,45 @@ app:
   imagegenerator:
     tmp_dir: ./uploaded_files
     cleanup_days_threshold: 60
+    openai_model: gpt-5-mini
+
+  mcp_user:
+    openai_model: gpt-5-mini
+
+  mcp_bpmn:
+    storage_dir: ./uploaded_files/bpmn
+    default_model: gpt-5.3-codex
+    max_file_size_mb: 10
+    diagram_types:
+      - process
+      - collaboration
+      - choreography
+
+  mcp_image:
+    backend_server: "http://localhost:3031"
+    max_file_size_mb: 10
+    max_images_to_keep: 50
+
+    generator: "google" # "azure" | "google"
+
+    azure_api_key: secret:mn-azure-api-key
+    azure_base_url: secret:mn-azure-endpoint
+    azure_prompt_optimizer: "gpt-5-mini"
+    azure_image_model: "FLUX.1-Kontext-pro" # "gpt-image-1.5" | "gpt-image-1-mini"
+
+    google_api_key: secret:mn-google-api-key
+    google_prompt_optimizer: "gemini-3.1-flash-lite-preview"
+    google_image_model: "gemini-3.1-flash-image-preview" # "gemini-3-pro-image-preview"
+
+    auth_tokens:
+      - id: secret:mn-image-default-auth-token
+        token:
+          client_id: "default-client-id"
+          scopes:
+            - "image:generate"
+            - "image:edit"
+      - id: secret:mn-image-guest-auth-token
+        token:
+          client_id: "guest-user-id"
+          scopes:
+            - "image:generate"

@@ -8,6 +8,7 @@ from appkit_assistant.backend.schemas import (
     ThinkingStatus,
     ThinkingType,
 )
+from appkit_assistant.components.mcp_app_view import mcp_app_view
 from appkit_assistant.state.thread_state import (
     ThreadState,
 )
@@ -516,6 +517,20 @@ class MessageComponent:
             rx.cond(
                 message.done,
                 MessageActionsBar.render(message),
+                rx.fragment(),
+            ),
+            # MCP App views (per-message, persisted in chat history)
+            rx.cond(
+                message.mcp_app_views.length() > 0,
+                rx.vstack(
+                    rx.foreach(
+                        message.mcp_app_views,
+                        mcp_app_view,
+                    ),
+                    width="100%",
+                    spacing="2",
+                    margin_top="8px",
+                ),
                 rx.fragment(),
             ),
             spacing="3",

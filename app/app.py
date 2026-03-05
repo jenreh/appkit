@@ -1,23 +1,35 @@
 """Welcome to Reflex! This file outlines the steps to create a basic app."""
 
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import reflex as rx
 from fastapi import FastAPI
 from starlette.types import ASGIApp
 
-import appkit_mantine as mn
 from appkit_assistant.backend.ai_model_registry import ai_model_registry
+from appkit_assistant.backend.api.mcp_apps_api import (
+    router as mcp_apps_router,
+)
 from appkit_assistant.backend.services.file_cleanup_service import FileCleanupService
 from appkit_assistant.pages import mcp_oauth_callback_page  # noqa: F401
 from appkit_commons.middleware import ForceHTTPSMiddleware
+from appkit_commons.registry import service_registry
 from appkit_commons.scheduler import PGQueuerScheduler
 from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.image_api import router as image_api_router
 from appkit_imagecreator.backend.services.image_cleanup_service import (
     ImageCleanupService,
 )
+from appkit_mcp_bpmn.server import create_bpmn_mcp_server
+from appkit_mcp_charts.server import create_charts_mcp_server
+from appkit_mcp_image.auth import get_verifier
+from appkit_mcp_image.configuration import MCPImageGeneratorConfig
+from appkit_mcp_image.server import (
+    create_image_mcp_server,
+    init_generators,
+)
+from appkit_mcp_user.server import create_user_mcp_server
 from appkit_user.authentication.backend.services import (
     SessionCleanupService,
 )
@@ -25,8 +37,7 @@ from appkit_user.authentication.pages import (  # noqa: F401
     azure_oauth_callback_page,
     github_oauth_callback_page,
 )
-from appkit_user.authentication.templates import navbar_layout
-from appkit_user.user_management.pages import (  # noqa: F401
+from appkit_user.user_management.pages import (
     create_login_page,
     create_password_reset_confirm_page,
     create_password_reset_request_page,
@@ -34,6 +45,8 @@ from appkit_user.user_management.pages import (  # noqa: F401
 )
 
 from app.components.navbar import app_navbar
+
+# Import pages to ensure they are registered
 from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
 from app.pages.assistant.assistant import assistant_page  # noqa: F401
 from app.pages.examples.auto_scroll_examples import auto_scroll_examples  # noqa: F401
@@ -64,8 +77,10 @@ from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
 from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.image_generators import image_generators_page  # noqa: F401
+from app.pages.index import index  # noqa: F401
 from app.pages.users import users_page  # noqa: F401
 
+# Register Authentication & User Management Pages
 create_login_page()
 create_profile_page(
     app_navbar(),
@@ -76,110 +91,10 @@ create_password_reset_request_page()
 create_password_reset_confirm_page()
 
 
-@navbar_layout(
-    route="/index",
-    title="Home",
-    description="A demo page for the appkit components",
-    navbar=app_navbar(),
-    with_header=False,
-)
-def index() -> rx.Component:
-    return mn.container(
-        mn.stack(
-            mn.title("Welcome to appkit!", order=1, size="xl"),
-            mn.text(
-                "A component library for ",
-                rx.link("Reflex.dev", href="https://reflex.dev/", is_external=True),
-                " based on ",
-                rx.link("Mantine UI", href="https://mantine.dev/", is_external=True),
-                mb="lg",
-            ),
-            mn.simple_grid(
-                # Left column
-                mn.stack(
-                    mn.text("AI Tools:", fw="bold", size="md"),
-                    mn.list_(
-                        mn.list_.item(rx.link("Assistant", href="/assistant")),
-                        mn.list_.item(
-                            rx.link("Image Generator", href="/image-gallery")
-                        ),
-                        list_style_type="disc",
-                        type="unordered",
-                    ),
-                    mn.text("Inputs:", fw="bold", size="md"),
-                    mn.list_(
-                        mn.list_.item(rx.link("Buttons & Icons", href="/buttons")),
-                        mn.list_.item(rx.link("Input Components", href="/inputs")),
-                        mn.list_.item(rx.link("Comboboxes", href="/comboboxes")),
-                        mn.list_.item(
-                            rx.link("Rich Text Editor (Tiptap)", href="/tiptap")
-                        ),
-                        list_style_type="disc",
-                        type="unordered",
-                    ),
-                    mn.text("Data Display:", fw="bold", size="md"),
-                    mn.list_(
-                        mn.list_.item(rx.link("Data Display", href="/data-display")),
-                        type="unordered",
-                        list_style_type="disc",
-                    ),
-                ),
-                # Right column
-                mn.stack(
-                    mn.text("Navigation:", fw="bold", size="md"),
-                    mn.list_(
-                        mn.list_.item(rx.link("Navigation", href="/navigation")),
-                        mn.list_.item(
-                            rx.link("Navigation Progress", href="/nprogress")
-                        ),
-                        mn.list_.item(rx.link("Nav Link", href="/nav-link")),
-                        type="unordered",
-                        list_style_type="disc",
-                    ),
-                    mn.text("Overlay:", fw="bold", size="md"),
-                    mn.list_(
-                        mn.list_.item(rx.link("HoverCard", href="/hover-card")),
-                        mn.list_.item(rx.link("Tooltip", href="/tooltip")),
-                        type="unordered",
-                        list_style_type="disc",
-                    ),
-                    mn.text("Others:", fw="bold", size="md"),
-                    mn.list_(
-                        mn.list_.item(rx.link("Feedback Components", href="/feedback")),
-                        mn.list_.item(
-                            rx.link("Markdown Preview", href="/markdown-preview")
-                        ),
-                        mn.list_.item(rx.link("Modal", href="/modal")),
-                        mn.list_.item(
-                            rx.link("Navigation Progress", href="/nprogress")
-                        ),
-                        mn.list_.item(rx.link("Nav Link", href="/nav-link")),
-                        mn.list_.item(
-                            rx.link("Number Formatter", href="/number-formatter")
-                        ),
-                        mn.list_.item(rx.link("ScrollArea", href="/scroll-area")),
-                        mn.list_.item(rx.link("Table", href="/table")),
-                        type="unordered",
-                        list_style_type="disc",
-                    ),
-                ),
-                cols=2,
-                spacing="md",
-            ),
-            spacing="md",
-            mt="0",
-            w="100%",
-        ),
-        size="lg",
-        w="100%",
-    )
-
-
 base_stylesheets = [
     "https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700;800&display=swap",
     "https://fonts.googleapis.com/css2?family=Audiowide&family=Honk:SHLN@5&family=Major+Mono+Display&display=swap",
     "css/appkit.css",
-    #    "css/styles.css",
     "css/react-zoom.css",
 ]
 
@@ -191,29 +106,69 @@ base_style = {
 }
 
 
+def init_mcp_apps() -> dict[str, ASGIApp]:
+    """Initialize MCP servers and return their ASGI apps."""
+    # Standard MCP servers
+    servers = {
+        "/user": create_user_mcp_server(),
+        "/charts": create_charts_mcp_server(),
+        "/bpmn": create_bpmn_mcp_server(),
+    }
+
+    # Image MCP server specific setup
+    image_mcp_config = service_registry().get(MCPImageGeneratorConfig)
+    generators = init_generators(image_mcp_config)
+    servers["/image"] = create_image_mcp_server(
+        generators[image_mcp_config.generator],
+        get_verifier(),
+    )
+
+    # Convert to ASGI apps using streamable-http transport for SSE support
+    return {
+        path: server.http_app(path="/mcp", transport="streamable-http")
+        for path, server in servers.items()
+    }
+
+
+# Initialize MCP apps
+_mcp_apps = init_mcp_apps()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """Handle application lifespan events (startup and shutdown)."""
-    await ai_model_registry.initialize()
-    await generator_registry.initialize()
+    async with AsyncExitStack() as stack:
+        # Register MCP server lifespans
+        for mcp_app in _mcp_apps.values():
+            await stack.enter_async_context(mcp_app.router.lifespan_context(mcp_app))
 
-    scheduler = PGQueuerScheduler()
-    scheduler.add_service(FileCleanupService())
-    scheduler.add_service(SessionCleanupService(interval_minutes=30))
-    scheduler.add_service(ImageCleanupService())
-    await scheduler.start()
+        # Initialize registries
+        await ai_model_registry.initialize()
+        await generator_registry.initialize()
 
-    yield
+        # Start job scheduler
+        scheduler = PGQueuerScheduler()
+        scheduler.add_service(FileCleanupService())
+        scheduler.add_service(SessionCleanupService(interval_minutes=30))
+        scheduler.add_service(ImageCleanupService())
+        await scheduler.start()
 
-    await scheduler.shutdown()
+        yield
+
+        await scheduler.shutdown()
 
 
 # Create FastAPI app for custom API routes
+# NOTE: Do NOT add CORSMiddleware here. See App._add_cors() in Reflex.
 api_app = FastAPI(title="AppKit API")
 api_app.include_router(image_api_router)
+api_app.include_router(mcp_apps_router)
+
+# Mount MCP apps
+for path, mcp_app in _mcp_apps.items():
+    api_app.mount(path, mcp_app)
 
 
-# Middleware transformer for HTTPS redirect
 def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
     """Wrap the ASGI app with HTTPS redirect middleware."""
     return ForceHTTPSMiddleware(asgi_app)

@@ -95,6 +95,8 @@ class AIModelAdminState(rx.State):
 
     async def load_models_with_toast(self) -> AsyncGenerator[Any, Any]:
         """Load models, show error toast on failure."""
+        self.loading = True
+        yield
         try:
             await self.load_models()
         except Exception:

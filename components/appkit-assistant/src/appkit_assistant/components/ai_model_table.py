@@ -147,8 +147,16 @@ def ai_model_table_row(record: AssistantAIModel) -> rx.Component:
 def ai_models_table(
     available_roles: list[dict[str, str]] | None = None,
     role_labels: dict[str, str] | None = None,
+    load_on_mount: bool = False,
 ) -> rx.Component:
-    """Admin table for managing AI model configurations."""
+    """Admin table for managing AI model configurations.
+
+    Args:
+        available_roles: List of available roles for filtering.
+        role_labels: Mapping of role names to display labels.
+        load_on_mount: If True, load models on component mount.
+            Default is False (lazy load via admin page).
+    """
     if available_roles is None:
         available_roles = []
     if role_labels is None:
@@ -174,37 +182,50 @@ def ai_models_table(
             gap="12px",
             align="center",
         ),
-        mn.table(
-            mn.table.thead(
-                mn.table.tr(
-                    mn.table.th(mn.text("Name", size="sm", fw="700")),
-                    mn.table.th(mn.text("Modell-ID", size="sm", fw="700")),
-                    mn.table.th(mn.text("Prozessor", size="sm", fw="700")),
-                    mn.table.th(mn.text("Rolle", size="sm", fw="700")),
-                    mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
-                    mn.table.th(mn.text("", size="sm")),
-                    style=sticky_header_style,
+        rx.box(
+            mn.loading_overlay(
+                visible=AIModelAdminState.loading,
+                overlayProps={"min_height": "200px"},
+            ),
+            mn.table(
+                mn.table.thead(
+                    mn.table.tr(
+                        mn.table.th(mn.text("Name", size="sm", fw="700")),
+                        mn.table.th(mn.text("Modell-ID", size="sm", fw="700")),
+                        mn.table.th(mn.text("Prozessor", size="sm", fw="700")),
+                        mn.table.th(mn.text("Rolle", size="sm", fw="700")),
+                        mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
+                        mn.table.th(mn.text("", size="sm")),
+                        style=sticky_header_style,
+                    ),
                 ),
+                mn.table.tbody(
+                    rx.foreach(
+                        AIModelAdminState.filtered_models,
+                        ai_model_table_row,
+                    )
+                ),
+                sticky_header=True,
+                sticky_header_offset="0px",
+                striped=False,
+                highlight_on_hover=True,
+                highlight_on_hover_color=rx.color_mode_cond(
+                    light="gray.0",
+                    dark="dark.8",
+                ),
+                w="100%",
             ),
-            mn.table.tbody(
-                rx.foreach(
-                    AIModelAdminState.filtered_models,
-                    ai_model_table_row,
-                )
-            ),
-            sticky_header=True,
-            sticky_header_offset="0px",
-            striped=False,
-            highlight_on_hover=True,
-            highlight_on_hover_color=rx.color_mode_cond(
-                light="gray.0",
-                dark="dark.8",
-            ),
+            position="relative",
             w="100%",
+            min_height="200px",
         ),
         w="100%",
-        on_mount=[
-            AIModelAdminState.set_available_roles(available_roles, role_labels),
-            AIModelAdminState.load_models_with_toast,
-        ],
+        on_mount=(
+            [
+                AIModelAdminState.set_available_roles(available_roles, role_labels),
+                AIModelAdminState.load_models_with_toast,
+            ]
+            if load_on_mount
+            else [AIModelAdminState.set_available_roles(available_roles, role_labels)]
+        ),
     )

@@ -144,6 +144,8 @@ class SkillAdminState(rx.State):
 
     async def load_skills_with_toast(self) -> AsyncGenerator[Any, Any]:
         """Load skills and show error toast on failure."""
+        self.loading = True
+        yield
         try:
             await self.load_skills()
         except Exception:

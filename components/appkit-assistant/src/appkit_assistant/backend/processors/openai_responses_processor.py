@@ -60,6 +60,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
         # Tool name tracking: tool_id -> tool_name for MCP streaming events
         self._tool_name_map: dict[str, str] = {}
+        # Tool name without server prefix: tool_id -> tool_name
+        self._tool_name_only_map: dict[str, str] = {}
 
         # Store available MCP servers for lookup during error handling
         self._available_mcp_servers: list[MCPServer] = []
@@ -111,6 +113,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         model = self.models[model_id]
         self.current_user_id = user_id
         self.clear_pending_auth_servers()
+        self._tool_name_only_map.clear()
 
         # Process file uploads and yield progress in real-time
         vector_store_id: str | None = None
@@ -310,7 +313,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         }:
             return None
 
-        logger.debug("Unhandled event type: %s", event_type)
+        # logger.debug("Unhandled event type: %s", event_type)
         return None
 
     def _handle_search_events(self, event_type: str, event: Any) -> Chunk | None:
@@ -438,6 +441,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             server_label = getattr(item, "server_label", "unknown_server")
             # Store tool name mapping for streaming events
             self._tool_name_map[tool_id] = f"{server_label}.{tool_name}"
+            # Also store just the tool_name without server prefix for UI resolution
+            self._tool_name_only_map[tool_id] = tool_name
             logger.debug(
                 "MCP call started: %s.%s (id=%s)",
                 server_label,
@@ -545,6 +550,13 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
         if error:
             error_text = self._extract_error_text(error)
+            logger.warning(
+                "MCP call %s.%s failed (id=%s): %s",
+                server_label,
+                tool_name,
+                tool_id,
+                error_text,
+            )
 
             # Check for authentication errors (401/403)
             if self.auth_detector.is_auth_error(error):
@@ -574,12 +586,22 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
         )
 
     def _extract_error_text(self, error: Any) -> str:
-        """Extract readable error text from error object."""
+        """Extract readable error text from an MCP call error.
+
+        The OpenAI Responses API returns ``mcp_call.error`` as
+        ``Optional[str]``.  Legacy or third-party wrappers may
+        pass a dict with ``{"content": [{"text": "..."}]}``.
+        This method handles both formats gracefully.
+        """
+        if isinstance(error, str):
+            return error
         if isinstance(error, dict):
             content = error.get("content", [])
             if isinstance(content, list) and content:
                 return content[0].get("text", str(error))
-        return "Unknown error"
+            return error.get("message", error.get("text", str(error)))
+        # Fallback: stringify whatever we received
+        return str(error)
 
     def _handle_mcp_events(  # noqa: PLR0911, PLR0912, PLR0915
         self, event_type: str, event: Any

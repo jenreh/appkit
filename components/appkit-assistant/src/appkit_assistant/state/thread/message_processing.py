@@ -4,6 +4,7 @@ Core message submission, streaming, batching, and persistence pipeline.
 """
 
 import asyncio
+import json
 import logging
 import re
 import time
@@ -23,10 +24,12 @@ from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.schemas import (
     Chunk,
     ChunkType,
+    McpAppToolInfo,
     Message,
     MessageType,
 )
 from appkit_assistant.backend.services import file_manager
+from appkit_assistant.backend.services.mcp_apps_service import McpAppsService
 from appkit_assistant.backend.services.response_accumulator import (
     ResponseAccumulator,
 )
@@ -135,6 +138,10 @@ class MessageProcessingMixin:
                 thread_copy.thread_id,
             )
 
+        # Discover UI tools for MCP Apps injection
+        ui_tool_registry = await self._discover_ui_tools(mcp_servers, user_id)
+        pending_tool_info: dict[str, dict] = {}
+
         first_response_received = False
         try:
             skill_ids = [s.openai_id for s in self.selected_skills]
@@ -177,6 +184,8 @@ class MessageProcessingMixin:
                         current_prompt=current_prompt,
                         is_new_thread=is_new_thread,
                         first_response_received=(first_response_received),
+                        ui_tool_registry=ui_tool_registry,
+                        pending_tool_info=pending_tool_info,
                     )
                     chunk_buffer.clear()
                     last_flush = now
@@ -189,6 +198,8 @@ class MessageProcessingMixin:
                     current_prompt=current_prompt,
                     is_new_thread=is_new_thread,
                     first_response_received=first_response_received,
+                    ui_tool_registry=ui_tool_registry,
+                    pending_tool_info=pending_tool_info,
                 )
 
             await self._finalize_successful_response(accumulator)
@@ -203,6 +214,27 @@ class MessageProcessingMixin:
 
         finally:
             await self._finalize_processing()
+
+    @staticmethod
+    async def _discover_ui_tools(
+        mcp_servers: list[MCPServer],
+        user_id: int | str | None,
+    ) -> dict[str, McpAppToolInfo]:
+        """Discover UI-enabled tools from MCP servers."""
+        registry: dict[str, McpAppToolInfo] = {}
+        if not mcp_servers:
+            return registry
+        apps = McpAppsService()
+        for server in mcp_servers:
+            tools = await apps.discover_ui_tools(server, user_id or 0)
+            for tool in tools:
+                registry[tool.tool_name] = tool
+        if registry:
+            logger.info(
+                "Discovered %d UI tools for MCP Apps injection",
+                len(registry),
+            )
+        return registry
 
     # ------------------------------------------------------------------
     # Prompt parsing
@@ -415,6 +447,8 @@ class MessageProcessingMixin:
         current_prompt: str,
         is_new_thread: bool,
         first_response_received: bool,
+        ui_tool_registry: dict[str, McpAppToolInfo] | None = None,
+        pending_tool_info: dict[str, dict] | None = None,
     ) -> bool:
         """Process buffered chunks and sync UI state.
 
@@ -422,7 +456,11 @@ class MessageProcessingMixin:
         """
         async with self:
             for chunk in chunks:
+                self._track_tool_call_info(chunk, ui_tool_registry, pending_tool_info)
                 accumulator.process_chunk(chunk)
+                self._inject_mcp_app_view(
+                    chunk, accumulator, ui_tool_registry, pending_tool_info
+                )
 
             self.thinking_items = list(accumulator.thinking_items)
             self.current_activity = accumulator.current_activity
@@ -446,6 +484,75 @@ class MessageProcessingMixin:
 
             return first_response_received
 
+    @staticmethod
+    def _track_tool_call_info(
+        chunk: Chunk,
+        ui_tool_registry: dict[str, McpAppToolInfo] | None,
+        pending_tool_info: dict[str, dict] | None,
+    ) -> None:
+        """Track TOOL_CALL info (tool_name + server_label) by tool_id."""
+        if ui_tool_registry is None or chunk.type != ChunkType.TOOL_CALL:
+            return
+        tool_id = chunk.chunk_metadata.get("tool_id", "")
+        tool_name = chunk.chunk_metadata.get("tool_name", "")
+        server_label = chunk.chunk_metadata.get("server_label", "")
+        bare_name = tool_name.split(".", 1)[-1] if "." in tool_name else tool_name
+        if (
+            tool_id
+            and bare_name
+            and bare_name not in ("Unknown", "")
+            and pending_tool_info is not None
+        ):
+            pending_tool_info.setdefault(
+                tool_id,
+                {"tool_name": bare_name, "server_label": server_label},
+            )
+
+    @staticmethod
+    def _inject_mcp_app_view(
+        chunk: Chunk,
+        accumulator: ResponseAccumulator,
+        ui_tool_registry: dict[str, McpAppToolInfo] | None,
+        pending_tool_info: dict[str, dict] | None,
+    ) -> None:
+        """After TOOL_RESULT: inject MCP_APP_VIEW chunk if tool has UI."""
+        if not ui_tool_registry or chunk.type != ChunkType.TOOL_RESULT:
+            return
+        err_val = chunk.chunk_metadata.get("error")
+        if err_val is True or err_val == "True":
+            return
+        tool_id = chunk.chunk_metadata.get("tool_id", "")
+        info = (
+            pending_tool_info.pop(tool_id, {}) if pending_tool_info is not None else {}
+        )
+        tool_name = info.get("tool_name", "")
+        tool_info = ui_tool_registry.get(tool_name)
+        if not tool_info:
+            return
+        view_chunk = Chunk(
+            type=ChunkType.MCP_APP_VIEW,
+            text="",
+            chunk_metadata={
+                "server_id": str(tool_info.server_id),
+                "server_name": tool_info.server_label,
+                "resource_uri": tool_info.resource_uri,
+                "tool_name": tool_info.tool_name,
+                "tool_input": "{}",
+                "tool_result": json.dumps(
+                    {
+                        "content": [{"type": "text", "text": chunk.text}],
+                        "isError": False,
+                    }
+                ),
+            },
+        )
+        accumulator.process_chunk(view_chunk)
+        logger.debug(
+            "Injected MCP_APP_VIEW for tool %s (server %s)",
+            tool_name,
+            tool_info.server_label,
+        )
+
     async def _finalize_successful_response(
         self, accumulator: ResponseAccumulator
     ) -> None:
@@ -462,6 +569,15 @@ class MessageProcessingMixin:
                 s.id for s in self.selected_mcp_servers if s.id
             ]
             self._thread.skill_openai_ids = [s.openai_id for s in self.selected_skills]
+
+            # Embed only the LAST MCP App view into the message for persistence
+            # (only once, after response is complete, avoid showing multiple errors)
+            if accumulator.mcp_app_views and self.messages:
+                for msg in reversed(self.messages):
+                    if msg.type == MessageType.ASSISTANT:
+                        # Keep only the final/last view (typically the successful one)
+                        msg.mcp_app_views = [accumulator.mcp_app_views[-1]]
+                        break
 
             user_session: UserSession = await self.get_state(UserSession)
             user_id = user_session.user.user_id if user_session.user else None
@@ -514,6 +630,7 @@ class MessageProcessingMixin:
             self.cancellation_requested = False
             self.current_activity = ""
             self._cancel_event = None
+            self.mcp_app_views = []  # Clear state views after embedding
 
             if self._pending_file_cleanup:
                 pending_files = list(self._pending_file_cleanup)
