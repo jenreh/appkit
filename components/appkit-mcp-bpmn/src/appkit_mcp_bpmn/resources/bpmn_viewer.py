@@ -183,12 +183,24 @@ body.maximized #canvas {{
   stroke: var(--diagram-stroke);
 }}
 
+#canvas .djs-connection > .djs-visual > path,
 #canvas .djs-connection > .djs-visual > polyline {{
   stroke: var(--diagram-stroke);
+  stroke-width: 1.5px;
 }}
 
+/* Remove text shadows/filters globally (white stroke halo from bpmn-js) */
+#canvas text,
 #canvas tspan {{
   fill: var(--diagram-text);
+  stroke: none !important;
+  stroke-width: 0 !important;
+  paint-order: normal !important;
+}}
+
+/* Disable SVG filters (text halo/shadow effects) globally */
+#canvas svg defs filter {{
+  display: none !important;
 }}
 
 /* BPMN element styles for dark mode */
@@ -632,6 +644,7 @@ body.maximized #canvas {{
       "#canvas .djs-connection .djs-visual polyline"
     ).forEach(function(el) {{
       el.setAttribute("stroke", strokeColor);
+      el.setAttribute("stroke-width", "1.5");
     }});
 
     /* Style shape elements */
