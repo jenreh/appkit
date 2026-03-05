@@ -67,6 +67,7 @@
     "components/appkit-mcp-bpmn/tests",
     "components/appkit-mcp-charts/tests",
     "components/appkit-mcp-commons/tests",
+    "components/appkit-mcp-image/tests",
     "components/appkit-mcp-user/tests",
     "components/appkit-user/tests",
   ],

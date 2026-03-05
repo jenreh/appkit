@@ -1,1 +1,2 @@
 tests/conftest.py:generic-api-key:46
+components/appkit-mcp-image/tests/integration/test_openai_integration.py:generic-api-key:230

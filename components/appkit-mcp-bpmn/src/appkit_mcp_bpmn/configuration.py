@@ -1,15 +1,13 @@
 """BPMN component configuration."""
 
-import logging
-from dataclasses import dataclass, field
+from pydantic import Field
 
-logger = logging.getLogger(__name__)
+from appkit_commons.configuration.base import BaseConfig
 
 VALID_DIAGRAM_TYPES = ("process", "collaboration", "choreography")
 
 
-@dataclass
-class BPMNConfig:
+class BPMNConfig(BaseConfig):
     """Configuration for the BPMN MCP server.
 
     Attributes:
@@ -22,4 +20,4 @@ class BPMNConfig:
     storage_dir: str = "uploaded_files"
     default_model: str = "gpt-5.3-codex"
     max_file_size_mb: int = 10
-    diagram_types: list[str] = field(default_factory=lambda: list(VALID_DIAGRAM_TYPES))
+    diagram_types: list[str] = Field(default_factory=lambda: list(VALID_DIAGRAM_TYPES))
