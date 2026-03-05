@@ -23,7 +23,7 @@ from appkit_imagecreator.backend.services.image_cleanup_service import (
 )
 from appkit_mcp_bpmn.server import create_bpmn_mcp_server
 from appkit_mcp_charts.server import create_charts_mcp_server
-from appkit_mcp_image.auth import verifier
+from appkit_mcp_image.auth import get_verifier
 from appkit_mcp_image.configuration import MCPImageGeneratorConfig
 from appkit_mcp_image.server import (
     create_image_mcp_server,
@@ -120,7 +120,7 @@ def init_mcp_apps() -> dict[str, ASGIApp]:
     generators = init_generators(image_mcp_config)
     servers["/image"] = create_image_mcp_server(
         generators[image_mcp_config.generator],
-        verifier,
+        get_verifier(),
     )
 
     # Convert to ASGI apps using streamable-http transport for SSE support
