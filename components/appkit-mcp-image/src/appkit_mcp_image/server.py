@@ -1,9 +1,10 @@
+import json
 import logging
 from typing import Annotated, Any, Literal
 
 from fastmcp import FastMCP
+from fastmcp.server.apps import AppConfig
 from fastmcp.server.auth.auth import AuthProvider
-from fastmcp.utilities.types import Image
 from pydantic import Field
 
 from appkit_commons.registry import service_registry
@@ -16,9 +17,10 @@ from appkit_mcp_image.backend.models import (
     EditImageInput,
     GenerationInput,
     ImageGenerator,
+    ImageResult,
 )
-from appkit_mcp_image.backend.utils import url_to_bytes
 from appkit_mcp_image.configuration import MCPImageGeneratorConfig
+from appkit_mcp_image.resources.image_viewer import IMAGE_VIEWER_HTML, VIEW_URI
 
 logger = logging.getLogger(__name__)
 
@@ -26,41 +28,30 @@ _generators: dict[str, ImageGenerator] = {}
 config: MCPImageGeneratorConfig = service_registry().get(MCPImageGeneratorConfig)
 
 
-async def _generate_response(
+def _success_result(
     image_url: str,
     prompt: str,
-    response_format: Literal["image", "markdown", "url"] = "url",
-    output_format: Literal["png", "jpeg", "webp"] = "jpeg",
-) -> str | Image:
-    """Generate response based on requested format.
+    *,
+    enhanced_prompt: str | None = None,
+    model: str | None = None,
+    size: str | None = None,
+) -> str:
+    """Return a JSON success response for the MCP-App UI."""
+    result = ImageResult(
+        success=True,
+        image_url=image_url,
+        prompt=prompt,
+        enhanced_prompt=enhanced_prompt,
+        model=model,
+        size=size,
+    )
+    return json.dumps(result.model_dump(), default=str)
 
-    Args:
-        image_url: URL of the generated/edited image
-        response_format: "image", "markdown", or "url"
-        prompt: Original prompt (used for markdown)
-        output_format: Image format (png, jpeg, webp)
 
-    Returns:
-        MCP Image object, markdown string, or URL string
-
-    Raises:
-        ValueError: If image URL conversion fails
-    """
-    if response_format == "image":
-        try:
-            image_bytes = await url_to_bytes(image_url)
-            return Image(data=image_bytes, format=output_format)
-        except Exception as e:
-            logger.error("Failed to create Image object from URL: %s", str(e))
-            raise ValueError(f"Failed to convert image URL to MCP Image: {e}") from e
-
-    if response_format == "url":
-        return image_url
-
-    if response_format == "markdown":
-        return f"![Generated Image]({image_url})\n\n**Prompt:** {prompt}"
-
-    raise ValueError(f"Unknown response format: {response_format}")
+def _error_result(message: str) -> str:
+    """Return a JSON error response."""
+    result = ImageResult(success=False, error=message)
+    return json.dumps(result.model_dump(), default=str)
 
 
 def init_generators(config: MCPImageGeneratorConfig) -> dict[str, ImageGenerator]:
@@ -118,6 +109,14 @@ def create_image_mcp_server(
         auth=auth,
     )
 
+    @mcp.resource(
+        VIEW_URI,
+        app=AppConfig(prefers_border=False),
+    )
+    def image_view() -> str:
+        """Image viewer that displays generated images with prompt info."""
+        return IMAGE_VIEWER_HTML
+
     @mcp.tool(
         name="generate_image",
         tags={"image", "generation"},
@@ -125,6 +124,7 @@ def create_image_mcp_server(
             "Create an image based on the prompt. "
             "The generated answer must be shown directly to the user."
         ),
+        app=AppConfig(resource_uri=VIEW_URI),
     )
     async def generate_image(
         prompt: Annotated[
@@ -146,16 +146,6 @@ def create_image_mcp_server(
             Literal["transparent", "opaque", "auto"],
             Field(description="Background transparency setting"),
         ] = "auto",
-        response_format: Annotated[
-            Literal["image", "markdown", "adaptive_card"],
-            Field(
-                description=(
-                    "Output format: 'image' for MCP Image objects, "
-                    "'markdown' for markdown string with image link, "
-                    "'adaptive_card' for Microsoft Adaptive Card JSON"
-                )
-            ),
-        ] = config.default_response_format,
         seed: Annotated[
             int,
             Field(description="Random seed for reproducibility (0 = random)"),
@@ -168,10 +158,10 @@ def create_image_mcp_server(
             Literal["png", "jpeg", "webp"],
             Field(description="Output image format"),
         ] = "jpeg",
-    ) -> str | Image:
+    ) -> str:
         """Generate image from text prompt using gpt-image-1 or FLUX.1-Kontext-pro.
 
-        Returns the URL of the generated image.
+        Returns a JSON result rendered by the image viewer app.
 
         Supported models:
         - gpt-image-1: OpenAI's latest image generation model
@@ -183,14 +173,22 @@ def create_image_mcp_server(
             size=size,
             output_format=output_format,
             background=background,
-            response_format=response_format,
             seed=seed,
             enhance_prompt=enhance_prompt,
         )
-        image_url, enhanced_prompt = await generate_image_impl(input_data, generator)
+        try:
+            image_url, enhanced_prompt = await generate_image_impl(
+                input_data, generator
+            )
+        except ValueError as exc:
+            return _error_result(str(exc))
 
-        return await _generate_response(
-            image_url, enhanced_prompt, response_format, output_format
+        return _success_result(
+            image_url,
+            prompt,
+            enhanced_prompt=enhanced_prompt,
+            model=generator.model,
+            size=size,
         )
 
     @mcp.tool(
@@ -200,6 +198,7 @@ def create_image_mcp_server(
             "Edit existing images based on the prompt and the list of image URLs. "
             "The generated answer must be shown directly to the user."
         ),
+        app=AppConfig(resource_uri=VIEW_URI),
     )
     async def edit_image(
         prompt: Annotated[
@@ -226,20 +225,10 @@ def create_image_mcp_server(
             Literal["png", "jpeg", "webp"],
             Field(description="Output image format"),
         ] = "jpeg",
-        response_format: Annotated[
-            Literal["image", "markdown", "adaptive_card"],
-            Field(
-                description=(
-                    "Output format: 'image' for MCP Image objects, "
-                    "'markdown' for markdown string with image link, "
-                    "'adaptive_card' for Microsoft Adaptive Card JSON"
-                )
-            ),
-        ] = config.default_response_format,
-    ) -> str | Image:
+    ) -> str:
         """Edit existing images with text prompts and optional masks.
 
-        Returns the URL of the edited image.
+        Returns a JSON result rendered by the image viewer app.
 
         Supports:
         - Multi-image editing (up to 16 images)
@@ -254,10 +243,16 @@ def create_image_mcp_server(
             size=size,
             output_format=output_format,
         )
-        image_url = await edit_image_impl(input_data, generator)
+        try:
+            image_url = await edit_image_impl(input_data, generator)
+        except ValueError as exc:
+            return _error_result(str(exc))
 
-        return await _generate_response(
-            image_url, prompt, response_format, output_format
+        return _success_result(
+            image_url,
+            prompt,
+            model=generator.model,
+            size=size,
         )
 
     return mcp

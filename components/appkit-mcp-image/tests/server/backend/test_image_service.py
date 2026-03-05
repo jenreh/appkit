@@ -23,12 +23,9 @@ class TestGenerateImageImpl:
             state=ImageResponseState.SUCCEEDED,
             images=["data:image/png;base64,aW1hZ2Ux"],
             enhanced_prompt="Refined prompt",
-            response_format="markdown",
         )
 
-        input_data = GenerationInput(
-            prompt="Original prompt", size="auto", response_format="markdown"
-        )
+        input_data = GenerationInput(prompt="Original prompt", size="auto")
 
         image_url, enhanced_prompt = await generate_image_impl(
             input_data=input_data,

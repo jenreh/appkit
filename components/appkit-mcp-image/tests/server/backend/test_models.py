@@ -155,7 +155,6 @@ class TestEditImageInput:
             size="1024x1536",
             output_format="jpeg",
             background="opaque",
-            response_format="markdown",
             image_paths=["image1.png", "image2.png"],
             mask_path="mask.png",
         )
@@ -164,7 +163,6 @@ class TestEditImageInput:
         assert input_data.size == "1024x1536"
         assert input_data.output_format == "jpeg"
         assert input_data.background == "opaque"
-        assert input_data.response_format == "markdown"
         assert input_data.image_paths == ["image1.png", "image2.png"]
         assert input_data.mask_path == "mask.png"
 

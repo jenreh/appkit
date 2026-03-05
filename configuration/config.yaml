@@ -76,7 +76,6 @@ app:
       - choreography
 
   mcp_image:
-    default_response_format: "markdown"
     backend_server: "http://localhost:3031"
     max_file_size_mb: 10
     max_images_to_keep: 50

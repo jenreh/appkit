@@ -38,7 +38,6 @@ class MCPImageGeneratorConfig(BaseConfig):
 
     Attributes:
         backend_server: URL of the backend server.
-        default_response_format: Default response format for image generation.
         max_file_size_mb: Maximum file size in megabytes.
         max_images_to_keep: Maximum number of images to keep in storage.
         generator: Default image generator to use ("azure" or "google").
@@ -54,7 +53,6 @@ class MCPImageGeneratorConfig(BaseConfig):
         google_image_model: LLM model name for Google image generation.
     """
 
-    default_response_format: Literal["image", "markdown", "url"] = "markdown"
     backend_server: str = "http://localhost:8000"
     max_file_size_mb: int = 10
     max_images_to_keep: int = 50

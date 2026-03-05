@@ -41,15 +41,6 @@ class ImageInputBase(BaseModel):
         default="opaque", description="Background transparency setting"
     )
 
-    # Response format
-    response_format: Literal["image", "markdown"] = Field(
-        default="image",
-        description=(
-            "Response format: 'image' for MCP Image objects, "
-            "'markdown' for markdown string"
-        ),
-    )
-
 
 class GenerationInput(ImageInputBase):
     """Input model for image generation (gpt-image-1)."""
@@ -73,6 +64,18 @@ class EditImageInput(ImageInputBase):
             "Optional mask image for inpainting (transparent areas = edit zones)"
         ),
     )
+
+
+class ImageResult(BaseModel):
+    """Structured result returned by image tools to the MCP-App UI."""
+
+    success: bool
+    image_url: str | None = None
+    prompt: str | None = None
+    enhanced_prompt: str | None = None
+    model: str | None = None
+    size: str | None = None
+    error: str | None = None
 
 
 class ImageGeneratorResponse(BaseModel):
