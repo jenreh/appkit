@@ -80,7 +80,7 @@ app:
     max_file_size_mb: 10
     max_images_to_keep: 50
 
-    generator: "azure" # "azure" | "google"
+    generator: "google" # "azure" | "google"
 
     azure_api_key: secret:mn-azure-api-key
     azure_base_url: secret:mn-azure-endpoint
