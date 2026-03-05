@@ -159,6 +159,16 @@ tasks:
       - uv build --package appkit-imagecreator
       - echo "📦 Building and publishing appkit-mantine..."
       - uv build --package appkit-mantine
+      - echo "📦 Building and publishing appkit-mcp-bpmn..."
+      - uv build --package appkit-mcp-bpmn
+      - echo "📦 Building and publishing appkit-mcp-charts..."
+      - uv build --package appkit-mcp-charts
+      - echo "📦 Building and publishing appkit-mcp-commons..."
+      - uv build --package appkit-mcp-commons
+      - echo "📦 Building and publishing appkit-mcp-image..."
+      - uv build --package appkit-mcp-image
+      - echo "📦 Building and publishing appkit-mcp-user..."
+      - uv build --package appkit-mcp-user
       - echo "📦 Building and publishing appkit-ui..."
       - uv build --package appkit-ui
       - echo "📦 Building and publishing appkit-user..."
