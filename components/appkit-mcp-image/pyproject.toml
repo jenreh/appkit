@@ -11,7 +11,7 @@ dependencies = [
     "uvicorn>=0.41.0",
 ]
 name = "appkit-mcp-image"
-version = "1.6.3"
+version = "1.7.0"
 description = "MCP Image Generation Server"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
