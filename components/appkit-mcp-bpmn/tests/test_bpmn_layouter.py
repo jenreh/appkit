@@ -2,6 +2,7 @@
 
 import pytest
 
+from appkit_mcp_bpmn.services.bpmn_lane_layout import POOL_HEADER_WIDTH
 from appkit_mcp_bpmn.services.bpmn_layouter import (
     BpmnNode,
     FlowRef,
@@ -871,3 +872,129 @@ def test_multiple_back_edges_no_overlap() -> None:
     assert short_corridor_y != long_corridor_y, (
         f"Back-edges overlap: both at y={short_corridor_y}"
     )
+
+
+# -- Swimlane layout tests -------------------------------------------------
+
+LANE_XML = """\
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collaboration_1">
+    <bpmn:participant id="Participant_1" processRef="Process_1"/>
+  </bpmn:collaboration>
+  <bpmn:process id="Process_1" isExecutable="true">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_1" name="Manager">
+        <bpmn:flowNodeRef>Start_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_A</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_2" name="Worker">
+        <bpmn:flowNodeRef>Task_B</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>End_1</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Start_1">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="Task_A" name="Review">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Task_B" name="Execute">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="End_1">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_1"
+                       targetRef="Task_A"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_A"
+                       targetRef="Task_B"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_B"
+                       targetRef="End_1"/>
+  </bpmn:process>
+</bpmn:definitions>
+"""
+
+
+def test_layout_with_lanes_produces_participant_shape() -> None:
+    """Layout with lanes generates a BPMNShape for the participant."""
+    result = add_diagram_layout(LANE_XML)
+    assert 'bpmnElement="Participant_1"' in result
+    assert 'isHorizontal="true"' in result
+
+
+def test_layout_with_lanes_produces_lane_shapes() -> None:
+    """Layout with lanes generates BPMNShape for each lane."""
+    result = add_diagram_layout(LANE_XML)
+    assert 'bpmnElement="Lane_1"' in result
+    assert 'bpmnElement="Lane_2"' in result
+
+
+def test_layout_with_lanes_uses_collaboration_plane() -> None:
+    """BPMNPlane references the collaboration, not the process."""
+    result = add_diagram_layout(LANE_XML)
+    assert 'bpmnElement="Collaboration_1"' in result
+
+
+def test_layout_with_lanes_all_elements_present() -> None:
+    """All flow elements still get BPMNShape entries."""
+    result = add_diagram_layout(LANE_XML)
+    root = _parse_root(result)
+    shapes = root.xpath(".//*[local-name()='BPMNShape']")
+    bpmn_elements = {s.get("bpmnElement") for s in shapes}
+    # 4 flow nodes + 1 participant + 2 lanes = 7 shapes
+    assert "Start_1" in bpmn_elements
+    assert "Task_A" in bpmn_elements
+    assert "Task_B" in bpmn_elements
+    assert "End_1" in bpmn_elements
+    assert "Participant_1" in bpmn_elements
+    assert "Lane_1" in bpmn_elements
+    assert "Lane_2" in bpmn_elements
+    assert len(shapes) == 7
+
+
+def test_layout_with_lanes_edges_present() -> None:
+    """All sequence flow edges exist in the layout."""
+    result = add_diagram_layout(LANE_XML)
+    root = _parse_root(result)
+    edges = root.xpath(".//*[local-name()='BPMNEdge']")
+    assert len(edges) == 3
+
+
+def test_layout_with_lanes_elements_shifted_right() -> None:
+    """Elements have x > POOL_HEADER_WIDTH to clear the pool label."""
+
+    result = add_diagram_layout(LANE_XML)
+    root = _parse_root(result)
+
+    for el_id in ("Start_1", "Task_A", "Task_B", "End_1"):
+        shape = next(
+            s
+            for s in root.xpath(".//*[local-name()='BPMNShape']")
+            if s.get("bpmnElement") == el_id
+        )
+        bounds = shape.xpath(".//*[local-name()='Bounds']")[0]
+        x = float(bounds.get("x"))
+        assert x >= POOL_HEADER_WIDTH, (
+            f"Element {el_id} x={x} is less than POOL_HEADER_WIDTH"
+        )
+
+
+def test_layout_with_lanes_lane1_above_lane2() -> None:
+    """Lane 1 (Manager) elements have lower y than Lane 2 (Worker)."""
+    result = add_diagram_layout(LANE_XML)
+    root = _parse_root(result)
+
+    def _get_y(el_id: str) -> float:
+        shape = next(
+            s
+            for s in root.xpath(".//*[local-name()='BPMNShape']")
+            if s.get("bpmnElement") == el_id
+        )
+        return float(shape.xpath(".//*[local-name()='Bounds']")[0].get("y"))
+
+    # Lane 1 elements should be above Lane 2 elements
+    assert _get_y("Start_1") < _get_y("Task_B")
+    assert _get_y("Task_A") < _get_y("End_1")

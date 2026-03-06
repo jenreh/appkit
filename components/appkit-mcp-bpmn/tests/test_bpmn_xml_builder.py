@@ -5,6 +5,7 @@ import json
 import pytest
 
 from appkit_mcp_bpmn.models import BpmnBranch, BpmnProcess, BpmnStep
+from appkit_mcp_bpmn.services.bpmn_layouter import add_diagram_layout
 from appkit_mcp_bpmn.services.bpmn_xml_builder import build_bpmn_xml
 from appkit_mcp_commons.exceptions import ValidationError
 
@@ -268,3 +269,29 @@ def test_build_with_lanes() -> None:
     assert "Worker" in xml
     assert "collaboration" in xml
     assert "participant" in xml
+
+
+def test_build_and_layout_with_lanes() -> None:
+    """End-to-end: build XML with lanes, then layout produces valid DI."""
+
+    proc = BpmnProcess(
+        steps=[
+            BpmnStep(id="start", type="startEvent", label="Start"),
+            BpmnStep(id="task_a", type="task", label="A"),
+            BpmnStep(id="task_b", type="task", label="B"),
+            BpmnStep(id="end", type="endEvent", label="End"),
+        ],
+        lanes=[
+            {"name": "Manager", "steps": ["start", "task_a"]},
+            {"name": "Worker", "steps": ["task_b", "end"]},
+        ],
+    )
+    xml = build_bpmn_xml(proc)
+    result = add_diagram_layout(xml)
+
+    assert "bpmndi:BPMNDiagram" in result
+    assert 'bpmnElement="Collaboration_1"' in result
+    assert 'bpmnElement="Participant_1"' in result
+    assert 'bpmnElement="Lane_1"' in result
+    assert 'bpmnElement="Lane_2"' in result
+    assert 'isHorizontal="true"' in result

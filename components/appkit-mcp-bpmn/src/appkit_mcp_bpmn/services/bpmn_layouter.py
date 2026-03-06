@@ -17,6 +17,14 @@ from typing import Any
 
 from lxml import etree
 
+from appkit_mcp_bpmn.services.bpmn_lane_layout import (
+    POOL_HEADER_WIDTH,
+    find_collaboration,
+    find_participant,
+    generate_lane_shapes,
+    parse_lane_info,
+    rearrange_grid_for_lanes,
+)
 from appkit_mcp_bpmn.services.grid import Grid
 
 logger = logging.getLogger(__name__)
@@ -1068,6 +1076,8 @@ def _build_diagram_xml(
             attrib["isMarkerVisible"] = "true"
         if sd.get("is_expanded"):
             attrib["isExpanded"] = "true"
+        if sd.get("is_horizontal"):
+            attrib["isHorizontal"] = "true"
 
         shape = etree.SubElement(plane, f"{{{BPMNDI_NS}}}BPMNShape", attrib=attrib)
         b = sd["bounds"]
@@ -1142,9 +1152,36 @@ def add_diagram_layout(xml: str) -> str:
         return xml
 
     grid = _create_grid_layout(elements)
-    shapes, edges = _generate_di(grid, {"x": 0, "y": 0})
 
-    _build_diagram_xml(root, process_id, shapes, edges)
+    # Lane-aware layout
+    lanes = parse_lane_info(process)
+    lane_shapes: list[dict[str, Any]] = []
+    plane_element = process_id
+    shift: dict[str, int] = {"x": 0, "y": 0}
+
+    if lanes:
+        collaboration = find_collaboration(root)
+        participant = find_participant(root)
+
+        grid, lane_row_ranges = rearrange_grid_for_lanes(grid, lanes)
+        shift = {"x": POOL_HEADER_WIDTH, "y": 0}
+
+        if participant is not None:
+            _, max_cols = grid.get_grid_dimensions()
+            lane_shapes = generate_lane_shapes(
+                lanes,
+                lane_row_ranges,
+                max_cols,
+                participant.get("id", "Participant_1"),
+            )
+
+        if collaboration is not None:
+            plane_element = collaboration.get("id", "Collaboration_1")
+
+    shapes, edges = _generate_di(grid, shift)
+    all_shapes = lane_shapes + shapes
+
+    _build_diagram_xml(root, plane_element, all_shapes, edges)
 
     result = etree.tostring(
         root, pretty_print=True, xml_declaration=True, encoding="UTF-8"
@@ -1152,7 +1189,7 @@ def add_diagram_layout(xml: str) -> str:
 
     logger.info(
         "Auto-layout generated: %d shapes, %d edges",
-        len(shapes),
+        len(all_shapes),
         len(edges),
     )
     return result

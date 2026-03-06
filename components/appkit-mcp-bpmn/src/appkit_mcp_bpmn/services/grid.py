@@ -223,6 +223,19 @@ class Grid:
         for i in range(count):
             row.insert(insert_at + i, None)
 
+    @classmethod
+    def from_positions(cls, elements: list[tuple[Any, int, int]]) -> Grid:
+        """Create a grid from ``(element, row, col)`` tuples."""
+        grid = cls()
+        if not elements:
+            return grid
+        max_row = max(r for _, r, _ in elements)
+        max_col = max(c for _, _, c in elements)
+        grid._grid = [[None] * (max_col + 1) for _ in range(max_row + 1)]
+        for el, row, col in elements:
+            grid._grid[row][col] = el
+        return grid
+
     @property
     def row_count(self) -> int:
         """Number of rows."""

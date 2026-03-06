@@ -226,3 +226,22 @@ class TestGridAdjust:
         g.adjust_column_for_multiple_incoming(["A", "B"], "C")
         # C moves to col after rightmost (B at col 1) → col 2
         assert g.find("C")[1] == 2
+
+    def test_from_positions_empty(self) -> None:
+        g = Grid.from_positions([])
+        assert g.get_elements_total() == 0
+
+    def test_from_positions_basic(self) -> None:
+        g = Grid.from_positions([("A", 0, 0), ("B", 0, 1), ("C", 1, 0)])
+        assert g.get(0, 0) == "A"
+        assert g.get(0, 1) == "B"
+        assert g.get(1, 0) == "C"
+        assert g.get_elements_total() == 3
+
+    def test_from_positions_sparse(self) -> None:
+        g = Grid.from_positions([("X", 0, 2), ("Y", 2, 0)])
+        assert g.get(0, 2) == "X"
+        assert g.get(2, 0) == "Y"
+        assert g.get(0, 0) is None
+        assert g.get(1, 1) is None
+        assert g.get_grid_dimensions() == (3, 3)
