@@ -1,104 +1,58 @@
 # Image Generation MCP Server
 
-A FastMCP server for generating and editing images using OpenAI's **gpt-image-1** and
-Azure **FLUX.1-Kontext-pro** models. Deploy as an MCP tool or use REST endpoints for
-flexible integration with AI assistants and applications.
+A FastMCP server for generating and editing images using OpenAI's **gpt-image-1** and Azure **FLUX.1-Kontext-pro** models. This component is part of the **AppKit** platform and is designed to be integrated into the main application.
 
 ## Features
 
 - **Text-to-Image Generation**: Create images from natural language prompts using multiple AI models
 - **Image Editing & Inpainting**: Edit existing images with text prompts and optional masks (gpt-image-1)
 - **Multiple Formats**: Output as PNG, JPEG, or WEBP with customizable quality
-- **Flexible Response Formats**: Receive results as MCP Images, Markdown, or Microsoft Adaptive Cards
 - **Prompt Enhancement**: Auto-refine prompts via LLM for better results
-- **Dual Protocol**: Access via MCP protocol for AI assistants or REST API for direct integration
 
-## Quick Start
+## Configuration
 
-### Prerequisites
+This component uses `AppKit`'s configuration system (`appkit_commons`) and is configured via `MCPImageGeneratorConfig`. The settings are loaded from `configuration/config.yaml` or environment variables mapped by `appkit_commons`.
 
-- Python 3.12 or later
-- [**uv**](https://docs.astral.sh/uv/) package manager
-- API keys:
-  - **REQUIRED**: Azure OpenAI API key and endpoint (for gpt-image-1 model)
-  - **OPTIONAL**: Google AI API key (for additional image generation capabilities)
+### Settings
 
-### Installation
+| Setting | Description | Default |
+| :--- | :--- | :--- |
+| `backend_server` | URL of the backend server (for retrieving images) | `http://localhost:8000` |
+| `max_file_size_mb` | Maximum allowed file size for input images | `10` |
+| `max_images_to_keep` | Storage retention limit for generated images | `50` |
+| `generator` | Active image generator backend (`azure` or `google`) | `azure` |
+| `azure_api_key` | Azure OpenAI API key | `None` |
+| `azure_base_url` | Azure OpenAI endpoint URL | `None` |
+| `azure_prompt_optimizer` | LLM model used for prompt enhancement (Azure) | `gpt-5-mini` |
+| `azure_image_model` | Image generation model identifier (Azure) | `FLUX.1-Kontext-pro` |
+| `google_api_key` | Google AI API key | `None` |
+| `google_prompt_optimizer` | LLM model used for prompt enhancement (Google) | `gemini-2.0-flash-001` |
+| `google_image_model` | Image generation model identifier (Google) | `imagen-4.0-generate-preview-06-06` |
+| `auth_tokens` | List of MCP tokens and scopes for authentication | `[]` |
 
-1. Clone and navigate to the project:
+## Integration
 
-```bash
-git clone <repository>
-cd image.serv
-```
+This module is designed to be integrated into the main `AppKit` application rather than running standalone. The `create_image_mcp_server` function returns a configured `FastMCP` instance which is mounted by the main application.
 
-1. Install dependencies:
+### Usage in AppKit
 
-```bash
-uv sync
-```
+In `app/app.py`, the server is initialized effectively as follows:
 
-1. Configure environment variables:
+```python
+from appkit_commons.registry import service_registry
+from appkit_user.authentication.services import get_verifier
+from appkit_mcp_image.server import create_image_mcp_server, init_generators
+from appkit_mcp_image.configuration import MCPImageGeneratorConfig
 
-```bash
-cp .env.example .env
-# Edit .env with your actual values
-```
+# ... inside initialization ...
+image_mcp_config = service_registry().get(MCPImageGeneratorConfig)
+_generators = init_generators(image_mcp_config)
 
-Or set them directly:
-
-```bash
-# REQUIRED: Azure OpenAI API Configuration
-export OPENAI_API_KEY="your-azure-openai-api-key" # pragma: allowlist secret
-export OPENAI_BASE_URL="https://your-resource-name.openai.azure.com"
-
-# OPTIONAL: Google AI Configuration
-export GOOGLE_API_KEY="your-google-api-key" # pragma: allowlist secret
-
-# OPTIONAL: Backend server URL for image download URLs
-export BACKEND_SERVER="http://localhost:8000"
-
-# OPTIONAL: Temporary image storage directory
-export TMP_PATH="./images"
-
-# OPTIONAL: Default response format (image|markdown|adaptive_card)
-export DEFAULT_RESPONSE_FORMAT="markdown"
-
-# OPTIONAL: Logging level (DEBUG|INFO|WARNING|ERROR|CRITICAL)
-export LOG_LEVEL="INFO"
-
-# OPTIONAL: Server port
-export PORT="8000"
-```
-
-## Usage
-
-### Running the Server
-
-Start the server for integration with Claude Desktop or other MCP clients:
-
-```bash
-uv run python -m server.server
-```
-
-The server will be available at `http://localhost:8000` with endpoints:
-
-- `POST /api/v1/generate_image` - Generate images
-- `POST /api/v1/edit_image` - Edit existing images
-- `/api/docs` - OpenAPI Documenation
-
-### MCP Configuration
-
-```json
-{
-    "servers": {
-        "image-generation": {
-            "type": "http",
-            "url": "http://localhost:8000/mcp/v1",
-            "gallery": true
-        }
-    }
-}
+# Create and mount the MCP server
+servers["/image"] = create_image_mcp_server(
+    _generators[image_mcp_config.generator],
+    auth=get_verifier(),
+)
 ```
 
 ## Tools & API
@@ -110,13 +64,12 @@ Create images from text descriptions.
 **Parameters:**
 
 | Parameter | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `prompt` | string | required | Image description (max 32,000 chars) |
-| `size` | string | `auto` | Dimensions: `1024x1024`, `1536x1024`, `1024x1536`, or `auto` |
+| `size` | string | `1024x1024` | Dimensions: `1024x1024`, `1536x1024`, `1024x1536`, or `auto` |
 | `output_format` | string | `jpeg` | Output format: `png`, `jpeg`, or `webp` |
 | `seed` | integer | `0` | Random seed for reproducibility (0 = random) |
 | `enhance_prompt` | boolean | `true` | Auto-enhance prompt via LLM |
-| `response_format` | string | `image` | Response type: `image`, `markdown`, or `adaptive_card` |
 | `background` | string | `auto` | Background: `transparent`, `opaque`, or `auto` |
 
 **Example:**
@@ -126,8 +79,7 @@ generate_image(
     prompt="A serene mountain landscape at sunset with golden light reflecting off a lake",
     size="1536x1024",
     output_format="png",
-    enhance_prompt=True,
-    response_format="markdown"
+    enhance_prompt=True
 )
 ```
 
@@ -138,14 +90,13 @@ Edit existing images with text prompts and optional masks for inpainting.
 **Parameters:**
 
 | Parameter | Type | Default | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `prompt` | string | required | Description of desired edits (max 32,000 chars) |
 | `image_paths` | array | required | Image URLs, file paths, or base64 data URLs (max 16) |
-| `mask_path` | string | optional | PNG mask for inpainting (transparent = edit zones) |
+| `mask_path` | string | optional | Optional mask image for inpainting (transparent areas indicate edit zones) |
 | `size` | string | `auto` | Output dimensions |
 | `output_format` | string | `jpeg` | Output format: `png`, `jpeg`, or `webp` |
 | `background` | string | `auto` | Background setting |
-| `response_format` | string | `image` | Response type: `image`, `markdown`, or `adaptive_card` |
 
 **Example:**
 
@@ -154,8 +105,7 @@ edit_image(
     prompt="Add a vibrant rainbow across the sky",
     image_paths=["https://example.com/landscape.jpg"],
     mask_path="https://example.com/sky_mask.png",
-    output_format="png",
-    response_format="markdown"
+    output_format="png"
 )
 ```
 
@@ -175,130 +125,6 @@ For precise control over edits, use mask images:
 2. Transparent areas (alpha=0) mark regions to edit
 3. Opaque areas remain unchanged
 4. Mask dimensions must match the input image
-
-## Architecture
-
-The server follows a clean, layered architecture:
-
-```
-MCP Client / REST Client
-    ↓
-FastMCP Server / FastAPI Routes
-    ↓
-Image Service Layer
-    ↓
-Image Generators (OpenAI, Google)
-    ├── Prompt Enhancer
-    ├── Image Processor
-    └── Image Loader
-```
-
-### Key Components
-
-- **mcp_server.py** - FastMCP tool definitions and server setup
-- **server.py** - Unified MCP + REST API server
-- **api/routes.py** - FastAPI REST endpoints
-- **backend/image_service.py** - Core business logic
-- **backend/generators/** - AI provider implementations
-  - `openai.py` - OpenAI gpt-image-1 integration
-
-## Development
-
-### Running Tests
-
-```bash
-make test
-```
-
-Run with coverage:
-
-```bash
-make test-coverage
-```
-
-### Code Quality
-
-Format and lint code:
-
-```bash
-make format
-make check
-```
-
-### Available Commands
-
-```bash
-make help
-```
-
-## Response Formats
-
-All endpoints support three response formats via the `response_format` parameter:
-
-### Image Format
-
-Returns raw image data suitable for display or processing.
-
-### Markdown Format
-
-Returns formatted markdown with embedded base64 images:
-
-```markdown
-# Generated Image
-
-![Generated Image](http://localhost:8000/_uploads/...)
-```
-
-### Adaptive Card Format
-
-Returns Microsoft Adaptive Card JSON for Teams or other platforms:
-
-```json
-{
-  "type": "AdaptiveCard",
-  "version": "1.4",
-  "body": [
-    {
-      "type": "Image",
-      "url": "http://localhost:8000/_uploads/..."
-    }
-  ]
-}
-```
-
-## Error Handling
-
-The API returns standard HTTP status codes:
-
-- `200 OK` - Successful generation/editing
-- `400 Bad Request` - Invalid parameters
-- `422 Unprocessable Entity` - Validation error
-- `500 Internal Server Error` - API failure
-
-Error responses include detailed messages:
-
-```json
-{
-  "status": "error",
-  "error": "Description of what went wrong",
-  "metadata": {
-    "timestamp": "2025-01-15T10:30:00Z"
-  }
-}
-```
-
-## Environment Variables
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `OPENAI_API_KEY` | Yes | - | Azure OpenAI key for gpt-image-1 |
-| `OPENAI_BASE_URL` | Yes | - | Azure OpenAI endpoint URL (e.g., `https://your-resource-name.openai.azure.com`) |
-| `GOOGLE_API_KEY` | No | - | Google AI key for image generation |
-| `BACKEND_SERVER` | No | `http://localhost:8000` | Backend server URL for image download URLs (use `http://host.docker.internal:8000` in Docker) |
-| `TMP_PATH` | No | `./images` | Directory for storing generated images (use `/app/images` in Docker) |
-| `DEFAULT_RESPONSE_FORMAT` | No | `markdown` | Default response format: `image`, `markdown`, or `adaptive_card` |
-| `LOG_LEVEL` | No | `INFO` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` |
-| `PORT` | No | `8000` | Server port |
 
 ## License
 
