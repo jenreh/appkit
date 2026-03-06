@@ -532,7 +532,7 @@ body.maximized #canvas {{
           }}
         }}
         diagramRendered = true;
-        STATUS.textContent = "Diagram loaded";
+        STATUS.textContent = "Generiertes BPMN-Diagramm";
         applyDarkModeToSvg();
         reportSize();
       }})

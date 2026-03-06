@@ -6,6 +6,8 @@ tool calls, auth handling, error handling, and link formatting.
 
 import json
 
+import pytest
+
 from appkit_assistant.backend.schemas import (
     Chunk,
     ChunkType,
@@ -680,3 +682,80 @@ class TestMcpAppViewChunk:
 
         # Should not crash, just log the error
         assert len(acc.mcp_app_views) == 0
+
+    def test_mcp_app_view_with_is_error_true_is_skipped(self) -> None:
+        """Test that MCP_APP_VIEW with isError=True in tool_result are skipped."""
+        acc = _acc_with_assistant_message()
+
+        chunk = _make_chunk(
+            ChunkType.MCP_APP_VIEW,
+            "",
+            {
+                "server_id": "1",
+                "server_name": "Server",
+                "resource_uri": "ui://test",
+                "tool_name": "tool",
+                "tool_input": "{}",
+                "tool_result": (
+                    '{"isError": true, "content": [{"type": "text", "text": "error"}]}'
+                ),
+            },
+        )
+        acc.process_chunk(chunk)
+
+        assert len(acc.mcp_app_views) == 0
+
+    @pytest.mark.parametrize(
+        "tool_result_json",
+        [
+            '{"error": "something went wrong"}',
+            '{"state": "error"}',
+            '{"state": "failed"}',
+            '{"state": "failure"}',
+            '{"status": "error"}',
+            '{"status": "failed"}',
+        ],
+    )
+    def test_mcp_app_view_error_patterns_are_skipped(
+        self, tool_result_json: str
+    ) -> None:
+        """Test that various error patterns in tool_result are all skipped."""
+        acc = _acc_with_assistant_message()
+
+        chunk = _make_chunk(
+            ChunkType.MCP_APP_VIEW,
+            "",
+            {
+                "server_id": "1",
+                "server_name": "Server",
+                "resource_uri": "ui://test",
+                "tool_name": "tool",
+                "tool_input": "{}",
+                "tool_result": tool_result_json,
+            },
+        )
+        acc.process_chunk(chunk)
+
+        assert len(acc.mcp_app_views) == 0
+
+    def test_mcp_app_view_with_is_error_false_is_kept(self) -> None:
+        """Test that MCP_APP_VIEW chunks with isError=False are kept."""
+        acc = _acc_with_assistant_message()
+
+        chunk = _make_chunk(
+            ChunkType.MCP_APP_VIEW,
+            "",
+            {
+                "server_id": "1",
+                "server_name": "Server",
+                "resource_uri": "ui://test",
+                "tool_name": "tool",
+                "tool_input": "{}",
+                "tool_result": (
+                    '{"isError": false, "content": [{"type": "text", "text": "ok"}]}'
+                ),
+            },
+        )
+        acc.process_chunk(chunk)
+
+        assert len(acc.mcp_app_views) == 1

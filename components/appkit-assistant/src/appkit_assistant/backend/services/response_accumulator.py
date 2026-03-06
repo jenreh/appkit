@@ -356,6 +356,25 @@ class ResponseAccumulator:
         self.pending_auth_url = chunk.chunk_metadata.get("auth_url", "")
         self.auth_required = True
 
+    @staticmethod
+    def _is_tool_result_error(tool_result: Any) -> bool:
+        """Return True if the tool result dict signals an error.
+
+        Handles the common patterns used by MCP servers:
+        - ``isError: true``  (MCP protocol standard)
+        - ``error`` key present with a truthy value
+        - ``state`` / ``status`` set to "error", "failed", or "failure"
+        """
+        if not isinstance(tool_result, dict):
+            return False
+        if tool_result.get("isError", False) or tool_result.get("error"):
+            return True
+        error_states = {"error", "failed", "failure"}
+        return (
+            str(tool_result.get("state", "")).lower() in error_states
+            or str(tool_result.get("status", "")).lower() in error_states
+        )
+
     def _handle_mcp_app_view_chunk(self, chunk: Chunk) -> None:
         """Handle MCP App view chunk.
 
@@ -365,13 +384,20 @@ class ResponseAccumulator:
         """
         metadata = chunk.chunk_metadata
         try:
+            tool_result = json.loads(metadata.get("tool_result", "null"))
+            if self._is_tool_result_error(tool_result):
+                logger.debug(
+                    "Skipping MCP App view for tool %s: tool result indicates error",
+                    metadata.get("tool_name", ""),
+                )
+                return
             view = McpAppViewData(
                 server_id=int(metadata.get("server_id", "0") or "0"),
                 server_name=metadata.get("server_name", ""),
                 resource_uri=metadata.get("resource_uri", ""),
                 tool_name=metadata.get("tool_name", ""),
                 tool_input=json.loads(metadata.get("tool_input", "{}")),
-                tool_result=json.loads(metadata.get("tool_result", "null")),
+                tool_result=tool_result,
             )
             self.mcp_app_views.append(view)
             logger.debug(

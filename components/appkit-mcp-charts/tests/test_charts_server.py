@@ -2,7 +2,9 @@
 
 import json
 
+import pytest
 from fastmcp.client import Client
+from fastmcp.exceptions import ToolError
 
 
 async def test_generate_barchart_tool(charts_client: Client) -> None:
@@ -47,12 +49,10 @@ async def test_generate_pie_chart_tool(charts_client: Client) -> None:
 
 
 async def test_generate_barchart_validation_error(charts_client: Client) -> None:
-    """Test validation error when data is missing columns."""
+    """Test validation error when data is missing columns sets isError=True."""
     data = [{"category": "A"}]  # Missing "value"
-    result = await charts_client.call_tool(
-        "generate_barchart",
-        arguments={"x_axis": "category", "y_axes": ["value"], "data": data},
-    )
-    response = json.loads(result.content[0].text)
-    assert response["success"] is False
-    assert "not found" in response["error"]
+    with pytest.raises(ToolError, match="not found"):
+        await charts_client.call_tool(
+            "generate_barchart",
+            arguments={"x_axis": "category", "y_axes": ["value"], "data": data},
+        )

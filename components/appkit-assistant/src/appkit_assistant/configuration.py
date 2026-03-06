@@ -13,3 +13,6 @@ class FileUploadConfig(BaseConfig):
 
 class AssistantConfig(BaseConfig):
     file_upload: FileUploadConfig = FileUploadConfig()
+    default_model: str = (
+        ""  # Model ID to select by default; falls back to first available
+    )

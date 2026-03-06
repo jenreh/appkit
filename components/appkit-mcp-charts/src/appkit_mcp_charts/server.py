@@ -222,21 +222,17 @@ async def _run_chart(
 ) -> str:
     """Shared helper that validates data and runs a generator."""
     if not data:
-        return json.dumps(
-            {
-                "success": False,
-                "html": None,
-                "error": (
-                    "Missing required 'data' parameter. "
-                    "Call query_users first to obtain the data, "
-                    "then pass the 'data' field from its response "
-                    "to the chart tool."
-                ),
-            }
+        raise ValueError(
+            "Missing required 'data' parameter. "
+            "Call query_users first to obtain the data, "
+            "then pass the 'data' field from its response "
+            "to the chart tool."
         )
 
     logger.info("Tool %s called", tool_name)
     result = await generator.generate(data, **kwargs)
+    if not result.success:
+        raise ValueError(result.error or "Chart generation failed")
     return json.dumps(
         {
             "success": result.success,

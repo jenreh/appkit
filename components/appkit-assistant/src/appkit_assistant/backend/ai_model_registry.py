@@ -21,6 +21,7 @@ from appkit_assistant.backend.processors import (
     PerplexityProcessor,
 )
 from appkit_assistant.backend.processors.processor_base import ProcessorBase
+from appkit_assistant.configuration import AssistantConfig
 from appkit_commons.ai.openai_client_service import OpenAIClientService
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
@@ -214,11 +215,33 @@ class AIModelRegistry:
 
         _register_openai_client_service(all_active)
 
-        # Set default to first non-lorem_ipsum DB model
+        self._apply_default_model(model_manager)
+
+        logger.info(
+            "AIModelRegistry: registered %d/%d DB models",
+            registered,
+            len(all_active),
+        )
+
+    def _apply_default_model(self, model_manager: ModelManager) -> None:
+        """Set the default model, respecting AssistantConfig.default_model
+        if configured."""
+        all_models = model_manager.get_all_models()
+        if not all_models:
+            return
+
+        config: AssistantConfig | None = service_registry().get(AssistantConfig)
+        configured_default = config.default_model if config else ""
+
+        if configured_default and configured_default in {m.id for m in all_models}:
+            model_manager.set_default_model(configured_default)
+            return
+
+        # Fall back to first non-lorem_ipsum model, then any model
         if default_model := next(
             (
                 m
-                for m in model_manager.get_all_models()
+                for m in all_models
                 if not isinstance(
                     model_manager.get_processor_for_model(m.id), LoremIpsumProcessor
                 )
@@ -226,14 +249,8 @@ class AIModelRegistry:
             None,
         ):
             model_manager.set_default_model(default_model.id)
-        elif all_models := model_manager.get_all_models():
+        else:
             model_manager.set_default_model(all_models[0].id)
-
-        logger.info(
-            "AIModelRegistry: registered %d/%d DB models",
-            registered,
-            len(all_active),
-        )
 
 
 # Singleton instance

@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastmcp.client import Client
+from fastmcp.exceptions import ToolError
 from pydantic import SecretStr
 
 from appkit_mcp_image.backend.models import ImageGenerator
 from appkit_mcp_image.configuration import MCPImageGeneratorConfig
 from appkit_mcp_image.server import (
-    _error_result,
     _generators,
     _success_result,
     create_image_mcp_server,
@@ -39,7 +39,7 @@ async def test_list_tools_registered(image_client: Client) -> None:
     assert "edit_image" in tool_names
 
 
-# -- _success_result / _error_result tests --
+# -- _success_result tests --
 
 
 class TestSuccessResult:
@@ -62,17 +62,6 @@ class TestSuccessResult:
         assert result["enhanced_prompt"] == "enhanced"
         assert result["model"] == "gpt-image-1"
         assert result["size"] == "1024x1024"
-
-
-class TestErrorResult:
-    def test_basic(self) -> None:
-        result = json.loads(_error_result("something broke"))
-        assert result["success"] is False
-        assert result["error"] == "something broke"
-
-    def test_no_image_url(self) -> None:
-        result = json.loads(_error_result("err"))
-        assert result.get("image_url") is None
 
 
 # -- init_generators tests --
@@ -169,19 +158,19 @@ class TestGenerateImageTool:
         assert data["enhanced_prompt"] == "enhanced cat"
 
     async def test_value_error(self, gen_client: Client) -> None:
-        """generate_image returns error on ValueError."""
-        with patch(
-            "appkit_mcp_image.server.generate_image_impl",
-            new_callable=AsyncMock,
-            side_effect=ValueError("generation failed"),
+        """generate_image sets isError=True on ValueError."""
+        with (
+            patch(
+                "appkit_mcp_image.server.generate_image_impl",
+                new_callable=AsyncMock,
+                side_effect=ValueError("generation failed"),
+            ),
+            pytest.raises(ToolError, match="generation failed"),
         ):
-            result = await gen_client.call_tool(
+            await gen_client.call_tool(
                 "generate_image",
                 arguments={"prompt": "bad prompt"},
             )
-        data = json.loads(result.content[0].text)
-        assert data["success"] is False
-        assert "generation failed" in data["error"]
 
 
 class TestEditImageTool:
@@ -204,19 +193,19 @@ class TestEditImageTool:
         assert data["image_url"] == "http://localhost/edited.png"
 
     async def test_value_error(self, gen_client: Client) -> None:
-        """edit_image returns error on ValueError."""
-        with patch(
-            "appkit_mcp_image.server.edit_image_impl",
-            new_callable=AsyncMock,
-            side_effect=ValueError("editing not supported"),
+        """edit_image sets isError=True on ValueError."""
+        with (
+            patch(
+                "appkit_mcp_image.server.edit_image_impl",
+                new_callable=AsyncMock,
+                side_effect=ValueError("editing not supported"),
+            ),
+            pytest.raises(ToolError, match="editing not supported"),
         ):
-            result = await gen_client.call_tool(
+            await gen_client.call_tool(
                 "edit_image",
                 arguments={
                     "prompt": "edit this",
                     "image_paths": ["http://img/x.png"],
                 },
             )
-        data = json.loads(result.content[0].text)
-        assert data["success"] is False
-        assert "editing not supported" in data["error"]

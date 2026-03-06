@@ -52,6 +52,8 @@ app:
       templates_dir: ./assets/email-templates
 
   assistant:
+    # Set to a model ID (e.g. "gpt-5-mini") to pin the default; empty = first available
+    default_model: "gpt-5-mini"
     file_upload:
       vector_store_expiration_days: 2
       max_file_size_mb: 50

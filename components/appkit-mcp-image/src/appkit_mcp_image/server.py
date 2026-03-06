@@ -46,12 +46,6 @@ def _success_result(
     return json.dumps(result.model_dump(), default=str)
 
 
-def _error_result(message: str) -> str:
-    """Return a JSON error response."""
-    result = ImageResult(success=False, error=message)
-    return json.dumps(result.model_dump(), default=str)
-
-
 def init_generators(config: MCPImageGeneratorConfig) -> dict[str, ImageGenerator]:
     """Initialize generators from environment variables."""
     if _generators:
@@ -174,12 +168,7 @@ def create_image_mcp_server(
             seed=seed,
             enhance_prompt=enhance_prompt,
         )
-        try:
-            image_url, enhanced_prompt = await generate_image_impl(
-                input_data, generator
-            )
-        except ValueError as exc:
-            return _error_result(str(exc))
+        image_url, enhanced_prompt = await generate_image_impl(input_data, generator)
 
         return _success_result(
             image_url,
@@ -241,10 +230,7 @@ def create_image_mcp_server(
             size=size,
             output_format=output_format,
         )
-        try:
-            image_url = await edit_image_impl(input_data, generator)
-        except ValueError as exc:
-            return _error_result(str(exc))
+        image_url = await edit_image_impl(input_data, generator)
 
         return _success_result(
             image_url,

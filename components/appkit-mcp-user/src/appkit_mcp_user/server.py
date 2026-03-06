@@ -84,6 +84,9 @@ def create_user_mcp_server(
             model=config.openai_model,
         )
 
+        if not result.success:
+            raise ValueError(result.error or "Query failed")
+
         return json.dumps(
             {
                 "success": result.success,

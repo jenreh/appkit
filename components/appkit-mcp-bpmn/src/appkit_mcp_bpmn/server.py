@@ -89,10 +89,10 @@ def create_bpmn_mcp_server(
             error}``.
         """
         if not description or not description.strip():
-            return _error_result("Description must not be empty")
+            raise ValueError("Description must not be empty")
 
         if diagram_type not in cfg.diagram_types:
-            return _error_result(
+            raise ValueError(
                 f"Invalid diagram_type '{diagram_type}'. "
                 f"Must be one of: {', '.join(cfg.diagram_types)}"
             )
@@ -111,14 +111,14 @@ def create_bpmn_mcp_server(
                 client=openai_client,
             )
         except RuntimeError as exc:
-            return _error_result(str(exc))
+            raise ValueError(str(exc)) from exc
 
         # JSON → process-only XML → add BPMNDiagram layout → validate
         try:
             process_xml = build_bpmn_xml(process_json)
             laid_out_xml = add_diagram_layout(process_xml)
         except ValidationError as exc:
-            return _error_result(f"Build failed: {exc}")
+            raise ValueError(f"Build failed: {exc}") from exc
 
         return _validate_and_save(laid_out_xml, cfg.storage_dir)
 
@@ -137,7 +137,7 @@ def create_bpmn_mcp_server(
             error}``.
         """
         if not xml or not xml.strip():
-            return _error_result("XML must not be empty")
+            raise ValueError("XML must not be empty")
 
         logger.info("save_bpmn_diagram called")
         return _validate_and_save(xml, cfg.storage_dir)
@@ -219,13 +219,13 @@ def _validate_and_save(xml: str, storage_dir: str) -> str:
     try:
         normalised = validate_bpmn_xml(xml)
     except ValidationError as exc:
-        return _error_result(f"Validation failed: {exc}")
+        raise ValueError(f"Validation failed: {exc}") from exc
 
     try:
         info = save_diagram(normalised, storage_dir)
     except OSError as exc:
         logger.exception("Failed to save diagram")
-        return _error_result(f"Storage error: {exc}")
+        raise ValueError(f"Storage error: {exc}") from exc
 
     result = DiagramResult(
         success=True,

@@ -22,7 +22,7 @@ MARKDOWN_PREVIEW_VERSION: str = "^5.1.5"
 REHYPE_SANITIZE_VERSION: str = "^6.0.0"
 REHYPE_REWRITE_VERSION: str = "^4.0.0"
 MERMAID_VERSION: str = "^11.0.0"
-KATEX_VERSION: str = "^0.16.0"
+KATEX_VERSION: str = "0.16.35"
 _MARKDOWN_WRAPPER_ASSET = asset(path="markdown_preview_wrapper.js", shared=True)
 _MARKDOWN_WRAPPER_IMPORT = f"$/public/{_MARKDOWN_WRAPPER_ASSET}"
 

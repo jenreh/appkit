@@ -570,13 +570,12 @@ class MessageProcessingMixin:
             ]
             self._thread.skill_openai_ids = [s.openai_id for s in self.selected_skills]
 
-            # Embed only the LAST MCP App view into the message for persistence
-            # (only once, after response is complete, avoid showing multiple errors)
+            # Embed all MCP App views into the message for persistence
+            # (only once, after response is complete)
             if accumulator.mcp_app_views and self.messages:
                 for msg in reversed(self.messages):
                     if msg.type == MessageType.ASSISTANT:
-                        # Keep only the final/last view (typically the successful one)
-                        msg.mcp_app_views = [accumulator.mcp_app_views[-1]]
+                        msg.mcp_app_views = list(accumulator.mcp_app_views)
                         break
 
             user_session: UserSession = await self.get_state(UserSession)
