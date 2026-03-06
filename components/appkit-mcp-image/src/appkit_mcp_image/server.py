@@ -204,9 +204,22 @@ def create_image_mcp_server(
                 )
             ),
         ],
+        mask_path: Annotated[
+            str | None,
+            Field(
+                description=(
+                    "Optional mask image for inpainting "
+                    "(transparent areas indicate edit zones)"
+                )
+            ),
+        ] = None,
         size: Annotated[
             Literal["1024x1024", "1536x1024", "1024x1536", "auto"],
             Field(description="Output image dimensions"),
+        ] = "auto",
+        background: Annotated[
+            Literal["transparent", "opaque", "auto"],
+            Field(description="Background transparency setting"),
         ] = "auto",
         output_format: Annotated[
             Literal["png", "jpeg", "webp"],
@@ -227,7 +240,9 @@ def create_image_mcp_server(
         input_data = EditImageInput(
             prompt=prompt,
             image_paths=image_paths,
+            mask_path=mask_path,
             size=size,
+            background=background,
             output_format=output_format,
         )
         image_url = await edit_image_impl(input_data, generator)
