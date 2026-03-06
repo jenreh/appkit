@@ -17,7 +17,7 @@ class BPMNConfig(BaseConfig):
         diagram_types: Allowed diagram type values.
     """
 
-    storage_dir: str = "uploaded_files"
+    storage_dir: str = "uploaded_files/bpmn"
     default_model: str = "gpt-5.3-codex"
     max_file_size_mb: int = 10
     diagram_types: list[str] = Field(default_factory=lambda: list(VALID_DIAGRAM_TYPES))

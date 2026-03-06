@@ -57,7 +57,7 @@ html {{
 body {{
   margin: 0;
   padding: 0;
-  max-width: 408px;
+  max-width: 544px;
 }}
 
 /* ── Toolbar ── */
@@ -490,7 +490,7 @@ body.maximized #prompt-text {{
     );
     var w = maximized
       ? document.body.scrollWidth
-      : 408;
+      : 544;
     window.parent.postMessage(
       {{
         jsonrpc: "2.0",

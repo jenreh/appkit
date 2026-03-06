@@ -6,10 +6,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_STORAGE_DIR = "uploaded_files"
 
-
-def _get_storage_dir(storage_dir: str = DEFAULT_STORAGE_DIR) -> Path:
+def _get_storage_dir(storage_dir: str) -> Path:
     """Return the storage directory, creating it if necessary."""
     path = Path(storage_dir)
     path.mkdir(parents=True, exist_ok=True)
@@ -18,7 +16,7 @@ def _get_storage_dir(storage_dir: str = DEFAULT_STORAGE_DIR) -> Path:
 
 def save_diagram(
     xml: str,
-    storage_dir: str = DEFAULT_STORAGE_DIR,
+    storage_dir: str,
 ) -> dict[str, str]:
     """Save BPMN XML to the filesystem with a unique ID.
 
@@ -48,7 +46,7 @@ def save_diagram(
 
 def get_diagram_path(
     diagram_id: str,
-    storage_dir: str = DEFAULT_STORAGE_DIR,
+    storage_dir: str,
 ) -> Path:
     """Return the filesystem path for a diagram.
 
@@ -64,7 +62,7 @@ def get_diagram_path(
 
 def diagram_exists(
     diagram_id: str,
-    storage_dir: str = DEFAULT_STORAGE_DIR,
+    storage_dir: str,
 ) -> bool:
     """Check whether a diagram file exists on disk.
 
@@ -80,7 +78,7 @@ def diagram_exists(
 
 def load_diagram(
     diagram_id: str,
-    storage_dir: str = DEFAULT_STORAGE_DIR,
+    storage_dir: str,
 ) -> str | None:
     """Load BPMN XML from disk.
 

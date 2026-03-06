@@ -581,16 +581,24 @@ def _direct_manhattan_connect(
     if not (dx > 0 and dy != 0):
         return None
 
-    if dy > 0:
-        bend = (t_row, s_col)
-        total = len(layout_grid.get_elements_in_range((s_row, s_col), bend))
-        total += len(layout_grid.get_elements_in_range(bend, (t_row, t_col)))
-        return ["v", "h"] if total <= _MAX_DIRECT_PATH_ELEMENTS else None
+    # Prefer horizontal-first: go right at source row, then up/down at
+    # target column.  This places the vertical segment at the *target*
+    # column, which naturally separates edges going to different targets
+    # and reduces vertical overlap.
+    bend_hv = (s_row, t_col)
+    total_hv = len(layout_grid.get_elements_in_range((s_row, s_col), bend_hv))
+    total_hv += len(layout_grid.get_elements_in_range(bend_hv, (t_row, t_col)))
+    if total_hv <= _MAX_DIRECT_PATH_ELEMENTS:
+        return ["h", "v"]
 
-    bend = (s_row, t_col)
-    total = len(layout_grid.get_elements_in_range((s_row, s_col), bend))
-    total += len(layout_grid.get_elements_in_range(bend, (t_row, t_col)))
-    return ["h", "v"] if total <= _MAX_DIRECT_PATH_ELEMENTS else None
+    # Fallback: vertical-first (up/down at source col, then right).
+    bend_vh = (t_row, s_col)
+    total_vh = len(layout_grid.get_elements_in_range((s_row, s_col), bend_vh))
+    total_vh += len(layout_grid.get_elements_in_range(bend_vh, (t_row, t_col)))
+    if total_vh <= _MAX_DIRECT_PATH_ELEMENTS:
+        return ["v", "h"]
+
+    return None
 
 
 def _get_max_expanded_between(
@@ -871,25 +879,13 @@ def _connect_elements(
         )
         return [start, mid, end]
 
-    y_offset = -_sign(dy) * DEFAULT_CELL_HEIGHT / 2
+    # Z-path through midpoint corridor — the corridor x-position depends
+    # on the target, so edges to different targets use different corridors.
+    corridor_x = (ctx.src_mid["x"] + ctx.tgt_mid["x"]) / 2
     return [
         _get_docking_point(ctx.src_mid, ctx.src_bounds, "r", ctx.dock_src),
-        {
-            "x": ctx.src_mid["x"] + DEFAULT_CELL_WIDTH / 2,
-            "y": ctx.src_mid["y"],
-        },
-        {
-            "x": ctx.src_mid["x"] + DEFAULT_CELL_WIDTH / 2,
-            "y": ctx.tgt_mid["y"] + y_offset,
-        },
-        {
-            "x": ctx.tgt_mid["x"] - DEFAULT_CELL_WIDTH / 2,
-            "y": ctx.tgt_mid["y"] + y_offset,
-        },
-        {
-            "x": ctx.tgt_mid["x"] - DEFAULT_CELL_WIDTH / 2,
-            "y": ctx.tgt_mid["y"],
-        },
+        {"x": corridor_x, "y": ctx.src_mid["y"]},
+        {"x": corridor_x, "y": ctx.tgt_mid["y"]},
         _get_docking_point(ctx.tgt_mid, ctx.tgt_bounds, "l", ctx.dock_tgt),
     ]
 
