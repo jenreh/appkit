@@ -92,12 +92,16 @@ class McpAppsService:
 
     Manages MCP client sessions, discovers UI-enabled tools,
     fetches resources, and proxies tool calls for MCP Apps.
+
+    The tool cache is a class-level dict shared across all instances so
+    that discovery results survive across message submissions.
     """
+
+    # Class-level cache: (server_id, user_id) -> (tools, timestamp)
+    _tool_cache: dict[tuple[int, int], tuple[list[McpAppToolInfo], float]] = {}
 
     def __init__(self, token_service: MCPTokenService | None = None) -> None:
         self._token_service = token_service
-        # Cache for tools: (server_id, user_id) -> (tools, timestamp)
-        self._tool_cache: dict[tuple[int, int], tuple[list[McpAppToolInfo], float]] = {}
 
     @asynccontextmanager
     async def _connect_for_apps(self, server: MCPServer, user_id: int):

@@ -20,6 +20,13 @@ from appkit_assistant.backend.services.mcp_apps_service import (
     _McpAppsClientSession,
 )
 
+
+@pytest.fixture(autouse=True)
+def _clear_tool_cache() -> None:
+    """Reset the class-level tool cache between tests."""
+    McpAppsService._tool_cache.clear()
+
+
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -93,7 +100,7 @@ class TestInit:
     def test_defaults(self) -> None:
         service = McpAppsService()
         assert service._token_service is None
-        assert service._tool_cache == {}
+        assert McpAppsService._tool_cache == {}
 
     def test_with_token_service(self) -> None:
         token_service = MagicMock()
@@ -338,6 +345,37 @@ class TestDiscoverUiTools:
             assert (1, 1) in service._tool_cache
             cached_tools, _ = service._tool_cache[(1, 1)]
             assert cached_tools[0].tool_name == "discovered"
+
+    @pytest.mark.asyncio
+    async def test_cache_shared_across_instances(self) -> None:
+        """Cache survives across McpAppsService instances."""
+        tools = [
+            McpAppToolInfo(
+                tool_name="shared",
+                resource_uri="ui://test",
+                server_id=1,
+                server_label="Test",
+            )
+        ]
+        service1 = McpAppsService()
+
+        with (
+            patch.object(
+                service1,
+                "_list_ui_tools",
+                new_callable=AsyncMock,
+                return_value=tools,
+            ),
+            patch.object(service1, "_connect_for_apps") as mock_connect,
+        ):
+            mock_connect.return_value.__aenter__.return_value = AsyncMock()
+            await service1.discover_ui_tools(_make_server(), user_id=1)
+
+        # A new instance should see the cached tools without connecting
+        service2 = McpAppsService()
+        result = await service2.discover_ui_tools(_make_server(), user_id=1)
+        assert len(result) == 1
+        assert result[0].tool_name == "shared"
 
 
 # ============================================================================
