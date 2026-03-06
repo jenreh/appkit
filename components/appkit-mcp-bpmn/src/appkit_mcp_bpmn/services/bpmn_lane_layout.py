@@ -14,7 +14,7 @@ from typing import Any
 
 from lxml import etree
 
-from appkit_mcp_bpmn.services.grid import Grid
+from appkit_mcp_bpmn.services.bpmn_grid_layout import Grid
 
 logger = logging.getLogger(__name__)
 

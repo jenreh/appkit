@@ -17,6 +17,7 @@ from typing import Any
 
 from lxml import etree
 
+from appkit_mcp_bpmn.services.bpmn_grid_layout import Grid
 from appkit_mcp_bpmn.services.bpmn_lane_layout import (
     POOL_HEADER_WIDTH,
     find_collaboration,
@@ -25,7 +26,6 @@ from appkit_mcp_bpmn.services.bpmn_lane_layout import (
     parse_lane_info,
     rearrange_grid_for_lanes,
 )
-from appkit_mcp_bpmn.services.grid import Grid
 
 logger = logging.getLogger(__name__)
 
