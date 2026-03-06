@@ -456,7 +456,7 @@ class MessageComponent:
                             ThreadState.current_activity,
                             "Denke nach",
                         ),
-                        color=rx.color("gray", 8),
+                        class_name="shimmer-text",
                         margin_right="9px",
                     ),
                     class_name="loading",
@@ -620,6 +620,7 @@ class MessageComponent:
                 padding="0.5em",
                 border_radius="9px",
                 margin_top="18px",
+                # class_name="system-message-shimmer",
             ),
             style=message_styles,
         )
