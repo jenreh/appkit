@@ -1,81 +1,73 @@
-"""Tests for BPMN JSON repair service."""
+"""Tests for BPMN JSON repair service (flat model)."""
 
 from appkit_mcp_bpmn.services.repair_bpmn_json import (
-    _collect_ids_from_raw_process,
-    _mk_noop_task,
+    _ensure_step_keys,
+    _repair_branches,
     repair_bpmn_json,
 )
 
 
-class TestMkNoopTask:
-    """Tests for _mk_noop_task."""
+class TestEnsureStepKeys:
+    """Tests for _ensure_step_keys."""
 
-    def test_creates_task_with_unique_id(self) -> None:
-        ids: set[str] = set()
-        task = _mk_noop_task(ids)
-        assert task["type"] == "task"
-        assert task["id"].startswith("Task_NoOp_")
-        assert task["label"] == "Continue"
-        assert task["has_join"] is False
+    def test_fills_missing_keys(self) -> None:
+        step: dict = {"type": "task"}
+        result = _ensure_step_keys(step)
+        assert "id" in result
+        assert result["type"] == "task"
+        assert result["label"] == result["id"]  # label defaults to id
+        assert result["branches"] is None
+        assert result["next"] is None
 
-    def test_avoids_collisions(self) -> None:
-        ids: set[str] = set()
-        t1 = _mk_noop_task(ids)
-        t2 = _mk_noop_task(ids)
-        assert t1["id"] != t2["id"]
-        assert t1["id"] in ids
-        assert t2["id"] in ids
+    def test_preserves_existing_keys(self) -> None:
+        step: dict = {
+            "id": "my_task",
+            "type": "userTask",
+            "label": "Review",
+            "branches": None,
+            "next": None,
+        }
+        result = _ensure_step_keys(step)
+        assert result["id"] == "my_task"
+        assert result["label"] == "Review"
 
-    def test_custom_prefix(self) -> None:
-        ids: set[str] = set()
-        task = _mk_noop_task(ids, prefix="Custom")
-        assert task["id"].startswith("Custom_")
+    def test_generates_unique_ids(self) -> None:
+        s1 = _ensure_step_keys({"type": "task"})
+        s2 = _ensure_step_keys({"type": "task"})
+        assert s1["id"] != s2["id"]
 
 
-class TestCollectIds:
-    """Tests for _collect_ids_from_raw_process."""
+class TestRepairBranches:
+    """Tests for _repair_branches."""
 
-    def test_flat_process(self) -> None:
-        process = [
-            {"id": "Start_1", "type": "startEvent"},
-            {"id": "Task_1", "type": "task"},
+    def test_none_returns_none(self) -> None:
+        assert _repair_branches(None) is None
+
+    def test_empty_list_returns_none(self) -> None:
+        assert _repair_branches([]) is None
+
+    def test_normalises_branch_shape(self) -> None:
+        branches = [
+            {"condition": "Yes", "target": "task_a"},
+            {"condition": "No", "target": "task_b"},
         ]
-        ids = _collect_ids_from_raw_process(process)
-        assert ids == {"Start_1", "Task_1"}
+        result = _repair_branches(branches)
+        assert result == branches
 
-    def test_nested_branches(self) -> None:
-        process = [
-            {
-                "id": "GW_1",
-                "type": "exclusiveGateway",
-                "branches": [
-                    {
-                        "condition": "yes",
-                        "path": [
-                            {"id": "Task_A", "type": "task"},
-                        ],
-                    },
-                    {
-                        "condition": "no",
-                        "path": [
-                            {"id": "Task_B", "type": "task"},
-                        ],
-                    },
-                ],
-            },
-        ]
-        ids = _collect_ids_from_raw_process(process)
-        assert "GW_1" in ids
-        assert "Task_A" in ids
-        assert "Task_B" in ids
+    def test_maps_target_ref_to_target(self) -> None:
+        branches = [{"condition": "OK", "target_ref": "task_x"}]
+        result = _repair_branches(branches)
+        assert result is not None
+        assert result[0]["target"] == "task_x"
 
-    def test_missing_id_skipped(self) -> None:
-        process = [{"type": "task"}]
-        ids = _collect_ids_from_raw_process(process)
-        assert len(ids) == 0
+    def test_skips_non_dict_entries(self) -> None:
+        branches = [{"condition": "A", "target": "t"}, "garbage"]
+        result = _repair_branches(branches)
+        assert result is not None
+        assert len(result) == 1
 
-    def test_empty_process(self) -> None:
-        assert _collect_ids_from_raw_process([]) == set()
+    def test_not_list_returns_none(self) -> None:
+        assert _repair_branches("not a list") is None
 
 
 class TestRepairBpmnJson:
@@ -84,116 +76,64 @@ class TestRepairBpmnJson:
     def test_non_dict_returns_unchanged(self) -> None:
         assert repair_bpmn_json("not a dict") == "not a dict"
 
-    def test_missing_process_returns_unchanged(self) -> None:
-        raw = {"name": "test"}
+    def test_missing_steps_returns_unchanged(self) -> None:
+        raw: dict = {"name": "test"}
         assert repair_bpmn_json(raw) == raw
 
-    def test_non_list_process_returns_unchanged(self) -> None:
-        raw = {"process": "not a list"}
-        assert repair_bpmn_json(raw) == raw
-
-    def test_empty_branch_gets_noop(self) -> None:
-        raw = {
+    def test_process_key_aliased_to_steps(self) -> None:
+        raw: dict = {
             "process": [
+                {"id": "start", "type": "startEvent"},
+                {"id": "end", "type": "endEvent"},
+            ]
+        }
+        result = repair_bpmn_json(raw)
+        assert "steps" in result
+        assert "process" not in result
+        assert len(result["steps"]) == 2
+
+    def test_missing_step_keys_filled(self) -> None:
+        raw: dict = {
+            "steps": [{"type": "task"}],
+            "lanes": None,
+        }
+        result = repair_bpmn_json(raw)
+        step = result["steps"][0]
+        assert "id" in step
+        assert step["branches"] is None
+        assert step["next"] is None
+
+    def test_lanes_defaulted_to_none(self) -> None:
+        raw: dict = {"steps": [{"id": "s", "type": "startEvent"}]}
+        result = repair_bpmn_json(raw)
+        assert result["lanes"] is None
+
+    def test_unknown_top_level_keys_stripped(self) -> None:
+        raw: dict = {
+            "steps": [{"id": "s", "type": "startEvent"}],
+            "lanes": None,
+            "extra_key": "should be removed",
+        }
+        result = repair_bpmn_json(raw)
+        assert "extra_key" not in result
+
+    def test_branches_normalised(self) -> None:
+        raw: dict = {
+            "steps": [
                 {
-                    "id": "GW_1",
-                    "type": "exclusiveGateway",
+                    "id": "gw",
+                    "type": "exclusive",
                     "branches": [
-                        {"condition": "yes", "path": []},
                         {
-                            "condition": "no",
-                            "path": [
-                                {"id": "T1", "type": "task"},
-                            ],
+                            "condition": "Yes",
+                            "target_ref": "task_a",
                         },
                     ],
                 },
             ],
+            "lanes": None,
         }
         result = repair_bpmn_json(raw)
-        yes_branch = result["process"][0]["branches"][0]
-        assert len(yes_branch["path"]) == 1
-        assert yes_branch["path"][0]["type"] == "task"
-        assert yes_branch["path"][0]["label"] == "Continue"
-
-    def test_non_empty_branch_unchanged(self) -> None:
-        raw = {
-            "process": [
-                {
-                    "id": "GW_1",
-                    "type": "exclusiveGateway",
-                    "branches": [
-                        {
-                            "condition": "yes",
-                            "path": [
-                                {"id": "T1", "type": "task"},
-                            ],
-                        },
-                    ],
-                },
-            ],
-        }
-        result = repair_bpmn_json(raw)
-        assert len(result["process"][0]["branches"][0]["path"]) == 1
-        assert result["process"][0]["branches"][0]["path"][0]["id"] == "T1"
-
-    def test_null_path_gets_fixed(self) -> None:
-        raw = {
-            "process": [
-                {
-                    "id": "GW_1",
-                    "type": "exclusiveGateway",
-                    "branches": [
-                        {"condition": "yes", "path": None},
-                    ],
-                },
-            ],
-        }
-        result = repair_bpmn_json(raw)
-        path = result["process"][0]["branches"][0]["path"]
-        assert isinstance(path, list)
-        assert len(path) == 1
-        assert path[0]["type"] == "task"
-
-    def test_nested_gateway_branches_repaired(self) -> None:
-        raw = {
-            "process": [
-                {
-                    "id": "GW_Outer",
-                    "type": "exclusiveGateway",
-                    "branches": [
-                        {
-                            "condition": "a",
-                            "path": [
-                                {
-                                    "id": "GW_Inner",
-                                    "type": "exclusiveGateway",
-                                    "branches": [
-                                        {
-                                            "condition": "x",
-                                            "path": [],
-                                        },
-                                    ],
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        }
-        result = repair_bpmn_json(raw)
-        inner_gw = result["process"][0]["branches"][0]["path"][0]
-        assert len(inner_gw["branches"][0]["path"]) == 1
-
-    def test_no_branches_element_unchanged(self) -> None:
-        raw = {
-            "process": [
-                {
-                    "id": "Task_1",
-                    "type": "task",
-                    "branches": None,
-                },
-            ],
-        }
-        result = repair_bpmn_json(raw)
-        assert result["process"][0]["id"] == "Task_1"
+        br = result["steps"][0]["branches"]
+        assert br is not None
+        assert br[0]["target"] == "task_a"

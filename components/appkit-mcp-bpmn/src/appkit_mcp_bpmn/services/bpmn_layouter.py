@@ -654,6 +654,49 @@ def _route_self_loop(
     ]
 
 
+def _has_overlapping_back_edge(
+    source: BpmnNode,
+    target: BpmnNode,
+    layout_grid: Grid,
+) -> bool:
+    """Check if a shorter same-row back-edge overlaps the bottom corridor.
+
+    When True, the caller should route via top to avoid overlapping
+    horizontal segments with the shorter back-edge.
+    """
+    src_pos = source.grid_position
+    tgt_pos = target.grid_position
+    if not src_pos or not tgt_pos or src_pos["row"] != tgt_pos["row"]:
+        return False
+
+    src_row = src_pos["row"]
+    src_col = src_pos["col"]
+    tgt_col = tgt_pos["col"]
+    span = src_col - tgt_col
+
+    for el in layout_grid.get_all_elements():
+        if not el.grid_position or el.grid_position["row"] != src_row:
+            continue
+        el_col = el.grid_position["col"]
+        for flow in el.outgoing:
+            ft = flow.target_ref
+            if ft is None or not ft.grid_position:
+                continue
+            if el is source and ft is target:
+                continue
+            ft_col = ft.grid_position["col"]
+            ft_row = ft.grid_position["row"]
+            if ft_row != src_row or el_col <= ft_col:
+                continue
+            other_span = el_col - ft_col
+            if max(tgt_col, ft_col) < min(src_col, el_col):
+                if span > other_span:
+                    return True
+                if span == other_span and src_col > el_col:
+                    return True
+    return False
+
+
 def _route_back_edge(
     source: BpmnNode,
     target: BpmnNode,
@@ -665,6 +708,14 @@ def _route_back_edge(
         source.grid_position["row"], source.grid_position["col"]
     )
     if ctx.src_mid["y"] >= ctx.tgt_mid["y"]:
+        if _has_overlapping_back_edge(source, target, layout_grid):
+            top_y = pos["y"]
+            return [
+                _get_docking_point(ctx.src_mid, ctx.src_bounds, "t"),
+                {"x": ctx.src_mid["x"], "y": float(top_y)},
+                {"x": ctx.tgt_mid["x"], "y": float(top_y)},
+                _get_docking_point(ctx.tgt_mid, ctx.tgt_bounds, "t"),
+            ]
         max_exp = _get_max_expanded_between(source, target, layout_grid)
         if ctx.base_src_grid:
             bottom_y = (

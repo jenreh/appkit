@@ -1,38 +1,55 @@
-"""Convert a JSON process description to BPMN 2.0 XML.
+"""Convert a flat BPMN process JSON into BPMN 2.0 XML.
 
-The LLM produces a simple JSON structure describing the process flow.
-This module deterministically converts that JSON into valid, process-only
-BPMN 2.0 XML (without ``<bpmndi:BPMNDiagram>``).  The separate layouter
-adds diagram coordinates afterwards.
+The LLM produces a flat list of steps with sequential flow, explicit
+``next`` jumps, and gateway ``branches``.  This module deterministically
+converts that structure into valid, process-only BPMN 2.0 XML (without
+``<bpmndi:BPMNDiagram>``).  The separate layouter adds diagram
+coordinates afterwards.
 
 JSON schema (simplified)::
 
     {
-        "process": [
-            {"type": "startEvent", "id": "start_1", "label": "Order Received"},
-            {"type": "userTask", "id": "task_1", "label": "Review Order"},
+        "steps": [
             {
-                "type": "exclusiveGateway",
-                "id": "gw_1",
-                "label": "Approved?",
-                "has_join": true,
-                "branches": [
-                    {
-                        "condition": "Yes",
-                        "path": [
-                            {"type": "serviceTask", "id": "t_2", "label": "Process"}
-                        ],
-                    },
-                    {
-                        "condition": "No",
-                        "path": [
-                            {"type": "serviceTask", "id": "t_3", "label": "Reject"}
-                        ],
-                    },
-                ],
+                "id": "start",
+                "type": "startEvent",
+                "label": "Start",
+                "branches": null,
+                "next": null,
             },
-            {"type": "endEvent", "id": "end_1", "label": "Done"},
-        ]
+            {
+                "id": "task_1",
+                "type": "task",
+                "label": "Do work",
+                "branches": null,
+                "next": null,
+            },
+            {
+                "id": "gw",
+                "type": "exclusive",
+                "label": "OK?",
+                "branches": [
+                    {"condition": "Yes", "target": "task_done"},
+                    {"condition": "No", "target": "task_1"},
+                ],
+                "next": null,
+            },
+            {
+                "id": "task_done",
+                "type": "task",
+                "label": "Done",
+                "branches": null,
+                "next": null,
+            },
+            {
+                "id": "end",
+                "type": "endEvent",
+                "label": "End",
+                "branches": null,
+                "next": null,
+            },
+        ],
+        "lanes": null,
     }
 """
 
@@ -42,7 +59,7 @@ from typing import Any
 
 from lxml import etree
 
-from appkit_mcp_bpmn.models import BpmnProcessJson
+from appkit_mcp_bpmn.models import BPMN_TYPE_MAP, GATEWAY_TYPES, BpmnProcess
 from appkit_mcp_commons.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -53,41 +70,13 @@ DC_NS = "http://www.omg.org/spec/DD/20100524/DC"
 DI_NS = "http://www.omg.org/spec/DD/20100524/DI"
 TARGET_NS = "http://bpmn.io/schema/bpmn"
 
-_VALID_ELEMENT_TYPES = {
-    "startEvent",
-    "endEvent",
-    "task",
-    "userTask",
-    "serviceTask",
-    "sendTask",
-    "receiveTask",
-    "businessRuleTask",
-    "manualTask",
-    "scriptTask",
-    "callActivity",
-    "subProcess",
-    "exclusiveGateway",
-    "parallelGateway",
-    "inclusiveGateway",
-    "eventBasedGateway",
-    "intermediateCatchEvent",
-    "intermediateThrowEvent",
-}
 
-_GATEWAY_TYPES = {
-    "exclusiveGateway",
-    "parallelGateway",
-    "inclusiveGateway",
-    "eventBasedGateway",
-}
-
-
-def build_bpmn_xml(process_json: BpmnProcessJson | dict[str, Any] | str) -> str:
-    """Convert a JSON process description into BPMN 2.0 XML.
+def build_bpmn_xml(process_json: BpmnProcess | dict[str, Any] | str) -> str:
+    """Convert a flat process JSON into BPMN 2.0 XML.
 
     Args:
-        process_json: ``BpmnProcessJson`` model, dict, or JSON string
-            with a ``process`` key containing the ordered element list.
+        process_json: ``BpmnProcess`` model, dict, or JSON string
+            with ``steps`` (and optional ``lanes``).
 
     Returns:
         BPMN 2.0 XML string (process-only, no BPMNDiagram section).
@@ -96,31 +85,37 @@ def build_bpmn_xml(process_json: BpmnProcessJson | dict[str, Any] | str) -> str:
         ValidationError: If the JSON is malformed or semantically invalid.
     """
     data = _parse_input(process_json)
-    elements = data.get("process")
-    if not elements or not isinstance(elements, list):
-        raise ValidationError("JSON must contain a non-empty 'process' array")
+    steps = data.get("steps")
+    if not steps or not isinstance(steps, list):
+        raise ValidationError("JSON must contain a non-empty 'steps' array")
 
-    # Flatten the nested structure into elements + flows
-    flat_elements, flows = _flatten_process(elements)
+    lanes = data.get("lanes")
 
-    if not flat_elements:
+    elements, flows = _build_elements_and_flows(steps)
+
+    if not elements:
         raise ValidationError("Process produced no BPMN elements")
 
-    _validate_elements(flat_elements)
+    _validate_elements(elements)
 
-    # Build XML tree
     root = _build_definitions()
+
+    has_lanes = lanes and isinstance(lanes, list) and len(lanes) > 0
+    if has_lanes:
+        _build_collaboration_xml(root, lanes)
+
     process_el = etree.SubElement(
         root,
         f"{{{BPMN_NS}}}process",
         attrib={"id": "Process_1", "isExecutable": "true"},
     )
 
-    # Add flow nodes
-    for elem in flat_elements:
+    if has_lanes:
+        _build_lane_set_xml(process_el, lanes)
+
+    for elem in elements:
         _add_element(process_el, elem)
 
-    # Add sequence flows
     for flow in flows:
         _add_sequence_flow(process_el, flow)
 
@@ -135,10 +130,9 @@ def build_bpmn_xml(process_json: BpmnProcessJson | dict[str, Any] | str) -> str:
 
 
 def _parse_input(
-    process_json: BpmnProcessJson | dict[str, Any] | str,
+    process_json: BpmnProcess | dict[str, Any] | str,
 ) -> dict[str, Any]:
-    """Parse JSON string, dict, or Pydantic model into a dict."""
-    if isinstance(process_json, BpmnProcessJson):
+    if isinstance(process_json, BpmnProcess):
         return process_json.model_dump()
 
     if isinstance(process_json, str):
@@ -150,12 +144,33 @@ def _parse_input(
         data = process_json
 
     if not isinstance(data, dict):
-        raise ValidationError("Input must be a JSON object with a 'process' key")
+        raise ValidationError("Input must be a JSON object with a 'steps' key")
     return data
 
 
 def _validate_elements(elements: list[dict[str, str]]) -> None:
     """Check that elements have valid types and unique IDs."""
+    all_valid_types = {
+        "startEvent",
+        "endEvent",
+        "task",
+        "userTask",
+        "serviceTask",
+        "sendTask",
+        "receiveTask",
+        "businessRuleTask",
+        "manualTask",
+        "scriptTask",
+        "callActivity",
+        "subProcess",
+        "exclusiveGateway",
+        "parallelGateway",
+        "inclusiveGateway",
+        "eventBasedGateway",
+        "intermediateCatchEvent",
+        "intermediateThrowEvent",
+    }
+
     ids: set[str] = set()
     has_start = False
     has_end = False
@@ -164,10 +179,10 @@ def _validate_elements(elements: list[dict[str, str]]) -> None:
         elem_type = elem.get("type", "")
         elem_id = elem.get("id", "")
 
-        if elem_type not in _VALID_ELEMENT_TYPES:
+        if elem_type not in all_valid_types:
             raise ValidationError(
                 f"Unknown element type '{elem_type}'. "
-                f"Valid types: {sorted(_VALID_ELEMENT_TYPES)}"
+                f"Valid types: {sorted(all_valid_types)}"
             )
 
         if not elem_id:
@@ -188,21 +203,18 @@ def _validate_elements(elements: list[dict[str, str]]) -> None:
         raise ValidationError("Process must contain at least one 'endEvent'")
 
 
-def _flatten_process(
-    elements: list[dict[str, Any]],
+def _build_elements_and_flows(
+    steps: list[dict[str, Any]],
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    """Flatten nested gateway branches into a flat element/flow list.
+    """Build flat BPMN elements and sequence flows from the step list.
 
-    Walks the ``process`` array sequentially.  When a gateway with
-    ``branches`` is encountered, each branch's ``path`` is flattened
-    and the appropriate sequence flows are created.  If ``has_join``
-    is ``true``, a matching merge gateway is inserted after the
-    branches.
-
-    Returns:
-        Tuple of (flat_elements, sequence_flows).
+    Flow rules:
+    1. Gateway → each branch.target (with condition label)
+    2. endEvent → no outgoing flow
+    3. step.next is set → flow to next target
+    4. Otherwise → flow to steps[idx + 1]
     """
-    flat: list[dict[str, str]] = []
+    elements: list[dict[str, str]] = []
     flows: list[dict[str, str]] = []
     flow_counter = 0
 
@@ -211,123 +223,32 @@ def _flatten_process(
         flow_counter += 1
         return f"Flow_{flow_counter}"
 
-    prev_id: str | None = None
+    for idx, step in enumerate(steps):
+        step_type = step.get("type", "")
+        step_id = step.get("id", "")
+        label = step.get("label", "")
+        branches = step.get("branches")
+        next_target = step.get("next")
 
-    for item in elements:
-        elem_type = item.get("type", "")
-        elem_id = item.get("id", "")
-        label = item.get("label", "")
-        branches = item.get("branches")
-        target_ref = item.get("target_ref")
+        xml_type = BPMN_TYPE_MAP.get(step_type, step_type)
+        elements.append({"type": xml_type, "id": step_id, "label": label})
 
-        if elem_type in _GATEWAY_TYPES and branches:
-            prev_id = _flatten_gateway(item, flat, flows, prev_id, next_flow_id)
-        else:
-            flat.append({"type": elem_type, "id": elem_id, "label": label})
-            if prev_id:
-                flows.append(_flow(next_flow_id(), prev_id, elem_id))
-
-            if target_ref:
-                flows.append(_flow(next_flow_id(), elem_id, target_ref))
-
-            prev_id = elem_id
-
-    return flat, flows
-
-
-def _flatten_gateway(
-    item: dict[str, Any],
-    flat: list[dict[str, str]],
-    flows: list[dict[str, str]],
-    prev_id: str | None,
-    next_flow_id: Any,
-) -> str | None:
-    """Flatten a gateway with branches into *flat* and *flows*.
-
-    Returns:
-        The ID of the merge gateway (if ``has_join``) or ``None``.
-    """
-    elem_type = item["type"]
-    elem_id = item["id"]
-    label = item.get("label", "")
-    branches = item.get("branches", [])
-
-    flat.append({"type": elem_type, "id": elem_id, "label": label})
-    if prev_id:
-        flows.append(_flow(next_flow_id(), prev_id, elem_id))
-
-    has_join = item.get("has_join", False)
-    join_id = f"{elem_id}_join" if has_join else None
-    branch_end_ids = _flatten_branches(branches, elem_id, flat, flows, next_flow_id)
-
-    if has_join and join_id:
-        flat.append({"type": elem_type, "id": join_id, "label": ""})
-        flows.extend(_flow(next_flow_id(), eid, join_id) for eid in branch_end_ids)
-        return join_id
-
-    return None
-
-
-def _flatten_branches(
-    branches: list[dict[str, Any]],
-    gateway_id: str,
-    flat: list[dict[str, str]],
-    flows: list[dict[str, str]],
-    next_flow_id: Any,
-) -> list[str]:
-    """Process gateway branches and return the last element ID of each."""
-    branch_end_ids: list[str] = []
-
-    for branch in branches:
-        condition = branch.get("condition", "")
-        path = branch.get("path", [])
-        target_ref = branch.get("target_ref")
-
-        if not path and not target_ref:
+        if step_type == "endEvent":
             continue
 
-        if path:
-            first_in_branch = path[0]
-            flows.append(
-                _flow(
-                    next_flow_id(),
-                    gateway_id,
-                    first_in_branch["id"],
-                    condition,
-                )
-            )
+        if step_type in GATEWAY_TYPES and branches:
+            for br in branches:
+                condition = br.get("condition", "")
+                target = br.get("target", "")
+                if target:
+                    flows.append(_flow(next_flow_id(), step_id, target, condition))
+        elif next_target:
+            flows.append(_flow(next_flow_id(), step_id, next_target))
+        elif idx + 1 < len(steps):
+            next_step = steps[idx + 1]
+            flows.append(_flow(next_flow_id(), step_id, next_step.get("id", "")))
 
-            branch_prev: str | None = None
-            branch_prev_type: str | None = None
-            for step in path:
-                flat.append(
-                    {
-                        "type": step.get("type", "task"),
-                        "id": step["id"],
-                        "label": step.get("label", ""),
-                    }
-                )
-                if branch_prev:
-                    flows.append(_flow(next_flow_id(), branch_prev, step["id"]))
-
-                step_target_ref = step.get("target_ref")
-                if step_target_ref:
-                    flows.append(_flow(next_flow_id(), step["id"], step_target_ref))
-
-                branch_prev = step["id"]
-                branch_prev_type = step.get("type", "task")
-
-            if target_ref:
-                if branch_prev:
-                    flows.append(_flow(next_flow_id(), branch_prev, target_ref))
-            elif branch_prev and branch_prev_type != "endEvent":
-                branch_end_ids.append(branch_prev)
-
-        elif target_ref:
-            # Direct connection from gateway to target (no intermediate steps)
-            flows.append(_flow(next_flow_id(), gateway_id, target_ref, condition))
-
-    return branch_end_ids
+    return elements, flows
 
 
 def _flow(
@@ -336,7 +257,6 @@ def _flow(
     target: str,
     condition: str = "",
 ) -> dict[str, str]:
-    """Create a sequence flow dict."""
     result: dict[str, str] = {
         "id": flow_id,
         "sourceRef": source,
@@ -348,7 +268,6 @@ def _flow(
 
 
 def _build_definitions() -> etree._Element:
-    """Create the ``<bpmn:definitions>`` root element."""
     nsmap = {
         "bpmn": BPMN_NS,
         "bpmndi": BPMNDI_NS,
@@ -365,11 +284,54 @@ def _build_definitions() -> etree._Element:
     )
 
 
+def _build_collaboration_xml(
+    root: etree._Element,
+    _lanes: list[dict[str, Any]],
+) -> None:
+    """Add a ``<bpmn:collaboration>`` with a single participant."""
+    collab = etree.SubElement(
+        root,
+        f"{{{BPMN_NS}}}collaboration",
+        attrib={"id": "Collaboration_1"},
+    )
+    etree.SubElement(
+        collab,
+        f"{{{BPMN_NS}}}participant",
+        attrib={
+            "id": "Participant_1",
+            "processRef": "Process_1",
+        },
+    )
+
+
+def _build_lane_set_xml(
+    process_el: etree._Element,
+    lanes: list[dict[str, Any]],
+) -> None:
+    """Add ``<bpmn:laneSet>`` with lanes to the process element."""
+    lane_set = etree.SubElement(
+        process_el,
+        f"{{{BPMN_NS}}}laneSet",
+        attrib={"id": "LaneSet_1"},
+    )
+    for i, lane in enumerate(lanes, start=1):
+        lane_el = etree.SubElement(
+            lane_set,
+            f"{{{BPMN_NS}}}lane",
+            attrib={
+                "id": f"Lane_{i}",
+                "name": lane.get("name", f"Lane {i}"),
+            },
+        )
+        for step_id in lane.get("steps", []):
+            ref = etree.SubElement(lane_el, f"{{{BPMN_NS}}}flowNodeRef")
+            ref.text = step_id
+
+
 def _add_element(
     process: etree._Element,
     elem: dict[str, str],
 ) -> None:
-    """Add a BPMN flow node to the process element."""
     tag = f"{{{BPMN_NS}}}{elem['type']}"
     attrib: dict[str, str] = {"id": elem["id"]}
     if elem.get("label"):
@@ -381,7 +343,6 @@ def _add_sequence_flow(
     process: etree._Element,
     flow: dict[str, str],
 ) -> None:
-    """Add a ``<bpmn:sequenceFlow>`` to the process element."""
     attrib: dict[str, str] = {
         "id": flow["id"],
         "sourceRef": flow["sourceRef"],

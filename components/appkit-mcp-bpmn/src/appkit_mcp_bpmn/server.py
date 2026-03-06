@@ -180,27 +180,29 @@ def create_bpmn_mcp_server(
             description: The workflow to describe.
         """
         return (
-            "Describe the following workflow as BPMN process JSON.\n\n"
+            "Describe the following workflow as flat BPMN JSON.\n\n"
             f"Workflow: {description}\n\n"
-            'Output a JSON object with a single "process" key '
-            "containing an ordered array of BPMN elements.\n\n"
-            "Each element has:\n"
-            '- "type": BPMN element type (startEvent, endEvent, '
-            "task, userTask, serviceTask, scriptTask, manualTask, "
-            "sendTask, receiveTask, businessRuleTask, callActivity, "
-            "subProcess, exclusiveGateway, parallelGateway, "
-            "inclusiveGateway, eventBasedGateway, "
-            "intermediateCatchEvent, intermediateThrowEvent)\n"
-            '- "id": unique CamelCase identifier\n'
-            '- "label": human-readable name (optional)\n\n'
-            "For gateways with decision/parallel paths, add:\n"
-            '- "branches": [{"condition": "...", '
-            '"path": [elements...]}]\n'
-            '- "has_join": true to auto-create a merge gateway\n\n'
-            "Do NOT include sequence flows — they are generated "
-            "automatically.\n\n"
-            "Output ONLY the raw JSON. "
-            "No markdown fences, no explanation."
+            'Output a JSON object with "steps" (flat ordered array) '
+            'and "lanes" (null or array of '
+            '{"name": "...", "steps": ["id1", ...]}).\n\n'
+            "Each step has:\n"
+            '- "id": unique snake_case identifier\n'
+            '- "type": one of startEvent, endEvent, task, userTask, '
+            "serviceTask, scriptTask, manualTask, sendTask, "
+            "receiveTask, businessRuleTask, callActivity, "
+            "subProcess, exclusive, parallel, inclusive, "
+            "eventBased, merge, intermediateCatchEvent, "
+            "intermediateThrowEvent\n"
+            '- "label": human-readable name\n'
+            '- "branches": null, or array of '
+            '{"condition": "...", "target": "step_id"} '
+            "for gateways\n"
+            '- "next": null (flow to next in list) or '
+            "a step id (explicit jump)\n\n"
+            "Use type 'merge' to synchronize parallel branches.\n"
+            "Do NOT include sequence flows.\n"
+            "Output ONLY the raw JSON — "
+            "no markdown fences, no explanation."
         )
 
     return mcp

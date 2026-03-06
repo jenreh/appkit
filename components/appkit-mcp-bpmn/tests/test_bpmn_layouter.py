@@ -771,3 +771,103 @@ def test_get_docking_point_invalid_direction() -> None:
     rect = {"x": 50, "y": 50, "width": 100, "height": 100}
     with pytest.raises(ValueError, match="Unexpected"):
         _get_docking_point(mid, rect, "z")
+
+
+# -- Multiple back-edge overlap test --
+
+MULTI_BACK_EDGE_XML = """\
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_1">
+    <bpmn:startEvent id="Start_1">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_Search" name="Search products">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:incoming>Flow_back_short</bpmn:incoming>
+      <bpmn:incoming>Flow_back_long</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_View" name="View product">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="GW_1">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+      <bpmn:outgoing>Flow_back_short</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_Cart" name="Add to cart">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_ViewCart" name="View cart">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:exclusiveGateway id="GW_2">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+      <bpmn:outgoing>Flow_8</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_Continue" name="Continue shopping">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_back_long</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:userTask id="Task_Shipping" name="Enter shipping">
+      <bpmn:incoming>Flow_8</bpmn:incoming>
+      <bpmn:outgoing>Flow_9</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_1">
+      <bpmn:incoming>Flow_9</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_1"
+                       targetRef="Task_Search"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Search"
+                       targetRef="Task_View"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_View"
+                       targetRef="GW_1"/>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="GW_1"
+                       targetRef="Task_Cart"/>
+    <bpmn:sequenceFlow id="Flow_back_short" sourceRef="GW_1"
+                       targetRef="Task_Search"/>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_Cart"
+                       targetRef="Task_ViewCart"/>
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_ViewCart"
+                       targetRef="GW_2"/>
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="GW_2"
+                       targetRef="Task_Continue"/>
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="GW_2"
+                       targetRef="Task_Shipping"/>
+    <bpmn:sequenceFlow id="Flow_9" sourceRef="Task_Shipping"
+                       targetRef="End_1"/>
+    <bpmn:sequenceFlow id="Flow_back_long" sourceRef="Task_Continue"
+                       targetRef="Task_Search"/>
+  </bpmn:process>
+</bpmn:definitions>
+"""
+
+
+def test_multiple_back_edges_no_overlap() -> None:
+    """Two back-edges to the same target must use different corridors."""
+    result_xml = add_diagram_layout(MULTI_BACK_EDGE_XML)
+    root = _parse_root(result_xml)
+
+    edges = root.xpath(".//*[local-name()='BPMNEdge']")
+    short_edge = next(e for e in edges if e.get("bpmnElement") == "Flow_back_short")
+    long_edge = next(e for e in edges if e.get("bpmnElement") == "Flow_back_long")
+
+    def _get_waypoint_ys(edge_el: object) -> list[float]:
+        return [
+            float(wp.get("y")) for wp in edge_el.xpath(".//*[local-name()='waypoint']")
+        ]
+
+    short_ys = _get_waypoint_ys(short_edge)
+    long_ys = _get_waypoint_ys(long_edge)
+
+    # The horizontal corridors (middle waypoints) must be at different y
+    short_corridor_y = short_ys[1]
+    long_corridor_y = long_ys[1]
+    assert short_corridor_y != long_corridor_y, (
+        f"Back-edges overlap: both at y={short_corridor_y}"
+    )

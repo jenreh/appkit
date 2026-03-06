@@ -1,86 +1,90 @@
-"""Deterministic repair for LLM-generated BPMN JSON.
+"""Deterministic repair for LLM-generated flat BPMN JSON.
 
-Enforces: every gateway branch has a NON-EMPTY path by inserting a NoOp task.
+Normalises common LLM mistakes so the data can pass
+``BpmnProcess.model_validate()`` without a full retry cycle.
+
+Repairs applied:
+- Accepts ``process`` key as alias for ``steps``.
+- Ensures every step has all required keys with safe defaults.
+- Ensures every branch has ``condition`` and ``target`` keys.
+- Strips unknown top-level keys.
 
 Usage:
     data = json.loads(raw_text)
     data = repair_bpmn_json(data)
-    parsed = BpmnProcessJson.model_validate(data)
+    parsed = BpmnProcess.model_validate(data)
 """
 
 from __future__ import annotations
 
-import re
 import uuid
 from typing import Any
 
-_NOOP_ID_SAFE = re.compile(r"[^A-Za-z0-9_]")
+_REQUIRED_STEP_KEYS: dict[str, Any] = {
+    "id": "",
+    "type": "task",
+    "label": "",
+    "branches": None,
+    "next": None,
+}
 
 
-def _mk_noop_task(existing_ids: set[str], prefix: str = "Task_NoOp") -> dict[str, Any]:
-    base = f"{prefix}_{uuid.uuid4().hex[:8]}"
-    base = _NOOP_ID_SAFE.sub("_", base)
-    while base in existing_ids:
-        base = f"{prefix}_{uuid.uuid4().hex[:8]}"
-        base = _NOOP_ID_SAFE.sub("_", base)
-
-    existing_ids.add(base)
-    return {
-        "type": "task",
-        "id": base,
-        "label": "Continue",
-        "branches": None,
-        "has_join": False,
-        "target_ref": None,
-    }
+def _ensure_step_keys(step: dict[str, Any]) -> dict[str, Any]:
+    """Fill in missing keys with safe defaults."""
+    for key, default in _REQUIRED_STEP_KEYS.items():
+        if key not in step:
+            if key == "id":
+                step["id"] = f"step_{uuid.uuid4().hex[:8]}"
+            elif key == "label":
+                step["label"] = step.get("id", "Unnamed")
+            else:
+                step[key] = default
+    return step
 
 
-def _collect_ids_from_raw_process(process: list[dict[str, Any]]) -> set[str]:
-    ids: set[str] = set()
-
-    def walk_elements(elems: list[dict[str, Any]]) -> None:
-        for el in elems:
-            el_id = el.get("id")
-            if isinstance(el_id, str):
-                ids.add(el_id)
-            branches = el.get("branches")
-            if isinstance(branches, list):
-                for br in branches:
-                    path = br.get("path")
-                    if isinstance(path, list):
-                        walk_elements(path)
-
-    walk_elements(process)
-    return ids
+def _repair_branches(branches: Any) -> list[dict[str, str]] | None:
+    """Normalise branches to the expected shape or return None."""
+    if not isinstance(branches, list):
+        return None
+    repaired: list[dict[str, str]] = []
+    for br in branches:
+        if not isinstance(br, dict):
+            continue
+        entry: dict[str, str] = {
+            "condition": str(br.get("condition", "")),
+            "target": str(br.get("target") or br.get("target_ref", "")),
+        }
+        repaired.append(entry)
+    return repaired if repaired else None
 
 
 def repair_bpmn_json(raw: dict[str, Any]) -> dict[str, Any]:
-    if (
-        not isinstance(raw, dict)
-        or "process" not in raw
-        or not isinstance(raw["process"], list)
-    ):
+    """Apply best-effort repairs to raw LLM JSON."""
+    if not isinstance(raw, dict):
         return raw
 
-    process: list[dict[str, Any]] = raw["process"]
-    existing_ids = _collect_ids_from_raw_process(process)
+    # Accept "process" as alias for "steps"
+    if "process" in raw and "steps" not in raw:
+        raw["steps"] = raw.pop("process")
 
-    def repair_elements(elems: list[dict[str, Any]]) -> None:
-        for el in elems:
-            branches = el.get("branches")
-            if not isinstance(branches, list):
-                continue
+    steps = raw.get("steps")
+    if not isinstance(steps, list):
+        return raw
 
-            for br in branches:
-                path = br.get("path")
-                if not isinstance(path, list):
-                    path = []
-                    br["path"] = path
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        _ensure_step_keys(step)
+        step["branches"] = _repair_branches(step.get("branches"))
 
-                if len(path) == 0:
-                    path.append(_mk_noop_task(existing_ids))
+    # Ensure lanes is present
+    if "lanes" not in raw:
+        raw["lanes"] = None
 
-                repair_elements(path)
+    # Strip unknown top-level keys
+    allowed = {"steps", "lanes"}
+    for key in list(raw.keys()):
+        if key not in allowed:
+            del raw[key]
 
-    repair_elements(process)
     return raw

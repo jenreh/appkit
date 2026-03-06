@@ -1,23 +1,61 @@
 """LLM-powered BPMN process JSON generator.
 
-The LLM produces a simple JSON process description using OpenAI
-structured outputs (Pydantic ``response_format``).  Downstream
-modules (``bpmn_xml_builder`` and ``bpmn_layouter``) convert that
-JSON into valid BPMN 2.0 XML with layout coordinates.
+The LLM produces a flat JSON process description using OpenAI
+structured outputs (``BpmnProcess`` schema).  Downstream modules
+(``bpmn_xml_builder`` and ``bpmn_layouter``) convert that JSON into
+valid BPMN 2.0 XML with layout coordinates.
 """
 
 import json
 import logging
-import re
 from pathlib import Path
 
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
-from appkit_mcp_bpmn.models import BpmnProcessJson
+from appkit_mcp_bpmn.models import BpmnProcess
 from appkit_mcp_bpmn.services.repair_bpmn_json import repair_bpmn_json
 
 logger = logging.getLogger(__name__)
+
+
+def _make_strict_schema(schema: dict) -> dict:
+    """Make a JSON schema compatible with OpenAI strict structured output.
+
+    Recursively ensures every object has all properties listed in
+    ``required`` and removes ``default`` keys (not allowed in strict
+    mode).
+    """
+    schema = dict(schema)
+
+    # Process $defs first
+    if "$defs" in schema:
+        schema["$defs"] = {
+            k: _make_strict_schema(v) for k, v in schema["$defs"].items()
+        }
+
+    if schema.get("type") == "object" and "properties" in schema:
+        schema["required"] = list(schema["properties"].keys())
+        schema["additionalProperties"] = False
+        schema["properties"] = {
+            k: _make_strict_schema(v) for k, v in schema["properties"].items()
+        }
+
+    # $ref must not have sibling keywords in strict mode
+    if "$ref" in schema:
+        return {"$ref": schema["$ref"]}
+
+    # Recurse into anyOf / items
+    if "anyOf" in schema:
+        schema["anyOf"] = [_make_strict_schema(s) for s in schema["anyOf"]]
+    if "items" in schema and isinstance(schema["items"], dict):
+        schema["items"] = _make_strict_schema(schema["items"])
+
+    schema.pop("default", None)
+    schema.pop("title", None)
+
+    return schema
+
 
 _SKILL_PATH = Path(__file__).resolve().parent.parent / "resources" / "SKILL.md"
 
@@ -25,48 +63,64 @@ _FALLBACK_SYSTEM_PROMPT = """\
 You are a BPMN process designer.  Describe workflows as JSON.
 Output ONLY the raw JSON — no markdown fences, no comments, no explanation.
 
-Return a JSON object with a single "process" key containing an ordered \
-array of BPMN elements.  Each element has "type", "id", and an optional \
-"label".  Gateways may include "branches" (array of {condition, path}) \
-and "has_join" (boolean).
+Return a JSON object with "steps" (flat ordered array) and "lanes" (null or array).
+Each step has: "id", "type", "label", "branches" (null or array), "next" (null or id).
 
 Supported types: startEvent, endEvent, task, userTask, serviceTask, \
 scriptTask, manualTask, sendTask, receiveTask, businessRuleTask, \
-callActivity, subProcess, exclusiveGateway, parallelGateway, \
-inclusiveGateway, eventBasedGateway, intermediateCatchEvent, \
-intermediateThrowEvent.
+callActivity, subProcess, exclusive, parallel, inclusive, eventBased, \
+merge, intermediateCatchEvent, intermediateThrowEvent.
 
-Do NOT include sequence flows — they are generated automatically.
+Gateway branches: [{"condition": "...", "target": "step_id"}].
+Use "next" for explicit jumps; null means flow to next step in list.
+Use "merge" type to synchronize parallel branches.
 
 Example:
-{"process": [
-  {"type": "startEvent", "id": "Event_Start", "label": "Start"},
-  {"type": "userTask", "id": "Activity_Review", "label": "Review"},
-  {"type": "endEvent", "id": "Event_End", "label": "Done"}
-]}
+{"steps": [
+  {"id": "start", "type": "startEvent", "label": "Start",
+   "branches": null, "next": null},
+  {"id": "task_1", "type": "task", "label": "Do work",
+   "branches": null, "next": null},
+  {"id": "end", "type": "endEvent", "label": "Done",
+   "branches": null, "next": null}
+], "lanes": null}
 """
 
 
 def _load_system_prompt() -> str:
     """Load the BPMN generation system prompt from SKILL.md.
 
-    Falls back to a built-in prompt if the file is not found.
+    Reads the entire file as the system prompt.  Falls back to a
+    built-in prompt if the file is not found.
     """
     if _SKILL_PATH.is_file():
-        content = _SKILL_PATH.read_text(encoding="utf-8")
-        match = re.search(
-            r"## LLM System Prompt\s*\n"
-            r"(.*?)"
-            r"(?=\n## (?:Best Practices|Common Pitfalls)|\Z)",
-            content,
-            re.DOTALL,
-        )
-        if match:
+        content = _SKILL_PATH.read_text(encoding="utf-8").strip()
+        if content:
             logger.info("Loaded BPMN system prompt from SKILL.md")
-            return match.group(1).strip()
+            return content
 
     logger.info("Using fallback BPMN system prompt")
     return _FALLBACK_SYSTEM_PROMPT
+
+
+def _build_initial_thread(user_prompt: str) -> list[dict[str, str]]:
+    """Build the initial message thread."""
+    return [{"role": "user", "content": user_prompt}]
+
+
+def _build_retry_user_message(errors: list[str]) -> dict[str, str]:
+    """Build a validator-aware retry prompt containing accumulated errors."""
+    error_history = "\n".join(
+        f"  Attempt {i + 1}: {msg}" for i, msg in enumerate(errors)
+    )
+    error_context = (
+        "Your previous output was invalid and failed Pydantic schema validation.\n\n"
+        f"Error:\n{error_history}\n\n"
+        "TASK: Return a corrected JSON by minimally editing the MOST RECENT "
+        "OUTPUT above.\n"
+        "Output ONLY valid JSON."
+    )
+    return {"role": "user", "content": error_context}
 
 
 class BPMNGenerator:
@@ -75,6 +129,60 @@ class BPMNGenerator:
     def __init__(self) -> None:
         self._system_prompt = _load_system_prompt()
 
+    async def _attempt_parse(
+        self,
+        client: AsyncOpenAI,
+        model: str,
+        thread: list[dict[str, str]],
+    ) -> tuple[BpmnProcess, str]:
+        """Send the current thread to the LLM and return parsed result + raw text.
+
+        Uses ``responses.create()`` so that ``raw_text`` is always captured
+        before any ``ValidationError`` from Pydantic can be raised.
+        """
+        response = await client.responses.create(
+            model=model,
+            instructions=self._system_prompt,
+            input=thread,
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "BpmnProcess",
+                    "schema": _make_strict_schema(BpmnProcess.model_json_schema()),
+                    "strict": True,
+                }
+            },
+        )
+
+        raw_text = response.output_text
+        if not raw_text:
+            logger.warning("LLM returned empty output text")
+            raise RuntimeError("LLM returned empty structured response")
+
+        logger.debug("Structured response received (%d chars)", len(raw_text))
+        data = json.loads(raw_text)
+        return BpmnProcess.model_validate(data), raw_text
+
+    def _handle_fallback_repair(
+        self, raw_text: str | None, max_retries: int, val_err: ValidationError
+    ) -> BpmnProcess:
+        if not raw_text:
+            raise RuntimeError(
+                f"LLM returned invalid BPMN JSON after {max_retries} retries."
+            ) from val_err
+
+        try:
+            logger.info("Retries exhausted, attempting repair as final fallback...")
+            data = json.loads(raw_text)
+            data = repair_bpmn_json(data)
+            return BpmnProcess.model_validate(data)
+        except Exception as repair_err:
+            logger.error("Repair fallback failed: %s", repair_err)
+            raise RuntimeError(
+                f"LLM returned invalid BPMN JSON after {max_retries} "
+                "retries and fallback repair failed."
+            ) from repair_err
+
     async def generate(
         self,
         description: str,
@@ -82,11 +190,15 @@ class BPMNGenerator:
         model: str = "gpt-4o",
         *,
         client: AsyncOpenAI | None = None,
-    ) -> BpmnProcessJson:
+        max_retries: int = 5,
+    ) -> BpmnProcess:
         """Generate a BPMN process JSON from a description.
 
         Uses OpenAI structured outputs to guarantee the response
-        matches the ``BpmnProcessJson`` schema exactly.
+        matches the ``BpmnProcess`` schema exactly.  On validation
+        failure, the generation is retried up to *max_retries* times
+        using a stateless message thread with accumulated error history
+        to educate the LLM on specific validation rules.
 
         Args:
             description: Human-readable workflow description.
@@ -94,12 +206,15 @@ class BPMNGenerator:
                 or ``choreography``.
             model: LLM model name.
             client: Pre-configured ``AsyncOpenAI`` client.
+            max_retries: Maximum number of retry attempts after the
+                initial structured parse fails (default: 5).
 
         Returns:
-            Parsed ``BpmnProcessJson`` model instance.
+            Parsed ``BpmnProcess`` model instance.
 
         Raises:
-            RuntimeError: If LLM generation fails or response is refused.
+            RuntimeError: If LLM generation fails or all retries are
+                exhausted.
         """
         if not client:
             raise RuntimeError(
@@ -108,114 +223,57 @@ class BPMNGenerator:
             )
 
         user_prompt = (
-            f"Describe the following {diagram_type} workflow "
-            f"as BPMN process JSON:\n\n{description}"
+            f"Generate a BPMN {diagram_type} as flat JSON "
+            "for the following workflow. Return only "
+            "the JSON object.\n\n"
+            f"{description}"
         )
 
+        thread = _build_initial_thread(user_prompt)
+        errors: list[str] = []
         raw_text: str | None = None
-        response = None
 
-        try:
-            logger.info("Sending structured parse request to LLM (model=%s)...", model)
-            response = await client.responses.parse(
-                model=model,
-                instructions=self._system_prompt,
-                input=user_prompt,
-                text_format=BpmnProcessJson,
+        for attempt in range(max_retries + 1):
+            logger.debug(
+                "Current thread for LLM:\n%s",
+                "\n".join(msg["content"] for msg in thread),
             )
 
-            parsed = response.output_parsed
-            if parsed is None:
-                raw_text = getattr(response, "output_text", None)
-                logger.warning(
-                    "LLM returned no parsed output (refusal or empty). raw_text=%s",
-                    raw_text[:200] if raw_text else None,
+            try:
+                logger.info(
+                    "Attempt %d/%d with %d prior error(s)...",
+                    attempt,
+                    max_retries,
+                    len(errors),
                 )
-                raise RuntimeError("LLM returned empty structured response")
 
-            logger.debug("Structured parse succeeded")
-            return parsed
+                parsed, raw_text = await self._attempt_parse(client, model, thread)
+                return parsed
 
-        except ValidationError as val_err:
-            # Structured parse validated the schema but Pydantic
-            # model validators (process rules) rejected the result.
-            if response is not None:
-                raw_text = getattr(response, "output_text", None)
-            logger.warning(
-                "Structured output failed Pydantic validation: %s",
-                val_err,
-            )
-            return await self._retry_with_error_context(
-                client, model, user_prompt, raw_text, str(val_err)
-            )
+            except ValidationError as val_err:
+                errors.append(str(val_err))
+                logger.warning(
+                    "Structured output failed Pydantic validation (attempt %d): %s",
+                    attempt,
+                    val_err,
+                )
 
-        except RuntimeError:
-            # Re-raise our own RuntimeErrors (empty response) as-is
-            raise
+                if attempt < max_retries:
+                    if raw_text:
+                        thread.append({"role": "assistant", "content": raw_text})
+                    thread.append(_build_retry_user_message(errors))
+                else:
+                    return self._handle_fallback_repair(raw_text, max_retries, val_err)
 
-        except Exception as exc:
-            logger.error(
-                "BPMN generation failed (%s): %s",
-                type(exc).__name__,
-                exc,
-            )
-            raise RuntimeError("Failed to generate BPMN diagram via LLM") from exc
+            except RuntimeError:
+                raise
 
-    async def _retry_with_error_context(
-        self,
-        client: AsyncOpenAI,
-        model: str,
-        user_prompt: str,
-        raw_text: str | None,
-        error_reason: str,
-    ) -> BpmnProcessJson:
-        """Retry LLM call with error feedback for self-correction.
+            except Exception as exc:
+                logger.error(
+                    "BPMN generation failed (%s): %s",
+                    type(exc).__name__,
+                    exc,
+                )
+                raise RuntimeError("Failed to generate BPMN diagram via LLM") from exc
 
-        Uses ``responses.create`` with relaxed JSON schema so the
-        deterministic ``repair_bpmn_json`` helper can fix minor issues
-        before Pydantic validation.
-        """
-        error_parts = ["\n\nYour previous output was malformed."]
-        error_parts.append(f"Validation error: {error_reason}")
-        if raw_text:
-            error_parts.append(f"\nYour output:\n{raw_text}")
-        error_parts.append("Please fix the JSON and ensure it is valid.")
-        error_context = "\n".join(error_parts)
-
-        retry_message = (
-            f"{error_context}\n\n"
-            "Output ONLY valid JSON. Reminder: every gateway "
-            "branch path must be non-empty. If a branch is "
-            "pass-through, insert a NoOp task in path "
-            "(type='task', label='Continue')."
-        )
-
-        try:
-            logger.info("Retrying LLM request with error context...")
-            raw_resp = await client.responses.create(
-                model=model,
-                instructions=self._system_prompt,
-                input=[
-                    {"role": "user", "content": user_prompt},
-                    {"role": "user", "content": retry_message},
-                ],
-            )
-
-            retry_text = raw_resp.output_text
-            if not retry_text:
-                raise RuntimeError("Retry returned empty response")
-
-            logger.debug("Retry LLM raw output length: %d chars", len(retry_text))
-            data = json.loads(retry_text)
-            data = repair_bpmn_json(data)
-            return BpmnProcessJson.model_validate(data)
-
-        except Exception as fallback_exc:
-            logger.error(
-                "Retry also failed (%s): %s",
-                type(fallback_exc).__name__,
-                fallback_exc,
-            )
-            raise RuntimeError(
-                "LLM returned invalid BPMN JSON and fallback repair failed"
-            ) from fallback_exc
+        raise RuntimeError("LLM failed to produce valid BPMN JSON")

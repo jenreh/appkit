@@ -6,8 +6,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastmcp.client import Client
+from fastmcp.exceptions import ToolError
 
-from appkit_mcp_bpmn.models import BpmnElement, BpmnProcessJson
+from appkit_mcp_bpmn.models import BpmnProcess, BpmnStep
 from appkit_mcp_bpmn.server import (
     _error_result,
     _validate_and_save,
@@ -56,13 +57,9 @@ def test_validate_and_save_valid(tmp_path: Path) -> None:
 
 
 def test_validate_and_save_invalid_xml(tmp_path: Path) -> None:
-    """_validate_and_save returns error for invalid XML."""
-    result_json = _validate_and_save("<invalid>", str(tmp_path))
-    result = json.loads(result_json)
-
-    assert result["success"] is False
-    assert result["error"] is not None
-    assert "Validation failed" in result["error"]
+    """_validate_and_save raises ValueError for invalid XML."""
+    with pytest.raises(ValueError, match="Validation failed"):
+        _validate_and_save("<invalid>", str(tmp_path))
 
 
 def test_error_result_format() -> None:
@@ -91,51 +88,54 @@ async def test_save_bpmn_diagram_tool(bpmn_client: Client) -> None:
 
 @pytest.mark.asyncio
 async def test_save_bpmn_diagram_empty_xml(bpmn_client: Client) -> None:
-    """save_bpmn_diagram rejects empty XML."""
-    result = await bpmn_client.call_tool("save_bpmn_diagram", arguments={"xml": ""})
-    parsed = json.loads(result.content[0].text)
-
-    assert parsed["success"] is False
-    assert "empty" in parsed["error"].lower()
+    """save_bpmn_diagram rejects empty XML with isError=True."""
+    with pytest.raises(ToolError, match="empty"):
+        await bpmn_client.call_tool("save_bpmn_diagram", arguments={"xml": ""})
 
 
 @pytest.mark.asyncio
 async def test_generate_bpmn_diagram_empty_description(
     bpmn_client: Client,
 ) -> None:
-    """generate_bpmn_diagram rejects empty description."""
-    result = await bpmn_client.call_tool(
-        "generate_bpmn_diagram", arguments={"description": ""}
-    )
-    parsed = json.loads(result.content[0].text)
-
-    assert parsed["success"] is False
-    assert "empty" in parsed["error"].lower()
+    """generate_bpmn_diagram rejects empty description with isError=True."""
+    with pytest.raises(ToolError, match="empty"):
+        await bpmn_client.call_tool(
+            "generate_bpmn_diagram", arguments={"description": ""}
+        )
 
 
 @pytest.mark.asyncio
 async def test_generate_bpmn_diagram_invalid_type(
     bpmn_client: Client,
 ) -> None:
-    """generate_bpmn_diagram rejects invalid diagram type."""
-    result = await bpmn_client.call_tool(
-        "generate_bpmn_diagram",
-        arguments={"description": "test", "diagram_type": "invalid"},
-    )
-    parsed = json.loads(result.content[0].text)
-
-    assert parsed["success"] is False
-    assert "Invalid diagram_type" in parsed["error"]
+    """generate_bpmn_diagram rejects invalid diagram type with isError=True."""
+    with pytest.raises(ToolError, match="Invalid diagram_type"):
+        await bpmn_client.call_tool(
+            "generate_bpmn_diagram",
+            arguments={"description": "test", "diagram_type": "invalid"},
+        )
 
 
 @pytest.mark.asyncio
 async def test_generate_bpmn_diagram_success(bpmn_client: Client) -> None:
     """generate_bpmn_diagram calls LLM and returns valid result."""
-    mock_process = BpmnProcessJson(
-        process=[
-            BpmnElement(type="startEvent", id="Event_Start", label="Start"),
-            BpmnElement(type="task", id="Activity_1", label="Do Something"),
-            BpmnElement(type="endEvent", id="Event_End", label="End"),
+    mock_process = BpmnProcess(
+        steps=[
+            BpmnStep(
+                id="Event_Start",
+                type="startEvent",
+                label="Start",
+            ),
+            BpmnStep(
+                id="Activity_1",
+                type="task",
+                label="Do Something",
+            ),
+            BpmnStep(
+                id="Event_End",
+                type="endEvent",
+                label="End",
+            ),
         ]
     )
 
@@ -160,21 +160,19 @@ async def test_generate_bpmn_diagram_success(bpmn_client: Client) -> None:
 async def test_generate_bpmn_diagram_llm_failure(
     bpmn_client: Client,
 ) -> None:
-    """generate_bpmn_diagram handles LLM errors gracefully."""
-    with patch(
-        "appkit_mcp_bpmn.server.BPMNGenerator.generate",
-        new_callable=AsyncMock,
-        side_effect=RuntimeError("LLM unavailable"),
+    """generate_bpmn_diagram signals isError=True on LLM errors."""
+    with (
+        patch(
+            "appkit_mcp_bpmn.server.BPMNGenerator.generate",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("LLM unavailable"),
+        ),
+        pytest.raises(ToolError, match="LLM unavailable"),
     ):
-        result = await bpmn_client.call_tool(
+        await bpmn_client.call_tool(
             "generate_bpmn_diagram",
             arguments={"description": "A workflow"},
         )
-
-    parsed = json.loads(result.content[0].text)
-
-    assert parsed["success"] is False
-    assert "LLM unavailable" in parsed["error"]
 
 
 @pytest.mark.asyncio
