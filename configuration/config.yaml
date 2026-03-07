@@ -2,8 +2,8 @@ profile: default
 
 reflex:
   deploy_url: http://localhost
-  frontend_port: 3000
-  backend_port: 3031
+  frontend_port: 80
+  backend_port: 3030
   workers: 1
 
 app:

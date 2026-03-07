@@ -207,7 +207,10 @@ class AIModelRegistry:
 
             # Apply tracking decorator if enabled for this model
             if m.enable_tracking and self._processor_decorator:
-                processor = self._processor_decorator(processor, m.model_id)
+                processor_name = m.processor_type
+                if m.on_azure:
+                    processor_name += "_azure"
+                processor = self._processor_decorator(processor, processor_name)
 
             model_manager.register_processor(m.model_id, processor)
             self._registered_model_ids.add(m.model_id)
