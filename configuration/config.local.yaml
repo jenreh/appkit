@@ -2,7 +2,8 @@ profile: local
 
 reflex:
   deploy_url: http://localhost
-  frontend_port: 8080
+  workers: 1
+  single_port: false
 
 app:
   environment: local
@@ -14,8 +15,8 @@ app:
   authentication:
     server_url: http://localhost
     server_port: 8080
-    session_timeout: 15 # minutes
-    auth_token_refresh_delta: 12 # minutes
+    session_timeout: 25 # minutes
+    auth_token_refresh_delta: 10 # minutes
 
     oauth_providers:
       - provider: "github"
@@ -30,7 +31,6 @@ app:
 
     # Email provider for password reset (mock for local development)
     email_provider:
-      #provider: "mock"
       provider: "resend"
       api_key: secret:mn-resend-api-key
       from_email: "onboarding@resend.dev"
@@ -38,5 +38,8 @@ app:
 
     # Password reset settings
     password_reset:
-      token_expiry_minutes: 5
+      token_expiry_minutes: 10
       max_requests_per_hour: 3
+
+  mcp_image:
+    backend_server: http://localhost:3030

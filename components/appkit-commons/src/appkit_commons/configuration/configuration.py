@@ -43,7 +43,8 @@ class ServerConfig(BaseConfig):
 
 
 class ReflexConfig(BaseConfig):
-    deploy_url: str
+    deploy_url: str | None = None
+    api_url: str | None = None
     frontend_port: int = 80
     backend_port: int = 3030
     workers: int = 3

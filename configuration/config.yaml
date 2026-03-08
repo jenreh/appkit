@@ -1,10 +1,12 @@
 profile: default
 
 reflex:
-  deploy_url: http://localhost
-  frontend_port: 80
+  deploy_url: https://oriole-guiding-miserably.ngrok-free.app
+  api_url: https://oriole-guiding-miserably.ngrok-free.app
+  frontend_port: 8080
   backend_port: 3030
-  workers: 1
+  workers: 2
+  single_port: true
 
 app:
   version: 1.8.1
@@ -29,14 +31,14 @@ app:
     session_timeout: 25 # minutes
     auth_token_refresh_delta: 10 # minutes
     session_monitor_interval_seconds: 60 # seconds
-    server_url: https://localhost
+    server_url: https://oriole-guiding-miserably.ngrok-free.app
     server_port: 8080
 
     oauth_providers:
       - provider: "github"
         client_id: secret:mn-oauth-github-client-id
         client_secret: secret:mn-oauth-github-client-secret
-        redirect_url: https://localhost:8080/oauth/github/callback
+        redirect_url: https://oriole-guiding-miserably.ngrok-free.app/oauth/github/callback
 
     # Email provider for password reset (mock for local development)
     email_provider:
@@ -78,16 +80,16 @@ app:
       - choreography
 
   mcp_image:
-    backend_server: "http://localhost:3031"
+    backend_server: https://oriole-guiding-miserably.ngrok-free.app #http://localhost:3030
     max_file_size_mb: 10
     max_images_to_keep: 50
 
     generator: "google" # "azure" | "google"
 
-    azure_api_key: secret:mn-azure-api-key
-    azure_base_url: secret:mn-azure-endpoint
-    azure_prompt_optimizer: "gpt-5-mini"
-    azure_image_model: "FLUX.1-Kontext-pro" # "gpt-image-1.5" | "gpt-image-1-mini"
+    #azure_api_key: secret:mn-azure-api-key
+    #azure_base_url: secret:mn-azure-endpoint
+    #azure_prompt_optimizer: "gpt-5-mini"
+    #azure_image_model: "FLUX.1-Kontext-pro" # "gpt-image-1.5" | "gpt-image-1-mini"
 
     google_api_key: secret:mn-google-api-key
     google_prompt_optimizer: "gemini-3.1-flash-lite-preview"

@@ -2,7 +2,7 @@
 
 VIEW_URI = "ui://appkit/chart_view.html"
 
-_PLOTLY_CDN = "https://cdn.plot.ly/plotly-latest.min.js"
+_PLOTLY_CDN = "https://cdn.plot.ly/plotly-3.4.0.min.js"
 
 CHART_HTML = f"""\
 <!DOCTYPE html>
