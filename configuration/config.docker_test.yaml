@@ -9,7 +9,7 @@ reflex:
   backend_timeout: 300 # seconds
 
 app:
-  environment: container
+  environment: docker
 
   database:
     host: db

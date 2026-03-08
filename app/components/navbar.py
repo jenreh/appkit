@@ -4,6 +4,7 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_assistant.roles import ASSISTANT_ADMIN_ROLE
+from appkit_commons.configuration.configuration import Environment
 from appkit_commons.registry import service_registry
 from appkit_imagecreator.roles import IMAGE_GEN_ADMIN_ROLE
 from appkit_user.authentication.components.components import requires_role
@@ -18,7 +19,7 @@ from app.configuration import AppConfig
 _config = service_registry().get(AppConfig)
 VERSION: Final[str] = (
     f"{_config.version}-{_config.environment}"
-    if _config.environment
+    if _config.environment and _config.environment != Environment.production
     else _config.version
 )
 

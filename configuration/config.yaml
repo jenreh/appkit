@@ -12,7 +12,7 @@ app:
   version: 1.8.1
   name: appkit App
   logging: logging.prod.yaml
-  environment: prod
+  environment: development
   backend_timeout: 180 # seconds
 
   database:

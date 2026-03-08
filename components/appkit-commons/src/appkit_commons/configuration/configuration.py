@@ -14,11 +14,12 @@ class ConfigurationError(ValueError):
 
 
 class Environment(StrEnum):
-    development = "dev"
-    production = ""
+    devcontainer = "devcontainer"
+    development = "development"
+    production = "production"
     testing = "test"
     staging = "stage"
-    docker = "container"
+    docker = "docker"
     local = "local"
     ci = "ci"
 

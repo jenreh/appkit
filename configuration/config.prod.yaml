@@ -1,4 +1,4 @@
-profile: prod
+profile: production
 
 app:
-  environment: prod # intentionally left blank
+  environment: production

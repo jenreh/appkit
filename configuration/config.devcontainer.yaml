@@ -7,7 +7,7 @@ reflex:
   workers: 1
 
 app:
-  environment: container
+  environment: devcontainer
   logging: logging.yaml
 
   database:

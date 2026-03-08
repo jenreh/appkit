@@ -8,4 +8,4 @@ BASE_PATH: Final[Path] = Path.cwd()
 CONFIGURATION_PATH: Final[Path] = BASE_PATH / "configuration"
 
 # initialize logging and .env before everything else
-load_dotenv()
+load_dotenv(override=True)
