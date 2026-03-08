@@ -2,6 +2,7 @@
 
 from lxml import etree
 
+from appkit_mcp_bpmn.services.bpmn_grid_layout import Grid
 from appkit_mcp_bpmn.services.bpmn_lane_layout import (
     LaneInfo,
     find_collaboration,
@@ -10,7 +11,6 @@ from appkit_mcp_bpmn.services.bpmn_lane_layout import (
     parse_lane_info,
     rearrange_grid_for_lanes,
 )
-from appkit_mcp_bpmn.services.grid import Grid
 
 BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 
