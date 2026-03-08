@@ -149,7 +149,7 @@ class ServiceRegistry:
         """Retrieve an instance by its class type, returning None if not found."""
         instance: type[T] | None = self._instances.get(instance_type)
         if instance is None:
-            logger.error(
+            logger.warning(
                 "Instance of type %s not found in registry", instance_type.__name__
             )
             raise KeyError(
