@@ -17,6 +17,8 @@ reflex: ReflexConfig | None = service_registry().get(ReflexConfig)
 
 config = rx.Config(
     app_name="app",
+    api_url=reflex.api_url if reflex else "http://localhost:3030",
+    deploy_url=reflex.deploy_url if reflex else "http://localhost:8080",
     frontend_port=reflex.frontend_port if reflex else 8080,
     backend_port=reflex.backend_port if reflex else 3030,
     gunicorn_workers=reflex.workers if reflex else 1,

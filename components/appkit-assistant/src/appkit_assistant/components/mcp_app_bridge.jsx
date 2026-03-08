@@ -171,7 +171,10 @@ export function McpAppBridge({
   useEffect(() => {
     if (!resourceUrl) return;
     setFetchError("");
-    fetch(resourceUrl, { credentials: "omit" })
+    fetch(resourceUrl, {
+      credentials: "omit",
+      headers: { "ngrok-skip-browser-warning": "true" },
+    })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         // Read spec metadata from response headers

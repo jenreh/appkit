@@ -1,0 +1,4 @@
+profile: prod
+
+app:
+  environment: prod # intentionally left blank
