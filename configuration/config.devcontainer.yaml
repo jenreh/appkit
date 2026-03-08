@@ -1,32 +1,10 @@
 profile: devcontainer
 
-reflex:
-  deploy_url: http://localhost
-  frontend_port: 8080
-  backend_port: 3030
-  workers: 1
-
 app:
   environment: devcontainer
-  logging: logging.yaml
 
   database:
     host: db
     port: 5432
     echo: False
     name: appkit-db
-
-  authentication:
-    server_url: http://localhost
-    server_port: 8080
-
-    oauth_providers:
-      - provider: "github"
-        client_id: secret:mn-oauth-github-client-id
-        client_secret: secret:mn-oauth-github-client-secret
-        redirect_url: http://localhost:8080/oauth/github/callback
-      - provider: "azure"
-        client_id: secret:mn-oauth-azure-client-id
-        client_secret: secret:mn-oauth-azure-client-secret
-        tenant_id: secret:mn-oauth-azure-tenant-id
-        redirect_url: http://localhost:8080/oauth/azure/callback

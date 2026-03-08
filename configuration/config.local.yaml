@@ -7,28 +7,11 @@ reflex:
 
 app:
   environment: local
-  logging: logging.yaml
 
   database:
     echo: False
 
   authentication:
-    server_url: http://localhost
-    server_port: 8080
-    session_timeout: 25 # minutes
-    auth_token_refresh_delta: 10 # minutes
-
-    oauth_providers:
-      - provider: "github"
-        client_id: secret:mn-oauth-github-client-id
-        client_secret: secret:mn-oauth-github-client-secret
-        redirect_url: http://localhost:8080/oauth/github/callback
-      - provider: "azure"
-        client_id: secret:mn-oauth-azure-client-id
-        client_secret: secret:mn-oauth-azure-client-secret
-        tenant_id: secret:mn-oauth-azure-tenant-id
-        redirect_url: http://localhost:8080/oauth/azure/callback
-
     # Email provider for password reset (mock for local development)
     email_provider:
       provider: "resend"
@@ -38,8 +21,5 @@ app:
 
     # Password reset settings
     password_reset:
-      token_expiry_minutes: 10
+      token_expiry_minutes: 3
       max_requests_per_hour: 3
-
-  mcp_image:
-    backend_server: http://localhost:3030

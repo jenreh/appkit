@@ -1,4 +1,25 @@
 profile: production
 
+reflex:
+  deploy_url: https://oriole-guiding-miserably.ngrok-free.app
+  api_url: https://oriole-guiding-miserably.ngrok-free.app
+  frontend_port: 8080
+  backend_port: 3030
+  workers: 2
+  single_port: true
+
 app:
   environment: production
+
+  authentication:
+    server_url: https://oriole-guiding-miserably.ngrok-free.app
+    server_port: 80
+
+    oauth_providers:
+      - provider: "github"
+        client_id: secret:mn-oauth-github-client-id
+        client_secret: secret:mn-oauth-github-client-secret
+        redirect_url: https://oriole-guiding-miserably.ngrok-free.app/oauth/github/callback
+
+  mcp_image:
+    backend_server: https://oriole-guiding-miserably.ngrok-free.app
