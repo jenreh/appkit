@@ -14,7 +14,7 @@ import json as _json
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Cookie, HTTPException
+from fastapi import APIRouter, Cookie, Header, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -61,25 +61,36 @@ class ToolCallRequest(BaseModel):
     arguments: dict[str, Any] = {}
 
 
-def _extract_user_id(reflex_session: str | None) -> int:
-    """Extract user ID from the Reflex session token.
+def _extract_user_id(
+    x_user_id: str | None,
+    reflex_session: str | None,
+) -> int:
+    """Extract user ID from ``x-user-id`` header or Reflex session.
 
-    MVP implementation: session presence is not enforced here because
-    same-origin API calls from the McpAppBridge iframe sandbox may not
-    always carry the session cookie (sandboxed iframes have limited
-    cookie access).  Full auth integration will map the token to a
-    real user ID in a future iteration.
+    The ``x-user-id`` header is set by the McpAppBridge frontend
+    component from the authenticated Reflex state.  The session
+    cookie is a fallback but is typically absent in sandboxed
+    iframe contexts.
 
     Args:
-        reflex_session: The Reflex session cookie value (may be None)
+        x_user_id: Value of the ``x-user-id`` HTTP header (may be None).
+        reflex_session: The Reflex session cookie value (may be None).
 
     Returns:
-        The user ID (defaults to 0 when no session is present)
+        The resolved user ID, or 0 when identity cannot be determined.
     """
+    if x_user_id is not None:
+        try:
+            uid = int(x_user_id)
+            logger.debug("MCP Apps API: user_id=%d from x-user-id header", uid)
+            return uid
+        except (ValueError, TypeError):
+            logger.warning("MCP Apps API: invalid x-user-id header: %s", x_user_id)
+
     if reflex_session:
-        logger.debug("MCP Apps API: session cookie present")
-    else:
-        logger.debug("MCP Apps API: no session cookie, using default user_id=0")
+        logger.debug("MCP Apps API: session cookie present, no user resolution")
+
+    logger.debug("MCP Apps API: no user identity, using default user_id=0")
     return _DEFAULT_USER_ID
 
 
@@ -109,6 +120,7 @@ async def _get_server(server_id: int) -> MCPServer:
 async def get_resource(
     server_id: int,
     uri: str,
+    x_user_id: Annotated[str | None, Header()] = None,
     reflex_session: Annotated[str | None, Cookie()] = None,
 ) -> HTMLResponse:
     """Fetch an MCP App resource (HTML content) from a server.
@@ -118,7 +130,7 @@ async def get_resource(
     so the McpAppBridge frontend can apply security policies and visual
     preferences without parsing the HTML body.
     """
-    user_id = _extract_user_id(reflex_session)
+    user_id = _extract_user_id(x_user_id, reflex_session)
     server = await _get_server(server_id)
 
     resource = await _get_mcp_apps_service().fetch_resource(server, user_id, uri)
@@ -148,6 +160,7 @@ async def get_resource(
 async def call_tool(
     server_id: int,
     request: ToolCallRequest,
+    x_user_id: Annotated[str | None, Header()] = None,
     reflex_session: Annotated[str | None, Cookie()] = None,
 ) -> dict[str, Any]:
     """Proxy a tool call from an MCP App iframe to the MCP server.
@@ -155,7 +168,7 @@ async def call_tool(
     This is the endpoint that McpAppBridge.jsx calls when the
     iframe requests a tool call.
     """
-    user_id = _extract_user_id(reflex_session)
+    user_id = _extract_user_id(x_user_id, reflex_session)
     server = await _get_server(server_id)
 
     return await _get_mcp_apps_service().proxy_tool_call(
@@ -166,6 +179,7 @@ async def call_tool(
 @router.get("/{server_id}/tools")
 async def list_ui_tools(
     server_id: int,
+    x_user_id: Annotated[str | None, Header()] = None,
     reflex_session: Annotated[str | None, Cookie()] = None,
 ) -> list[dict[str, Any]]:
     """List UI-enabled tools for an MCP server.
@@ -173,7 +187,7 @@ async def list_ui_tools(
     Returns the list of tools that have MCP App views,
     used by the frontend to know which tools can render iframes.
     """
-    user_id = _extract_user_id(reflex_session)
+    user_id = _extract_user_id(x_user_id, reflex_session)
     server = await _get_server(server_id)
 
     tools = await _get_mcp_apps_service().discover_ui_tools(server, user_id)

@@ -30,6 +30,7 @@ class McpAppBridge(NoSSRComponent):
     server_id: Var[int] = 0
     server_name: Var[str] = ""
     tool_name: Var[str] = ""
+    user_id: Var[int] = 0
     theme: Var[str] = "light"
     max_height: Var[int] = 600
     prefers_border: Var[bool] = True

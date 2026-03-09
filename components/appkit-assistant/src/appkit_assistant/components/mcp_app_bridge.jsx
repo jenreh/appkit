@@ -61,6 +61,8 @@ export function McpAppBridge({
   serverName,
   tool_name,
   toolName,
+  user_id,
+  userId,
   theme = "light",
   max_height,
   maxHeight,
@@ -79,6 +81,7 @@ export function McpAppBridge({
   const _serverId = server_id ?? serverId ?? 0;
   const _serverName = server_name || serverName || "";
   const _toolName = tool_name || toolName || "";
+  const _userId = user_id ?? userId ?? 0;
   const _maxHeight = max_height ?? maxHeight ?? 600;
   const _prefersBorder = prefers_border ?? prefersBorder ?? true;
   const _onMessage = on_message || onMessage;
@@ -173,7 +176,10 @@ export function McpAppBridge({
     setFetchError("");
     fetch(resourceUrl, {
       credentials: "omit",
-      headers: { "ngrok-skip-browser-warning": "true" },
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+        ...(_userId > 0 ? { "x-user-id": String(_userId) } : {}),
+      },
     })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -278,7 +284,10 @@ export function McpAppBridge({
       const params = data.params || {};
       fetch(`${_backendUrl}/api/mcp-apps/${_serverId}/tools/call`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(_userId > 0 ? { "x-user-id": String(_userId) } : {}),
+        },
         credentials: "omit",
         body: JSON.stringify({
           tool_name: params.name,
@@ -303,7 +312,12 @@ export function McpAppBridge({
       }
       fetch(
         `${_backendUrl}/api/mcp-apps/${_serverId}/resource?uri=${encodeURIComponent(uri)}`,
-        { credentials: "omit" }
+        {
+          credentials: "omit",
+          headers: {
+            ...(_userId > 0 ? { "x-user-id": String(_userId) } : {}),
+          },
+        }
       )
         .then((r) => r.ok ? r.text() : Promise.reject(r.status))
         .then((html) =>

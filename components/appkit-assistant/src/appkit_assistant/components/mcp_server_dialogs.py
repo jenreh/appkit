@@ -54,6 +54,11 @@ class ValidationState(rx.State):
     oauth_token_url: str = ""
     oauth_scopes: str = ""
 
+    @rx.event
+    def set_inject_user_id(self, value: bool) -> None:
+        """Set the inject_user_id flag."""
+        self.inject_user_id = value
+
     # Validation errors
     url_error: str = ""
     name_error: str = ""
