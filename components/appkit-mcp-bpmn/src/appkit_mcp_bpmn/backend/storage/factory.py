@@ -1,13 +1,10 @@
 """Factory for creating BPMN storage backends from configuration."""
 
-from typing import Literal
-
 from appkit_mcp_bpmn.backend.storage.base import StorageBackend
 from appkit_mcp_bpmn.backend.storage.database import DatabaseStorageBackend
 from appkit_mcp_bpmn.backend.storage.dual import DualStorageBackend
 from appkit_mcp_bpmn.backend.storage.filesystem import FilesystemStorageBackend
-
-StorageMode = Literal["filesystem", "database", "both"]
+from appkit_mcp_bpmn.configuration import StorageMode
 
 
 def create_storage_backend(

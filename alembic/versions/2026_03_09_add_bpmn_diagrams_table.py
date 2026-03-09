@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "f7a8b9c0d1e2"
-down_revision: str | None = "e1f2a3b4c5d6"
+down_revision: str | None = "abc123def456"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -22,7 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """Create bpmn_diagrams table."""
     op.create_table(
-        "bpmn_diagrams",
+        "mcp_bpmn_diagrams",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("diagram_id", sa.String(length=36), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
@@ -50,25 +50,30 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_bpmn_diagrams_id"), "bpmn_diagrams", ["id"], unique=False)
     op.create_index(
-        op.f("ix_bpmn_diagrams_diagram_id"),
-        "bpmn_diagrams",
+        op.f("ix_mcp_bpmn_diagrams_id"), "mcp_bpmn_diagrams", ["id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_mcp_bpmn_diagrams_diagram_id"),
+        "mcp_bpmn_diagrams",
         ["diagram_id"],
         unique=True,
     )
     op.create_index(
-        op.f("ix_bpmn_diagrams_user_id"), "bpmn_diagrams", ["user_id"], unique=False
+        op.f("ix_mcp_bpmn_diagrams_user_id"),
+        "mcp_bpmn_diagrams",
+        ["user_id"],
+        unique=False,
     )
     op.create_index(
-        "ix_bpmn_diagrams_user_created",
-        "bpmn_diagrams",
+        "ix_mcp_bpmn_diagrams_user_created",
+        "mcp_bpmn_diagrams",
         ["user_id", "created"],
         unique=False,
     )
     op.create_index(
-        "ix_bpmn_diagrams_is_deleted",
-        "bpmn_diagrams",
+        "ix_mcp_bpmn_diagrams_is_deleted",
+        "mcp_bpmn_diagrams",
         ["is_deleted"],
         unique=False,
     )
@@ -76,9 +81,11 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop bpmn_diagrams table."""
-    op.drop_index("ix_bpmn_diagrams_is_deleted", table_name="bpmn_diagrams")
-    op.drop_index("ix_bpmn_diagrams_user_created", table_name="bpmn_diagrams")
-    op.drop_index(op.f("ix_bpmn_diagrams_user_id"), table_name="bpmn_diagrams")
-    op.drop_index(op.f("ix_bpmn_diagrams_diagram_id"), table_name="bpmn_diagrams")
-    op.drop_index(op.f("ix_bpmn_diagrams_id"), table_name="bpmn_diagrams")
-    op.drop_table("bpmn_diagrams")
+    op.drop_index("ix_mcp_bpmn_diagrams_is_deleted", table_name="mcp_bpmn_diagrams")
+    op.drop_index("ix_mcp_bpmn_diagrams_user_created", table_name="mcp_bpmn_diagrams")
+    op.drop_index(op.f("ix_mcp_bpmn_diagrams_user_id"), table_name="mcp_bpmn_diagrams")
+    op.drop_index(
+        op.f("ix_mcp_bpmn_diagrams_diagram_id"), table_name="mcp_bpmn_diagrams"
+    )
+    op.drop_index(op.f("ix_mcp_bpmn_diagrams_id"), table_name="mcp_bpmn_diagrams")
+    op.drop_table("mcp_bpmn_diagrams")

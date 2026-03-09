@@ -16,7 +16,7 @@ class BpmnDiagram(Base, Entity):
     Inherits ``id``, ``created``, and ``updated`` from :class:`Entity`.
     """
 
-    __tablename__ = "bpmn_diagrams"
+    __tablename__ = "mcp_bpmn_diagrams"
 
     diagram_id: Mapped[str] = mapped_column(
         String(36), nullable=False, unique=True, index=True
