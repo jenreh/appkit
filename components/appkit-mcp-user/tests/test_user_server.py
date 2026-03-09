@@ -9,7 +9,6 @@ from starlette.requests import Request
 from appkit_mcp_commons.context import UserContext
 from appkit_mcp_commons.exceptions import AuthenticationError
 from appkit_mcp_user.server import (
-    _get_openai_client,
     _get_user_context,
     create_user_mcp_server,
 )
@@ -27,7 +26,7 @@ async def test_query_users_tool(user_client: Client) -> None:
             new_callable=AsyncMock,
         ) as mock_query,
         patch(
-            "appkit_mcp_user.server._get_openai_client",
+            "appkit_mcp_user.server.get_openai_client",
             return_value=AsyncMock(),
         ),
     ):
@@ -122,32 +121,3 @@ class TestGetUserContext:
             result = _get_user_context(req)
         assert result.user_id == 0
         assert result.is_admin is False
-
-
-# ---------------------------------------------------------------------------
-# _get_openai_client tests
-# ---------------------------------------------------------------------------
-
-
-class TestGetOpenaiClient:
-    def test_success(self) -> None:
-        """Returns client when service is available."""
-        mock_client = MagicMock()
-        mock_service = MagicMock()
-        mock_service.create_client.return_value = mock_client
-
-        with patch(
-            "appkit_mcp_user.server.get_openai_client_service",
-            return_value=mock_service,
-        ):
-            result = _get_openai_client()
-        assert result is mock_client
-
-    def test_failure(self) -> None:
-        """Returns None when service is unavailable."""
-        with patch(
-            "appkit_mcp_user.server.get_openai_client_service",
-            side_effect=RuntimeError("not registered"),
-        ):
-            result = _get_openai_client()
-        assert result is None

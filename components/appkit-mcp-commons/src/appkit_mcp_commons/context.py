@@ -16,7 +16,7 @@ class UserContext(BaseModel):
 
 def get_user_context_default() -> UserContext:
     """Get a default unauthenticated user context."""
-    return UserContext(user_id=0, is_admin=False, roles=[])
+    return UserContext(user_id=-1, is_admin=False, roles=[])
 
 
 def extract_session_id(request: Request) -> str | None:

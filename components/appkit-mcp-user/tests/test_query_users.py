@@ -27,7 +27,7 @@ def regular_ctx() -> UserContext:
 
 
 class TestQueryUsersTable:
-    async def test_success(self, admin_ctx: UserContext) -> None:
+    async def test_success(self) -> None:
         """Successful SQL generation and execution returns result."""
         mock_session = MagicMock()
         mock_result = MagicMock()
@@ -54,7 +54,7 @@ class TestQueryUsersTable:
             ),
         ):
             result = await query_users_table(
-                "Show all users", admin_ctx, openai_client=MagicMock()
+                "Show all users", 1, openai_client=MagicMock()
             )
 
         assert result.success is True
@@ -62,21 +62,19 @@ class TestQueryUsersTable:
         assert result.columns == ["id", "email"]
         assert result.data[0]["email"] == "alice@example.com"
 
-    async def test_sql_generation_error(self, regular_ctx: UserContext) -> None:
+    async def test_sql_generation_error(self) -> None:
         """SQL generation failure returns error result."""
         with patch(
             "appkit_mcp_user.tools.query_users.generate_sql",
             side_effect=SQLGenerationError("LLM unavailable"),
         ):
-            result = await query_users_table(
-                "bad question", regular_ctx, openai_client=None
-            )
+            result = await query_users_table("bad question", 42, openai_client=None)
 
         assert result.success is False
         assert "Could not generate query" in result.error
         assert "LLM unavailable" in result.error
 
-    async def test_custom_model(self, admin_ctx: UserContext) -> None:
+    async def test_custom_model(self) -> None:
         """Custom model parameter is forwarded to generate_sql."""
         mock_session = MagicMock()
         mock_result = MagicMock()
@@ -101,7 +99,7 @@ class TestQueryUsersTable:
         ):
             await query_users_table(
                 "count",
-                admin_ctx,
+                1,
                 openai_client=MagicMock(),
                 model="gpt-custom",
             )
@@ -116,7 +114,7 @@ class TestQueryUsersTable:
 
 
 class TestExecuteQuery:
-    def test_success(self, admin_ctx: UserContext) -> None:
+    def test_success(self) -> None:
         """Successful query execution returns data."""
         mock_session = MagicMock()
         mock_result = MagicMock()
@@ -133,13 +131,13 @@ class TestExecuteQuery:
             "appkit_mcp_user.tools.query_users.get_session_manager",
             return_value=mock_sm,
         ):
-            result = _execute_query("SELECT id, email FROM auth_users", admin_ctx)
+            result = _execute_query("SELECT id, email FROM auth_users", 1)
 
         assert result.success is True
         assert result.row_count == 1
         assert result.data[0] == {"id": 10, "email": "user@example.com"}
 
-    def test_empty_result(self, regular_ctx: UserContext) -> None:
+    def test_empty_result(self) -> None:
         """Empty result set returns success with empty data."""
         mock_session = MagicMock()
         mock_result = MagicMock()
@@ -158,14 +156,14 @@ class TestExecuteQuery:
         ):
             result = _execute_query(
                 "SELECT COUNT(*) AS count FROM auth_users",
-                regular_ctx,
+                42,
             )
 
         assert result.success is True
         assert result.row_count == 0
         assert result.data == []
 
-    def test_database_error(self, admin_ctx: UserContext) -> None:
+    def test_database_error(self) -> None:
         """Database execution error returns error result."""
         mock_sm = MagicMock()
         mock_sm.session.side_effect = RuntimeError("connection refused")
@@ -174,12 +172,12 @@ class TestExecuteQuery:
             "appkit_mcp_user.tools.query_users.get_session_manager",
             return_value=mock_sm,
         ):
-            result = _execute_query("SELECT 1", admin_ctx)
+            result = _execute_query("SELECT 1", 1)
 
         assert result.success is False
         assert "Query execution failed" in result.error
 
-    def test_multiple_rows(self, admin_ctx: UserContext) -> None:
+    def test_multiple_rows(self) -> None:
         """Multiple rows are correctly mapped to dicts."""
         mock_session = MagicMock()
         mock_result = MagicMock()
@@ -200,7 +198,7 @@ class TestExecuteQuery:
             "appkit_mcp_user.tools.query_users.get_session_manager",
             return_value=mock_sm,
         ):
-            result = _execute_query("SELECT role FROM auth_users", admin_ctx)
+            result = _execute_query("SELECT role FROM auth_users", 1)
 
         assert result.success is True
         assert result.row_count == 3

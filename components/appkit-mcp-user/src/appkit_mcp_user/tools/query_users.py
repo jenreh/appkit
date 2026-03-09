@@ -10,12 +10,12 @@ from typing import Any
 from sqlalchemy import text
 
 from appkit_commons.database.session import get_session_manager
-from appkit_mcp_commons.context import UserContext
 from appkit_mcp_user.models import QueryResult
 from appkit_mcp_user.services.sql_generator import (
     SQLGenerationError,
     generate_sql,
 )
+from appkit_user.authentication.backend.database.entities import UserEntity
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ QUERY_TIMEOUT = 10
 
 async def query_users_table(
     question: str,
-    user_ctx: UserContext,
+    user_id: int,
     *,
     openai_client: Any = None,
     model: str = "gpt-5-mini",
@@ -37,7 +37,7 @@ async def query_users_table(
 
     Args:
         question: Natural language question about users.
-        user_ctx: Authenticated user context.
+        user_id: ID of the authenticated user.
         openai_client: AsyncOpenAI client for SQL generation.
         model: LLM model name for SQL generation.
 
@@ -46,21 +46,30 @@ async def query_users_table(
     """
     logger.info(
         "User %d querying users table: %.200s",
-        user_ctx.user_id,
+        user_id,
         question,
     )
+
+    is_admin = False
+    if user_id > 0:
+        try:
+            with get_session_manager().session() as session:
+                if user := session.get(UserEntity, user_id):
+                    is_admin = user.is_admin
+        except Exception as e:
+            logger.error("Failed to load user %d: %s", user_id, e)
 
     try:
         sql = await generate_sql(
             question,
-            is_admin=user_ctx.is_admin,
+            is_admin=is_admin,
             client=openai_client,
             model=model,
         )
     except SQLGenerationError as e:
         logger.warning(
             "SQL generation failed for user %d: %s",
-            user_ctx.user_id,
+            user_id,
             e,
         )
         return QueryResult(
@@ -70,19 +79,19 @@ async def query_users_table(
 
     logger.info(
         "Generated SQL for user %d: %s",
-        user_ctx.user_id,
+        user_id,
         sql,
     )
 
-    return _execute_query(sql, user_ctx)
+    return _execute_query(sql, user_id)
 
 
-def _execute_query(sql: str, user_ctx: UserContext) -> QueryResult:
+def _execute_query(sql: str, user_id: int) -> QueryResult:
     """Execute a validated SQL query and return results.
 
     Args:
         sql: Validated SQL query.
-        user_ctx: Authenticated user context.
+        user_id: ID of the authenticated user.
 
     Returns:
         QueryResult with query results or error.
@@ -113,7 +122,7 @@ def _execute_query(sql: str, user_ctx: UserContext) -> QueryResult:
                 "Query returned %d rows with %d columns for user %d",
                 len(data),
                 len(columns),
-                user_ctx.user_id,
+                user_id,
             )
 
             return QueryResult(
@@ -126,7 +135,7 @@ def _execute_query(sql: str, user_ctx: UserContext) -> QueryResult:
     except Exception as e:
         logger.error(
             "Query execution failed for user %d: %s",
-            user_ctx.user_id,
+            user_id,
             e,
         )
         return QueryResult(
