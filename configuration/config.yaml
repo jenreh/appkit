@@ -72,8 +72,10 @@ app:
 
   mcp_bpmn:
     storage_dir: ./uploaded_files/bpmn
+    storage_mode: database
     default_model: gpt-5.3-codex
     max_file_size_mb: 10
+    cleanup_days_threshold: 60
     diagram_types:
       - process
       - collaboration

@@ -10,25 +10,36 @@ Exposes MCP prompts:
 
 import json
 import logging
-from typing import Any
+import uuid
 
 from fastmcp import FastMCP
 from fastmcp.server.apps import AppConfig, ResourceCSP
+from fastmcp.server.dependencies import get_http_request
 
-from appkit_commons.ai.openai_client_service import (
-    get_openai_client_service,
-)
+from appkit_mcp_bpmn.backend.storage.base import DiagramInfo, StorageBackend
+from appkit_mcp_bpmn.backend.storage.factory import create_storage_backend
 from appkit_mcp_bpmn.configuration import BPMNConfig
 from appkit_mcp_bpmn.models import DiagramResult
 from appkit_mcp_bpmn.resources.bpmn_viewer import BPMN_VIEWER_HTML, VIEW_URI
 from appkit_mcp_bpmn.services.bpmn_generator import BPMNGenerator
 from appkit_mcp_bpmn.services.bpmn_layouter import add_diagram_layout
-from appkit_mcp_bpmn.services.bpmn_storage import load_diagram, save_diagram
+from appkit_mcp_bpmn.services.bpmn_storage import save_diagram  # noqa: PLC0415
 from appkit_mcp_bpmn.services.bpmn_validator import validate_bpmn_xml
 from appkit_mcp_bpmn.services.bpmn_xml_builder import build_bpmn_xml
+from appkit_mcp_commons.context import extract_user_id
 from appkit_mcp_commons.exceptions import ValidationError
+from appkit_mcp_commons.utils import get_openai_client
 
 logger = logging.getLogger(__name__)
+
+
+def _get_user_id() -> int:
+    """Return the current request's user ID, or -1 if no HTTP context exists."""
+    try:
+        request = get_http_request()
+        return extract_user_id(request)
+    except RuntimeError:
+        return -1
 
 
 def create_bpmn_mcp_server(
@@ -47,6 +58,7 @@ def create_bpmn_mcp_server(
     """
     cfg = config or BPMNConfig()
     generator = BPMNGenerator()
+    storage = create_storage_backend(cfg.storage_mode, cfg.storage_dir)
     mcp = FastMCP(name)
 
     @mcp.resource(
@@ -103,7 +115,7 @@ def create_bpmn_mcp_server(
         )
 
         try:
-            openai_client = _get_openai_client()
+            openai_client = get_openai_client()
             process_json = await generator.generate(
                 description,
                 diagram_type,
@@ -120,17 +132,25 @@ def create_bpmn_mcp_server(
         except ValidationError as exc:
             raise ValueError(f"Build failed: {exc}") from exc
 
-        return _validate_and_save(laid_out_xml, cfg.storage_dir)
+        user_id = _get_user_id()
+        diagram_id = str(uuid.uuid4())
+        return await _persist_and_respond(
+            laid_out_xml, description, user_id, diagram_id, diagram_type, storage
+        )
 
     @mcp.tool(app=AppConfig(resource_uri=VIEW_URI))
-    async def save_bpmn_diagram(xml: str) -> str:
+    async def save_bpmn_diagram(
+        xml: str,
+        prompt: str = "",
+    ) -> str:
         """Save an existing BPMN 2.0 XML diagram.
 
-        Validates the XML, saves it to the filesystem, and returns
-        viewer URLs.
+        Validates the XML, saves it to the configured storage backend, and
+        returns viewer URLs.
 
         Args:
             xml: Complete BPMN 2.0 XML string.
+            prompt: Optional natural language description for the diagram.
 
         Returns:
             JSON string with ``{success, id, download_url, view_url,
@@ -140,7 +160,11 @@ def create_bpmn_mcp_server(
             raise ValueError("XML must not be empty")
 
         logger.info("save_bpmn_diagram called")
-        return _validate_and_save(xml, cfg.storage_dir)
+        user_id = _get_user_id()
+        diagram_id = str(uuid.uuid4())
+        return await _persist_and_respond(
+            xml, prompt, user_id, diagram_id, "process", storage
+        )
 
     @mcp.tool(
         app=AppConfig(
@@ -148,7 +172,9 @@ def create_bpmn_mcp_server(
             visibility=["app"],
         )
     )
-    async def get_bpmn_xml(diagram_id: str) -> str:
+    async def get_bpmn_xml(
+        diagram_id: str,
+    ) -> str:
         """Retrieve the BPMN XML for a previously saved diagram.
 
         This tool is intended to be called from the BPMN viewer app
@@ -163,7 +189,8 @@ def create_bpmn_mcp_server(
         if not diagram_id or not diagram_id.strip():
             return _error_result("diagram_id must not be empty")
 
-        xml = load_diagram(diagram_id, cfg.storage_dir)
+        user_id = _get_user_id()
+        xml = await storage.load(diagram_id, user_id)
         if xml is None:
             return _error_result(f"Diagram '{diagram_id}' not found")
         return xml
@@ -208,8 +235,54 @@ def create_bpmn_mcp_server(
     return mcp
 
 
+async def _persist_and_respond(
+    xml: str,
+    prompt: str,
+    user_id: int,
+    diagram_id: str,
+    diagram_type: str,
+    storage: StorageBackend,
+) -> str:
+    """Validate BPMN XML, persist via *storage*, and return a JSON response.
+
+    Args:
+        xml: Raw BPMN XML string.
+        prompt: Original natural language description (may be empty).
+        user_id: Authenticated user identifier.
+        diagram_id: Pre-generated UUID for the diagram.
+        diagram_type: BPMN diagram type label.
+        storage: Configured :class:`StorageBackend` instance.
+
+    Returns:
+        JSON-serialised :class:`DiagramResult`.
+    """
+    try:
+        normalised = validate_bpmn_xml(xml)
+    except ValidationError as exc:
+        raise ValueError(f"Validation failed: {exc}") from exc
+
+    try:
+        info: DiagramInfo = await storage.save(
+            normalised, prompt, user_id, diagram_id, diagram_type
+        )
+    except OSError as exc:
+        logger.exception("Failed to save diagram")
+        raise ValueError(f"Storage error: {exc}") from exc
+
+    result = DiagramResult(
+        success=True,
+        id=info.id,
+        download_url=info.download_url,
+        view_url=info.view_url,
+    )
+    return json.dumps(result.model_dump(), default=str)
+
+
 def _validate_and_save(xml: str, storage_dir: str) -> str:
-    """Validate BPMN XML and persist to disk.
+    """Validate BPMN XML and persist to disk (synchronous, filesystem only).
+
+    Kept for backwards compatibility with tests and external callers.
+    New code should use :func:`_persist_and_respond` instead.
 
     Args:
         xml: Raw BPMN XML string.
@@ -218,6 +291,7 @@ def _validate_and_save(xml: str, storage_dir: str) -> str:
     Returns:
         JSON-serialised ``DiagramResult``.
     """
+
     try:
         normalised = validate_bpmn_xml(xml)
     except ValidationError as exc:
@@ -236,20 +310,6 @@ def _validate_and_save(xml: str, storage_dir: str) -> str:
         view_url=info["view_url"],
     )
     return json.dumps(result.model_dump(), default=str)
-
-
-def _get_openai_client() -> Any:
-    """Get the OpenAI client from the service registry.
-
-    Returns:
-        AsyncOpenAI client instance or None.
-    """
-    try:
-        service = get_openai_client_service()
-        return service.create_client()
-    except Exception as e:
-        logger.warning("Failed to get OpenAI client: %s", e)
-        return None
 
 
 def _error_result(message: str) -> str:

@@ -17,12 +17,16 @@ def _get_storage_dir(storage_dir: str) -> Path:
 def save_diagram(
     xml: str,
     storage_dir: str,
+    *,
+    diagram_id: str | None = None,
 ) -> dict[str, str]:
     """Save BPMN XML to the filesystem with a unique ID.
 
     Args:
         xml: Validated BPMN 2.0 XML string.
         storage_dir: Base directory for diagram storage.
+        diagram_id: Optional pre-generated UUID string. A new UUID is
+            created when omitted.
 
     Returns:
         Dict with ``id``, ``download_url``, and ``view_url``.
@@ -30,7 +34,7 @@ def save_diagram(
     Raises:
         OSError: If the file cannot be written.
     """
-    diagram_id = str(uuid.uuid4())
+    diagram_id = diagram_id or str(uuid.uuid4())
     directory = _get_storage_dir(storage_dir)
     file_path = directory / f"{diagram_id}.bpmn"
 
