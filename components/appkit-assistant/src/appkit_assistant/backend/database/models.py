@@ -70,6 +70,9 @@ class MCPServer(rx.Model, table=True):
     active: bool = Field(default=True, nullable=False)
     required_role: str | None = Field(default=None, nullable=True)
 
+    # Whether to inject x-user-id header/param into MCP requests
+    inject_user_id: bool = Field(default=True, nullable=False)
+
 
 class SystemPrompt(rx.Model, table=True):
     """Model for system prompt versioning and management.

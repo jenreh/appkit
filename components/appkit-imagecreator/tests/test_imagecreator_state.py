@@ -122,6 +122,7 @@ class _StubImageGallery:
         self.generators: list[dict[str, str]] = []
         self.zoom_modal_open = False
         self.zoom_image: GeneratedImageModel | None = None
+        self.current_zoomed_image_index: int = -1
         self.selected_images: list[GeneratedImageModel] = []
         self.history_drawer_open = False
         self.deleting_image_id = 0
@@ -202,6 +203,29 @@ class TestComputedVars:
         s.generator = "unknown"
         s.generators = [{"id": "dall-e-3", "label": "DALL·E 3"}]
         assert _CV["current_generator_label"].fget(s) == ""
+
+    def test_can_navigate_previous_false_at_start(self) -> None:
+        s = _StubImageGallery()
+        s.current_zoomed_image_index = 0
+        assert _CV["can_navigate_previous"].fget(s) is False
+
+    def test_can_navigate_previous_true(self) -> None:
+        s = _StubImageGallery()
+        s.images = [_make_image(1), _make_image(2)]
+        s.current_zoomed_image_index = 1
+        assert _CV["can_navigate_previous"].fget(s) is True
+
+    def test_can_navigate_next_false_at_end(self) -> None:
+        s = _StubImageGallery()
+        s.images = [_make_image(1)]
+        s.current_zoomed_image_index = 0
+        assert _CV["can_navigate_next"].fget(s) is False
+
+    def test_can_navigate_next_true(self) -> None:
+        s = _StubImageGallery()
+        s.images = [_make_image(1), _make_image(2)]
+        s.current_zoomed_image_index = 0
+        assert _CV["can_navigate_next"].fget(s) is True
 
     def test_selected_style_path_empty(self) -> None:
         s = _StubImageGallery()
@@ -422,13 +446,20 @@ class TestGeneratorHandlers:
 class TestImageActions:
     def test_open_zoom_modal(self) -> None:
         s = _StubImageGallery()
-        img = _make_image(10)
-        s.images = [img]
+        s.images = [_make_image(10), _make_image(20)]
         fn = _unwrap("open_zoom_modal")
-        fn(s, 10)
+        fn(s, 20)
         assert s.zoom_modal_open is True
         assert s.zoom_image is not None
-        assert s.zoom_image.id == 10
+        assert s.zoom_image.id == 20
+        assert s.current_zoomed_image_index == 1
+
+    def test_open_zoom_modal_tracks_first_image_index(self) -> None:
+        s = _StubImageGallery()
+        s.images = [_make_image(10), _make_image(20)]
+        fn = _unwrap("open_zoom_modal")
+        fn(s, 10)
+        assert s.current_zoomed_image_index == 0
 
     def test_open_zoom_modal_not_found(self) -> None:
         s = _StubImageGallery()
@@ -437,15 +468,60 @@ class TestImageActions:
         fn(s, 999)
         assert s.zoom_modal_open is False
         assert s.zoom_image is None
+        assert s.current_zoomed_image_index == -1
 
     def test_close_zoom_modal(self) -> None:
         s = _StubImageGallery()
         s.zoom_modal_open = True
         s.zoom_image = _make_image()
+        s.current_zoomed_image_index = 2
         fn = _unwrap("close_zoom_modal")
         fn(s)
         assert s.zoom_modal_open is False
         assert s.zoom_image is None
+        assert s.current_zoomed_image_index == -1
+
+    def test_navigate_to_next_image(self) -> None:
+        s = _StubImageGallery()
+        s.images = [_make_image(1), _make_image(2), _make_image(3)]
+        s.current_zoomed_image_index = 0
+        s.zoom_image = s.images[0]
+        fn = _unwrap("navigate_to_next_image")
+        fn(s)
+        assert s.current_zoomed_image_index == 1
+        assert s.zoom_image is not None
+        assert s.zoom_image.id == 2
+
+    def test_navigate_to_next_image_at_end_is_noop(self) -> None:
+        s = _StubImageGallery()
+        s.images = [_make_image(1), _make_image(2)]
+        s.current_zoomed_image_index = 1
+        s.zoom_image = s.images[1]
+        fn = _unwrap("navigate_to_next_image")
+        fn(s)
+        assert s.current_zoomed_image_index == 1
+        assert s.zoom_image.id == 2
+
+    def test_navigate_to_previous_image(self) -> None:
+        s = _StubImageGallery()
+        s.images = [_make_image(1), _make_image(2), _make_image(3)]
+        s.current_zoomed_image_index = 2
+        s.zoom_image = s.images[2]
+        fn = _unwrap("navigate_to_previous_image")
+        fn(s)
+        assert s.current_zoomed_image_index == 1
+        assert s.zoom_image is not None
+        assert s.zoom_image.id == 2
+
+    def test_navigate_to_previous_image_at_start_is_noop(self) -> None:
+        s = _StubImageGallery()
+        s.images = [_make_image(1), _make_image(2)]
+        s.current_zoomed_image_index = 0
+        s.zoom_image = s.images[0]
+        fn = _unwrap("navigate_to_previous_image")
+        fn(s)
+        assert s.current_zoomed_image_index == 0
+        assert s.zoom_image.id == 1
 
     def test_add_image_to_prompt(self) -> None:
         s = _StubImageGallery()

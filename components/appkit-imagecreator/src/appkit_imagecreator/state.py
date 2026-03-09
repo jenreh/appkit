@@ -132,6 +132,7 @@ class ImageGalleryState(rx.State):
     # Zoom modal state
     zoom_modal_open: bool = False
     zoom_image: GeneratedImageModel | None = None
+    current_zoomed_image_index: int = -1
 
     # Selected images for prompt (image-to-image)
     selected_images: list[GeneratedImageModel] = []
@@ -192,6 +193,16 @@ class ImageGalleryState(rx.State):
             if gen["id"] == self.generator:
                 return gen["label"]
         return ""
+
+    @rx.var
+    def can_navigate_previous(self) -> bool:
+        """Whether the user can navigate to the previous zoomed image."""
+        return self.current_zoomed_image_index > 0
+
+    @rx.var
+    def can_navigate_next(self) -> bool:
+        """Whether the user can navigate to the next zoomed image."""
+        return self.current_zoomed_image_index < len(self.images) - 1
 
     # -------------------------------------------------------------------------
     # Helper methods
@@ -756,6 +767,7 @@ class ImageGalleryState(rx.State):
         self.images = []
         self.zoom_modal_open = False
         self.zoom_image = None
+        self.current_zoomed_image_index = -1
 
     # -------------------------------------------------------------------------
     # Zoom modal handlers
@@ -764,15 +776,33 @@ class ImageGalleryState(rx.State):
     @rx.event
     def open_zoom_modal(self, image_id: int) -> None:
         """Open the zoom modal for a specific image."""
-        if img := self._find_image(image_id):
-            self.zoom_image = img
-            self.zoom_modal_open = True
+        for i, img in enumerate(self.images):
+            if img.id == image_id:
+                self.current_zoomed_image_index = i
+                self.zoom_image = img
+                self.zoom_modal_open = True
+                return
 
     @rx.event
     def close_zoom_modal(self) -> None:
         """Close the zoom modal."""
         self.zoom_modal_open = False
         self.zoom_image = None
+        self.current_zoomed_image_index = -1
+
+    @rx.event
+    def navigate_to_previous_image(self) -> None:
+        """Navigate to the previous image in the grid."""
+        if self.current_zoomed_image_index > 0:
+            self.current_zoomed_image_index -= 1
+            self.zoom_image = self.images[self.current_zoomed_image_index]
+
+    @rx.event
+    def navigate_to_next_image(self) -> None:
+        """Navigate to the next image in the grid."""
+        if self.current_zoomed_image_index < len(self.images) - 1:
+            self.current_zoomed_image_index += 1
+            self.zoom_image = self.images[self.current_zoomed_image_index]
 
     # -------------------------------------------------------------------------
     # Image action handlers (hover actions)

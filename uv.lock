@@ -345,12 +345,12 @@ version = "1.8.3"
 source = { editable = "components/appkit-mcp-image" }
 dependencies = [
     { name = "appkit-commons" },
+    { name = "appkit-imagecreator" },
     { name = "appkit-mcp-commons" },
+    { name = "appkit-user" },
     { name = "fastapi" },
     { name = "fastmcp" },
-    { name = "google-genai" },
     { name = "httpx" },
-    { name = "openai" },
     { name = "python-dotenv" },
     { name = "uvicorn" },
 ]
@@ -358,12 +358,12 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "appkit-commons", editable = "components/appkit-commons" },
+    { name = "appkit-imagecreator", editable = "components/appkit-imagecreator" },
     { name = "appkit-mcp-commons", editable = "components/appkit-mcp-commons" },
+    { name = "appkit-user", editable = "components/appkit-user" },
     { name = "fastapi", specifier = ">=0.135.1" },
     { name = "fastmcp", specifier = ">=3.1.0" },
-    { name = "google-genai", specifier = ">=1.66.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "openai", specifier = ">=2.24.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "uvicorn", specifier = ">=0.41.0" },
 ]

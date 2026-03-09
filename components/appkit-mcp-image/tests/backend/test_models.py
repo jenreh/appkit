@@ -1,15 +1,13 @@
 """Unit tests for data models in app.backend.models."""
 
-import os
-
 import pytest
 from pydantic import ValidationError
 
 from appkit_mcp_image.backend.models import (
     EditImageInput,
     GenerationInput,
-    ImageGenerator,
     ImageInputBase,
+    ImageResult,
 )
 
 
@@ -168,144 +166,26 @@ class TestEditImageInput:
         assert input_data.mask_path == "mask.png"
 
 
-class TestImageGenerator:
-    """Test ImageGenerator base class."""
+class TestImageResult:
+    """Test ImageResult model."""
 
-    def test_init(self) -> None:
-        """Test ImageGenerator initialization."""
-        generator = ImageGenerator(
-            id="test-gen",
-            label="Test Generator",
+    def test_success_result(self) -> None:
+        """Test ImageResult with success."""
+        result = ImageResult(
+            success=True,
+            image_url="http://localhost/api/images/1",
+            prompt="a cat",
             model="test-model",
-            optimizer_model="opt-model",
-            api_key="test-key",
-            backend_server="http://localhost:8000",
         )
+        assert result.success is True
+        assert result.image_url == "http://localhost/api/images/1"
 
-        assert generator.id == "test-gen"
-        assert generator.label == "Test Generator"
-        assert generator.model == "test-model"
-        assert generator.api_key == "test-key"
-        assert generator.backend_server == "http://localhost:8000"
-
-    def test_init_without_backend_server(self) -> None:
-        """Test ImageGenerator initialization without backend_server."""
-        generator = ImageGenerator(
-            id="test-gen",
-            label="Test Generator",
-            model="test-model",
-            optimizer_model="opt-model",
-            api_key="test-key",
+    def test_error_result(self) -> None:
+        """Test ImageResult with error."""
+        result = ImageResult(
+            success=False,
+            error="generation failed",
         )
-
-        assert generator.backend_server is None
-
-    def test_format_prompt_without_negative_prompt(self) -> None:
-        """Test _format_prompt without negative prompt."""
-        generator = ImageGenerator(
-            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
-        )
-
-        prompt = "A beautiful sunset"
-        result = generator._format_prompt(prompt)  # noqa: SLF001
-
-        assert result == "A beautiful sunset"
-
-    def test_format_prompt_with_negative_prompt(self) -> None:
-        """Test _format_prompt with negative prompt."""
-        generator = ImageGenerator(
-            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
-        )
-
-        prompt = "A beautiful sunset"
-        negative = "blurry, low quality"
-        result = generator._format_prompt(prompt, negative)  # noqa: SLF001
-
-        assert "## Image Prompt:" in result
-        assert prompt in result
-        assert "## Negative Prompt" in result
-        assert negative in result
-
-    def test_aspect_ratio_square(self) -> None:
-        """Test _aspect_ratio for square dimensions."""
-        generator = ImageGenerator(
-            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
-        )
-
-        assert generator._aspect_ratio(1024, 1024) == "1:1"  # noqa: SLF001
-        assert generator._aspect_ratio(512, 512) == "1:1"  # noqa: SLF001
-        assert generator._aspect_ratio(2048, 2048) == "1:1"  # noqa: SLF001
-
-    def test_aspect_ratio_landscape(self) -> None:
-        """Test _aspect_ratio for landscape dimensions (width > height)."""
-        generator = ImageGenerator(
-            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
-        )
-
-        assert generator._aspect_ratio(1536, 1024) == "4:3"  # noqa: SLF001
-        assert generator._aspect_ratio(2048, 1024) == "4:3"  # noqa: SLF001
-        assert generator._aspect_ratio(1024, 512) == "4:3"  # noqa: SLF001
-
-    def test_aspect_ratio_portrait(self) -> None:
-        """Test _aspect_ratio for portrait dimensions (width < height)."""
-        generator = ImageGenerator(
-            id="test", label="Test", model="test", optimizer_model="opt", api_key="key"
-        )
-
-        assert generator._aspect_ratio(1024, 1536) == "3:4"  # noqa: SLF001
-        assert generator._aspect_ratio(512, 1024) == "3:4"  # noqa: SLF001
-        assert generator._aspect_ratio(1024, 2048) == "3:4"  # noqa: SLF001
-
-    @pytest.mark.asyncio
-    async def test_save_image_without_backend_server(self) -> None:
-        """Test save_image raises when backend_server unset."""
-        generator = ImageGenerator(
-            id="test",
-            label="Test",
-            model="test",
-            optimizer_model="opt",
-            api_key="key",
-            # backend_server not provided
-        )
-
-        with pytest.raises(ValueError) as exc_info:
-            await generator.save_image(
-                image_bytes=b"test_image",
-                tmp_file_prefix="test",
-                output_format="png",
-            )
-
-        assert "backend_server" in str(exc_info.value).lower()
-
-    @pytest.mark.asyncio
-    async def test_save_image_with_backend_server(self, tmp_path) -> None:
-        """Test save_image saves image and returns URL."""
-        generator = ImageGenerator(
-            id="test",
-            label="Test",
-            model="test",
-            optimizer_model="opt",
-            api_key="key",
-            backend_server="http://localhost:8000",
-        )
-
-        # Mock TMP_PATH
-        old_tmp_path = os.environ.get("TMP_PATH")
-        os.environ["TMP_PATH"] = str(tmp_path)
-
-        try:
-            url = await generator.save_image(
-                image_bytes=b"test_image_data",
-                tmp_file_prefix="test",
-                output_format="png",
-            )
-
-            assert "http://localhost:8000" in url
-            assert "/_upload/" in url
-            assert ".png" in url
-        finally:
-            # Restore original TMP_PATH
-            if old_tmp_path:
-                os.environ["TMP_PATH"] = old_tmp_path
-            else:
-                os.environ.pop("TMP_PATH", None)
+        assert result.success is False
+        assert result.error == "generation failed"
+        assert result.image_url is None

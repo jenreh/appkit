@@ -12,6 +12,7 @@ import logging
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any, Final
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from anthropic import AsyncAnthropic, AsyncAnthropicFoundry
 
@@ -43,6 +44,18 @@ FILES_BETA_HEADER: Final[str] = "files-api-2025-04-14"
 
 # Extended thinking budget (fixed at 10k tokens)
 THINKING_BUDGET_TOKENS: Final[int] = 10000
+
+
+def _append_query_param(url: str, key: str, value: str) -> str:
+    """Safely append a query parameter to a URL.
+
+    Handles URLs with existing query parameters and fragments.
+    """
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query, keep_blank_values=True)
+    params[key] = [value]
+    new_query = urlencode(params, doseq=True)
+    return urlunparse(parsed._replace(query=new_query))
 
 
 class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
@@ -744,8 +757,11 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                         server.name,
                     )
 
-            # Set the final URL
-            server_config["url"] = server.url
+            # Set the final URL, injecting x-user-id as query param if enabled
+            url = server.url
+            if server.inject_user_id and self.current_user_id is not None:
+                url = _append_query_param(url, "x-user-id", str(self.current_user_id))
+            server_config["url"] = url
             server_configs.append(server_config)
 
             # Add MCP toolset for this server

@@ -1,12 +1,12 @@
 [project]
 dependencies = [
     "appkit-commons",
+    "appkit-imagecreator",
     "appkit-mcp-commons",
+    "appkit-user",
     "fastapi>=0.135.1",
     "fastmcp>=3.1.0",
-    "google-genai>=1.66.0",
     "httpx>=0.28.1",
-    "openai>=2.24.0",
     "python-dotenv>=1.2.2",
     "uvicorn>=0.41.0",
 ]
@@ -58,7 +58,9 @@ packages = ["src/appkit_mcp_image"]
 
 [tool.uv.sources]
 appkit-commons = { workspace = true }
+appkit-imagecreator = { workspace = true }
 appkit-mcp-commons = { workspace = true }
+appkit-user = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

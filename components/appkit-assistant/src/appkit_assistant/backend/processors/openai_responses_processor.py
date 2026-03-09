@@ -999,6 +999,10 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                         server.name,
                     )
 
+            # Inject x-user-id header if enabled for this server
+            if server.inject_user_id and self.current_user_id is not None:
+                headers["x-user-id"] = str(self.current_user_id)
+
             if headers:
                 tool_config["headers"] = headers
 

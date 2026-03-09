@@ -803,11 +803,58 @@ class TestConfigureMcpTools:
         server.headers = '{"X-Key": "val"}'
         server.auth_type = None
         server.prompt = "Use search tool"
+        server.inject_user_id = False
         tools, prompt = await proc._configure_mcp_tools([server], None)
         assert len(tools) == 1
         assert tools[0]["server_label"] == "TestMCP"
         assert tools[0]["headers"]["X-Key"] == "val"
         assert "Use search" in prompt
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_header(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = 42
+        server = MagicMock()
+        server.name = "TestMCP"
+        server.url = "https://mcp.test/sse"
+        server.headers = "{}"
+        server.auth_type = None
+        server.prompt = ""
+        server.inject_user_id = True
+        tools, _ = await proc._configure_mcp_tools([server], None)
+        assert tools[0]["headers"]["x-user-id"] == "42"
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_skipped_when_disabled(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = 42
+        server = MagicMock()
+        server.name = "TestMCP"
+        server.url = "https://mcp.test/sse"
+        server.headers = "{}"
+        server.auth_type = None
+        server.prompt = ""
+        server.inject_user_id = False
+        tools, _ = await proc._configure_mcp_tools([server], None)
+        assert "headers" not in tools[0] or "x-user-id" not in tools[0].get(
+            "headers", {}
+        )
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_skipped_when_no_user(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = None
+        server = MagicMock()
+        server.name = "TestMCP"
+        server.url = "https://mcp.test/sse"
+        server.headers = "{}"
+        server.auth_type = None
+        server.prompt = ""
+        server.inject_user_id = True
+        tools, _ = await proc._configure_mcp_tools([server], None)
+        assert "headers" not in tools[0] or "x-user-id" not in tools[0].get(
+            "headers", {}
+        )
 
 
 # ============================================================================
