@@ -42,7 +42,7 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
                 color_scheme="gray",
                 border_radius="full",
                 cursor="pointer",
-                on_click=lambda: ImageGalleryState.remove_image_from_view(image.id),
+                on_click=lambda: ImageGalleryState.fade_out_and_remove_image(image.id),
             ),
             position="absolute",
             top="8px",
@@ -134,6 +134,11 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
         _hover={
             "& .hover-overlay": {"opacity": "1"},
         },
+        class_name=rx.cond(
+            ImageGalleryState.fading_image_ids.contains(image.id),
+            "image-card-fade-out",
+            "image-card-slide-in",
+        ),
     )
 
 
@@ -303,6 +308,22 @@ def _generating_card() -> rx.Component:
 
 def image_grid() -> rx.Component:
     """Scrollable grid of generated images."""
+    fade_in_css = """
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.image-card-slide-in {
+  animation: fadeIn 0.4s ease-in both;
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.image-card-fade-out {
+  animation: fadeOut 0.35s ease-out forwards;
+}
+"""
     return rx.cond(
         ImageGalleryState.loading_images,
         rx.center(
@@ -315,6 +336,7 @@ def image_grid() -> rx.Component:
             | ImageGalleryState.is_generating
             | ImageGalleryState.is_uploading,
             rx.box(
+                rx.el.style(fade_in_css),
                 rx.box(
                     # Show uploading card first when uploading
                     rx.cond(
