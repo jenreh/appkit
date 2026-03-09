@@ -249,6 +249,8 @@ class ImageGalleryState(rx.State):
     @rx.event(background=True)
     async def initialize(self) -> AsyncGenerator[Any, Any]:
         """Load images from database (background)."""
+        async with self:
+            self._initialized = False
         async for _ in self._load_images():
             yield
 
@@ -1014,8 +1016,36 @@ class ImageGalleryState(rx.State):
 
     @rx.event
     def toggle_history(self) -> None:
-        """Toggle the history drawer."""
+        """Toggle the history drawer and reload history when opening."""
         self.history_drawer_open = not self.history_drawer_open
+        if self.history_drawer_open:
+            yield ImageGalleryState.load_history_images  # type: ignore[misc]
+
+    @rx.event(background=True)
+    async def load_history_images(self) -> AsyncGenerator[Any, Any]:
+        """Reload history images from database."""
+        async with self:
+            user_id = self._current_user_id
+        if not user_id:
+            return
+
+        try:
+            async with get_asyncdb_session() as session:
+                all_raw_entities = await image_repo.find_by_user(session, user_id)
+                all_images = [
+                    GeneratedImageModel.model_validate(img) for img in all_raw_entities
+                ]
+
+            async with self:
+                self.history_images = all_images
+                logger.debug(
+                    "Reloaded %d history images for user %s",
+                    len(all_images),
+                    user_id,
+                )
+            yield
+        except Exception as e:
+            logger.error("Error loading history images: %s", e)
 
     @rx.event
     def close_history_drawer(self) -> None:
