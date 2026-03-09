@@ -87,10 +87,6 @@ class TestGenerateImageTool:
                 "appkit_imagecreator.backend.generator_registry.generator_registry"
             ) as mock_registry,
             patch(
-                "appkit_mcp_image.server._get_user_id",
-                return_value=1,
-            ),
-            patch(
                 "appkit_mcp_image.server.generate_image_impl",
                 new_callable=AsyncMock,
                 return_value=(
@@ -120,10 +116,6 @@ class TestGenerateImageTool:
                 "appkit_imagecreator.backend.generator_registry.generator_registry"
             ) as mock_registry,
             patch(
-                "appkit_mcp_image.server._get_user_id",
-                return_value=1,
-            ),
-            patch(
                 "appkit_mcp_image.server.generate_image_impl",
                 new_callable=AsyncMock,
                 side_effect=ValueError("generation failed"),
@@ -148,10 +140,6 @@ class TestEditImageTool:
             patch(
                 "appkit_imagecreator.backend.generator_registry.generator_registry"
             ) as mock_registry,
-            patch(
-                "appkit_mcp_image.server._get_user_id",
-                return_value=1,
-            ),
             patch(
                 "appkit_mcp_image.server.edit_image_impl",
                 new_callable=AsyncMock,
@@ -180,10 +168,6 @@ class TestEditImageTool:
             patch(
                 "appkit_imagecreator.backend.generator_registry.generator_registry"
             ) as mock_registry,
-            patch(
-                "appkit_mcp_image.server._get_user_id",
-                return_value=1,
-            ),
             patch(
                 "appkit_mcp_image.server.edit_image_impl",
                 new_callable=AsyncMock,

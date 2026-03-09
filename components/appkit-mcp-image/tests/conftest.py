@@ -3,6 +3,7 @@
 import base64
 from collections.abc import AsyncIterator
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastmcp.client import Client
@@ -19,6 +20,17 @@ _SAMPLE_IMAGE_BYTES = (
     b"\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00"
     b"\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_http_request() -> MagicMock:
+    """Provide a mock Starlette request so ``CurrentRequest()`` resolves."""
+    req = MagicMock()
+    req.headers = {}
+    req.query_params = {}
+    req.cookies = {}
+    with patch("fastmcp.server.dependencies.get_http_request", return_value=req):
+        yield req
 
 
 @pytest.fixture(autouse=True)

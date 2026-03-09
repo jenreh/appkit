@@ -9,6 +9,8 @@ import logging
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.dependencies import CurrentRequest
+from starlette.requests import Request
 
 from appkit_commons.ai.openai_client_service import (
     get_openai_client_service,
@@ -44,7 +46,7 @@ def create_user_mcp_server(
     @mcp.tool()
     async def query_users(
         question: str,
-        ctx: Any = None,
+        request: Request = CurrentRequest(),  # noqa: B008
     ) -> str:
         """Query the Appkit users table with a natural language question.
 
@@ -56,12 +58,11 @@ def create_user_mcp_server(
             question: Natural language question about users,
                 e.g. "How many active users are there?" or
                 "Show me users grouped by role".
-            ctx: MCP context (injected by FastMCP).
 
         Returns:
             JSON string with query results.
         """
-        user_ctx = _get_user_context(ctx)
+        user_ctx = _get_user_context(request)
         openai_client = _get_openai_client()
         # Ensure config is loaded
         try:
@@ -101,7 +102,7 @@ def create_user_mcp_server(
     return mcp
 
 
-def _get_user_context(ctx: Any) -> UserContext:
+def _get_user_context(request: Request) -> UserContext:
     """Extract user context from MCP request context.
 
     Attempts to authenticate via reflex_session cookie.
@@ -109,12 +110,12 @@ def _get_user_context(ctx: Any) -> UserContext:
     session is available.
 
     Args:
-        ctx: FastMCP context.
+        request: Starlette request injected via ``CurrentRequest()``.
 
     Returns:
         UserContext for the authenticated user or default.
     """
-    session_id = extract_session_id(ctx)
+    session_id = extract_session_id(request)
 
     if not session_id:
         logger.debug("No session cookie, using default user context")

@@ -1,12 +1,15 @@
 import json
 import logging
-from typing import Annotated, Any, Final, Literal
+from typing import Annotated, Any, Literal
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
+from fastmcp.dependencies import CurrentRequest
 from fastmcp.server.apps import AppConfig
 from fastmcp.server.auth.auth import AuthProvider
 from pydantic import Field
+from starlette.requests import Request
 
+from appkit_mcp_commons.context import extract_user_id
 from appkit_mcp_image.backend.image_service import edit_image_impl, generate_image_impl
 from appkit_mcp_image.backend.models import (
     EditImageInput,
@@ -16,8 +19,6 @@ from appkit_mcp_image.backend.models import (
 from appkit_mcp_image.resources.image_viewer import IMAGE_VIEWER_HTML, VIEW_URI
 
 logger = logging.getLogger(__name__)
-
-_USER_ID_KEY: Final[str] = "x-user-id"
 
 
 def _success_result(
@@ -38,28 +39,6 @@ def _success_result(
         size=size,
     )
     return json.dumps(result.model_dump(), default=str)
-
-
-def _get_user_id(ctx: Context) -> int:
-    """Extract user ID from ``x-user-id`` header or query parameter."""
-    request = getattr(ctx, "request", None)
-    if request is None:
-        logger.warning("No request object in MCP context")
-        return -1
-
-    raw: str | None = request.headers.get(_USER_ID_KEY)
-    if raw is None:
-        raw = request.query_params.get(_USER_ID_KEY)
-
-    if raw is None:
-        logger.warning("No %s header or query parameter found", _USER_ID_KEY)
-        return -1
-
-    try:
-        return int(raw)
-    except (ValueError, TypeError):
-        logger.warning("Invalid %s value: %s", _USER_ID_KEY, raw)
-        return -1
 
 
 def create_image_mcp_server(
@@ -97,7 +76,6 @@ def create_image_mcp_server(
         app=AppConfig(resource_uri=VIEW_URI),
     )
     async def generate_image(
-        ctx: Context,
         prompt: Annotated[
             str,
             Field(
@@ -129,6 +107,7 @@ def create_image_mcp_server(
             Literal["png", "jpeg", "webp"],
             Field(description="Output image format"),
         ] = "jpeg",
+        request: Request = CurrentRequest(),  # noqa: B008
     ) -> str:
         """Generate image from text prompt.
 
@@ -138,8 +117,9 @@ def create_image_mcp_server(
             generator_registry,
         )
 
+        user_id = extract_user_id(request)
+
         generator = generator_registry.get(default_model_id)
-        user_id = _get_user_id(ctx)
 
         input_data = GenerationInput(
             prompt=prompt,
@@ -171,7 +151,6 @@ def create_image_mcp_server(
         app=AppConfig(resource_uri=VIEW_URI),
     )
     async def edit_image(
-        ctx: Context,
         prompt: Annotated[
             str,
             Field(
@@ -209,6 +188,7 @@ def create_image_mcp_server(
             Literal["png", "jpeg", "webp"],
             Field(description="Output image format"),
         ] = "jpeg",
+        request: Request = CurrentRequest(),  # noqa: B008
     ) -> str:
         """Edit existing images with text prompts and optional masks.
 
@@ -218,8 +198,9 @@ def create_image_mcp_server(
             generator_registry,
         )
 
+        user_id = extract_user_id(request)
+
         generator = generator_registry.get(default_model_id)
-        user_id = _get_user_id(ctx)
 
         input_data = EditImageInput(
             prompt=prompt,
