@@ -27,6 +27,11 @@ class DatabaseStorageBackend(StorageBackend):
         diagram_id: str,
         diagram_type: str = "process",
     ) -> DiagramInfo:
+        logger.info(
+            "DatabaseStorageBackend.save called: diagram_id=%s user_id=%s",
+            diagram_id,
+            user_id,
+        )
         async with get_asyncdb_session() as session:
             await bpmn_diagram_repo.save_diagram(
                 session,
@@ -36,6 +41,7 @@ class DatabaseStorageBackend(StorageBackend):
                 prompt=prompt,
                 diagram_type=diagram_type,
             )
+        logger.info("DatabaseStorageBackend.save committed: %s", diagram_id)
         return DiagramInfo(
             id=diagram_id,
             download_url=_DOWNLOAD_URL_TEMPLATE.format(id=diagram_id),

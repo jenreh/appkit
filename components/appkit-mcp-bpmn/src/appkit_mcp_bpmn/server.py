@@ -16,6 +16,7 @@ from fastmcp import FastMCP
 from fastmcp.server.apps import AppConfig, ResourceCSP
 from fastmcp.server.dependencies import get_http_request
 
+from appkit_commons.registry import service_registry
 from appkit_mcp_bpmn.backend.storage.base import DiagramInfo, StorageBackend
 from appkit_mcp_bpmn.backend.storage.factory import create_storage_backend
 from appkit_mcp_bpmn.configuration import BPMNConfig
@@ -56,7 +57,16 @@ def create_bpmn_mcp_server(
     Returns:
         Configured FastMCP server instance.
     """
-    cfg = config or BPMNConfig()
+    if config is not None:
+        cfg = config
+    else:
+        try:
+            cfg = service_registry().get(BPMNConfig)
+        except Exception:  # noqa: BLE001
+            logger.warning("BPMNConfig not found in registry; using defaults")
+            cfg = BPMNConfig()
+
+    logger.warning("Creating BPMN MCP server with config: %s", cfg.storage_mode)
     generator = BPMNGenerator()
     storage = create_storage_backend(cfg.storage_mode, cfg.storage_dir)
     mcp = FastMCP(name)
@@ -265,8 +275,8 @@ async def _persist_and_respond(
         info: DiagramInfo = await storage.save(
             normalised, prompt, user_id, diagram_id, diagram_type
         )
-    except OSError as exc:
-        logger.exception("Failed to save diagram")
+    except (OSError, Exception) as exc:
+        logger.exception("Failed to save diagram: %s", type(exc).__name__)
         raise ValueError(f"Storage error: {exc}") from exc
 
     result = DiagramResult(
