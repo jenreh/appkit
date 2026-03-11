@@ -66,6 +66,7 @@ class BpmnDiagramRepository(BaseRepository[BpmnDiagram, AsyncSession]):
         user_id: int,
         xml: str,
         prompt: str,
+        name: str = "",
         diagram_type: str = "process",
     ) -> BpmnDiagram:
         """Persist a new BPMN diagram record.
@@ -73,9 +74,19 @@ class BpmnDiagramRepository(BaseRepository[BpmnDiagram, AsyncSession]):
         Returns:
             The newly created and flushed BpmnDiagram entity.
         """
+        resolved_name = (
+            name.strip()
+            if name and name.strip()
+            else (
+                prompt.strip()[:128]
+                if prompt and prompt.strip()
+                else f"Diagram {diagram_id[:8]}"
+            )
+        )
         diagram = BpmnDiagram(
             diagram_id=diagram_id,
             user_id=user_id,
+            name=resolved_name,
             xml_content=xml.encode("utf-8"),
             prompt=prompt,
             diagram_type=diagram_type,
@@ -90,6 +101,52 @@ class BpmnDiagramRepository(BaseRepository[BpmnDiagram, AsyncSession]):
             diagram_type,
         )
         return diagram
+
+    async def update_xml(
+        self, session: AsyncSession, diagram_id: str, user_id: int, xml: str
+    ) -> bool:
+        """Update the XML content of an existing diagram (user-scoped).
+
+        Returns:
+            True if the record was found and updated, False otherwise.
+        """
+        stmt = select(BpmnDiagram).where(
+            BpmnDiagram.diagram_id == diagram_id,
+            BpmnDiagram.user_id == user_id,
+            ~BpmnDiagram.is_deleted,
+        )
+        result = await session.execute(stmt)
+        diagram = result.scalars().first()
+        if diagram:
+            diagram.xml_content = xml.encode("utf-8")
+            await session.flush()
+            logger.debug("Updated BPMN diagram XML: %s", diagram_id)
+            return True
+        logger.warning("BPMN diagram %s not found for user %s", diagram_id, user_id)
+        return False
+
+    async def update_name(
+        self, session: AsyncSession, diagram_id: str, user_id: int, name: str
+    ) -> bool:
+        """Update the name of an existing diagram (user-scoped).
+
+        Returns:
+            True if the record was found and updated, False otherwise.
+        """
+        stmt = select(BpmnDiagram).where(
+            BpmnDiagram.diagram_id == diagram_id,
+            BpmnDiagram.user_id == user_id,
+            ~BpmnDiagram.is_deleted,
+        )
+        result = await session.execute(stmt)
+        diagram = result.scalars().first()
+        if diagram:
+            diagram.name = name
+            await session.flush()
+            logger.debug("Updated BPMN diagram name: %s -> %s", diagram_id, name)
+            return True
+        logger.warning("BPMN diagram %s not found for user %s", diagram_id, user_id)
+        return False
 
     async def soft_delete_by_diagram_id(
         self, session: AsyncSession, diagram_id: str, user_id: int
