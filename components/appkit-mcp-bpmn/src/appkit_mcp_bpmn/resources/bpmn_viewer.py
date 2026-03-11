@@ -133,48 +133,68 @@ html, body {{
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0px;
   min-width: 0;
   overflow: hidden;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }}
 #diagram-name {{
   font-weight: 500;
   color: var(--text-primary);
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid transparent;
+  padding: 2px 6px 2px 4px;
+  border-radius: 0 4px 4px 0;
+  border: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 300px;
+  display: flex;
+  align-items: center;
+}}
+#diagram-name-group {{
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 4px;
   transition: border-color 0.15s, background 0.15s;
 }}
-#diagram-name:hover {{
+#diagram-name-group:hover {{
   border-color: var(--border-color-secondary);
   background: var(--button-hover);
+}}
+#diagram-name-group:hover #diagram-name {{
+  border-color: transparent;
+  background: transparent;
+}}
+#diagram-name-group:hover #btn-edit-name {{
+  color: var(--text-primary);
+  background: transparent;
 }}
 #btn-edit-name {{
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 2px;
+  padding: 0 4px;
   border: none;
-  border-radius: 4px;
+  border-radius: 4px 0 0 4px;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s;
   flex-shrink: 0;
 }}
 #btn-edit-name:hover {{
   color: var(--text-primary);
-  background: var(--button-hover);
 }}
 #btn-edit-name svg {{
-  width: 11px;
-  height: 11px;
-  stroke-width: 1.5;
+  width: 12px !important;
+  height: 12px !important;
+  stroke-width: 2 !important;
 }}
 #diagram-name-input {{
   font-size: 13px;
@@ -186,8 +206,11 @@ html, body {{
   border-radius: 4px;
   padding: 2px 6px;
   outline: none;
-  max-width: 420px;
+  max-width: 300px;
   box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }}
 #error-box {{
   display: none;
@@ -403,10 +426,12 @@ body.maximized #canvas {{
 <body>
 <div id="toolbar">
   <span id="status">
-    <button id="btn-edit-name" title="Rename diagram">
-      <i data-lucide="pencil"></i>
-    </button>
-    <span id="diagram-name" title="Click to rename" style="display:none;"></span>
+    <span id="diagram-name-group">
+      <button id="btn-edit-name" title="Rename diagram">
+        <i data-lucide="pencil"></i>
+      </button>
+      <span id="diagram-name" title="Click to rename" style="display:none;"></span>
+    </span>
     <span id="status-text">Loading diagram&hellip;</span>
   </span>
   <button id="btn-zoom-in" title="Zoom in">
@@ -967,19 +992,21 @@ body.maximized #canvas {{
   function startNameEdit() {{
     if (!diagramRendered || !currentDiagramId) return;
     var originalName = currentDiagramName || "";
+    var nameWidth = NAME_EL.offsetWidth;
     var input = document.createElement("input");
     input.id = "diagram-name-input";
     input.type = "text";
     input.value = originalName;
     input.maxLength = 128;
-    EDIT_BTN.style.display = "none";
+    input.style.width = nameWidth + "px";
+    EDIT_BTN.style.visibility = "hidden";
     NAME_EL.replaceWith(input);
     input.focus();
     input.select();
 
     function restoreDisplay() {{
       input.replaceWith(NAME_EL);
-      EDIT_BTN.style.display = "flex";
+      EDIT_BTN.style.visibility = "";
     }}
 
     function commitRename() {{
