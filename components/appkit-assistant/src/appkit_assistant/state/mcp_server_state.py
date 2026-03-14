@@ -152,6 +152,8 @@ class MCPServerState(rx.State):
                 description=form_data.get("description") or None,
                 prompt=form_data.get("prompt") or None,
                 required_role=form_data.get("required_role") or None,
+                inject_user_id=form_data.get("inject_user_id")
+                in (True, "true", "on", "1"),
                 auth_type=auth_type,
                 oauth_client_id=(
                     form_data.get("oauth_client_id")
@@ -228,33 +230,9 @@ class MCPServerState(rx.State):
 
                 updated_server = None
                 if existing_server:
-                    existing_server.name = form_data["name"]
-                    existing_server.url = form_data["url"]
-                    existing_server.headers = headers
-                    existing_server.description = form_data.get("description") or None
-                    existing_server.prompt = form_data.get("prompt") or None
-                    existing_server.required_role = (
-                        form_data.get("required_role") or None
+                    self._apply_form_to_server(
+                        existing_server, form_data, headers, auth_type
                     )
-                    existing_server.auth_type = auth_type
-                    existing_server.oauth_client_id = (
-                        form_data.get("oauth_client_id")
-                        if auth_type == MCPAuthType.OAUTH_DISCOVERY
-                        else None
-                    )
-                    existing_server.oauth_client_secret = (
-                        form_data.get("oauth_client_secret")
-                        if auth_type == MCPAuthType.OAUTH_DISCOVERY
-                        else None
-                    )
-                    existing_server.oauth_issuer = form_data.get("oauth_issuer")
-                    existing_server.oauth_authorize_url = form_data.get(
-                        "oauth_authorize_url"
-                    )
-                    existing_server.oauth_token_url = form_data.get("oauth_token_url")
-                    existing_server.oauth_scopes = form_data.get("oauth_scopes")
-                    if form_data.get("oauth_issuer"):
-                        existing_server.oauth_discovered_at = datetime.now(UTC)
 
                     updated_server = await mcp_server_repo.save(
                         session, existing_server
@@ -449,6 +427,44 @@ class MCPServerState(rx.State):
                 "Fehler beim Ändern der Rolle.",
                 position="top-right",
             )
+
+    def _apply_form_to_server(
+        self,
+        server: MCPServer,
+        form_data: dict[str, Any],
+        headers: str,
+        auth_type: str,
+    ) -> None:
+        """Apply form data fields to an existing MCPServer instance."""
+        server.name = form_data["name"]
+        server.url = form_data["url"]
+        server.headers = headers
+        server.description = form_data.get("description") or None
+        server.prompt = form_data.get("prompt") or None
+        server.required_role = form_data.get("required_role") or None
+        server.inject_user_id = form_data.get("inject_user_id") in (
+            True,
+            "true",
+            "on",
+            "1",
+        )
+        server.auth_type = auth_type
+        server.oauth_client_id = (
+            form_data.get("oauth_client_id")
+            if auth_type == MCPAuthType.OAUTH_DISCOVERY
+            else None
+        )
+        server.oauth_client_secret = (
+            form_data.get("oauth_client_secret")
+            if auth_type == MCPAuthType.OAUTH_DISCOVERY
+            else None
+        )
+        server.oauth_issuer = form_data.get("oauth_issuer")
+        server.oauth_authorize_url = form_data.get("oauth_authorize_url")
+        server.oauth_token_url = form_data.get("oauth_token_url")
+        server.oauth_scopes = form_data.get("oauth_scopes")
+        if form_data.get("oauth_issuer"):
+            server.oauth_discovered_at = datetime.now(UTC)
 
     def _parse_headers_from_form(self, form_data: dict[str, Any]) -> dict[str, str]:
         """Parse headers from form data."""

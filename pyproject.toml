@@ -1,6 +1,6 @@
 [project]
 name = "appkit"
-version = "1.8.3"
+version = "1.8.6"
 description = "Production-ready Mantine UI components for Reflex - Demo Application"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -30,8 +30,8 @@ dev = [
     "aiosqlite==0.22.1",
     "httpx==0.28.1",
     "responses==0.26.0",
-    "faker==40.5.1",
-    "ruff==0.15.4",
+    "faker==40.8.0",
+    "ruff==0.15.5",
     "bump-my-version==1.2.7",
     "detect-secrets==1.5.0",
     "respx>=0.22.0",
@@ -90,7 +90,7 @@ appkit-user = { workspace = true }
 
 [tool.bumpversion]
 commit = false
-current_version = "1.8.3"
+current_version = "1.8.6"
 tag = false
 allow-dirty = false
 
@@ -222,7 +222,8 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "I001"] # {name} imported but unused
 "server.py" = ["W605", "S104"] # invalid escape sequence
-"test_**.py" = ["S101", "PLR2004", "ANN001", "S106", "SLF001", "ARG001", "ARG002", "S105"]
+"test_**.py" = ["S101", "PLR2004", "ANN001", "S106", "SLF001", "ARG001", "ARG002", "S105", "PLC0415"]
+"conftest.py" = ["PLC0415"]
 "alembic/versions/*.py" = ["E501"]
 "indexer/main.py" = ["S104"]
 

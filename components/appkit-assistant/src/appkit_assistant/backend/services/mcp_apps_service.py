@@ -156,6 +156,10 @@ class McpAppsService:
             except json.JSONDecodeError:
                 logger.warning("Invalid headers JSON for server %s", server.name)
 
+        # Forward the user identity so MCP servers can scope data
+        if user_id > 0:
+            headers["x-user-id"] = str(user_id)
+
         # Override with OAuth token if available
         if server.auth_type == MCPAuthType.OAUTH_DISCOVERY and self._token_service:
             token = await self._token_service.get_valid_token(server, user_id)

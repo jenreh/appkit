@@ -15,7 +15,7 @@ pytest_plugins = ["appkit_commons.testing"]
 @pytest_asyncio.fixture
 async def bpmn_client(tmp_path: Path) -> AsyncIterator[Client]:
     """Fixture providing a FastMCP Client for the BPMN server."""
-    config = BPMNConfig(storage_dir=str(tmp_path / "bpmn"))
+    config = BPMNConfig(storage_dir=str(tmp_path / "bpmn"), storage_mode="filesystem")
     mcp = create_bpmn_mcp_server(config=config)
     async with Client(mcp) as client:
         yield client

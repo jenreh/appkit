@@ -22,4 +22,4 @@ app:
         redirect_url: https://oriole-guiding-miserably.ngrok-free.app/oauth/github/callback
 
   mcp_image:
-    backend_server: https://oriole-guiding-miserably.ngrok-free.app
+    default_model: "nano-banana-2"

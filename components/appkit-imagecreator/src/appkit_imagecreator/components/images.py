@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import reflex as rx
 
 import appkit_mantine as mn
@@ -40,7 +42,7 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
                 color_scheme="gray",
                 border_radius="full",
                 cursor="pointer",
-                on_click=lambda: ImageGalleryState.remove_image_from_view(image.id),
+                on_click=lambda: ImageGalleryState.fade_out_and_remove_image(image.id),
             ),
             position="absolute",
             top="8px",
@@ -132,6 +134,11 @@ def _image_card(image: GeneratedImageModel) -> rx.Component:
         _hover={
             "& .hover-overlay": {"opacity": "1"},
         },
+        class_name=rx.cond(
+            ImageGalleryState.fading_image_ids.contains(image.id),
+            "image-card-fade-out",
+            "image-card-slide-in",
+        ),
     )
 
 
@@ -301,6 +308,22 @@ def _generating_card() -> rx.Component:
 
 def image_grid() -> rx.Component:
     """Scrollable grid of generated images."""
+    fade_in_css = """
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.image-card-slide-in {
+  animation: fadeIn 0.4s ease-in both;
+}
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.image-card-fade-out {
+  animation: fadeOut 0.35s ease-out forwards;
+}
+"""
     return rx.cond(
         ImageGalleryState.loading_images,
         rx.center(
@@ -313,6 +336,7 @@ def image_grid() -> rx.Component:
             | ImageGalleryState.is_generating
             | ImageGalleryState.is_uploading,
             rx.box(
+                rx.el.style(fade_in_css),
                 rx.box(
                     # Show uploading card first when uploading
                     rx.cond(
@@ -370,18 +394,6 @@ def image_zoom_modal() -> rx.Component:
     """Modal for viewing image in full size with details."""
     return rx.dialog.root(
         rx.dialog.content(
-            rx.dialog.close(
-                rx.icon_button(
-                    rx.icon("x", size=20),
-                    variant="ghost",
-                    size="2",
-                    position="absolute",
-                    top="16px",
-                    right="16px",
-                    z_index="10",
-                    cursor="pointer",
-                ),
-            ),
             rx.flex(
                 # Image side
                 rx.box(
@@ -403,94 +415,148 @@ def image_zoom_modal() -> rx.Component:
                 ),
                 # Details side
                 rx.box(
-                    rx.vstack(
-                        rx.cond(
-                            ImageGalleryState.zoom_image.is_not_none(),
-                            rx.vstack(
-                                mn.scroll_area(
-                                    rx.text(
-                                        ImageGalleryState.zoom_image.prompt,
-                                        size="3",
-                                        line_height="1.6",
-                                        weight="medium",
-                                    ),
-                                    rx.cond(
-                                        ImageGalleryState.zoom_image.enhanced_prompt,
-                                        rx.box(
-                                            rx.text(
-                                                "Optimierter Prompt:",
-                                                size="2",
-                                                color=rx.color("gray", 9),
-                                                weight="medium",
-                                            ),
-                                            rx.text(
-                                                ImageGalleryState.zoom_image.enhanced_prompt,
-                                                size="2",
-                                                color=rx.color("gray", 11),
-                                                line_height="1.5",
-                                            ),
-                                            margin_top="8px",
-                                        ),
-                                    ),
-                                    min_height="80px",
-                                    max_height="528px",
-                                ),
-                                rx.separator(size="4"),
-                                rx.hstack(
-                                    rx.text(
-                                        "Modell:",
-                                        size="2",
-                                        color=rx.color("gray", 9),
-                                    ),
-                                    rx.text(
-                                        ImageGalleryState.zoom_image.model,
-                                        size="2",
-                                    ),
-                                    spacing="2",
-                                ),
-                                rx.hstack(
-                                    rx.text(
-                                        "Qualität:",
-                                        size="2",
-                                        color=rx.color("gray", 9),
-                                    ),
-                                    rx.text(
-                                        rx.cond(
-                                            ImageGalleryState.zoom_image.quality,
-                                            ImageGalleryState.zoom_image.quality,
-                                            "auto",
-                                        ),
-                                        size="2",
-                                    ),
-                                    spacing="2",
-                                ),
-                                rx.hstack(
-                                    rx.text(
-                                        "Größe:",
-                                        size="2",
-                                        color=rx.color("gray", 9),
-                                    ),
-                                    rx.text(
-                                        f"{ImageGalleryState.zoom_image.width}x"
-                                        f"{ImageGalleryState.zoom_image.height}",
-                                        size="2",
-                                    ),
-                                    spacing="2",
-                                ),
-                                spacing="3",
-                                align="start",
-                                width="100%",
+                    # Close button row
+                    rx.flex(
+                        rx.spacer(),
+                        rx.dialog.close(
+                            rx.icon_button(
+                                rx.icon("x", size=20),
+                                variant="ghost",
+                                size="2",
+                                cursor="pointer",
                             ),
                         ),
-                        height="100%",
-                        justify="start",
-                        padding="24px",
-                        padding_top="48px",
+                        width="100%",
+                        padding_x="16px",
+                        padding_top="16px",
+                        flex_shrink="0",
                     ),
+                    # Scrollable content
+                    rx.cond(
+                        ImageGalleryState.zoom_image.is_not_none(),
+                        rx.vstack(
+                            mn.scroll_area(
+                                rx.text(
+                                    ImageGalleryState.zoom_image.prompt,
+                                    size="3",
+                                    line_height="1.6",
+                                    weight="medium",
+                                ),
+                                rx.cond(
+                                    ImageGalleryState.zoom_image.enhanced_prompt,
+                                    rx.box(
+                                        rx.text(
+                                            "Optimierter Prompt:",
+                                            size="2",
+                                            color=rx.color("gray", 9),
+                                            weight="medium",
+                                        ),
+                                        rx.text(
+                                            ImageGalleryState.zoom_image.enhanced_prompt,
+                                            size="2",
+                                            color=rx.color("gray", 11),
+                                            line_height="1.5",
+                                        ),
+                                        margin_top="8px",
+                                    ),
+                                ),
+                                min_height="80px",
+                                max_height="528px",
+                            ),
+                            rx.separator(size="4"),
+                            rx.hstack(
+                                rx.text(
+                                    "Modell:",
+                                    size="2",
+                                    color=rx.color("gray", 9),
+                                ),
+                                rx.text(
+                                    ImageGalleryState.zoom_image.model,
+                                    size="2",
+                                ),
+                                spacing="2",
+                            ),
+                            rx.hstack(
+                                rx.text(
+                                    "Qualität:",
+                                    size="2",
+                                    color=rx.color("gray", 9),
+                                ),
+                                rx.text(
+                                    rx.cond(
+                                        ImageGalleryState.zoom_image.quality,
+                                        ImageGalleryState.zoom_image.quality,
+                                        "auto",
+                                    ),
+                                    size="2",
+                                ),
+                                spacing="2",
+                            ),
+                            rx.hstack(
+                                rx.text(
+                                    "Größe:",
+                                    size="2",
+                                    color=rx.color("gray", 9),
+                                ),
+                                rx.text(
+                                    f"{ImageGalleryState.zoom_image.width}x"
+                                    f"{ImageGalleryState.zoom_image.height}",
+                                    size="2",
+                                ),
+                                spacing="2",
+                            ),
+                            spacing="3",
+                            align="start",
+                            width="100%",
+                            padding="24px",
+                            padding_top="8px",
+                            flex="1",
+                        ),
+                    ),
+                    # Fixed bottom toolbar with navigation buttons
+                    rx.box(
+                        rx.hstack(
+                            mn.action_icon(
+                                rx.icon("chevron-left", size=20),
+                                variant="subtle",
+                                size="lg",
+                                disabled=~ImageGalleryState.can_navigate_previous,
+                                opacity=rx.cond(
+                                    ImageGalleryState.can_navigate_previous,
+                                    "1",
+                                    "0.25",
+                                ),
+                                aria_label="Previous image",
+                                on_click=ImageGalleryState.navigate_to_previous_image,
+                            ),
+                            mn.action_icon(
+                                rx.icon("chevron-right", size=20),
+                                variant="subtle",
+                                size="lg",
+                                disabled=~ImageGalleryState.can_navigate_next,
+                                opacity=rx.cond(
+                                    ImageGalleryState.can_navigate_next,
+                                    "1",
+                                    "0.25",
+                                ),
+                                aria_label="Next image",
+                                on_click=ImageGalleryState.navigate_to_next_image,
+                            ),
+                            spacing="0",
+                            gap="6px",
+                        ),
+                        padding="16px",
+                        padding_top="12px",
+                        border_top=f"1px solid {rx.color('gray', 5)}",
+                        flex_shrink="0",
+                    ),
+                    display="flex",
+                    flex_direction="column",
                     flex="1",
                     min_width="300px",
                     border_left=f"1px solid {rx.color('gray', 5)}",
                     background=rx.color("gray", 2),
+                    overflow="hidden",
                 ),
                 direction="row",
                 width="100%",

@@ -7,27 +7,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastmcp.client import Client
 from fastmcp.exceptions import ToolError
-from pydantic import SecretStr
-
-from appkit_mcp_image.backend.models import ImageGenerator
-from appkit_mcp_image.configuration import MCPImageGeneratorConfig
-from appkit_mcp_image.server import (
-    _generators,
-    _success_result,
-    create_image_mcp_server,
-    init_generators,
-)
 
 
 def test_creates_server() -> None:
     """Server instance is created successfully."""
-    mcp = create_image_mcp_server(generator=None)
+    from appkit_mcp_image.server import create_image_mcp_server
+
+    mcp = create_image_mcp_server(default_model_id="test-model")
     assert mcp is not None
 
 
 def test_custom_name() -> None:
     """Server respects custom name parameter."""
-    mcp = create_image_mcp_server(generator=None, name="custom-image")
+    from appkit_mcp_image.server import create_image_mcp_server
+
+    mcp = create_image_mcp_server(default_model_id="test-model", name="custom-image")
     assert mcp.name == "custom-image"
 
 
@@ -44,12 +38,16 @@ async def test_list_tools_registered(image_client: Client) -> None:
 
 class TestSuccessResult:
     def test_basic(self) -> None:
+        from appkit_mcp_image.server import _success_result
+
         result = json.loads(_success_result("http://img/1.png", "a cat"))
         assert result["success"] is True
         assert result["image_url"] == "http://img/1.png"
         assert result["prompt"] == "a cat"
 
     def test_with_optional_fields(self) -> None:
+        from appkit_mcp_image.server import _success_result
+
         result = json.loads(
             _success_result(
                 "http://img/1.png",
@@ -64,75 +62,15 @@ class TestSuccessResult:
         assert result["size"] == "1024x1024"
 
 
-# -- init_generators tests --
-
-
-class TestInitGenerators:
-    def test_no_keys_returns_empty(self) -> None:
-        _generators.clear()
-        config = MCPImageGeneratorConfig()
-        result = init_generators(config)
-        assert isinstance(result, dict)
-
-    def test_returns_cached(self) -> None:
-        _generators.clear()
-        sentinel = MagicMock(spec=ImageGenerator)
-        _generators["test"] = sentinel
-        config = MCPImageGeneratorConfig()
-        result = init_generators(config)
-        assert "test" in result
-        _generators.clear()
-
-    def test_azure_generator(self) -> None:
-        """Azure generator is created when keys are provided."""
-        _generators.clear()
-        config = MCPImageGeneratorConfig(
-            azure_api_key=SecretStr("test-key"),
-            azure_base_url=SecretStr("https://test.openai.azure.com"),
-            azure_image_model="gpt-image-1",
-            azure_prompt_optimizer="gpt-5-mini",
-        )
-        result = init_generators(config)
-        assert "azure" in result
-        assert "google" not in result
-        _generators.clear()
-
-    def test_google_generator(self) -> None:
-        """Google generator is created when key is provided."""
-        _generators.clear()
-        config = MCPImageGeneratorConfig(
-            google_api_key=SecretStr("test-google-key"),
-            google_image_model="imagen-4",
-            google_prompt_optimizer="gemini-flash",
-        )
-        result = init_generators(config)
-        assert "google" in result
-        assert "azure" not in result
-        _generators.clear()
-
-    def test_both_generators(self) -> None:
-        """Both generators created when all keys provided."""
-        _generators.clear()
-        config = MCPImageGeneratorConfig(
-            azure_api_key=SecretStr("azure-key"),
-            azure_base_url=SecretStr("https://test.azure.com"),
-            google_api_key=SecretStr("google-key"),
-        )
-        result = init_generators(config)
-        assert "azure" in result
-        assert "google" in result
-        _generators.clear()
-
-
 # -- Tool integration tests --
 
 
 @pytest.fixture
 async def gen_client() -> AsyncIterator[Client]:
-    """Client with a mock generator for tool tests."""
-    mock_gen = MagicMock(spec=ImageGenerator)
-    mock_gen.model = "test-model"
-    mcp = create_image_mcp_server(generator=mock_gen)
+    """Client with mocked registry and auth for tool tests."""
+    from appkit_mcp_image.server import create_image_mcp_server
+
+    mcp = create_image_mcp_server(default_model_id="test-model")
     async with Client(mcp) as client:
         yield client
 
@@ -140,14 +78,24 @@ async def gen_client() -> AsyncIterator[Client]:
 class TestGenerateImageTool:
     async def test_success(self, gen_client: Client) -> None:
         """generate_image returns success result."""
-        with patch(
-            "appkit_mcp_image.server.generate_image_impl",
-            new_callable=AsyncMock,
-            return_value=(
-                "http://localhost/img.png",
-                "enhanced cat",
+        mock_gen = MagicMock()
+        mock_gen.model = MagicMock()
+        mock_gen.model.model = "test-model"
+
+        with (
+            patch(
+                "appkit_imagecreator.backend.generator_registry.generator_registry"
+            ) as mock_registry,
+            patch(
+                "appkit_mcp_image.server.generate_image_impl",
+                new_callable=AsyncMock,
+                return_value=(
+                    "http://localhost/img.png",
+                    "enhanced cat",
+                ),
             ),
         ):
+            mock_registry.get.return_value = mock_gen
             result = await gen_client.call_tool(
                 "generate_image",
                 arguments={"prompt": "a cat"},
@@ -159,7 +107,14 @@ class TestGenerateImageTool:
 
     async def test_value_error(self, gen_client: Client) -> None:
         """generate_image sets isError=True on ValueError."""
+        mock_gen = MagicMock()
+        mock_gen.model = MagicMock()
+        mock_gen.model.model = "test-model"
+
         with (
+            patch(
+                "appkit_imagecreator.backend.generator_registry.generator_registry"
+            ) as mock_registry,
             patch(
                 "appkit_mcp_image.server.generate_image_impl",
                 new_callable=AsyncMock,
@@ -167,6 +122,7 @@ class TestGenerateImageTool:
             ),
             pytest.raises(ToolError, match="generation failed"),
         ):
+            mock_registry.get.return_value = mock_gen
             await gen_client.call_tool(
                 "generate_image",
                 arguments={"prompt": "bad prompt"},
@@ -176,11 +132,21 @@ class TestGenerateImageTool:
 class TestEditImageTool:
     async def test_success(self, gen_client: Client) -> None:
         """edit_image returns success result."""
-        with patch(
-            "appkit_mcp_image.server.edit_image_impl",
-            new_callable=AsyncMock,
-            return_value="http://localhost/edited.png",
+        mock_gen = MagicMock()
+        mock_gen.model = MagicMock()
+        mock_gen.model.model = "test-model"
+
+        with (
+            patch(
+                "appkit_imagecreator.backend.generator_registry.generator_registry"
+            ) as mock_registry,
+            patch(
+                "appkit_mcp_image.server.edit_image_impl",
+                new_callable=AsyncMock,
+                return_value="http://localhost/edited.png",
+            ),
         ):
+            mock_registry.get.return_value = mock_gen
             result = await gen_client.call_tool(
                 "edit_image",
                 arguments={
@@ -194,7 +160,14 @@ class TestEditImageTool:
 
     async def test_value_error(self, gen_client: Client) -> None:
         """edit_image sets isError=True on ValueError."""
+        mock_gen = MagicMock()
+        mock_gen.model = MagicMock()
+        mock_gen.model.model = "test-model"
+
         with (
+            patch(
+                "appkit_imagecreator.backend.generator_registry.generator_registry"
+            ) as mock_registry,
             patch(
                 "appkit_mcp_image.server.edit_image_impl",
                 new_callable=AsyncMock,
@@ -202,6 +175,7 @@ class TestEditImageTool:
             ),
             pytest.raises(ToolError, match="editing not supported"),
         ):
+            mock_registry.get.return_value = mock_gen
             await gen_client.call_tool(
                 "edit_image",
                 arguments={

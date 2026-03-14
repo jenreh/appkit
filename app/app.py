@@ -25,10 +25,7 @@ from appkit_mcp_bpmn.server import create_bpmn_mcp_server
 from appkit_mcp_charts.server import create_charts_mcp_server
 from appkit_mcp_image.auth import get_verifier
 from appkit_mcp_image.configuration import MCPImageGeneratorConfig
-from appkit_mcp_image.server import (
-    create_image_mcp_server,
-    init_generators,
-)
+from appkit_mcp_image.server import create_image_mcp_server
 from appkit_mcp_user.server import create_user_mcp_server
 from appkit_user.authentication.backend.services import (
     SessionCleanupService,
@@ -117,9 +114,8 @@ def init_mcp_apps() -> dict[str, ASGIApp]:
 
     # Image MCP server specific setup
     image_mcp_config = service_registry().get(MCPImageGeneratorConfig)
-    generators = init_generators(image_mcp_config)
     servers["/image"] = create_image_mcp_server(
-        generators[image_mcp_config.generator],
+        image_mcp_config.default_model,
         get_verifier(),
     )
 

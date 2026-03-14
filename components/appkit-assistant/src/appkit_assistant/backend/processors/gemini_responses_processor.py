@@ -247,6 +247,10 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                     },
                 )
 
+                # Inject x-user-id header if enabled for this server
+                if server.inject_user_id and self.current_user_id is not None:
+                    headers["x-user-id"] = str(self.current_user_id)
+
                 # Create a session wrapper with URL and headers
                 session = MCPSessionWrapper(server.url, headers, server.name)
                 sessions.append(session)

@@ -39,6 +39,7 @@ class ValidationState(rx.State):
     prompt: str = ""
     required_role: str = ASSISTANT_USER_ROLE.name
     active: bool = False
+    inject_user_id: bool = True
 
     # Authentication type selection
     auth_type: str = AUTH_TYPE_API_KEY
@@ -52,6 +53,11 @@ class ValidationState(rx.State):
     oauth_authorize_url: str = ""
     oauth_token_url: str = ""
     oauth_scopes: str = ""
+
+    @rx.event
+    def set_inject_user_id(self, value: bool) -> None:
+        """Set the inject_user_id flag."""
+        self.inject_user_id = value
 
     # Validation errors
     url_error: str = ""
@@ -89,6 +95,7 @@ class ValidationState(rx.State):
         self.prompt = ""
         self.required_role = ASSISTANT_USER_ROLE.name
         self.auth_type = AUTH_TYPE_API_KEY
+        self.inject_user_id = True
         self.oauth_client_id = ""
         self.oauth_client_secret = ""
         self.oauth_issuer = ""
@@ -104,6 +111,7 @@ class ValidationState(rx.State):
         self.prompt = server.prompt or ""
         self.active = server.active
         self.required_role = server.required_role or ASSISTANT_USER_ROLE.name
+        self.inject_user_id = server.inject_user_id
 
         # Load OAuth configuration
         if server.oauth_client_id:
@@ -569,6 +577,17 @@ def mcp_server_form_fields(server: MCPServer | None = None) -> rx.Component:
         _prompt_field(server),
         mn.divider(label="Berechtigung", my="md"),
         _role_select(),
+        mn.switch(
+            label="User-ID übermitteln",
+            description=(
+                "Sendet die User-ID als Parameter an den MCP-Server, "
+                "um Anfragen einem Benutzer zuzuordnen."
+            ),
+            checked=ValidationState.inject_user_id,
+            on_change=ValidationState.set_inject_user_id,
+            name="inject_user_id",
+            mb="12px",
+        ),
         mn.divider(label="Authentifizierung", my="md"),
         _auth_type_selector(),
         _api_key_auth_fields(server),

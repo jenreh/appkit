@@ -17,6 +17,7 @@ import pytest
 
 from appkit_assistant.backend.processors.claude_responses_processor import (
     ClaudeResponsesProcessor,
+    _append_query_param,
 )
 from appkit_assistant.backend.schemas import (
     AIModel,
@@ -74,6 +75,7 @@ def _make_server(
     headers: str | None = None,
     auth_type: str | None = None,
     prompt: str | None = None,
+    inject_user_id: bool = False,
 ) -> MagicMock:
     server = MagicMock()
     server.name = name
@@ -81,6 +83,7 @@ def _make_server(
     server.headers = headers
     server.auth_type = auth_type
     server.prompt = prompt
+    server.inject_user_id = inject_user_id
     return server
 
 
@@ -401,6 +404,31 @@ class TestContentBlockStop:
 
 
 # ============================================================================
+# _append_query_param
+# ============================================================================
+
+
+class TestAppendQueryParam:
+    def test_no_existing_params(self) -> None:
+        result = _append_query_param("https://mcp.test/sse", "x-user-id", "42")
+        assert result == "https://mcp.test/sse?x-user-id=42"
+
+    def test_existing_params(self) -> None:
+        result = _append_query_param("https://mcp.test/sse?token=abc", "x-user-id", "7")
+        assert "token=abc" in result
+        assert "x-user-id=7" in result
+
+    def test_preserves_fragment(self) -> None:
+        result = _append_query_param("https://mcp.test/sse#frag", "x-user-id", "1")
+        assert "x-user-id=1" in result
+        assert "#frag" in result
+
+    def test_url_encodes_value(self) -> None:
+        result = _append_query_param("https://mcp.test/sse", "x-user-id", "user name")
+        assert "x-user-id=user+name" in result
+
+
+# ============================================================================
 # _parse_mcp_headers
 # ============================================================================
 
@@ -584,6 +612,42 @@ class TestConfigureMcpTools:
         _, configs, _ = await proc._configure_mcp_tools([server], 1)
         assert len(configs) == 1
         assert proc.pending_auth_servers
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_url_param(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = 42
+        server = _make_server(headers="{}", inject_user_id=True)
+        _, configs, _ = await proc._configure_mcp_tools([server], None)
+        assert "x-user-id=42" in configs[0]["url"]
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_appended_to_existing_params(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = 7
+        server = _make_server(
+            url="https://mcp.test/sse?token=abc", headers="{}", inject_user_id=True
+        )
+        _, configs, _ = await proc._configure_mcp_tools([server], None)
+        url = configs[0]["url"]
+        assert "token=abc" in url
+        assert "x-user-id=7" in url
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_skipped_when_disabled(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = 42
+        server = _make_server(headers="{}", inject_user_id=False)
+        _, configs, _ = await proc._configure_mcp_tools([server], None)
+        assert "x-user-id" not in configs[0]["url"]
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_skipped_when_no_user(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = None
+        server = _make_server(headers="{}", inject_user_id=True)
+        _, configs, _ = await proc._configure_mcp_tools([server], None)
+        assert "x-user-id" not in configs[0]["url"]
 
 
 # ============================================================================

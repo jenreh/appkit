@@ -1,7 +1,7 @@
 """Tests for image processor."""
 
 import base64
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -12,14 +12,9 @@ class TestImageProcessor:
     """Test ImageProcessor class."""
 
     @pytest.fixture
-    def mock_generator(self) -> MagicMock:
-        """Create a mock generator."""
-        return MagicMock()
-
-    @pytest.fixture
-    def image_processor(self, mock_generator: MagicMock) -> ImageProcessor:
-        """Create an ImageProcessor instance with mock generator."""
-        return ImageProcessor(mock_generator)
+    def image_processor(self) -> ImageProcessor:
+        """Create an ImageProcessor instance."""
+        return ImageProcessor()
 
     @pytest.mark.asyncio
     async def test_load_image(self, image_processor: ImageProcessor) -> None:
@@ -60,10 +55,9 @@ class TestImageProcessor:
             )
 
             assert len(result) == 1
-            filename, image_bytes, mimetype = result[0]
+            image_bytes, mimetype = result[0]
             assert image_bytes == b"image_data_123"
             assert mimetype == "image/png"
-            assert "image" in filename.lower()
 
     @pytest.mark.asyncio
     async def test_prepare_images_for_editing_multiple_images(
@@ -83,9 +77,9 @@ class TestImageProcessor:
             )
 
             assert len(result) == 3
-            assert result[0][1] == b"image1"
-            assert result[1][1] == b"image2"
-            assert result[2][1] == b"image3"
+            assert result[0][0] == b"image1"
+            assert result[1][0] == b"image2"
+            assert result[2][0] == b"image3"
 
     @pytest.mark.asyncio
     async def test_prepare_images_for_editing_load_error(
@@ -115,7 +109,7 @@ class TestImageProcessor:
                     output_format=output_format,
                 )
 
-                _, _, mimetype = result[0]
+                _, mimetype = result[0]
                 assert mimetype == f"image/{output_format}"
 
     def test_decode_base64_image(self, image_processor: ImageProcessor) -> None:
@@ -133,138 +127,3 @@ class TestImageProcessor:
         """Test error when decoding invalid base64 data."""
         with pytest.raises(ValueError):  # noqa: BLE001
             image_processor.decode_base64_image("not_valid_base64!!!!", 1)
-
-    def test_decode_base64_image_empty_data(
-        self, image_processor: ImageProcessor
-    ) -> None:
-        """Test decoding empty base64 data."""
-        b64_data = base64.b64encode(b"").decode()
-        result = image_processor.decode_base64_image(b64_data, 1)
-
-        assert result == b""
-
-    @pytest.mark.asyncio
-    async def test_save_and_return_images_single_image(
-        self, image_processor: ImageProcessor, mock_generator: MagicMock
-    ) -> None:
-        """Test saving and returning a single image."""
-        mock_img = MagicMock()
-        mock_img.b64_json = base64.b64encode(b"image_data").decode()
-
-        mock_generator.save_image = AsyncMock(
-            return_value="http://localhost:8000/image1.png"
-        )
-
-        result = await image_processor.save_and_return_images(
-            api_images=[mock_img],
-            output_format="png",
-        )
-
-        assert len(result) == 1
-        assert result[0] == "http://localhost:8000/image1.png"
-
-    @pytest.mark.asyncio
-    async def test_save_and_return_images_multiple_images(
-        self, image_processor: ImageProcessor, mock_generator: MagicMock
-    ) -> None:
-        """Test saving and returning multiple images."""
-        mock_img1 = MagicMock()
-        mock_img1.b64_json = base64.b64encode(b"image1_data").decode()
-
-        mock_img2 = MagicMock()
-        mock_img2.b64_json = base64.b64encode(b"image2_data").decode()
-
-        mock_generator.save_image = AsyncMock(
-            side_effect=[
-                "http://localhost:8000/image1.png",
-                "http://localhost:8000/image2.png",
-            ]
-        )
-
-        result = await image_processor.save_and_return_images(
-            api_images=[mock_img1, mock_img2],
-            output_format="jpeg",
-        )
-
-        assert len(result) == 2
-        assert result[0] == "http://localhost:8000/image1.png"
-        assert result[1] == "http://localhost:8000/image2.png"
-
-    @pytest.mark.asyncio
-    async def test_save_and_return_images_skip_empty_b64_json(
-        self, image_processor: ImageProcessor, mock_generator: MagicMock
-    ) -> None:
-        """Test skipping images with no base64 data."""
-        mock_img_valid = MagicMock()
-        mock_img_valid.b64_json = base64.b64encode(b"image_data").decode()
-
-        mock_img_empty = MagicMock()
-        mock_img_empty.b64_json = None
-
-        mock_generator.save_image = AsyncMock(
-            return_value="http://localhost:8000/image1.png"
-        )
-
-        result = await image_processor.save_and_return_images(
-            api_images=[mock_img_empty, mock_img_valid],
-            output_format="png",
-        )
-
-        # Should only return 1 image (the valid one)
-        assert len(result) == 1
-        assert result[0] == "http://localhost:8000/image1.png"
-
-    @pytest.mark.asyncio
-    async def test_save_and_return_images_save_error(
-        self, image_processor: ImageProcessor, mock_generator: MagicMock
-    ) -> None:
-        """Test error when saving image fails."""
-        mock_img = MagicMock()
-        mock_img.b64_json = base64.b64encode(b"image_data").decode()
-
-        mock_generator.save_image = AsyncMock(
-            side_effect=RuntimeError("Storage unavailable")
-        )
-
-        with pytest.raises(RuntimeError):
-            await image_processor.save_and_return_images(
-                api_images=[mock_img],
-                output_format="png",
-            )
-
-    @pytest.mark.asyncio
-    async def test_save_and_return_images_decode_error(
-        self, image_processor: ImageProcessor, mock_generator: MagicMock
-    ) -> None:
-        """Test error when decoding base64 fails."""
-        mock_img = MagicMock()
-        mock_img.b64_json = "invalid_base64_data!!!!"
-
-        with pytest.raises(ValueError):
-            await image_processor.save_and_return_images(
-                api_images=[mock_img],
-                output_format="png",
-            )
-
-    @pytest.mark.asyncio
-    async def test_save_and_return_images_various_formats(
-        self, image_processor: ImageProcessor, mock_generator: MagicMock
-    ) -> None:
-        """Test saving images with different output formats."""
-        for output_format in ["png", "jpeg", "webp"]:
-            mock_img = MagicMock()
-            mock_img.b64_json = base64.b64encode(b"image_data").decode()
-
-            mock_generator.save_image = AsyncMock(
-                return_value=f"http://localhost:8000/image.{output_format}"
-            )
-
-            result = await image_processor.save_and_return_images(
-                api_images=[mock_img],
-                output_format=output_format,
-            )
-
-            assert len(result) == 1
-            # Verify the correct format was passed
-            call_kwargs = mock_generator.save_image.call_args.kwargs
-            assert call_kwargs["output_format"] == output_format

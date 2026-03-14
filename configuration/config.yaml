@@ -9,7 +9,7 @@ reflex:
   single_port: false
 
 app:
-  version: 1.8.3
+  version: 1.8.6
   name: appkit App
   logging: logging.yaml
   environment: development
@@ -72,28 +72,18 @@ app:
 
   mcp_bpmn:
     storage_dir: ./uploaded_files/bpmn
+    storage_mode: database
     default_model: gpt-5.3-codex
     max_file_size_mb: 10
+    cleanup_days_threshold: 60
     diagram_types:
       - process
       - collaboration
       - choreography
 
   mcp_image:
-    backend_server: http://localhost:3030
+    default_model: "nano-banana-2"
     max_file_size_mb: 10
-    max_images_to_keep: 50
-
-    generator: "google" # "azure" | "google"
-
-    azure_api_key: secret:mn-azure-api-key
-    azure_base_url: secret:mn-azure-endpoint
-    azure_prompt_optimizer: "gpt-5-mini"
-    azure_image_model: "FLUX.1-Kontext-pro" # "gpt-image-1.5" | "gpt-image-1-mini"
-
-    google_api_key: secret:mn-google-api-key
-    google_prompt_optimizer: "gemini-3.1-flash-lite-preview"
-    google_image_model: "gemini-3.1-flash-image-preview" # "gemini-3-pro-image-preview"
 
     auth_tokens:
       - id: secret:mn-image-default-auth-token

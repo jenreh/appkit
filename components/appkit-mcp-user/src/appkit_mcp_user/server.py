@@ -6,21 +6,14 @@ Exposes MCP tools:
 
 import json
 import logging
-from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.dependencies import CurrentRequest
+from starlette.requests import Request
 
-from appkit_commons.ai.openai_client_service import (
-    get_openai_client_service,
-)
 from appkit_commons.registry import service_registry
-from appkit_mcp_commons.context import (
-    UserContext,
-    extract_session_id,
-    get_user_context_default,
-)
-from appkit_mcp_commons.exceptions import AuthenticationError
-from appkit_mcp_user.authentication.service import authenticate_user
+from appkit_mcp_commons.context import extract_user_id
+from appkit_mcp_commons.utils import get_openai_client
 from appkit_mcp_user.configuration import McpUserConfig
 from appkit_mcp_user.tools.query_users import query_users_table
 
@@ -44,7 +37,7 @@ def create_user_mcp_server(
     @mcp.tool()
     async def query_users(
         question: str,
-        ctx: Any = None,
+        request: Request = CurrentRequest(),  # noqa: B008
     ) -> str:
         """Query the Appkit users table with a natural language question.
 
@@ -56,13 +49,12 @@ def create_user_mcp_server(
             question: Natural language question about users,
                 e.g. "How many active users are there?" or
                 "Show me users grouped by role".
-            ctx: MCP context (injected by FastMCP).
 
         Returns:
             JSON string with query results.
         """
-        user_ctx = _get_user_context(ctx)
-        openai_client = _get_openai_client()
+        user_id = extract_user_id(request)
+        openai_client = get_openai_client()
         # Ensure config is loaded
         try:
             config = service_registry().get(McpUserConfig)
@@ -73,13 +65,13 @@ def create_user_mcp_server(
 
         logger.info(
             "Tool query_users called by user %d: %.200s",
-            user_ctx.user_id,
+            user_id,
             question,
         )
 
         result = await query_users_table(
             question,
-            user_ctx,
+            user_id,
             openai_client=openai_client,
             model=config.openai_model,
         )
@@ -99,43 +91,3 @@ def create_user_mcp_server(
         )
 
     return mcp
-
-
-def _get_user_context(ctx: Any) -> UserContext:
-    """Extract user context from MCP request context.
-
-    Attempts to authenticate via reflex_session cookie.
-    Falls back to a default unauthenticated context if no
-    session is available.
-
-    Args:
-        ctx: FastMCP context.
-
-    Returns:
-        UserContext for the authenticated user or default.
-    """
-    session_id = extract_session_id(ctx)
-
-    if not session_id:
-        logger.debug("No session cookie, using default user context")
-        return get_user_context_default()
-
-    try:
-        return authenticate_user(session_id)
-    except AuthenticationError as e:
-        logger.warning("Authentication failed: %s", e)
-        return get_user_context_default()
-
-
-def _get_openai_client() -> Any:
-    """Get the OpenAI client from the service registry.
-
-    Returns:
-        AsyncOpenAI client instance or None.
-    """
-    try:
-        service = get_openai_client_service()
-        return service.create_client()
-    except Exception as e:
-        logger.warning("Failed to get OpenAI client: %s", e)
-        return None

@@ -91,7 +91,10 @@ class BpmnStep(_StrictBase):
     label: str = Field(default="", description="Human-readable label.")
     branches: list[BpmnBranch] | None = Field(
         default=None,
-        description="Gateway branches. Must be null for non-gateway steps.",
+        description=(
+            "Outgoing branches. Required for gateways (>=2). "
+            "Optional for tasks/events with multiple outgoing flows."
+        ),
     )
     next: ElementId | None = Field(
         default=None,
@@ -134,6 +137,7 @@ class BpmnProcess(_StrictBase):
 # ---------------------------------------------------------------------------
 class DiagramResult(BaseResult, _StrictBase):
     id: str | None = Field(default=None, description="Unique diagram ID")
+    name: str | None = Field(default=None, description="Diagram display name")
     download_url: str | None = Field(default=None, description="URL for .bpmn download")
     view_url: str | None = Field(default=None, description="URL for HTML viewer")
 
@@ -172,13 +176,14 @@ def _validate_step_shapes(steps: list[BpmnStep], ids: set[str]) -> None:
                     f"Gateway '{step.id}' needs at least "
                     f"{MIN_GATEWAY_BRANCHES} branches."
                 )
-            if step.next is not None:
-                raise ValueError(
-                    f"Gateway '{step.id}' must not set next "
-                    "(flow goes through branches)."
-                )
-        elif step.branches is not None:
-            raise ValueError(f"Non-gateway '{step.id}' must have branches=null.")
+        elif step.branches is not None and len(step.branches) == 0:
+            raise ValueError(f"Step '{step.id}' has empty branches list.")
+
+        if step.branches and step.next is not None:
+            raise ValueError(
+                f"Step '{step.id}' must not set next "
+                "when branches are present (flow goes through branches)."
+            )
 
         if step.type == "endEvent" and step.next is not None:
             raise ValueError(f"endEvent '{step.id}' must not set next.")
@@ -207,7 +212,7 @@ def _build_flow_graph(steps: list[BpmnStep]) -> dict[str, set[str]]:
     """Build the control-flow graph from the flat step list.
 
     Flow rules:
-    1. Gateway → each branch.target
+    1. step.branches set → each branch.target
     2. endEvent → no outgoing flow
     3. step.next is set → flow to next target
     4. Otherwise → flow to steps[idx + 1]
@@ -219,7 +224,7 @@ def _build_flow_graph(steps: list[BpmnStep]) -> dict[str, set[str]]:
         if step.type == "endEvent":
             continue
 
-        if step.type in GATEWAY_TYPES and step.branches:
+        if step.branches:
             for br in step.branches:
                 graph[step.id].add(br.target)
         elif step.next is not None:

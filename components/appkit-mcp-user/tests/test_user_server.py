@@ -4,11 +4,11 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastmcp.client import Client
+from starlette.requests import Request
 
 from appkit_mcp_commons.context import UserContext
 from appkit_mcp_commons.exceptions import AuthenticationError
 from appkit_mcp_user.server import (
-    _get_openai_client,
     _get_user_context,
     create_user_mcp_server,
 )
@@ -18,11 +18,15 @@ async def test_query_users_tool(user_client: Client) -> None:
     """Test query_users tool calls service and returns JSON."""
     with (
         patch(
+            "appkit_mcp_user.server._get_user_context",
+            return_value=UserContext(user_id=1),
+        ),
+        patch(
             "appkit_mcp_user.server.query_users_table",
             new_callable=AsyncMock,
         ) as mock_query,
         patch(
-            "appkit_mcp_user.server._get_openai_client",
+            "appkit_mcp_user.server.get_openai_client",
             return_value=AsyncMock(),
         ),
     ):
@@ -73,24 +77,20 @@ class TestCreateUserMcpServer:
 
 
 class TestGetUserContext:
-    def test_no_context(self) -> None:
-        """None context returns default user context."""
-        result = _get_user_context(None)
-        assert result.user_id == 0
-        assert result.is_admin is False
-
     def test_no_session_cookie(self) -> None:
-        """Context without session cookie returns default."""
+        """Request without session cookie returns default."""
+        req = MagicMock(spec=Request)
         with patch(
             "appkit_mcp_user.server.extract_session_id",
             return_value=None,
         ):
-            result = _get_user_context(MagicMock())
+            result = _get_user_context(req)
         assert result.user_id == 0
 
     def test_successful_auth(self) -> None:
         """Valid session ID returns authenticated context."""
         expected = UserContext(user_id=5, is_admin=True)
+        req = MagicMock(spec=Request)
         with (
             patch(
                 "appkit_mcp_user.server.extract_session_id",
@@ -101,12 +101,13 @@ class TestGetUserContext:
                 return_value=expected,
             ),
         ):
-            result = _get_user_context(MagicMock())
+            result = _get_user_context(req)
         assert result.user_id == 5
         assert result.is_admin is True
 
     def test_auth_failure(self) -> None:
         """Authentication failure falls back to default context."""
+        req = MagicMock(spec=Request)
         with (
             patch(
                 "appkit_mcp_user.server.extract_session_id",
@@ -117,35 +118,6 @@ class TestGetUserContext:
                 side_effect=AuthenticationError("expired"),
             ),
         ):
-            result = _get_user_context(MagicMock())
+            result = _get_user_context(req)
         assert result.user_id == 0
         assert result.is_admin is False
-
-
-# ---------------------------------------------------------------------------
-# _get_openai_client tests
-# ---------------------------------------------------------------------------
-
-
-class TestGetOpenaiClient:
-    def test_success(self) -> None:
-        """Returns client when service is available."""
-        mock_client = MagicMock()
-        mock_service = MagicMock()
-        mock_service.create_client.return_value = mock_client
-
-        with patch(
-            "appkit_mcp_user.server.get_openai_client_service",
-            return_value=mock_service,
-        ):
-            result = _get_openai_client()
-        assert result is mock_client
-
-    def test_failure(self) -> None:
-        """Returns None when service is unavailable."""
-        with patch(
-            "appkit_mcp_user.server.get_openai_client_service",
-            side_effect=RuntimeError("not registered"),
-        ):
-            result = _get_openai_client()
-        assert result is None

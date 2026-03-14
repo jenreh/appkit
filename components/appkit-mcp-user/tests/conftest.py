@@ -1,7 +1,7 @@
 """Pytest fixtures for appkit-mcp-user tests."""
 
 from collections.abc import AsyncIterator
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from fastmcp.client import Client
@@ -17,7 +17,20 @@ def mock_request() -> Request:
     """Mock Starlette request."""
     req = Mock(spec=Request)
     req.cookies = {}
+    req.headers = {}
+    req.query_params = {}
     return req
+
+
+@pytest.fixture(autouse=True)
+def mock_http_request() -> MagicMock:
+    """Provide a mock Starlette request so ``CurrentRequest()`` resolves."""
+    req = MagicMock()
+    req.headers = {}
+    req.query_params = {}
+    req.cookies = {}
+    with patch("fastmcp.server.dependencies.get_http_request", return_value=req):
+        yield req
 
 
 @pytest.fixture

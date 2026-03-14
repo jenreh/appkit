@@ -63,6 +63,7 @@ def _make_server(
     headers: str | None = None,
     auth_type: str | None = None,
     prompt: str | None = None,
+    inject_user_id: bool = False,
 ) -> MagicMock:
     server = MagicMock()
     server.name = name
@@ -70,6 +71,7 @@ def _make_server(
     server.headers = headers
     server.auth_type = auth_type
     server.prompt = prompt
+    server.inject_user_id = inject_user_id
     return server
 
 
@@ -426,6 +428,30 @@ class TestCreateMcpSessions:
         assert len(sessions) == 1
         assert auth == []
         assert sessions[0].headers["Authorization"] == "Bearer ok"
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_header(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = 42
+        server = _make_server(headers="{}", inject_user_id=True)
+        sessions, _ = await proc._create_mcp_sessions([server], None)
+        assert sessions[0].headers["x-user-id"] == "42"
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_skipped_when_disabled(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = 42
+        server = _make_server(headers="{}", inject_user_id=False)
+        sessions, _ = await proc._create_mcp_sessions([server], None)
+        assert "x-user-id" not in sessions[0].headers
+
+    @pytest.mark.asyncio
+    async def test_inject_user_id_skipped_when_no_user(self) -> None:
+        proc = _make_processor()
+        proc.current_user_id = None
+        server = _make_server(headers="{}", inject_user_id=True)
+        sessions, _ = await proc._create_mcp_sessions([server], None)
+        assert "x-user-id" not in sessions[0].headers
 
 
 # ============================================================================

@@ -32,11 +32,11 @@ def get_image_api_base_url() -> str:
         reflex_config = service_registry().get(ReflexConfig)
         if reflex_config.single_port:
             return reflex_config.deploy_url
-        return f"{reflex_config.deploy_url}:{reflex_config.backend_port}"
+        return f"{reflex_config.api_url}"
     except KeyError:
         # Fallback for testing or unconfigured environments
         logger.error("ReflexConfig not found in registry, using default localhost")
-        return "http://localhost:3031"
+        return "http://localhost:3000"
 
 
 class ImageModel(BaseModel):

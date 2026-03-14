@@ -12,6 +12,7 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_assistant.backend.schemas import McpAppViewData
 from appkit_assistant.components.mcp_app_bridge import mcp_app_bridge
+from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ def mcp_app_view(view_data: McpAppViewData) -> rx.Component:
                     server_id=view_data.server_id,
                     server_name=view_data.server_name,
                     tool_name=view_data.tool_name,
+                    user_id=UserSession.user_id,
                     theme=rx.color_mode_cond(light="light", dark="dark"),
                     prefers_border=True,
                     backend_url=rx.config.get_config().api_url,
