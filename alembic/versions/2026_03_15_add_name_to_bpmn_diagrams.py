@@ -39,8 +39,8 @@ def upgrade() -> None:
             UPDATE mcp_bpmn_diagrams
             SET name = CASE
                 WHEN prompt IS NOT NULL AND TRIM(prompt) != ''
-                    THEN LEFT(TRIM(prompt), 128)
-                ELSE 'Diagram ' || LEFT(diagram_id, 8)
+                    THEN SUBSTR(TRIM(prompt), 1, 128)
+                ELSE 'Diagram ' || SUBSTR(diagram_id, 1, 8)
             END
             WHERE name IS NULL
             """
