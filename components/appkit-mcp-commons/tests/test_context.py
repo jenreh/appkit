@@ -12,7 +12,7 @@ from appkit_mcp_commons.context import (
 def test_user_context_default() -> None:
     """Test default user context factory."""
     ctx = get_user_context_default()
-    assert ctx.user_id == 0
+    assert ctx.user_id == -1
     assert not ctx.is_admin
     assert ctx.roles == []
 

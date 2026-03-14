@@ -72,13 +72,13 @@ class TestToolCallRequest:
 
 class TestExtractUserId:
     def test_no_session_returns_default(self) -> None:
-        assert _extract_user_id(None) == 0
+        assert _extract_user_id(None, None) == 0
 
     def test_empty_session_returns_default(self) -> None:
-        assert _extract_user_id("") == 0
+        assert _extract_user_id(None, "") == 0
 
     def test_with_session_returns_default(self) -> None:
-        assert _extract_user_id("some-session-token") == 0
+        assert _extract_user_id(None, "some-session-token") == 0
 
 
 # ============================================================================

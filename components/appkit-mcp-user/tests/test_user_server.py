@@ -1,15 +1,11 @@
 """Tests for MCP User server tools."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from fastmcp.client import Client
-from starlette.requests import Request
 
-from appkit_mcp_commons.context import UserContext
-from appkit_mcp_commons.exceptions import AuthenticationError
 from appkit_mcp_user.server import (
-    _get_user_context,
     create_user_mcp_server,
 )
 
@@ -18,8 +14,8 @@ async def test_query_users_tool(user_client: Client) -> None:
     """Test query_users tool calls service and returns JSON."""
     with (
         patch(
-            "appkit_mcp_user.server._get_user_context",
-            return_value=UserContext(user_id=1),
+            "appkit_mcp_user.server.extract_user_id",
+            return_value=1,
         ),
         patch(
             "appkit_mcp_user.server.query_users_table",
@@ -72,52 +68,3 @@ class TestCreateUserMcpServer:
 
 
 # ---------------------------------------------------------------------------
-# _get_user_context tests
-# ---------------------------------------------------------------------------
-
-
-class TestGetUserContext:
-    def test_no_session_cookie(self) -> None:
-        """Request without session cookie returns default."""
-        req = MagicMock(spec=Request)
-        with patch(
-            "appkit_mcp_user.server.extract_session_id",
-            return_value=None,
-        ):
-            result = _get_user_context(req)
-        assert result.user_id == 0
-
-    def test_successful_auth(self) -> None:
-        """Valid session ID returns authenticated context."""
-        expected = UserContext(user_id=5, is_admin=True)
-        req = MagicMock(spec=Request)
-        with (
-            patch(
-                "appkit_mcp_user.server.extract_session_id",
-                return_value="valid-session",
-            ),
-            patch(
-                "appkit_mcp_user.server.authenticate_user",
-                return_value=expected,
-            ),
-        ):
-            result = _get_user_context(req)
-        assert result.user_id == 5
-        assert result.is_admin is True
-
-    def test_auth_failure(self) -> None:
-        """Authentication failure falls back to default context."""
-        req = MagicMock(spec=Request)
-        with (
-            patch(
-                "appkit_mcp_user.server.extract_session_id",
-                return_value="bad-session",
-            ),
-            patch(
-                "appkit_mcp_user.server.authenticate_user",
-                side_effect=AuthenticationError("expired"),
-            ),
-        ):
-            result = _get_user_context(req)
-        assert result.user_id == 0
-        assert result.is_admin is False

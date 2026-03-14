@@ -1,7 +1,6 @@
 """Tests for BPMN MCP server tools."""
 
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,7 +10,6 @@ from fastmcp.exceptions import ToolError
 from appkit_mcp_bpmn.models import BpmnProcess, BpmnStep
 from appkit_mcp_bpmn.server import (
     _error_result,
-    _validate_and_save,
     create_bpmn_mcp_server,
 )
 
@@ -42,24 +40,6 @@ def test_create_server_custom_name() -> None:
     """Factory function accepts a custom name."""
     mcp = create_bpmn_mcp_server(name="my-bpmn")
     assert mcp.name == "my-bpmn"
-
-
-def test_validate_and_save_valid(tmp_path: Path) -> None:
-    """_validate_and_save succeeds with valid BPMN XML."""
-    storage = str(tmp_path / "bpmn")
-    result_json = _validate_and_save(VALID_BPMN, storage)
-    result = json.loads(result_json)
-
-    assert result["success"] is True
-    assert result["id"] is not None
-    assert result["download_url"] is not None
-    assert result["view_url"] is not None
-
-
-def test_validate_and_save_invalid_xml(tmp_path: Path) -> None:
-    """_validate_and_save raises ValueError for invalid XML."""
-    with pytest.raises(ValueError, match="Validation failed"):
-        _validate_and_save("<invalid>", str(tmp_path))
 
 
 def test_error_result_format() -> None:

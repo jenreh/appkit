@@ -849,7 +849,7 @@ class TestGetAuthHeaders:
         server = _make_server(auth_type=MCPAuthType.NONE)
 
         headers = await service._get_auth_headers(server, user_id=1)
-        assert headers == {}
+        assert headers == {"x-user-id": "1"}
 
     @pytest.mark.asyncio
     async def test_api_key_headers_from_json(self) -> None:
@@ -871,7 +871,7 @@ class TestGetAuthHeaders:
         )
 
         headers = await service._get_auth_headers(server, user_id=1)
-        assert headers == {}
+        assert headers == {"x-user-id": "1"}
 
     @pytest.mark.asyncio
     async def test_api_key_empty_json(self) -> None:
@@ -882,7 +882,7 @@ class TestGetAuthHeaders:
         )
 
         headers = await service._get_auth_headers(server, user_id=1)
-        assert headers == {}
+        assert headers == {"x-user-id": "1"}
 
     @pytest.mark.asyncio
     async def test_oauth_with_token(self) -> None:
@@ -906,7 +906,7 @@ class TestGetAuthHeaders:
         server = _make_server(auth_type=MCPAuthType.OAUTH_DISCOVERY)
 
         headers = await service._get_auth_headers(server, user_id=1)
-        assert headers == {}
+        assert headers == {"x-user-id": "1"}
 
     @pytest.mark.asyncio
     async def test_oauth_without_token_service(self) -> None:
@@ -914,7 +914,7 @@ class TestGetAuthHeaders:
         server = _make_server(auth_type=MCPAuthType.OAUTH_DISCOVERY)
 
         headers = await service._get_auth_headers(server, user_id=1)
-        assert headers == {}
+        assert headers == {"x-user-id": "1"}
 
     @pytest.mark.asyncio
     async def test_none_headers_field(self) -> None:
@@ -922,7 +922,7 @@ class TestGetAuthHeaders:
         server = _make_server(headers=None)
 
         headers = await service._get_auth_headers(server, user_id=1)
-        assert headers == {}
+        assert headers == {"x-user-id": "1"}
 
 
 # ============================================================================

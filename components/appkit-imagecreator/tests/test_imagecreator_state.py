@@ -569,9 +569,17 @@ class TestImageActions:
     def test_toggle_history(self) -> None:
         s = _StubImageGallery()
         fn = _unwrap("toggle_history")
-        fn(s)
+
+        # Generator is returned when drawer is opened (True)
+        res1 = fn(s)
+        if hasattr(res1, "__iter__"):
+            list(res1)
         assert s.history_drawer_open is True
-        fn(s)
+
+        # When closing, it may or may not return a generator
+        res2 = fn(s)
+        if hasattr(res2, "__iter__"):
+            list(res2)
         assert s.history_drawer_open is False
 
     def test_close_history_drawer(self) -> None:
