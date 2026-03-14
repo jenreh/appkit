@@ -1,14 +1,17 @@
 import json
 import logging
 from typing import Annotated, Any, Literal
+from urllib.parse import urlparse
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import CurrentRequest
-from fastmcp.server.apps import AppConfig
+from fastmcp.server.apps import AppConfig, ResourceCSP
 from fastmcp.server.auth.auth import AuthProvider
-from pydantic import Field
+from pydantic import AnyHttpUrl, Field
 from starlette.requests import Request
 
+from appkit_commons.configuration.configuration import ReflexConfig
+from appkit_commons.registry import service_registry
 from appkit_mcp_commons.context import extract_user_id
 from appkit_mcp_image.backend.image_service import edit_image_impl, generate_image_impl
 from appkit_mcp_image.backend.models import (
@@ -19,6 +22,25 @@ from appkit_mcp_image.backend.models import (
 from appkit_mcp_image.resources.image_viewer import IMAGE_VIEWER_HTML, VIEW_URI
 
 logger = logging.getLogger(__name__)
+
+
+def _get_image_api_origin() -> str:
+    """Return the origin used for generated image URLs."""
+    try:
+        reflex_config = service_registry().get(ReflexConfig)
+        base_url: str | AnyHttpUrl
+        if reflex_config.single_port:
+            base_url = reflex_config.deploy_url
+        else:
+            base_url = reflex_config.api_url
+    except KeyError:
+        logger.error("ReflexConfig not found in registry, using default localhost")
+        base_url = "http://localhost:3000"
+
+    parsed = urlparse(str(base_url))
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError("Invalid image API base URL")
+    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 def _success_result(
@@ -60,7 +82,15 @@ def create_image_mcp_server(
 
     @mcp.resource(
         VIEW_URI,
-        app=AppConfig(prefers_border=False),
+        name="image_viewer",
+        description="Interactive image viewer for MCP Apps.",
+        mime_type="text/html;profile=mcp-app",
+        app=AppConfig(
+            csp=ResourceCSP(
+                resource_domains=["https://unpkg.com", _get_image_api_origin()],
+            ),
+            prefers_border=False,
+        ),
     )
     def image_view() -> str:
         """Image viewer that displays generated images with prompt info."""
