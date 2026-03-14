@@ -22,6 +22,7 @@ class BpmnDiagram(Base, Entity):
         String(36), nullable=False, unique=True, index=True
     )
     user_id: Mapped[int] = mapped_column(nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
     xml_content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     prompt: Mapped[str | None] = mapped_column(String(8000), nullable=True)
     diagram_type: Mapped[str] = mapped_column(

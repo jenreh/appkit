@@ -8,6 +8,7 @@ This module contains ImageGalleryState which manages:
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import io
 import locale
@@ -141,6 +142,9 @@ class ImageGalleryState(rx.State):
     history_drawer_open: bool = False
     deleting_image_id: int
 
+    # Fade-out animation tracking
+    fading_image_ids: list[int] = []
+
     # Initialization
     _initialized: bool = False
     _current_user_id: int = 0
@@ -248,11 +252,15 @@ class ImageGalleryState(rx.State):
 
     @rx.event(background=True)
     async def initialize(self) -> AsyncGenerator[Any, Any]:
-        """Load images from database (background)."""
+        """Load or incrementally update images from database (background)."""
         async with self:
-            self._initialized = False
-        async for _ in self._load_images():
-            yield
+            already_loaded = self._initialized
+        if already_loaded:
+            async for _ in self._merge_new_images():
+                yield
+        else:
+            async for _ in self._load_images():
+                yield
 
     def _refresh_generators(self, user_roles: list[str]) -> None:
         """Refresh generator list from registry and validate selection."""
@@ -367,6 +375,68 @@ class ImageGalleryState(rx.State):
         finally:
             async with self:
                 self.loading_images = False
+            yield
+
+    async def _merge_new_images(self) -> AsyncGenerator[Any, Any]:
+        """Incrementally add only new images from the DB that are not yet in state."""
+        async with self:
+            user_session: UserSession = await self.get_state(UserSession)
+            is_authenticated = await user_session.is_authenticated
+            current_user_id = user_session.user.user_id if user_session.user else 0
+
+            if not is_authenticated or not current_user_id:
+                yield
+                return
+
+            if self._current_user_id != current_user_id:
+                self._initialized = False
+                yield
+
+            if self._current_user_id != current_user_id:
+                async for _ in self._load_images():
+                    yield
+                return
+
+            user_id = current_user_id
+
+        try:
+            async with get_asyncdb_session() as session:
+                today_entities = await image_repo.find_today_by_user(session, user_id)
+                today_images = [
+                    GeneratedImageModel.model_validate(img) for img in today_entities
+                ]
+                all_entities = await image_repo.find_by_user(session, user_id)
+                all_images = [
+                    GeneratedImageModel.model_validate(img) for img in all_entities
+                ]
+
+            async with self:
+                # Re-check existing IDs under lock to avoid race with
+                # generate_images which may have prepended the same images
+                # between the initial snapshot and this merge.
+                current_today_ids = {img.id for img in self.images}
+                current_all_ids = {img.id for img in self.history_images}
+
+                new_today = [
+                    img for img in today_images if img.id not in current_today_ids
+                ]
+                new_all = [img for img in all_images if img.id not in current_all_ids]
+
+                if new_today:
+                    self.images = [*new_today, *self.images]
+                if new_all:
+                    self.history_images = [*new_all, *self.history_images]
+
+                if new_today or new_all:
+                    logger.debug(
+                        "Merged %d new today images, %d new history images for user %s",
+                        len(new_today),
+                        len(new_all),
+                        user_id,
+                    )
+            yield
+        except Exception as e:
+            logger.error("Error merging new images: %s", e)
             yield
 
     # -------------------------------------------------------------------------
@@ -976,6 +1046,24 @@ class ImageGalleryState(rx.State):
         if img.config:
             self.selected_count = img.config.get("count", self.selected_count)
             self.enhance_prompt = img.config.get("enhance_prompt", self.enhance_prompt)
+
+    @rx.event(background=True)
+    async def fade_out_and_remove_image(
+        self, image_id: int
+    ) -> AsyncGenerator[Any, Any]:
+        """Fade out an image card, then remove it from the view."""
+        async with self:
+            self.fading_image_ids = [*self.fading_image_ids, image_id]
+
+        await asyncio.sleep(0.35)
+
+        async with self:
+            self.fading_image_ids = [
+                fid for fid in self.fading_image_ids if fid != image_id
+            ]
+            self.images = [img for img in self.images if img.id != image_id]
+            self.selected_images = [s for s in self.selected_images if s.id != image_id]
+        yield  # noqa: RUF058
 
     @rx.event
     def remove_image_from_view(self, image_id: int) -> None:

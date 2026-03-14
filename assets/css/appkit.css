@@ -63,6 +63,36 @@
         margin-bottom: 12px !important;
     }
 
+    /* Allow recharts tooltips to overflow their container */
+    .recharts-wrapper,
+    .recharts-surface {
+        overflow: visible !important;
+    }
+
+    /* Allow Mantine cards containing charts to show tooltips outside their bounds */
+    .mantine-Card-root:has(.recharts-wrapper) {
+        overflow: visible !important;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Elevate the active chart card above its siblings while hovering */
+    .mantine-Card-root:has(.recharts-wrapper):hover {
+        z-index: 10;
+    }
+
+    /* Ensure the tooltip itself always paints on top */
+    .recharts-tooltip-wrapper {
+        z-index: 1000 !important;
+    }
+
+    /* Form label styles */
+    .label {
+        text-align: center;
+        gap: 1em;
+        margin-bottom: 3px;
+    }
+
     /* Rainbow gradient bar styles */
 
     .rainbow-gradient-bar {

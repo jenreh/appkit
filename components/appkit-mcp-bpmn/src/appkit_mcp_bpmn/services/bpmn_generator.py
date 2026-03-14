@@ -191,6 +191,7 @@ class BPMNGenerator:
         *,
         client: AsyncOpenAI | None = None,
         max_retries: int = 5,
+        raw_prompt: bool = False,
     ) -> BpmnProcess:
         """Generate a BPMN process JSON from a description.
 
@@ -208,6 +209,10 @@ class BPMNGenerator:
             client: Pre-configured ``AsyncOpenAI`` client.
             max_retries: Maximum number of retry attempts after the
                 initial structured parse fails (default: 5).
+            raw_prompt: If True, use *description* as-is without
+                wrapping it in a "Generate a BPMN..." prefix.
+                Useful for modification prompts that already
+                contain full instructions.
 
         Returns:
             Parsed ``BpmnProcess`` model instance.
@@ -222,12 +227,15 @@ class BPMNGenerator:
                 "Ensure the OpenAIClientService is registered."
             )
 
-        user_prompt = (
-            f"Generate a BPMN {diagram_type} as flat JSON "
-            "for the following workflow. Return only "
-            "the JSON object.\n\n"
-            f"{description}"
-        )
+        if raw_prompt:
+            user_prompt = description
+        else:
+            user_prompt = (
+                f"Generate a BPMN {diagram_type} as flat JSON "
+                "for the following workflow. Return only "
+                "the JSON object.\n\n"
+                f"{description}"
+            )
 
         thread = _build_initial_thread(user_prompt)
         errors: list[str] = []
