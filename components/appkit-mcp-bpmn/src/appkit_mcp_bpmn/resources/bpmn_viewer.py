@@ -492,6 +492,7 @@ body.maximized #canvas {{
   let currentDiagramName = null;
   let diagramRendered = false;
   let fetchStarted = false;
+  let hostTheme = null;
 
   const viewer = new BpmnJS({{
     container: CANVAS,
@@ -500,16 +501,18 @@ body.maximized #canvas {{
   let rpcId = 10;
   const pendingCalls = {{}};
 
-  // Send ui/initialize handshake to host
+  // Send ui/initialize handshake to host (MCP Apps spec 2026-01-26)
   window.parent.postMessage(
     {{
       jsonrpc: "2.0",
       method: "ui/initialize",
       id: 1,
       params: {{
-        protocolVersion: "2025-01-26",
-        clientInfo: {{ name: "bpmn-viewer", version: "1.0.0" }},
-        capabilities: {{}},
+        protocolVersion: "2026-01-26",
+        appInfo: {{ name: "bpmn-viewer", version: "1.0.0" }},
+        appCapabilities: {{
+          availableDisplayModes: ["inline", "fullscreen"],
+        }},
       }},
     }},
     "*"
@@ -521,6 +524,31 @@ body.maximized #canvas {{
 
     if (msg.method === "ui/notifications/tool-result") {{
       handleToolResult(msg.params);
+    }} else if (msg.method === "ui/notifications/tool-input") {{
+      /* Tool arguments delivered before result; available in msg.params.arguments */
+    }} else if (msg.method === "ui/notifications/host-context-changed") {{
+      const p = msg.params || {{}};
+      if (p.theme) {{
+        hostTheme = p.theme;
+        if (diagramRendered) applyDarkModeToSvg();
+      }}
+      if (p.displayMode) {{
+        const wantFullscreen = p.displayMode === "fullscreen";
+        if (wantFullscreen !== maximized) applyMaximizedState(wantFullscreen);
+      }}
+    }} else if (msg.method === "ui/resource-teardown" && msg.id != null) {{
+      window.parent.postMessage(
+        {{ jsonrpc: "2.0", id: msg.id, result: {{}} }},
+        "*"
+      );
+    }} else if (msg.id === 1 && !msg.method) {{
+      // ui/initialize response — apply host context, then send initialized
+      const hc = (msg.result && msg.result.hostContext) || {{}};
+      if (hc.theme) hostTheme = hc.theme;
+      window.parent.postMessage(
+        {{ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {{}} }},
+        "*"
+      );
     }} else if (msg.id != null && !msg.method && pendingCalls[msg.id]) {{
       // JSON-RPC response for a tools/call we sent
       const cb = pendingCalls[msg.id];
@@ -552,6 +580,28 @@ body.maximized #canvas {{
         "*"
       );
     }});
+  }}
+
+  function downloadFile(filename, content, mimeType) {{
+    const id = ++rpcId;
+    window.parent.postMessage(
+      {{
+        jsonrpc: "2.0",
+        method: "ui/download-file",
+        id: id,
+        params: {{
+          contents: [{{
+            type: "resource",
+            resource: {{
+              uri: "file:///" + filename,
+              mimeType: mimeType,
+              text: content,
+            }},
+          }}],
+        }},
+      }},
+      "*"
+    );
   }}
 
   function handleToolResult(result) {{
@@ -753,9 +803,14 @@ body.maximized #canvas {{
     }});
   }}
 
+  function isDarkMode() {{
+    if (hostTheme) return hostTheme === "dark";
+    return window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }}
+
   function applyDarkModeToSvg() {{
-    if (!window.matchMedia ||
-        !window.matchMedia("(prefers-color-scheme: dark)").matches) {{
+    if (!isDarkMode()) {{
       return;
     }}
     var strokeColor = "#ccc";
@@ -868,18 +923,7 @@ body.maximized #canvas {{
       viewer.saveXML({{ format: true }})
         .then(function (result) {{
           if (result.xml) {{
-            window.parent.postMessage(
-              {{
-                jsonrpc: "2.0",
-                method: "ui/notifications/download",
-                params: {{
-                  filename: "diagram.bpmn",
-                  content: result.xml,
-                  mimeType: "application/xml",
-                }},
-              }},
-              "*"
-            );
+            downloadFile("diagram.bpmn", result.xml, "application/xml");
           }}
         }})
         .catch(function (err) {{
@@ -889,7 +933,7 @@ body.maximized #canvas {{
 
   let maximized = false;
 
-  function setMaximized(val) {{
+  function applyMaximizedState(val) {{
     maximized = val;
     if (maximized) {{
       document.body.classList.add("maximized");
@@ -903,16 +947,6 @@ body.maximized #canvas {{
         window.lucide.createIcons();
       }}
     }}
-    // Tell the parent to maximize/restore the iframe
-    window.parent.postMessage(
-      {{
-        jsonrpc: "2.0",
-        method: "ui/notifications/maximize",
-        params: {{ maximized: maximized }},
-      }},
-      "*"
-    );
-    // Re-fit viewport after layout change.
     if (maximized) {{
       // Maximizing: overlay appears quickly, short delay is fine.
       setTimeout(function () {{
@@ -932,42 +966,20 @@ body.maximized #canvas {{
     }}
   }}
 
-  // Listen for parent telling us maximize state changed (e.g. ESC pressed)
-  window.addEventListener("message", function (event) {{
-    const msg = event.data;
-    if (!msg || msg.jsonrpc !== "2.0") return;
-    if (msg.method === "ui/notifications/maximize-changed") {{
-      const val = msg.params && msg.params.maximized;
-      if (typeof val === "boolean" && val !== maximized) {{
-        maximized = val;
-        if (maximized) {{
-          document.body.classList.add("maximized");
-        }} else {{
-          document.body.classList.remove("maximized");
-        }}
-        const icon = document.querySelector("#btn-fullscreen i");
-        if (icon) {{
-          icon.setAttribute("data-lucide", maximized ? "minimize" : "maximize");
-          if (window.lucide && window.lucide.createIcons) {{
-            window.lucide.createIcons();
-          }}
-        }}
-        if (maximized) {{
-          setTimeout(function () {{
-            try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
-          }}, 150);
-        }} else {{
-          pendingFitAfterResize = true;
-          setTimeout(function () {{
-            if (pendingFitAfterResize) {{
-              pendingFitAfterResize = false;
-              try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
-            }}
-          }}, 600);
-        }}
-      }}
-    }}
-  }});
+  function setMaximized(val) {{
+    applyMaximizedState(val);
+    // Request display mode change from host (ui/request-display-mode)
+    const id = ++rpcId;
+    window.parent.postMessage(
+      {{
+        jsonrpc: "2.0",
+        method: "ui/request-display-mode",
+        id: id,
+        params: {{ mode: maximized ? "fullscreen" : "inline" }},
+      }},
+      "*"
+    );
+  }}
 
   document
     .getElementById("btn-fullscreen")
@@ -1113,18 +1125,7 @@ body.maximized #canvas {{
       viewer.saveSVG()
         .then(function (result) {{
           const svg = typeof result === "string" ? result : result.svg;
-          window.parent.postMessage(
-            {{
-              jsonrpc: "2.0",
-              method: "ui/notifications/download",
-              params: {{
-                filename: "diagram.svg",
-                content: svg,
-                mimeType: "image/svg+xml",
-              }},
-            }},
-            "*"
-          );
+          downloadFile("diagram.svg", svg, "image/svg+xml");
         }})
         .catch(function (err) {{
           console.error("[bpmn-viewer] SVG export failed:", err);
