@@ -78,6 +78,55 @@ function buildCspMetaTag(csp) {
   return `<meta http-equiv="Content-Security-Policy" content="${directives}">`;
 }
 
+/**
+ * Normalize fetched HTML before injecting it into srcdoc.
+ *
+ * This defensively removes accidental nullish prefixes that break document
+ * parsing by forcing head metadata into the body as visible text.
+ */
+function normalizeSrcDocHtml(html) {
+  if (typeof html !== "string") return "";
+
+  let normalized = html.replace(/^\uFEFF/, "");
+
+  normalized = normalized.replace(
+    /^\s*(?:null|undefined)\s*(?=(<!DOCTYPE|<html|<head|<meta|<title|<link|<script|<style))/i,
+    ""
+  );
+
+  normalized = normalized.replace(
+    /(<head\b[^>]*>)\s*(?:null|undefined)\s*/i,
+    "$1"
+  );
+
+  return normalized;
+}
+
+/**
+ * Inject markup as the first child of <head> when possible.
+ */
+function injectIntoHead(html, fragment) {
+  if (typeof html !== "string" || html === "") return html;
+  if (typeof fragment !== "string" || fragment.trim() === "") return html;
+
+  const headMatch = html.match(/<head\b[^>]*>/i);
+  if (headMatch) {
+    return html.replace(headMatch[0], `${headMatch[0]}\n${fragment}`);
+  }
+
+  const htmlMatch = html.match(/<html\b[^>]*>/i);
+  if (htmlMatch) {
+    return html.replace(htmlMatch[0], `${htmlMatch[0]}\n<head>\n${fragment}\n</head>`);
+  }
+
+  const doctypeMatch = html.match(/<!DOCTYPE html>/i);
+  if (doctypeMatch) {
+    return html.replace(doctypeMatch[0], `${doctypeMatch[0]}\n<head>\n${fragment}\n</head>`);
+  }
+
+  return `${fragment}\n${html}`;
+}
+
 export function McpAppBridge({
   // Reflex may pass props as camelCase or snake_case depending on version.
   // Accept both naming conventions with fallback.
@@ -249,16 +298,11 @@ export function McpAppBridge({
         return r.text().then((html) => ({ html, parsedCsp }));
       })
       .then(({ html, parsedCsp }) => {
+        html = normalizeSrcDocHtml(html);
         // Inject CSP as FIRST element in <head> only when server provided metadata (spec §4).
         // When parsedCsp is null we skip injection and rely on the iframe sandbox attribute.
         const cspMeta = buildCspMetaTag(parsedCsp);
-        if (cspMeta) {
-          if (html.includes("<head>")) {
-            html = html.replace("<head>", "<head>\n" + cspMeta);
-          } else {
-            html = cspMeta + "\n" + html;
-          }
-        }
+        html = injectIntoHead(html, cspMeta);
         // Inject auto-size reporter before </body>, </html>, or at the end
         if (html.includes("</body>")) {
           html = html.replace("</body>", AUTO_SIZE_SCRIPT + "</body>");
