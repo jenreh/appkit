@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import CurrentRequest
@@ -18,7 +18,23 @@ from appkit_mcp_image.backend.models import (
 )
 from appkit_mcp_image.resources.image_viewer import IMAGE_VIEWER_HTML, VIEW_URI
 
+if TYPE_CHECKING:
+    from appkit_imagecreator.backend.generator_registry import ImageGenerator
+
 logger = logging.getLogger(__name__)
+
+
+def _resolve_generator_context(
+    request: Request, model_id: str
+) -> tuple[int, "ImageGenerator"]:
+    """Resolve user ID and generator instance."""
+    from appkit_imagecreator.backend.generator_registry import (  # noqa: PLC0415
+        generator_registry,
+    )
+
+    user_id = extract_user_id(request)
+    generator = generator_registry.get(model_id)
+    return user_id, generator
 
 
 def _success_result(
@@ -113,13 +129,7 @@ def create_image_mcp_server(
 
         Returns a JSON result rendered by the image viewer app.
         """
-        from appkit_imagecreator.backend.generator_registry import (  # noqa: PLC0415
-            generator_registry,
-        )
-
-        user_id = extract_user_id(request)
-
-        generator = generator_registry.get(default_model_id)
+        user_id, generator = _resolve_generator_context(request, default_model_id)
 
         input_data = GenerationInput(
             prompt=prompt,
@@ -194,13 +204,7 @@ def create_image_mcp_server(
 
         Returns a JSON result rendered by the image viewer app.
         """
-        from appkit_imagecreator.backend.generator_registry import (  # noqa: PLC0415
-            generator_registry,
-        )
-
-        user_id = extract_user_id(request)
-
-        generator = generator_registry.get(default_model_id)
+        user_id, generator = _resolve_generator_context(request, default_model_id)
 
         input_data = EditImageInput(
             prompt=prompt,
