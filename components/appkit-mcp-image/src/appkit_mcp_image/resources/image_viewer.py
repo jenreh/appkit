@@ -264,6 +264,8 @@ body.maximized #prompt-text {{
   var imageRendered = false;
   var maximized = false;
   var hostTheme = null;
+  var rpcId = 10;
+  var pendingCalls = {{}};
   var systemThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
   var resizeObserver = null;
 
@@ -343,6 +345,14 @@ body.maximized #prompt-text {{
         }},
         "*"
       );
+    }} else if (msg.id != null && !msg.method && pendingCalls[msg.id]) {{
+      var callback = pendingCalls[msg.id];
+      delete pendingCalls[msg.id];
+      if (msg.error) {{
+        callback.reject(new Error(msg.error.message || "RPC error"));
+      }} else {{
+        callback.resolve(msg.result);
+      }}
     }} else if (msg.method === "ping" && msg.id != null) {{
       window.parent.postMessage(
         {{ jsonrpc: "2.0", id: msg.id, result: {{}} }},
@@ -463,6 +473,36 @@ body.maximized #prompt-text {{
     }}
   }}
 
+  function openLink(url) {{
+    return new Promise(function (resolve, reject) {{
+      var id = ++rpcId;
+      pendingCalls[id] = {{ resolve: resolve, reject: reject }};
+      window.parent.postMessage(
+        {{
+          jsonrpc: "2.0",
+          method: "ui/open-link",
+          id: id,
+          params: {{ url: url }},
+        }},
+        "*"
+      );
+    }});
+  }}
+
+  function buildImageDownloadUrl(url) {{
+    try {{
+      var parsed = new URL(url, window.location.origin);
+      parsed.searchParams.set(
+        "content_disposition",
+        "attachment"
+      );
+      return parsed.toString();
+    }} catch (e) {{
+      var separator = url.indexOf("?") === -1 ? "?" : "&";
+      return url + separator + "content_disposition=attachment";
+    }}
+  }}
+
   window.addEventListener("error", function (e) {{
     showError("Unexpected error: " + (e.message || e));
   }});
@@ -471,34 +511,13 @@ body.maximized #prompt-text {{
   document.getElementById("btn-download")
     .addEventListener("click", function () {{
     if (!imageData.image_url) return;
-    fetch(imageData.image_url)
-      .then(function (r) {{ return r.blob(); }})
-      .then(function (blob) {{
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = getFilename(
-          imageData.image_url
-        );
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-      }})
+    openLink(buildImageDownloadUrl(imageData.image_url))
       .catch(function (err) {{
         console.error(
           "[image-viewer] download failed:", err
         );
       }});
   }});
-
-  function getFilename(url) {{
-    try {{
-      var parts = new URL(url).pathname.split("/");
-      var last = parts[parts.length - 1];
-      if (last && last.indexOf(".") !== -1) return last;
-    }} catch (e) {{ /* ignore */ }}
-    return "generated_image.jpeg";
-  }}
 
   // ── Maximize / minimize ──
   function applyMaximizedState(val) {{
