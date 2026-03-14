@@ -46,6 +46,38 @@ function respondErrorToIframe(iframe, id, code, message) {
   );
 }
 
+/**
+ * Build a Content-Security-Policy <meta> tag from resource CSP metadata.
+ * Spec §Security §4: Host MUST enforce CSP based on declared domains.
+ * Injected as the FIRST element in <head> so it takes precedence.
+ *
+ * Returns null when csp is null/undefined — in that case the caller MUST NOT
+ * inject a meta tag, and the iframe sandbox attribute acts as the security
+ * boundary.  Injecting a restrictive default when no metadata is present would
+ * block external resources that the server legitimately loads (e.g. CDN assets
+ * declared in AppConfig but not yet forwarded as X-MCP-CSP headers).
+ */
+function buildCspMetaTag(csp) {
+  if (!csp) return null;
+  const connectSrc = csp.connectDomains?.join(" ") || "";
+  const resourceSrc = csp.resourceDomains?.join(" ") || "";
+  const frameSrc = csp.frameDomains?.join(" ") || "'none'";
+  const baseUri = csp.baseUriDomains?.join(" ") || "'self'";
+  const directives = [
+    "default-src 'none'",
+    `script-src 'self' 'unsafe-inline'${resourceSrc ? " " + resourceSrc : ""}`,
+    `style-src 'self' 'unsafe-inline'${resourceSrc ? " " + resourceSrc : ""}`,
+    `img-src 'self' data:${resourceSrc ? " " + resourceSrc : ""}`,
+    `font-src 'self'${resourceSrc ? " " + resourceSrc : ""}`,
+    `media-src 'self' data:${resourceSrc ? " " + resourceSrc : ""}`,
+    `connect-src 'self'${connectSrc ? " " + connectSrc : ""}`,
+    `frame-src ${frameSrc}`,
+    "object-src 'none'",
+    `base-uri ${baseUri}`,
+  ].join("; ");
+  return `<meta http-equiv="Content-Security-Policy" content="${directives}">`;
+}
+
 export function McpAppBridge({
   // Reflex may pass props as camelCase or snake_case depending on version.
   // Accept both naming conventions with fallback.
@@ -97,6 +129,15 @@ export function McpAppBridge({
   const isMaximizedRef = useRef(false);
   // Keep ref in sync so handleMessage callback can access current value
   useEffect(() => { isMaximizedRef.current = isMaximized; }, [isMaximized]);
+  // View-declared capabilities (populated on ui/initialize, used for mode gating)
+  const viewCapabilitiesRef = useRef({});
+  // Ref mirrors of resource CSP/permissions so handleMessage avoids stale closures
+  const resourceCspRef = useRef(null);
+  const resourcePermissionsRef = useRef(null);
+  // Prevent double-send of tool-input/result (sent once in initialized handler,
+  // refs suppress the first effect-triggered send when `ready` becomes true)
+  const toolInputInitialSentRef = useRef(false);
+  const toolResultInitialSentRef = useRef(false);
   // Lightweight auto-height script injected into MCP app HTML.
   // Reports scrollHeight once on load and once after a short settle delay.
   // Apps that need dynamic resizing should use ui/notifications/size-changed.
@@ -187,18 +228,37 @@ export function McpAppBridge({
         const cspHeader = r.headers.get("X-MCP-CSP");
         const permissionsHeader = r.headers.get("X-MCP-Permissions");
         const prefersBorderHeader = r.headers.get("X-MCP-Prefers-Border");
+        let parsedCsp = null;
         if (cspHeader) {
-          try { setResourceCsp(JSON.parse(cspHeader)); } catch { /* ignore */ }
+          try {
+            parsedCsp = JSON.parse(cspHeader);
+            resourceCspRef.current = parsedCsp;
+            setResourceCsp(parsedCsp);
+          } catch { /* ignore */ }
         }
         if (permissionsHeader) {
-          try { setResourcePermissions(JSON.parse(permissionsHeader)); } catch { /* ignore */ }
+          try {
+            const parsedPerms = JSON.parse(permissionsHeader);
+            resourcePermissionsRef.current = parsedPerms;
+            setResourcePermissions(parsedPerms);
+          } catch { /* ignore */ }
         }
         if (prefersBorderHeader !== null) {
           setResourcePrefersBorder(prefersBorderHeader === "true");
         }
-        return r.text();
+        return r.text().then((html) => ({ html, parsedCsp }));
       })
-      .then((html) => {
+      .then(({ html, parsedCsp }) => {
+        // Inject CSP as FIRST element in <head> only when server provided metadata (spec §4).
+        // When parsedCsp is null we skip injection and rely on the iframe sandbox attribute.
+        const cspMeta = buildCspMetaTag(parsedCsp);
+        if (cspMeta) {
+          if (html.includes("<head>")) {
+            html = html.replace("<head>", "<head>\n" + cspMeta);
+          } else {
+            html = cspMeta + "\n" + html;
+          }
+        }
         // Inject auto-size reporter before </body>, </html>, or at the end
         if (html.includes("</body>")) {
           html = html.replace("</body>", AUTO_SIZE_SCRIPT + "</body>");
@@ -230,9 +290,18 @@ export function McpAppBridge({
     // ui/initialize (View → Host): MCP-like handshake
     // Host MUST respond with McpUiInitializeResult then send tool-input.
     if (data.method === "ui/initialize" && data.id != null) {
-      setReady(true);
-
-      // Spec: McpUiInitializeResult
+      // Store view capabilities for display-mode gating and future use
+      viewCapabilitiesRef.current = data.params?.appCapabilities || {};
+      // Spec: respond with McpUiInitializeResult but do NOT send data yet.
+      // Host MUST wait for ui/notifications/initialized before sending anything.
+      const csp = resourceCspRef.current;
+      const perms = resourcePermissionsRef.current;
+      const sandboxPerms = perms ? {
+        ...(perms.camera ? { camera: {} } : {}),
+        ...(perms.microphone ? { microphone: {} } : {}),
+        ...(perms.geolocation ? { geolocation: {} } : {}),
+        ...(perms.clipboardWrite ? { clipboardWrite: {} } : {}),
+      } : undefined;
       respondToIframe(iframe, data.id, {
         protocolVersion: PROTOCOL_VERSION,
         hostInfo: { name: "appkit", version: "1.0.0" },
@@ -242,30 +311,39 @@ export function McpAppBridge({
           serverResources: { listChanged: false },
           logging: {},
           sandbox: {
+            ...(sandboxPerms ? { permissions: sandboxPerms } : {}),
             csp: {
-              connectDomains: [],
-              resourceDomains: [],
+              connectDomains: csp?.connectDomains || [],
+              resourceDomains: csp?.resourceDomains || [],
+              frameDomains: csp?.frameDomains || [],
+              baseUriDomains: csp?.baseUriDomains || [],
             },
           },
         },
         hostContext: {
           theme,
+          ...(_toolName ? { toolInfo: { tool: { name: _toolName, description: "", inputSchema: { type: "object" } } } } : {}),
           displayMode: "inline",
-          availableDisplayModes: ["inline"],
+          availableDisplayModes: ["inline", "fullscreen"],
           platform: "web",
           containerDimensions: { maxHeight: _maxHeight },
           styles: { variables: cssVars },
         },
       });
+      return;
+    }
 
-      // Spec: Host MUST send ui/notifications/tool-input after handshake
-      // Params: { arguments: Record<string, unknown> }
+    // ui/notifications/initialized (View → Host): View is ready to receive data.
+    // Spec: Host MUST NOT send any request/notification before this arrives.
+    if (data.method === "ui/notifications/initialized") {
+      // Mark as sent so the ready-triggered effects don't double-send
+      toolInputInitialSentRef.current = true;
+      setReady(true);
       postToIframe(iframe, "ui/notifications/tool-input", {
         arguments: parsedInput,
       });
-
-      // Spec: Host MUST send ui/notifications/tool-result when available
       if (parsedResult !== null) {
+        toolResultInitialSentRef.current = true;
         postToIframe(iframe, "ui/notifications/tool-result", parsedResult);
       }
       return;
@@ -345,7 +423,7 @@ export function McpAppBridge({
       return;
     }
 
-    // ui/notifications/download (View → Host): Trigger file download
+    // ui/notifications/download (View → Host): Trigger file download (legacy)
     if (data.method === "ui/notifications/download") {
       const { filename, content, mimeType } = data.params || {};
       if (filename && content) {
@@ -360,6 +438,44 @@ export function McpAppBridge({
         // Delay revoke to give the browser time to start the download
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
+      return;
+    }
+
+    // ui/download-file (View → Host): Spec-compliant download request (2026-01-26)
+    if (data.method === "ui/download-file" && data.id != null) {
+      const resource = (data.params?.contents || [])[0]?.resource;
+      if (resource) {
+        const mimeType = resource.mimeType || "application/octet-stream";
+        const filename = resource.uri
+          ? decodeURIComponent(resource.uri.split("/").pop() || "download")
+          : "download";
+        let blobData;
+        if (resource.text !== undefined) {
+          // text field: plain string content
+          blobData = new Blob([resource.text], { type: mimeType });
+        } else if (resource.blob !== undefined) {
+          // blob field: base64-encoded binary (spec §UI Resource Format)
+          try {
+            const binary = atob(resource.blob);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            blobData = new Blob([bytes], { type: mimeType });
+          } catch {
+            blobData = new Blob([resource.blob], { type: mimeType });
+          }
+        }
+        if (blobData) {
+          const url = URL.createObjectURL(blobData);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+      }
+      respondToIframe(iframe, data.id, {});
       return;
     }
 
@@ -396,9 +512,14 @@ export function McpAppBridge({
     }
 
     // ui/request-display-mode (View → Host): Change display mode
-    // We only support "inline"; return current mode.
+    // Spec: Host MUST NOT switch to a mode not in view's appCapabilities.availableDisplayModes
     if (data.method === "ui/request-display-mode" && data.id != null) {
-      respondToIframe(iframe, data.id, { mode: "inline" });
+      const requestedMode = data.params?.mode;
+      const viewModes = viewCapabilitiesRef.current?.availableDisplayModes || [];
+      const canFullscreen = viewModes.includes("fullscreen");
+      const mode = requestedMode === "fullscreen" && canFullscreen ? "fullscreen" : "inline";
+      setIsMaximized(mode === "fullscreen");
+      respondToIframe(iframe, data.id, { mode });
       return;
     }
 
@@ -427,9 +548,7 @@ export function McpAppBridge({
     const handleEsc = (e) => {
       if (e.key === "Escape") {
         setIsMaximized(false);
-        // Notify the iframe that maximize was cancelled
-        const iframe = iframeRef.current;
-        postToIframe(iframe, "ui/notifications/maximize-changed", { maximized: false });
+        // host-context-changed with displayMode is sent via the isMaximized useEffect
       }
     };
     window.addEventListener("keydown", handleEsc);
@@ -441,20 +560,28 @@ export function McpAppBridge({
     return () => window.removeEventListener("message", handleMessage);
   }, [handleMessage]);
 
-  // Push updated tool-input when props change and app is ready
-  // Spec: ui/notifications/tool-input params = { arguments }
+  // Push updated tool-input when props change and app is ready.
+  // Suppress the first fire (when ready becomes true) — already sent by initialized handler.
   useEffect(() => {
     if (!ready) return;
+    if (toolInputInitialSentRef.current) {
+      toolInputInitialSentRef.current = false;
+      return;
+    }
     const iframe = iframeRef.current;
     postToIframe(iframe, "ui/notifications/tool-input", {
       arguments: parsedInput,
     });
   }, [ready, _toolInput, _toolName]);
 
-  // Push tool-result when available and app is ready
-  // Spec: ui/notifications/tool-result params = CallToolResult
+  // Push tool-result when available and app is ready.
+  // Suppress the first fire — already sent by initialized handler.
   useEffect(() => {
     if (!ready || parsedResult === null) return;
+    if (toolResultInitialSentRef.current) {
+      toolResultInitialSentRef.current = false;
+      return;
+    }
     const iframe = iframeRef.current;
     postToIframe(iframe, "ui/notifications/tool-result", parsedResult);
   }, [ready, _toolResult]);
@@ -469,6 +596,15 @@ export function McpAppBridge({
       styles: { variables: cssVars },
     });
   }, [ready, theme, cssVars]);
+
+  // Push display mode changes via ui/notifications/host-context-changed
+  useEffect(() => {
+    if (!ready) return;
+    const iframe = iframeRef.current;
+    postToIframe(iframe, "ui/notifications/host-context-changed", {
+      displayMode: isMaximized ? "fullscreen" : "inline",
+    });
+  }, [ready, isMaximized]);
 
   // Phase 4: Cleanup — send ui/resource-teardown before unmounting
   // Spec: Host MUST send this before tearing down the View.
@@ -519,15 +655,16 @@ export function McpAppBridge({
     ? `1px solid ${theme === "dark" ? "#373a40" : "#dee2e6"}`
     : "none";
 
-  // Build iframe Permission-Policy allow attribute from resource permissions
-  // Spec §Host Behavior: Host MAY honor permissions by setting allow attribute
-  const allowParts = ["allow-scripts", "allow-popups", "allow-forms", "allow-downloads", "allow-same-origin"];
-  if (resourcePermissions?.camera) allowParts.push("allow-camera");
-  if (resourcePermissions?.microphone) allowParts.push("allow-microphone");
-  if (resourcePermissions?.geolocation) allowParts.push("allow-geolocation");
-
-  // Build referrerPolicy: restrictive by default (no referrer to untrusted HTML)
-  const sandboxAttr = allowParts.join(" ");
+  // sandbox attribute: standard iframe sandbox permissions
+  const sandboxAttr = "allow-scripts allow-popups allow-forms allow-downloads allow-same-origin";
+  // allow attribute: Permission Policy features for iframe (spec §Host Behavior)
+  // These are NOT valid sandbox tokens — they go in the separate `allow` attribute.
+  const permAllowParts = [];
+  if (resourcePermissions?.camera) permAllowParts.push("camera");
+  if (resourcePermissions?.microphone) permAllowParts.push("microphone");
+  if (resourcePermissions?.geolocation) permAllowParts.push("geolocation");
+  if (resourcePermissions?.clipboardWrite) permAllowParts.push("clipboard-write");
+  const allowAttr = permAllowParts.length ? permAllowParts.join("; ") : undefined;
 
   const containerWidth = iframeWidth ? `${iframeWidth}px` : "auto";
 
@@ -575,6 +712,7 @@ export function McpAppBridge({
         srcDoc={htmlContent}
         style={iframeStyle}
         sandbox={sandboxAttr}
+        allow={allowAttr}
         referrerPolicy="no-referrer"
         title={`MCP App: ${_toolName}`}
       />
