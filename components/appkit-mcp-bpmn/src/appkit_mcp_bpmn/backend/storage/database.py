@@ -52,6 +52,16 @@ class DatabaseStorageBackend(StorageBackend):
         async with get_asyncdb_session() as session:
             return await bpmn_diagram_repo.load_xml(session, diagram_id, user_id)
 
+    async def update(self, diagram_id: str, user_id: int, xml: str) -> bool:
+        async with get_asyncdb_session() as session:
+            return await bpmn_diagram_repo.update_xml(session, diagram_id, user_id, xml)
+
+    async def rename(self, diagram_id: str, user_id: int, name: str) -> bool:
+        async with get_asyncdb_session() as session:
+            return await bpmn_diagram_repo.update_name(
+                session, diagram_id, user_id, name
+            )
+
     async def delete_older_than_days(self, days: int) -> int:
         async with get_asyncdb_session() as session:
             return await bpmn_diagram_repo.soft_delete_older_than_days(session, days)

@@ -131,6 +131,86 @@ html, body {{
   flex: 1;
   font-size: 13px;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0px;
+  min-width: 0;
+  overflow: hidden;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}}
+#diagram-name {{
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 2px 6px 2px 4px;
+  border-radius: 0 4px 4px 0;
+  border: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+  display: flex;
+  align-items: center;
+}}
+#diagram-name-group {{
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s;
+}}
+#diagram-name-group:hover {{
+  border-color: var(--border-color-secondary);
+  background: var(--button-hover);
+}}
+#diagram-name-group:hover #diagram-name {{
+  border-color: transparent;
+  background: transparent;
+}}
+#diagram-name-group:hover #btn-edit-name {{
+  color: var(--text-primary);
+  background: transparent;
+}}
+#btn-edit-name {{
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: none;
+  border-radius: 4px 0 0 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}}
+#btn-edit-name:hover {{
+  color: var(--text-primary);
+}}
+#btn-edit-name svg {{
+  width: 12px !important;
+  height: 12px !important;
+  stroke-width: 2 !important;
+}}
+#diagram-name-input {{
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid #4da6ff;
+  border-radius: 4px;
+  padding: 2px 6px;
+  outline: none;
+  max-width: 300px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }}
 #error-box {{
   display: none;
@@ -163,6 +243,31 @@ body.maximized {{
 body.maximized #canvas {{
   width: 100vw;
   height: calc(100vh - 48px);
+}}
+#toast {{
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #fff;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+  z-index: 100;
+  white-space: nowrap;
+}}
+#toast.show {{
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}}
+#toast.success {{
+  background: #2b8a3e;
+}}
+#toast.error {{
+  background: #c92a2a;
 }}
 
 /* Canvas and diagram styling for dark mode */
@@ -320,7 +425,15 @@ body.maximized #canvas {{
 </head>
 <body>
 <div id="toolbar">
-  <span id="status">Loading diagram&hellip;</span>
+  <span id="status">
+    <span id="diagram-name-group">
+      <button id="btn-edit-name" title="Rename diagram">
+        <i data-lucide="pencil"></i>
+      </button>
+      <span id="diagram-name" title="Click to rename" style="display:none;"></span>
+    </span>
+    <span id="status-text">Loading diagram&hellip;</span>
+  </span>
   <button id="btn-zoom-in" title="Zoom in">
     <i data-lucide="zoom-in"></i>
   </button>
@@ -336,11 +449,17 @@ body.maximized #canvas {{
   </button>
   <button id="btn-download-svg" title="Download as SVG">
     <i data-lucide="image-down"></i>
-  </button>  <span class="toolbar-separator"></span>
+  </button>
+  <span class="toolbar-separator"></span>
+  <button id="btn-save" title="Save changes">
+    <i data-lucide="save"></i>
+  </button>
+  <span class="toolbar-separator"></span>
   <button id="btn-fullscreen" title="Toggle Fullscreen">
     <i data-lucide="maximize"></i>
   </button></div>
 <div id="canvas"></div>
+<div id="toast"></div>
 <div id="error-box"></div>
 <div id="loading-box"
  style="display:flex;align-items:center;justify-content:center;
@@ -363,12 +482,17 @@ body.maximized #canvas {{
 <script>
 (function () {{
   const CANVAS = document.getElementById("canvas");
-  const STATUS = document.getElementById("status");
+  const STATUS = document.getElementById("status-text");
   const ERROR = document.getElementById("error-box");
   const LOADING = document.getElementById("loading-box");
+  const NAME_EL = document.getElementById("diagram-name");
+  const EDIT_BTN = document.getElementById("btn-edit-name");
   let currentXml = null;
+  let currentDiagramId = null;
+  let currentDiagramName = null;
   let diagramRendered = false;
   let fetchStarted = false;
+  let hostTheme = null;
 
   const viewer = new BpmnJS({{
     container: CANVAS,
@@ -377,16 +501,18 @@ body.maximized #canvas {{
   let rpcId = 10;
   const pendingCalls = {{}};
 
-  // Send ui/initialize handshake to host
+  // Send ui/initialize handshake to host (MCP Apps spec 2026-01-26)
   window.parent.postMessage(
     {{
       jsonrpc: "2.0",
       method: "ui/initialize",
       id: 1,
       params: {{
-        protocolVersion: "2025-01-26",
-        clientInfo: {{ name: "bpmn-viewer", version: "1.0.0" }},
-        capabilities: {{}},
+        protocolVersion: "2026-01-26",
+        appInfo: {{ name: "bpmn-viewer", version: "1.0.0" }},
+        appCapabilities: {{
+          availableDisplayModes: ["inline", "fullscreen"],
+        }},
       }},
     }},
     "*"
@@ -398,6 +524,31 @@ body.maximized #canvas {{
 
     if (msg.method === "ui/notifications/tool-result") {{
       handleToolResult(msg.params);
+    }} else if (msg.method === "ui/notifications/tool-input") {{
+      /* Tool arguments delivered before result; available in msg.params.arguments */
+    }} else if (msg.method === "ui/notifications/host-context-changed") {{
+      const p = msg.params || {{}};
+      if (p.theme) {{
+        hostTheme = p.theme;
+        if (diagramRendered) applyDarkModeToSvg();
+      }}
+      if (p.displayMode) {{
+        const wantFullscreen = p.displayMode === "fullscreen";
+        if (wantFullscreen !== maximized) applyMaximizedState(wantFullscreen);
+      }}
+    }} else if (msg.method === "ui/resource-teardown" && msg.id != null) {{
+      window.parent.postMessage(
+        {{ jsonrpc: "2.0", id: msg.id, result: {{}} }},
+        "*"
+      );
+    }} else if (msg.id === 1 && !msg.method) {{
+      // ui/initialize response — apply host context, then send initialized
+      const hc = (msg.result && msg.result.hostContext) || {{}};
+      if (hc.theme) hostTheme = hc.theme;
+      window.parent.postMessage(
+        {{ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {{}} }},
+        "*"
+      );
     }} else if (msg.id != null && !msg.method && pendingCalls[msg.id]) {{
       // JSON-RPC response for a tools/call we sent
       const cb = pendingCalls[msg.id];
@@ -431,6 +582,28 @@ body.maximized #canvas {{
     }});
   }}
 
+  function downloadFile(filename, content, mimeType) {{
+    const id = ++rpcId;
+    window.parent.postMessage(
+      {{
+        jsonrpc: "2.0",
+        method: "ui/download-file",
+        id: id,
+        params: {{
+          contents: [{{
+            type: "resource",
+            resource: {{
+              uri: "file:///" + filename,
+              mimeType: mimeType,
+              text: content,
+            }},
+          }}],
+        }},
+      }},
+      "*"
+    );
+  }}
+
   function handleToolResult(result) {{
     clearLoadTimeout();
     if (diagramRendered || fetchStarted) {{
@@ -458,6 +631,10 @@ body.maximized #canvas {{
         return;
       }}
       if (payload.id) {{
+        currentDiagramId = payload.id;
+        if (payload.name) {{
+          currentDiagramName = payload.name;
+        }}
         console.log("[bpmn-viewer] fetching XML for diagram:", payload.id);
         fetchXmlViaTool(payload.id);
       }} else {{
@@ -532,7 +709,14 @@ body.maximized #canvas {{
           }}
         }}
         diagramRendered = true;
-        STATUS.textContent = "Generiertes BPMN-Diagramm";
+        STATUS.textContent = "";
+        if (currentDiagramName) {{
+          NAME_EL.textContent = currentDiagramName;
+          NAME_EL.style.display = "";
+          EDIT_BTN.style.display = "flex";
+        }} else {{
+          STATUS.textContent = "Generiertes BPMN-Diagramm";
+        }}
         applyDarkModeToSvg();
         reportSize();
       }})
@@ -619,9 +803,14 @@ body.maximized #canvas {{
     }});
   }}
 
+  function isDarkMode() {{
+    if (hostTheme) return hostTheme === "dark";
+    return window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }}
+
   function applyDarkModeToSvg() {{
-    if (!window.matchMedia ||
-        !window.matchMedia("(prefers-color-scheme: dark)").matches) {{
+    if (!isDarkMode()) {{
       return;
     }}
     var strokeColor = "#ccc";
@@ -734,18 +923,7 @@ body.maximized #canvas {{
       viewer.saveXML({{ format: true }})
         .then(function (result) {{
           if (result.xml) {{
-            window.parent.postMessage(
-              {{
-                jsonrpc: "2.0",
-                method: "ui/notifications/download",
-                params: {{
-                  filename: "diagram.bpmn",
-                  content: result.xml,
-                  mimeType: "application/xml",
-                }},
-              }},
-              "*"
-            );
+            downloadFile("diagram.bpmn", result.xml, "application/xml");
           }}
         }})
         .catch(function (err) {{
@@ -755,7 +933,7 @@ body.maximized #canvas {{
 
   let maximized = false;
 
-  function setMaximized(val) {{
+  function applyMaximizedState(val) {{
     maximized = val;
     if (maximized) {{
       document.body.classList.add("maximized");
@@ -769,16 +947,6 @@ body.maximized #canvas {{
         window.lucide.createIcons();
       }}
     }}
-    // Tell the parent to maximize/restore the iframe
-    window.parent.postMessage(
-      {{
-        jsonrpc: "2.0",
-        method: "ui/notifications/maximize",
-        params: {{ maximized: maximized }},
-      }},
-      "*"
-    );
-    // Re-fit viewport after layout change.
     if (maximized) {{
       // Maximizing: overlay appears quickly, short delay is fine.
       setTimeout(function () {{
@@ -798,47 +966,156 @@ body.maximized #canvas {{
     }}
   }}
 
-  // Listen for parent telling us maximize state changed (e.g. ESC pressed)
-  window.addEventListener("message", function (event) {{
-    const msg = event.data;
-    if (!msg || msg.jsonrpc !== "2.0") return;
-    if (msg.method === "ui/notifications/maximize-changed") {{
-      const val = msg.params && msg.params.maximized;
-      if (typeof val === "boolean" && val !== maximized) {{
-        maximized = val;
-        if (maximized) {{
-          document.body.classList.add("maximized");
-        }} else {{
-          document.body.classList.remove("maximized");
-        }}
-        const icon = document.querySelector("#btn-fullscreen i");
-        if (icon) {{
-          icon.setAttribute("data-lucide", maximized ? "minimize" : "maximize");
-          if (window.lucide && window.lucide.createIcons) {{
-            window.lucide.createIcons();
-          }}
-        }}
-        if (maximized) {{
-          setTimeout(function () {{
-            try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
-          }}, 150);
-        }} else {{
-          pendingFitAfterResize = true;
-          setTimeout(function () {{
-            if (pendingFitAfterResize) {{
-              pendingFitAfterResize = false;
-              try {{ fitWithPadding(); }} catch (e) {{ /* ignore */ }}
-            }}
-          }}, 600);
-        }}
-      }}
-    }}
-  }});
+  function setMaximized(val) {{
+    applyMaximizedState(val);
+    // Request display mode change from host (ui/request-display-mode)
+    const id = ++rpcId;
+    window.parent.postMessage(
+      {{
+        jsonrpc: "2.0",
+        method: "ui/request-display-mode",
+        id: id,
+        params: {{ mode: maximized ? "fullscreen" : "inline" }},
+      }},
+      "*"
+    );
+  }}
 
   document
     .getElementById("btn-fullscreen")
     .addEventListener("click", function () {{
       setMaximized(!maximized);
+    }});
+
+  function showToast(message, type) {{
+    var toast = document.getElementById("toast");
+    toast.textContent = message;
+    toast.className = type;
+    // Force reflow before adding show class
+    void toast.offsetWidth;
+    toast.classList.add("show");
+    var duration = type === "error" ? 4000 : 3000;
+    setTimeout(function () {{
+      toast.classList.remove("show");
+    }}, duration);
+  }}
+
+  // Inline name editing
+  function startNameEdit() {{
+    if (!diagramRendered || !currentDiagramId) return;
+    var originalName = currentDiagramName || "";
+    var nameWidth = NAME_EL.offsetWidth;
+    var input = document.createElement("input");
+    input.id = "diagram-name-input";
+    input.type = "text";
+    input.value = originalName;
+    input.maxLength = 128;
+    input.style.width = nameWidth + "px";
+    EDIT_BTN.style.visibility = "hidden";
+    NAME_EL.replaceWith(input);
+    input.focus();
+    input.select();
+
+    function restoreDisplay() {{
+      input.replaceWith(NAME_EL);
+      EDIT_BTN.style.visibility = "";
+    }}
+
+    function commitRename() {{
+      var newName = input.value.trim();
+      if (!newName || newName === originalName) {{
+        restoreDisplay();
+        return;
+      }}
+      // Optimistically update display
+      NAME_EL.textContent = newName;
+      restoreDisplay();
+      callServerTool("rename_bpmn_diagram", {{
+        diagram_id: currentDiagramId,
+        name: newName,
+      }})
+        .then(function (response) {{
+          var text =
+            response.content &&
+            response.content[0] &&
+            response.content[0].text;
+          if (text) {{
+            try {{
+              var parsed = JSON.parse(text);
+              if (parsed.success) {{
+                currentDiagramName = parsed.name || newName;
+                NAME_EL.textContent = currentDiagramName;
+                showToast("Diagramm umbenannt zu: " + currentDiagramName, "success");
+              }} else {{
+                NAME_EL.textContent = originalName;
+                currentDiagramName = originalName;
+                showToast(parsed.error || "Fehler beim Umbenennen", "error");
+              }}
+            }} catch (e) {{
+              NAME_EL.textContent = originalName;
+              currentDiagramName = originalName;
+              showToast("Fehler beim Umbenennen", "error");
+            }}
+          }}
+        }})
+        .catch(function (err) {{
+          console.error("[bpmn-viewer] rename failed:", err);
+          NAME_EL.textContent = originalName;
+          currentDiagramName = originalName;
+          showToast("Fehler beim Umbenennen: " + err.message, "error");
+        }});
+    }}
+
+    input.addEventListener("blur", commitRename);
+    input.addEventListener("keydown", function (e) {{
+      if (e.key === "Enter") {{
+        e.preventDefault();
+        input.blur();
+      }} else if (e.key === "Escape") {{
+        input.removeEventListener("blur", commitRename);
+        restoreDisplay();
+      }}
+    }});
+  }}
+
+  NAME_EL.addEventListener("click", startNameEdit);
+  EDIT_BTN.addEventListener("click", startNameEdit);
+
+  document
+    .getElementById("btn-save")
+    .addEventListener("click", function () {{
+      if (!diagramRendered || !currentDiagramId) return;
+      viewer.saveXML({{ format: true }})
+        .then(function (result) {{
+          if (!result.xml) return;
+          return callServerTool("save_or_update", {{
+            diagram_id: currentDiagramId,
+            xml: result.xml,
+          }});
+        }})
+        .then(function (response) {{
+          if (!response) return;
+          var text =
+            response.content &&
+            response.content[0] &&
+            response.content[0].text;
+          if (text) {{
+            try {{
+              var parsed = JSON.parse(text);
+              if (parsed.success) {{
+                showToast("\u00c4nderungen gespeichert", "success");
+              }} else {{
+                showToast(parsed.error || "Fehler beim Speichern", "error");
+              }}
+            }} catch (e) {{
+              showToast("Fehler beim Speichern", "error");
+            }}
+          }}
+        }})
+        .catch(function (err) {{
+          console.error("[bpmn-viewer] save failed:", err);
+          showToast("Fehler beim Speichern: " + err.message, "error");
+        }});
     }});
 
   document
@@ -848,18 +1125,7 @@ body.maximized #canvas {{
       viewer.saveSVG()
         .then(function (result) {{
           const svg = typeof result === "string" ? result : result.svg;
-          window.parent.postMessage(
-            {{
-              jsonrpc: "2.0",
-              method: "ui/notifications/download",
-              params: {{
-                filename: "diagram.svg",
-                content: svg,
-                mimeType: "image/svg+xml",
-              }},
-            }},
-            "*"
-          );
+          downloadFile("diagram.svg", svg, "image/svg+xml");
         }})
         .catch(function (err) {{
           console.error("[bpmn-viewer] SVG export failed:", err);

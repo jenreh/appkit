@@ -52,6 +52,26 @@ class DualStorageBackend(StorageBackend):
         )
         return await self._fs.load(diagram_id, user_id)
 
+    async def update(self, diagram_id: str, user_id: int, xml: str) -> bool:
+        db_ok = await self._db.update(diagram_id, user_id, xml)
+        try:
+            await self._fs.update(diagram_id, user_id, xml)
+        except Exception:
+            logger.exception(
+                "FS update failed for diagram %s; DB copy updated", diagram_id
+            )
+        return db_ok
+
+    async def rename(self, diagram_id: str, user_id: int, name: str) -> bool:
+        db_ok = await self._db.rename(diagram_id, user_id, name)
+        try:
+            await self._fs.rename(diagram_id, user_id, name)
+        except Exception:
+            logger.exception(
+                "FS rename failed for diagram %s; DB copy renamed", diagram_id
+            )
+        return db_ok
+
     async def delete_older_than_days(self, days: int) -> int:
         db_count = await self._db.delete_older_than_days(days)
         fs_count = await self._fs.delete_older_than_days(days)

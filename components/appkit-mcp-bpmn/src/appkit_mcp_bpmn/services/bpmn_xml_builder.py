@@ -59,7 +59,7 @@ from typing import Any
 
 from lxml import etree
 
-from appkit_mcp_bpmn.models import BPMN_TYPE_MAP, GATEWAY_TYPES, BpmnProcess
+from appkit_mcp_bpmn.models import BPMN_TYPE_MAP, BpmnProcess
 from appkit_mcp_commons.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -209,7 +209,7 @@ def _build_elements_and_flows(
     """Build flat BPMN elements and sequence flows from the step list.
 
     Flow rules:
-    1. Gateway → each branch.target (with condition label)
+    1. step.branches set → each branch.target (with condition label)
     2. endEvent → no outgoing flow
     3. step.next is set → flow to next target
     4. Otherwise → flow to steps[idx + 1]
@@ -236,7 +236,7 @@ def _build_elements_and_flows(
         if step_type == "endEvent":
             continue
 
-        if step_type in GATEWAY_TYPES and branches:
+        if branches:
             for br in branches:
                 condition = br.get("condition", "")
                 target = br.get("target", "")

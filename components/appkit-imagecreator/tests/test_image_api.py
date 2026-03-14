@@ -103,4 +103,30 @@ class TestGetImage:
                 resp = await client.get("/api/images/42")
 
         assert resp.status_code == 200
-        assert "image_42.png" in resp.headers.get("content-disposition", "")
+        assert resp.headers.get("content-disposition", "") == (
+            'inline; filename="image_42.png"'
+        )
+
+    @pytest.mark.asyncio
+    async def test_content_disposition_attachment(self) -> None:
+        """Response supports attachment content-disposition via query param."""
+        with (
+            patch(
+                f"{_PATCH}.get_asyncdb_session",
+                return_value=_db_context(),
+            ),
+            patch(f"{_PATCH}.image_repo") as repo,
+        ):
+            repo.find_image_data = AsyncMock(return_value=(b"data", "image/jpeg"))
+
+            transport = ASGITransport(app=_app)
+            async with AsyncClient(
+                transport=transport,
+                base_url="http://test",
+            ) as client:
+                resp = await client.get("/api/images/42?content_disposition=attachment")
+
+        assert resp.status_code == 200
+        assert resp.headers.get("content-disposition", "") == (
+            'attachment; filename="image_42.png"'
+        )

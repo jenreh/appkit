@@ -43,6 +43,9 @@ def create_charts_mcp_server(
 
     @mcp.resource(
         VIEW_URI,
+        name="chart_view",
+        description="Interactive Plotly chart viewer for MCP Apps.",
+        mime_type="text/html;profile=mcp-app",
         app=AppConfig(
             csp=ResourceCSP(
                 resource_domains=["https://cdn.plot.ly"],

@@ -74,31 +74,29 @@ async def test_save_bpmn_diagram_empty_xml(bpmn_client: Client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_generate_bpmn_diagram_empty_description(
+async def test_new_bpmn_diagram_empty_description(
     bpmn_client: Client,
 ) -> None:
-    """generate_bpmn_diagram rejects empty description with isError=True."""
+    """new_bpmn_diagram rejects empty description with isError=True."""
     with pytest.raises(ToolError, match="empty"):
-        await bpmn_client.call_tool(
-            "generate_bpmn_diagram", arguments={"description": ""}
-        )
+        await bpmn_client.call_tool("new_bpmn_diagram", arguments={"description": ""})
 
 
 @pytest.mark.asyncio
-async def test_generate_bpmn_diagram_invalid_type(
+async def test_new_bpmn_diagram_invalid_type(
     bpmn_client: Client,
 ) -> None:
-    """generate_bpmn_diagram rejects invalid diagram type with isError=True."""
+    """new_bpmn_diagram rejects invalid diagram type with isError=True."""
     with pytest.raises(ToolError, match="Invalid diagram_type"):
         await bpmn_client.call_tool(
-            "generate_bpmn_diagram",
+            "new_bpmn_diagram",
             arguments={"description": "test", "diagram_type": "invalid"},
         )
 
 
 @pytest.mark.asyncio
-async def test_generate_bpmn_diagram_success(bpmn_client: Client) -> None:
-    """generate_bpmn_diagram calls LLM and returns valid result."""
+async def test_new_bpmn_diagram_success(bpmn_client: Client) -> None:
+    """new_bpmn_diagram calls LLM and returns valid result."""
     mock_process = BpmnProcess(
         steps=[
             BpmnStep(
@@ -125,7 +123,7 @@ async def test_generate_bpmn_diagram_success(bpmn_client: Client) -> None:
         return_value=mock_process,
     ):
         result = await bpmn_client.call_tool(
-            "generate_bpmn_diagram",
+            "new_bpmn_diagram",
             arguments={"description": "Simple approval flow"},
         )
 
@@ -137,10 +135,10 @@ async def test_generate_bpmn_diagram_success(bpmn_client: Client) -> None:
 
 
 @pytest.mark.asyncio
-async def test_generate_bpmn_diagram_llm_failure(
+async def test_new_bpmn_diagram_llm_failure(
     bpmn_client: Client,
 ) -> None:
-    """generate_bpmn_diagram signals isError=True on LLM errors."""
+    """new_bpmn_diagram signals isError=True on LLM errors."""
     with (
         patch(
             "appkit_mcp_bpmn.server.BPMNGenerator.generate",
@@ -150,7 +148,7 @@ async def test_generate_bpmn_diagram_llm_failure(
         pytest.raises(ToolError, match="LLM unavailable"),
     ):
         await bpmn_client.call_tool(
-            "generate_bpmn_diagram",
+            "new_bpmn_diagram",
             arguments={"description": "A workflow"},
         )
 
@@ -195,3 +193,303 @@ async def test_get_bpmn_xml_empty_id(bpmn_client: Client) -> None:
 
     assert parsed["success"] is False
     assert "empty" in parsed["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_update_bpmn_diagram_success(bpmn_client: Client) -> None:
+    """update_bpmn_diagram loads, modifies via LLM, and saves new version."""
+    # Save a diagram first
+    save_result = await bpmn_client.call_tool(
+        "save_bpmn_diagram", arguments={"xml": VALID_BPMN}
+    )
+    saved = json.loads(save_result.content[0].text)
+    diagram_id = saved["id"]
+
+    mock_process = BpmnProcess(
+        steps=[
+            BpmnStep(id="Event_Start", type="startEvent", label="Start"),
+            BpmnStep(id="Activity_1", type="task", label="Do Something"),
+            BpmnStep(id="Activity_2", type="task", label="Review"),
+            BpmnStep(id="Event_End", type="endEvent", label="End"),
+        ]
+    )
+
+    with patch(
+        "appkit_mcp_bpmn.server.BPMNGenerator.generate",
+        new_callable=AsyncMock,
+        return_value=mock_process,
+    ):
+        result = await bpmn_client.call_tool(
+            "update_bpmn_diagram",
+            arguments={
+                "diagram_id": diagram_id,
+                "update_prompt": "Add a review step",
+            },
+        )
+
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is True
+    # New version gets a new ID
+    assert parsed["id"] is not None
+    assert parsed["id"] != diagram_id
+    assert parsed["download_url"] is not None
+
+
+@pytest.mark.asyncio
+async def test_update_bpmn_diagram_not_found(bpmn_client: Client) -> None:
+    """update_bpmn_diagram raises error for unknown diagram."""
+    with pytest.raises(ToolError, match="not found"):
+        await bpmn_client.call_tool(
+            "update_bpmn_diagram",
+            arguments={
+                "diagram_id": "nonexistent-id",
+                "update_prompt": "Add a step",
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_bpmn_diagram_empty_id(bpmn_client: Client) -> None:
+    """update_bpmn_diagram raises error for empty diagram_id."""
+    with pytest.raises(ToolError, match="empty"):
+        await bpmn_client.call_tool(
+            "update_bpmn_diagram",
+            arguments={"diagram_id": "", "update_prompt": "Add a step"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_bpmn_diagram_empty_prompt(bpmn_client: Client) -> None:
+    """update_bpmn_diagram raises error for empty update_prompt."""
+    with pytest.raises(ToolError, match="empty"):
+        await bpmn_client.call_tool(
+            "update_bpmn_diagram",
+            arguments={"diagram_id": "some-id", "update_prompt": ""},
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_bpmn_diagram_llm_failure(bpmn_client: Client) -> None:
+    """update_bpmn_diagram signals error on LLM failure."""
+    save_result = await bpmn_client.call_tool(
+        "save_bpmn_diagram", arguments={"xml": VALID_BPMN}
+    )
+    saved = json.loads(save_result.content[0].text)
+    diagram_id = saved["id"]
+
+    with (
+        patch(
+            "appkit_mcp_bpmn.server.BPMNGenerator.generate",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("LLM unavailable"),
+        ),
+        pytest.raises(ToolError, match="LLM unavailable"),
+    ):
+        await bpmn_client.call_tool(
+            "update_bpmn_diagram",
+            arguments={
+                "diagram_id": diagram_id,
+                "update_prompt": "Add a step",
+            },
+        )
+
+
+# --- save_or_update tests ---
+
+
+@pytest.mark.asyncio
+async def test_save_or_update_success(bpmn_client: Client) -> None:
+    """save_or_update validates and overwrites stored XML in-place."""
+    save_result = await bpmn_client.call_tool(
+        "save_bpmn_diagram",
+        arguments={"xml": VALID_BPMN, "prompt": "Original"},
+    )
+    saved = json.loads(save_result.content[0].text)
+    diagram_id = saved["id"]
+
+    result = await bpmn_client.call_tool(
+        "save_or_update",
+        arguments={"diagram_id": diagram_id, "xml": VALID_BPMN},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is True
+    assert parsed["id"] == diagram_id
+
+
+@pytest.mark.asyncio
+async def test_save_or_update_not_found(bpmn_client: Client) -> None:
+    """save_or_update returns error for unknown diagram_id."""
+    result = await bpmn_client.call_tool(
+        "save_or_update",
+        arguments={"diagram_id": "nonexistent-id", "xml": VALID_BPMN},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is False
+    assert "not found" in parsed["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_save_or_update_empty_id(bpmn_client: Client) -> None:
+    """save_or_update returns error for empty diagram_id."""
+    result = await bpmn_client.call_tool(
+        "save_or_update",
+        arguments={"diagram_id": "", "xml": VALID_BPMN},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_save_or_update_empty_xml(bpmn_client: Client) -> None:
+    """save_or_update returns error for empty XML."""
+    result = await bpmn_client.call_tool(
+        "save_or_update",
+        arguments={"diagram_id": "some-id", "xml": ""},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_save_or_update_invalid_xml(bpmn_client: Client) -> None:
+    """save_or_update returns error for invalid BPMN XML."""
+    save_result = await bpmn_client.call_tool(
+        "save_bpmn_diagram",
+        arguments={"xml": VALID_BPMN},
+    )
+    saved = json.loads(save_result.content[0].text)
+    diagram_id = saved["id"]
+
+    result = await bpmn_client.call_tool(
+        "save_or_update",
+        arguments={"diagram_id": diagram_id, "xml": "<not-bpmn/>"},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is False
+    assert "validation" in parsed["error"].lower()
+
+
+# --- rename_bpmn_diagram tests ---
+
+
+@pytest.mark.asyncio
+async def test_rename_bpmn_diagram_success(bpmn_client: Client) -> None:
+    """rename_bpmn_diagram updates the name of an existing diagram."""
+    save_result = await bpmn_client.call_tool(
+        "save_bpmn_diagram",
+        arguments={"xml": VALID_BPMN, "prompt": "Original prompt"},
+    )
+    saved = json.loads(save_result.content[0].text)
+    diagram_id = saved["id"]
+
+    result = await bpmn_client.call_tool(
+        "rename_bpmn_diagram",
+        arguments={"diagram_id": diagram_id, "name": "My Workflow"},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is True
+    assert parsed["id"] == diagram_id
+    assert parsed["name"] == "My Workflow"
+
+
+@pytest.mark.asyncio
+async def test_rename_bpmn_diagram_trims_whitespace(bpmn_client: Client) -> None:
+    """rename_bpmn_diagram trims leading/trailing whitespace."""
+    save_result = await bpmn_client.call_tool(
+        "save_bpmn_diagram", arguments={"xml": VALID_BPMN}
+    )
+    saved = json.loads(save_result.content[0].text)
+    diagram_id = saved["id"]
+
+    result = await bpmn_client.call_tool(
+        "rename_bpmn_diagram",
+        arguments={"diagram_id": diagram_id, "name": "  Trimmed Name  "},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is True
+    assert parsed["name"] == "Trimmed Name"
+
+
+@pytest.mark.asyncio
+async def test_rename_bpmn_diagram_not_found(bpmn_client: Client) -> None:
+    """rename_bpmn_diagram returns error for unknown diagram."""
+    result = await bpmn_client.call_tool(
+        "rename_bpmn_diagram",
+        arguments={"diagram_id": "nonexistent-id", "name": "New Name"},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is False
+    assert "not found" in parsed["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_rename_bpmn_diagram_empty_id(bpmn_client: Client) -> None:
+    """rename_bpmn_diagram returns error for empty diagram_id."""
+    result = await bpmn_client.call_tool(
+        "rename_bpmn_diagram",
+        arguments={"diagram_id": "", "name": "New Name"},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is False
+    assert "empty" in parsed["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_rename_bpmn_diagram_empty_name(bpmn_client: Client) -> None:
+    """rename_bpmn_diagram returns error for empty name."""
+    result = await bpmn_client.call_tool(
+        "rename_bpmn_diagram",
+        arguments={"diagram_id": "some-id", "name": ""},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is False
+    assert "empty" in parsed["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_rename_bpmn_diagram_too_long(bpmn_client: Client) -> None:
+    """rename_bpmn_diagram rejects names exceeding 128 characters."""
+    result = await bpmn_client.call_tool(
+        "rename_bpmn_diagram",
+        arguments={"diagram_id": "some-id", "name": "A" * 129},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is False
+    assert "128" in parsed["error"]
+
+
+@pytest.mark.asyncio
+async def test_save_bpmn_diagram_includes_name(bpmn_client: Client) -> None:
+    """save_bpmn_diagram returns name derived from prompt."""
+    result = await bpmn_client.call_tool(
+        "save_bpmn_diagram",
+        arguments={"xml": VALID_BPMN, "prompt": "My approval flow"},
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is True
+    assert parsed["name"] == "My approval flow"
+
+
+@pytest.mark.asyncio
+async def test_save_bpmn_diagram_default_name(bpmn_client: Client) -> None:
+    """save_bpmn_diagram uses fallback name when prompt is empty."""
+    result = await bpmn_client.call_tool(
+        "save_bpmn_diagram", arguments={"xml": VALID_BPMN}
+    )
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is True
+    assert parsed["name"].startswith("Diagram ")
