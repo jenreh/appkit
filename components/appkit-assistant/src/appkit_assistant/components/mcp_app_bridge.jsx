@@ -506,6 +506,7 @@ export function McpAppBridge({
         return;
       }
 
+      // deprecated method name, still supported for backward compatibility
       case "ui/notifications/download": {
         const { filename, content, mimeType } = data.params || {};
 
