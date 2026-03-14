@@ -19,13 +19,11 @@ CHART_HTML = f"""\
   --border-color: #e0e0e0;
 }}
 
-@media (prefers-color-scheme: dark) {{
-  :root {{
-    /* Dark mode */
-    --bg-primary: #0d0d0d;
-    --text-primary: #e0e0e0;
-    --border-color: #333;
-  }}
+:root[data-theme="dark"] {{
+  /* Dark mode */
+  --bg-primary: #0d0d0d;
+  --text-primary: #e0e0e0;
+  --border-color: #333;
 }}
 
 html, body {{
@@ -42,20 +40,20 @@ html, body {{
   height: 100%;
 }}
 
-/* Plotly modebar dark mode */
-@media (prefers-color-scheme: dark) {{
-  .modebar-btn svg {{
-    fill: #a0a0a0 !important;
-  }}
-  .modebar-btn:hover svg {{
-    fill: #e0e0e0 !important;
-  }}
-  .modebar-btn.active svg {{
-    fill: #fff !important;
-  }}
-  .modebar {{
-    background: rgba(255,255,255,0.05) !important;
-  }}
+:root[data-theme="dark"] .modebar-btn svg {{
+  fill: #a0a0a0 !important;
+}}
+
+:root[data-theme="dark"] .modebar-btn:hover svg {{
+  fill: #e0e0e0 !important;
+}}
+
+:root[data-theme="dark"] .modebar-btn.active svg {{
+  fill: #fff !important;
+}}
+
+:root[data-theme="dark"] .modebar {{
+  background: rgba(255,255,255,0.05) !important;
 }}
 </style>
 </head>
@@ -63,25 +61,43 @@ html, body {{
 <div id="chart"><p>Waiting for chart data&hellip;</p></div>
 <script>
 (function () {{
+  var ROOT = document.documentElement;
   var CHART = document.getElementById("chart");
-  var isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  var darkModeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  var systemThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  var hostTheme = null;
+  var isDarkMode = false;
+  var resizeObserver = null;
 
-  // Listen for theme changes
-  darkModeQuery.addListener(function (e) {{
-    isDarkMode = e.matches;
-    applyPlotlyTemplate();
-  }});
-
-  // Send ui/initialize handshake to host
-  window.parent.postMessage({{
-    jsonrpc: "2.0", method: "ui/initialize", id: 1,
-    params: {{
-      protocolVersion: "2025-01-26",
-      clientInfo: {{ name: "chart-view", version: "1.0.0" }},
-      capabilities: {{}}
+  function handleSystemThemeChange(event) {{
+    if (hostTheme === null) {{
+      applyTheme(event.matches ? "dark" : "light");
     }}
-  }}, "*");
+  }}
+
+  if (typeof systemThemeQuery.addEventListener === "function") {{
+    systemThemeQuery.addEventListener("change", handleSystemThemeChange);
+  }} else if (typeof systemThemeQuery.addListener === "function") {{
+    systemThemeQuery.addListener(handleSystemThemeChange);
+  }}
+
+  applyTheme(getResolvedTheme());
+
+  // Send ui/initialize handshake to host (MCP Apps spec 2026-01-26)
+  window.parent.postMessage(
+    {{
+      jsonrpc: "2.0",
+      method: "ui/initialize",
+      id: 1,
+      params: {{
+        protocolVersion: "2026-01-26",
+        appInfo: {{ name: "chart-view", version: "1.0.0" }},
+        appCapabilities: {{
+          availableDisplayModes: ["inline", "fullscreen"],
+        }},
+      }},
+    }},
+    "*"
+  );
 
   window.addEventListener("message", function (event) {{
     var msg = event.data;
@@ -89,10 +105,53 @@ html, body {{
 
     if (msg.method === "ui/notifications/tool-result") {{
       handleToolResult(msg.params);
+    }} else if (msg.method === "ui/notifications/tool-input") {{
+      /* Tool arguments are available via msg.params.arguments when needed. */
+    }} else if (msg.method === "ui/notifications/host-context-changed") {{
+      applyHostContext(msg.params || {{}});
+    }} else if (msg.method === "ui/resource-teardown" && msg.id != null) {{
+      window.parent.postMessage(
+        {{ jsonrpc: "2.0", id: msg.id, result: {{}} }},
+        "*"
+      );
+    }} else if (msg.id === 1 && !msg.method) {{
+      applyHostContext((msg.result && msg.result.hostContext) || {{}});
+      window.parent.postMessage(
+        {{
+          jsonrpc: "2.0",
+          method: "ui/notifications/initialized",
+          params: {{}},
+        }},
+        "*"
+      );
     }} else if (msg.method === "ping" && msg.id != null) {{
-      window.parent.postMessage({{ jsonrpc: "2.0", id: msg.id, result: {{}} }}, "*");
+      window.parent.postMessage(
+        {{ jsonrpc: "2.0", id: msg.id, result: {{}} }},
+        "*"
+      );
     }}
   }});
+
+  function getResolvedTheme() {{
+    if (hostTheme === "dark" || hostTheme === "light") {{
+      return hostTheme;
+    }}
+    return systemThemeQuery.matches ? "dark" : "light";
+  }}
+
+  function applyHostContext(context) {{
+    if (context.theme === "dark" || context.theme === "light") {{
+      hostTheme = context.theme;
+    }}
+    applyTheme(getResolvedTheme());
+    reportSize();
+  }}
+
+  function applyTheme(theme) {{
+    isDarkMode = theme === "dark";
+    ROOT.setAttribute("data-theme", theme);
+    applyPlotlyTemplate();
+  }}
 
   function handleToolResult(result) {{
     try {{
@@ -115,6 +174,7 @@ html, body {{
       if (window.Plotly) {{
         setTimeout(function () {{
           applyPlotlyTemplate();
+          reportSize();
         }}, 300);
       }}
       reportSize();
@@ -166,12 +226,33 @@ html, body {{
   }}
 
   function reportSize() {{
-    window.parent.postMessage({{
-      jsonrpc: "2.0", method: "ui/notifications/resize",
-      params: {{ height: Math.max(CHART.scrollHeight, 400) }}
-    }}, "*");
+    var height = Math.max(
+      CHART.scrollHeight,
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight,
+      400
+    );
+    var width = Math.max(
+      CHART.scrollWidth,
+      document.body.scrollWidth,
+      document.documentElement.scrollWidth,
+      0
+    );
+    var params = {{ height: height }};
+    if (width > 0) {{
+      params.width = width;
+    }}
+    window.parent.postMessage(
+      {{
+        jsonrpc: "2.0",
+        method: "ui/notifications/size-changed",
+        params: params,
+      }},
+      "*"
+    );
   }}
-  new ResizeObserver(function () {{ reportSize(); }}).observe(CHART);
+  resizeObserver = new ResizeObserver(function () {{ reportSize(); }});
+  resizeObserver.observe(CHART);
 }})();
 </script>
 </body>

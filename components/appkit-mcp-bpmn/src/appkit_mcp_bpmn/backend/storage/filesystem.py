@@ -8,6 +8,7 @@ from pathlib import Path
 from appkit_mcp_bpmn.backend.storage.base import DiagramInfo, StorageBackend
 from appkit_mcp_bpmn.services.bpmn_storage import (
     _get_storage_dir,
+    diagram_exists,
     load_diagram,
     save_diagram,
 )
@@ -45,6 +46,26 @@ class FilesystemStorageBackend(StorageBackend):
 
     async def load(self, diagram_id: str, user_id: int) -> str | None:  # noqa: ARG002
         return load_diagram(diagram_id, self._storage_dir)
+
+    async def update(
+        self,
+        diagram_id: str,
+        user_id: int,  # noqa: ARG002
+        xml: str,
+    ) -> bool:
+        if not diagram_exists(diagram_id, self._storage_dir):
+            return False
+        save_diagram(xml, self._storage_dir, diagram_id=diagram_id)
+        return True
+
+    async def rename(
+        self,
+        diagram_id: str,
+        user_id: int,  # noqa: ARG002
+        name: str,  # noqa: ARG002
+    ) -> bool:
+        # Filesystem doesn't store names; return True only if diagram exists.
+        return diagram_exists(diagram_id, self._storage_dir)
 
     async def delete_older_than_days(self, days: int) -> int:
         """Delete ``.bpmn`` files whose mtime is older than *days*."""

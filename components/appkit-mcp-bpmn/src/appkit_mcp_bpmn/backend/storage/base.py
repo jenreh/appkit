@@ -34,6 +34,16 @@ class StorageBackend(ABC):
         ...
 
     @abstractmethod
+    async def update(self, diagram_id: str, user_id: int, xml: str) -> bool:
+        """Update the XML of an existing diagram.  Returns True on success."""
+        ...
+
+    @abstractmethod
+    async def rename(self, diagram_id: str, user_id: int, name: str) -> bool:
+        """Rename an existing diagram.  Returns True on success."""
+        ...
+
+    @abstractmethod
     async def delete_older_than_days(self, days: int) -> int:
         """Remove/soft-delete diagrams older than *days*.  Returns count."""
         ...

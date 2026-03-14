@@ -27,21 +27,19 @@ IMAGE_VIEWER_HTML = f"""\
   --loading-text: rgb(0, 144, 255);
 }}
 
-@media (prefers-color-scheme: dark) {{
-  :root {{
-    --bg-primary: #0d0d0d;
-    --bg-secondary: #1a1a1a;
-    --text-primary: #e0e0e0;
-    --text-secondary: #a0a0a0;
-    --border-color: #333;
-    --border-color-secondary: #444;
-    --button-hover: rgba(255, 255, 255, 0.08);
-    --error-bg: #2d1515;
-    --error-text: #ff6b6b;
-    --error-text-secondary: #ff9999;
-    --error-border: #c92a2a;
-    --loading-text: #4da6ff;
-  }}
+:root[data-theme="dark"] {{
+  --bg-primary: #0d0d0d;
+  --bg-secondary: #1a1a1a;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0a0;
+  --border-color: #333;
+  --border-color-secondary: #444;
+  --button-hover: rgba(255, 255, 255, 0.08);
+  --error-bg: #2d1515;
+  --error-text: #ff6b6b;
+  --error-text-secondary: #ff9999;
+  --error-border: #c92a2a;
+  --loading-text: #4da6ff;
 }}
 
 html {{
@@ -251,17 +249,39 @@ body.maximized #prompt-text {{
 </script>
 <script>
 (function () {{
+  var ROOT = document.documentElement;
   var CONTENT = document.getElementById("content");
   var IMAGE = document.getElementById("image");
   var PROMPT_TEXT = document.getElementById("prompt-text");
   var STATUS = document.getElementById("status");
   var ERROR = document.getElementById("error-box");
   var LOADING = document.getElementById("loading-box");
+  var PROMPT_CONTAINER = document.getElementById("prompt-container");
+  var FULLSCREEN_BUTTON = document.getElementById("btn-fullscreen");
 
   var TRUNCATE_LEN = 200;
   var imageData = {{}};
   var imageRendered = false;
   var maximized = false;
+  var hostTheme = null;
+  var rpcId = 10;
+  var pendingCalls = {{}};
+  var systemThemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  var resizeObserver = null;
+
+  function handleSystemThemeChange(event) {{
+    if (hostTheme === null) {{
+      applyTheme(event.matches ? "dark" : "light");
+    }}
+  }}
+
+  if (typeof systemThemeQuery.addEventListener === "function") {{
+    systemThemeQuery.addEventListener("change", handleSystemThemeChange);
+  }} else if (typeof systemThemeQuery.addListener === "function") {{
+    systemThemeQuery.addListener(handleSystemThemeChange);
+  }}
+
+  applyTheme(getResolvedTheme());
 
   // ── MCP handshake ──
   window.parent.postMessage(
@@ -270,12 +290,14 @@ body.maximized #prompt-text {{
       method: "ui/initialize",
       id: 1,
       params: {{
-        protocolVersion: "2025-01-26",
-        clientInfo: {{
+        protocolVersion: "2026-01-26",
+        appInfo: {{
           name: "image-viewer",
           version: "1.0.0",
         }},
-        capabilities: {{}},
+        appCapabilities: {{
+          availableDisplayModes: ["inline", "fullscreen"],
+        }},
       }},
     }},
     "*"
@@ -287,13 +309,49 @@ body.maximized #prompt-text {{
 
     if (msg.method === "ui/notifications/tool-result") {{
       handleToolResult(msg.params);
-    }} else if (
-      msg.method === "ui/notifications/maximize-changed"
-    ) {{
-      var val = msg.params && msg.params.maximized;
-      if (typeof val === "boolean" && val !== maximized) {{
-        maximized = val;
-        applyMaximized();
+    }} else if (msg.method === "ui/notifications/tool-input") {{
+      /* Tool arguments are available via msg.params.arguments when needed. */
+    }} else if (msg.method === "ui/notifications/host-context-changed") {{
+      var context = msg.params || {{}};
+      if (context.theme === "dark" || context.theme === "light") {{
+        hostTheme = context.theme;
+        applyTheme(getResolvedTheme());
+      }}
+      if (context.displayMode) {{
+        var wantFullscreen = context.displayMode === "fullscreen";
+        if (wantFullscreen !== maximized) {{
+          applyMaximizedState(wantFullscreen);
+        }}
+      }}
+    }} else if (msg.method === "ui/resource-teardown" && msg.id != null) {{
+      window.parent.postMessage(
+        {{ jsonrpc: "2.0", id: msg.id, result: {{}} }},
+        "*"
+      );
+    }} else if (msg.id === 1 && !msg.method) {{
+      var hostContext = (msg.result && msg.result.hostContext) || {{}};
+      if (hostContext.theme === "dark" || hostContext.theme === "light") {{
+        hostTheme = hostContext.theme;
+        applyTheme(getResolvedTheme());
+      }}
+      if (hostContext.displayMode === "fullscreen") {{
+        applyMaximizedState(true);
+      }}
+      window.parent.postMessage(
+        {{
+          jsonrpc: "2.0",
+          method: "ui/notifications/initialized",
+          params: {{}},
+        }},
+        "*"
+      );
+    }} else if (msg.id != null && !msg.method && pendingCalls[msg.id]) {{
+      var callback = pendingCalls[msg.id];
+      delete pendingCalls[msg.id];
+      if (msg.error) {{
+        callback.reject(new Error(msg.error.message || "RPC error"));
+      }} else {{
+        callback.resolve(msg.result);
       }}
     }} else if (msg.method === "ping" && msg.id != null) {{
       window.parent.postMessage(
@@ -302,6 +360,17 @@ body.maximized #prompt-text {{
       );
     }}
   }});
+
+  function getResolvedTheme() {{
+    if (hostTheme === "dark" || hostTheme === "light") {{
+      return hostTheme;
+    }}
+    return systemThemeQuery.matches ? "dark" : "light";
+  }}
+
+  function applyTheme(theme) {{
+    ROOT.setAttribute("data-theme", theme);
+  }}
 
   // ── Tool result handling ──
   function handleToolResult(result) {{
@@ -352,11 +421,10 @@ body.maximized #prompt-text {{
     var p = imageData.enhanced_prompt
       || imageData.prompt || "";
     if (!p) {{
-      document.getElementById(
-        "prompt-container"
-      ).style.display = "none";
+      PROMPT_CONTAINER.style.display = "none";
       return;
     }}
+    PROMPT_CONTAINER.style.display = "block";
     if (maximized) {{
       PROMPT_TEXT.textContent = p;
     }} else if (p.length > TRUNCATE_LEN) {{
@@ -405,6 +473,36 @@ body.maximized #prompt-text {{
     }}
   }}
 
+  function openLink(url) {{
+    return new Promise(function (resolve, reject) {{
+      var id = ++rpcId;
+      pendingCalls[id] = {{ resolve: resolve, reject: reject }};
+      window.parent.postMessage(
+        {{
+          jsonrpc: "2.0",
+          method: "ui/open-link",
+          id: id,
+          params: {{ url: url }},
+        }},
+        "*"
+      );
+    }});
+  }}
+
+  function buildImageDownloadUrl(url) {{
+    try {{
+      var parsed = new URL(url, window.location.origin);
+      parsed.searchParams.set(
+        "content_disposition",
+        "attachment"
+      );
+      return parsed.toString();
+    }} catch (e) {{
+      var separator = url.indexOf("?") === -1 ? "?" : "&";
+      return url + separator + "content_disposition=attachment";
+    }}
+  }}
+
   window.addEventListener("error", function (e) {{
     showError("Unexpected error: " + (e.message || e));
   }});
@@ -413,19 +511,7 @@ body.maximized #prompt-text {{
   document.getElementById("btn-download")
     .addEventListener("click", function () {{
     if (!imageData.image_url) return;
-    fetch(imageData.image_url)
-      .then(function (r) {{ return r.blob(); }})
-      .then(function (blob) {{
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = getFilename(
-          imageData.image_url
-        );
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-      }})
+    openLink(buildImageDownloadUrl(imageData.image_url))
       .catch(function (err) {{
         console.error(
           "[image-viewer] download failed:", err
@@ -433,25 +519,15 @@ body.maximized #prompt-text {{
       }});
   }});
 
-  function getFilename(url) {{
-    try {{
-      var parts = new URL(url).pathname.split("/");
-      var last = parts[parts.length - 1];
-      if (last && last.indexOf(".") !== -1) return last;
-    }} catch (e) {{ /* ignore */ }}
-    return "generated_image.jpeg";
-  }}
-
   // ── Maximize / minimize ──
-  function applyMaximized() {{
+  function applyMaximizedState(val) {{
+    maximized = val;
     if (maximized) {{
       document.body.classList.add("maximized");
     }} else {{
       document.body.classList.remove("maximized");
     }}
-    var icon = document.querySelector(
-      "#btn-fullscreen i"
-    );
+    var icon = FULLSCREEN_BUTTON.querySelector("i");
     if (icon) {{
       icon.setAttribute(
         "data-lucide",
@@ -466,13 +542,13 @@ body.maximized #prompt-text {{
   }}
 
   function setMaximized(val) {{
-    maximized = val;
-    applyMaximized();
+    applyMaximizedState(val);
     window.parent.postMessage(
       {{
         jsonrpc: "2.0",
-        method: "ui/notifications/maximize",
-        params: {{ maximized: maximized }},
+        method: "ui/request-display-mode",
+        id: Date.now(),
+        params: {{ mode: maximized ? "fullscreen" : "inline" }},
       }},
       "*"
     );
@@ -500,9 +576,10 @@ body.maximized #prompt-text {{
       "*"
     );
   }}
-  new ResizeObserver(function () {{
+  resizeObserver = new ResizeObserver(function () {{
     reportSize();
-  }}).observe(document.body);
+  }});
+  resizeObserver.observe(document.body);
 }})();
 </script>
 </body>
