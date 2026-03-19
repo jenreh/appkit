@@ -493,6 +493,7 @@ body.maximized #canvas {{
   let diagramRendered = false;
   let fetchStarted = false;
   let hostTheme = null;
+  var hostInfo = {{}};
 
   const viewer = new BpmnJS({{
     container: CANVAS,
@@ -545,6 +546,7 @@ body.maximized #canvas {{
       // ui/initialize response — apply host context, then send initialized
       const hc = (msg.result && msg.result.hostContext) || {{}};
       if (hc.theme) hostTheme = hc.theme;
+      hostInfo = (msg.result && msg.result.hostInfo) || {{}};
       window.parent.postMessage(
         {{ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {{}} }},
         "*"
@@ -582,13 +584,161 @@ body.maximized #canvas {{
     }});
   }}
 
-  function downloadFile(filename, content, mimeType) {{
+  // Download strategy:
+  //  - appkit host: ui/download-file (non-standard appkit extension).
+  //    Detected via hostInfo.name === "appkit" from ui/initialize.
+  //    Falls back to _showCopyFallback on error/timeout.
+  //  - all other hosts: _showCopyFallback — an inline overlay with a
+  //    textarea and copy-to-clipboard button, since the MCP Apps sandbox
+  //    proxy spec only grants allow-scripts + allow-same-origin and
+  //    blob URL / data: URI downloads are blocked.
+
+  function _showCopyFallback(filename, content) {{
+    var existing = document.getElementById("bpmn-copy-overlay");
+    if (existing) existing.remove();
+
+    var overlay = document.createElement("div");
+    overlay.id = "bpmn-copy-overlay";
+    overlay.style.cssText = [
+      "position:fixed;top:0;left:0;width:100%;height:100%;",
+      "background:rgba(0,0,0,0.55);z-index:9999;",
+      "display:flex;align-items:center;justify-content:center;",
+    ].join("");
+
+    var box = document.createElement("div");
+    box.style.cssText = [
+      "background:#fff;border-radius:8px;padding:20px;",
+      "width:min(600px,90vw);max-height:80vh;",
+      "display:flex;flex-direction:column;gap:12px;",
+      "box-shadow:0 8px 32px rgba(0,0,0,0.3);",
+    ].join("");
+
+    var header = document.createElement("div");
+    header.style.cssText = [
+      "display:flex;justify-content:space-between;",
+      "align-items:center;",
+    ].join("");
+    var title = document.createElement("strong");
+    title.style.cssText = "font-size:14px;font-family:sans-serif;";
+    title.textContent = filename;
+    var closeBtn = document.createElement("button");
+    closeBtn.textContent = "\u00d7";
+    closeBtn.style.cssText = [
+      "background:none;border:none;font-size:20px;cursor:pointer;",
+      "padding:0 4px;line-height:1;color:#555;",
+    ].join("");
+    closeBtn.onclick = function () {{ overlay.remove(); }};
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+
+    var hint = document.createElement("p");
+    hint.style.cssText = "margin:0;font-size:12px;font-family:sans-serif;color:#666;";
+    hint.textContent =
+      "Direct download unavailable in this host. Copy the content below:";
+
+    var ta = document.createElement("textarea");
+    ta.readOnly = true;
+    ta.value = content;
+    ta.style.cssText = [
+      "width:100%;flex:1;min-height:200px;resize:vertical;",
+      "font-family:monospace;font-size:11px;",
+      "border:1px solid #ccc;border-radius:4px;padding:8px;",
+      "box-sizing:border-box;",
+    ].join("");
+
+    var btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;gap:8px;justify-content:flex-end;";
+
+    var copyBtn = document.createElement("button");
+    copyBtn.textContent = "Copy to clipboard";
+    copyBtn.style.cssText = [
+      "padding:7px 16px;border:none;border-radius:4px;cursor:pointer;",
+      "background:#228be6;color:#fff;font-size:13px;font-family:sans-serif;",
+    ].join("");
+    copyBtn.onclick = function () {{
+      var copied = false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {{
+        navigator.clipboard.writeText(content).then(function () {{
+          copyBtn.textContent = "Copied!";
+          setTimeout(function () {{
+            copyBtn.textContent = "Copy to clipboard";
+          }}, 2000);
+        }}).catch(function () {{ fallbackCopy(); }});
+      }} else {{
+        fallbackCopy();
+      }}
+      function fallbackCopy() {{
+        ta.select();
+        try {{
+          document.execCommand("copy");
+          copyBtn.textContent = "Copied!";
+          setTimeout(function () {{
+            copyBtn.textContent = "Copy to clipboard";
+          }}, 2000);
+        }} catch (e) {{
+          copyBtn.textContent = "Copy failed";
+        }}
+      }}
+    }};
+
+    var tryBtn = document.createElement("button");
+    tryBtn.textContent = "Try download anyway";
+    tryBtn.style.cssText = [
+      "padding:7px 16px;border:1px solid #ccc;border-radius:4px;cursor:pointer;",
+      "background:#f8f9fa;color:#333;font-size:13px;font-family:sans-serif;",
+    ].join("");
+    tryBtn.onclick = function () {{
+      try {{
+        var blob = new Blob([content], {{ type: "application/octet-stream" }});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () {{ URL.revokeObjectURL(url); }}, 10000);
+      }} catch (e) {{
+        console.error("[bpmn-viewer] fallback blob download failed:", e);
+      }}
+    }};
+
+    btnRow.appendChild(tryBtn);
+    btnRow.appendChild(copyBtn);
+    box.appendChild(header);
+    box.appendChild(hint);
+    box.appendChild(ta);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+
+    overlay.addEventListener("click", function (e) {{
+      if (e.target === overlay) overlay.remove();
+    }});
+
+    document.body.appendChild(overlay);
+    setTimeout(function () {{ ta.select(); }}, 50);
+  }}
+
+  function _downloadForAppkit(filename, content, mimeType) {{
     const id = ++rpcId;
+    var timer = setTimeout(function () {{
+      if (pendingCalls[id]) {{
+        delete pendingCalls[id];
+        _showCopyFallback(filename, content);
+      }}
+    }}, 2000);
+    pendingCalls[id] = {{
+      resolve: function () {{ clearTimeout(timer); }},
+      reject: function () {{
+        clearTimeout(timer);
+        _showCopyFallback(filename, content);
+      }},
+    }};
     window.parent.postMessage(
       {{
         jsonrpc: "2.0",
-        method: "ui/download-file",
         id: id,
+        method: "ui/download-file",
         params: {{
           contents: [{{
             type: "resource",
@@ -602,6 +752,14 @@ body.maximized #canvas {{
       }},
       "*"
     );
+  }}
+
+  function downloadFile(filename, content, mimeType) {{
+    if (hostInfo.name === "appkit") {{
+      _downloadForAppkit(filename, content, mimeType);
+    }} else {{
+      _showCopyFallback(filename, content);
+    }}
   }}
 
   function handleToolResult(result) {{
