@@ -237,6 +237,88 @@ async def test_update_bpmn_diagram_success(bpmn_client: Client) -> None:
 
 
 @pytest.mark.asyncio
+async def test_update_bpmn_diagram_uses_extracted_json_context(
+    bpmn_client: Client,
+) -> None:
+    """update_bpmn_diagram builds its prompt from extracted BPMN JSON."""
+    save_result = await bpmn_client.call_tool(
+        "save_bpmn_diagram", arguments={"xml": VALID_BPMN}
+    )
+    saved = json.loads(save_result.content[0].text)
+    diagram_id = saved["id"]
+
+    extracted_process = {
+        "steps": [
+            {
+                "id": "start",
+                "type": "startEvent",
+                "label": "Start",
+                "branches": None,
+                "next": "do_something",
+            },
+            {
+                "id": "do_something",
+                "type": "task",
+                "label": "Do Something",
+                "branches": None,
+                "next": "end",
+            },
+            {
+                "id": "end",
+                "type": "endEvent",
+                "label": "End",
+                "branches": None,
+                "next": None,
+            },
+        ],
+        "lanes": None,
+    }
+    mock_process = BpmnProcess(
+        steps=[
+            BpmnStep(id="start", type="startEvent", label="Start"),
+            BpmnStep(id="do_something", type="task", label="Do Something"),
+            BpmnStep(id="review", type="task", label="Review"),
+            BpmnStep(id="end", type="endEvent", label="End"),
+        ]
+    )
+
+    with (
+        patch(
+            "appkit_mcp_bpmn.server.extract_process_json",
+            return_value=extracted_process,
+        ) as mock_extract,
+        patch(
+            "appkit_mcp_bpmn.server.BPMNGenerator.generate",
+            new_callable=AsyncMock,
+            return_value=mock_process,
+        ) as mock_generate,
+    ):
+        result = await bpmn_client.call_tool(
+            "update_bpmn_diagram",
+            arguments={
+                "diagram_id": diagram_id,
+                "update_prompt": "Add a review step after Do Something",
+            },
+        )
+
+    parsed = json.loads(result.content[0].text)
+
+    assert parsed["success"] is True
+    mock_extract.assert_called_once()
+    extracted_xml = mock_extract.call_args.args[0]
+    assert "<bpmn:process" in extracted_xml
+    assert "Do Something" in extracted_xml
+    mock_generate.assert_awaited_once()
+    assert mock_generate.await_args.kwargs["raw_prompt"] is True
+    prompt_text = mock_generate.await_args.args[0]
+    assert "Current BPMN JSON:" in prompt_text
+    assert "Add a review step after Do Something" in prompt_text
+    assert '"id": "do_something"' in prompt_text
+    assert "Current Diagram XML:" not in prompt_text
+    assert VALID_BPMN not in prompt_text
+
+
+@pytest.mark.asyncio
 async def test_update_bpmn_diagram_not_found(bpmn_client: Client) -> None:
     """update_bpmn_diagram raises error for unknown diagram."""
     with pytest.raises(ToolError, match="not found"):
