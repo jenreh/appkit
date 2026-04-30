@@ -13,7 +13,7 @@ dependencies = [
     "sqlmodel>=0.0.38",
 ]
 name = "appkit-assistant"
-version = "1.9.0"
+version = "1.9.1"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]

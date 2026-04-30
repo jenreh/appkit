@@ -7,7 +7,7 @@ dependencies = [
     "sqlalchemy>=2.0.49",
 ]
 name = "appkit-mcp-user"
-version = "1.9.0"
+version = "1.9.1"
 description = "MCP User Analytics Server"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
