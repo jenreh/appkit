@@ -22,12 +22,12 @@ classifiers = [
 ]
 dependencies = [
     "colorlog>=6.10.1",
-    "cryptography>=46.0.5",
-    "pydantic-settings>=2.13.1",
+    "cryptography>=47.0.0",
+    "pydantic-settings>=2.14.0",
     "pyyaml>=6.0.3",
     "sqlalchemy-utils>=0.42.1",
-    "sqlalchemy>=2.0.47",
-    "starlette>=0.52.1",
+    "sqlalchemy>=2.0.49",
+    "starlette>=1.0.0",
 ]
 
 [project.optional-dependencies]

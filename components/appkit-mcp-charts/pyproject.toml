@@ -2,7 +2,7 @@
 dependencies = [
     "appkit-commons",
     "appkit-mcp-commons",
-    "plotly==6.5.2",
+    "plotly==6.7.0",
 ]
 name = "appkit-mcp-charts"
 version = "1.9.0"
