@@ -13,7 +13,7 @@ import logging
 import uuid
 
 from fastmcp import FastMCP
-from fastmcp.server.apps import AppConfig, ResourceCSP
+from fastmcp.apps import AppConfig, ResourceCSP
 from fastmcp.server.dependencies import get_http_request
 
 from appkit_commons.registry import service_registry

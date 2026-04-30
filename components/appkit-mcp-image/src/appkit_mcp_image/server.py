@@ -3,8 +3,8 @@ import logging
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from fastmcp import FastMCP
+from fastmcp.apps import AppConfig
 from fastmcp.dependencies import CurrentRequest
-from fastmcp.server.apps import AppConfig
 from fastmcp.server.auth.auth import AuthProvider
 from pydantic import Field
 from starlette.requests import Request

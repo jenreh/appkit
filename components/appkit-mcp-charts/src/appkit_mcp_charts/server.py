@@ -13,7 +13,7 @@ import logging
 from typing import Any
 
 from fastmcp import FastMCP
-from fastmcp.server.apps import AppConfig, ResourceCSP
+from fastmcp.apps import AppConfig, ResourceCSP
 
 from appkit_mcp_charts.resources.chart_view import CHART_HTML, VIEW_URI
 from appkit_mcp_charts.tools.visualize import (
