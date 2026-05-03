@@ -9,7 +9,7 @@ reflex:
   single_port: false
 
 app:
-  version: 1.9.2
+  version: 1.9.3
   name: appkit App
   logging: logging.yaml
   environment: development
