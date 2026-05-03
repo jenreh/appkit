@@ -11,6 +11,7 @@ Documentation: https://mantine.dev/core/scroll-area/
 from __future__ import annotations
 
 import dataclasses
+import json
 import secrets
 from typing import Any, Literal
 
@@ -20,6 +21,26 @@ from reflex.event import EventHandler, EventSpec
 from reflex.vars.base import Var, get_unique_variable_name
 
 from appkit_mantine.base import MANTINE_LIBARY, MANTINE_VERSION
+
+
+def _local_storage_scroll_position_var(persist_key: str) -> Var[dict]:
+    """Build a client-side initial scroll position from localStorage."""
+    key = json.dumps(persist_key)
+    return Var(
+        _js_expr=(
+            "(() => {"
+            "try {"
+            "if (typeof window === 'undefined') return ({ x: 0, y: 0 });"
+            f"const value = window.localStorage.getItem({key});"
+            "const y = Number.parseInt(value ?? '0', 10);"
+            "return ({ x: 0, y: Number.isFinite(y) ? y : 0 });"
+            "} catch (_e) {"
+            "return ({ x: 0, y: 0 });"
+            "}"
+            "})()"
+        ),
+        _var_type=dict,
+    )
 
 
 class ScrollArea(rx.Component):
@@ -322,21 +343,23 @@ useEffect(() => {{
 
 
 class ScrollAreaWithState(rx.ComponentState):
-    """ScrollArea + Controls with state-based scroll position tracking.
+    """ScrollArea + controls with optional browser-side scroll persistence.
 
     Provides a ScrollArea with:
+    - Initial scroll restoration via Mantine startScrollPosition
     - Scroll position persistence via localStorage (with persist_key)
     - Top/bottom navigation buttons using IntersectionObserver
-    - Scroll event tracking and state management
     - Optional autoscroll to bottom on content changes
 
     Args:
         autoscroll: If True, automatically scrolls to bottom when content changes
-                   (similar to streaming chat interfaces). Maintains state tracking
-                   and button controls. Default: False.
+                   (similar to streaming chat interfaces). Maintains button controls.
+                   Default: False.
         persist_key: Optional key for localStorage persistence of scroll position.
                     When provided, scroll position survives page reloads.
         show_controls: Whether to display top/bottom navigation buttons.
+        start_scroll_position: Optional initial scroll position. If omitted and
+                    persist_key is set, it is read from localStorage in the browser.
         controls: Which buttons to show ("top", "bottom", "top-bottom", "both").
         top_buffer: Pixels from top before top button appears.
         bottom_buffer: Pixels from bottom before bottom button appears.
@@ -368,113 +391,6 @@ class ScrollAreaWithState(rx.ComponentState):
         ```
     """
 
-    # letzter bekannter Scroll-Y (px)
-    scroll_y: int = 0
-
-    # DOM-IDs (bei Mount gesetzt)
-    viewport_id: str = ""
-    wrapper_id: str = ""
-
-    # ---------- Events (müssen öffentlich sein!) ----------
-
-    @rx.event
-    def on_position(self, position: dict) -> None:
-        """Mantine onScrollPositionChange -> {x, y}"""
-        try:
-            self.scroll_y = int(position.get("y", 0))
-        except Exception:
-            self.scroll_y = 0
-
-    @rx.event
-    def save_scroll(self, y: int) -> None:
-        """Scrollwert aus dem Browser übernehmen."""
-        self.scroll_y = int(y)
-
-    @rx.event
-    def capture_scroll_from_dom(self) -> EventSpec:
-        """ScrollTop einmalig aus dem DOM lesen (z. B. vor Unmount)."""
-        if not self.viewport_id:
-            return None
-        js = (
-            "(function(){"
-            f"const w=document.getElementById('{self.wrapper_id}');"
-            "if(!w)return 0;"
-            "let vp=w.querySelector('[data-radix-scroll-area-viewport]')||"
-            "w.querySelector('.mantine-ScrollArea-viewport');"
-            "if(!vp){"
-            f"const sa=document.getElementById('{self.viewport_id}');"
-            "if(sa){"
-            "vp=sa.querySelector('[data-radix-scroll-area-viewport]')||"
-            "sa.querySelector('.mantine-ScrollArea-viewport')||sa;"
-            "}"
-            "}"
-            "if(!vp)return 0;"
-            "const y=vp.scrollTop;"
-            "const key=w?.dataset?.mnkScrollPersistKey;"
-            "if(key){try{localStorage.setItem(key,String(y));}catch(e){};}"
-            "return y;"
-            "})()"
-        )
-        return rx.call_script(js, callback=self.save_scroll)
-
-    @rx.event
-    def track_scroll(self) -> EventSpec:
-        """Bei Scroll-Ereignissen den aktuellen ScrollTop speichern."""
-        if not self.viewport_id:
-            return None
-        js = (
-            "(function(){"
-            f"const w=document.getElementById('{self.wrapper_id}');"
-            "if(!w)return 0;"
-            "let vp=w.querySelector('[data-radix-scroll-area-viewport]')||"
-            "w.querySelector('.mantine-ScrollArea-viewport');"
-            "if(!vp){"
-            f"const sa=document.getElementById('{self.viewport_id}');"
-            "if(sa){"
-            "vp=sa.querySelector('[data-radix-scroll-area-viewport]')||"
-            "sa.querySelector('.mantine-ScrollArea-viewport')||sa;"
-            "}"
-            "}"
-            "if(!vp)return 0;"
-            "const y=vp.scrollTop;"
-            "const key=w?.dataset?.mnkScrollPersistKey;"
-            "if(key){try{localStorage.setItem(key,String(y));}catch(e){};}"
-            "return y;"
-            "})()"
-        )
-        return rx.call_script(js, callback=self.save_scroll)
-
-    @rx.event
-    def restore_scroll(self) -> EventSpec:
-        """ScrollTop nach Mount/Theme-Wechsel wiederherstellen."""
-        if not self.viewport_id:
-            return None
-        y = int(self.scroll_y)
-        js = (
-            "(function(){"
-            f"const w=document.getElementById('{self.wrapper_id}');"
-            "if(!w)return;"
-            # Find viewport with Mantine or Radix selector
-            "let vp=w.querySelector('[data-radix-scroll-area-viewport]')||"
-            "w.querySelector('.mantine-ScrollArea-viewport');"
-            "if(!vp){"
-            f"const sa=document.getElementById('{self.viewport_id}');"
-            "if(sa){"
-            "vp=sa.querySelector('[data-radix-scroll-area-viewport]')||"
-            "sa.querySelector('.mantine-ScrollArea-viewport')||sa;"
-            "}"
-            "}"
-            "if(!vp)return;"
-            f"const y={y};"
-            "if(y>0){"
-            "requestAnimationFrame(()=>requestAnimationFrame(()=>{"
-            "vp.scrollTo({ top:y, behavior:'auto' });"
-            "}));"
-            "}"
-            "})();"
-        )
-        return rx.call_script(js)
-
     @rx.event
     def setup_controls(
         self,
@@ -485,14 +401,10 @@ class ScrollAreaWithState(rx.ComponentState):
         persist_key: str | None = None,
         autoscroll: bool = False,
     ) -> list[EventSpec]:
-        """IDs setzen, IO für Buttons aktivieren und anschließend
-        Scroll wiederherstellen."""
-        self.viewport_id = viewport_id
-        self.wrapper_id = wrapper_id
-
+        """Set DOM ids, initialize controls, and attach browser persistence."""
         # Persist key: if provided, expose it on the wrapper for other handlers
         persist_assignment = (
-            f"wrapper.dataset.mnkScrollPersistKey='{persist_key}';"
+            f"wrapper.dataset.mnkScrollPersistKey={json.dumps(persist_key)};"
             if persist_key
             else ""
         )
@@ -546,20 +458,15 @@ class ScrollAreaWithState(rx.ComponentState):
             io_js += (
                 # Attach scroll listener to persist position client-side
                 "(function(){const key=wrapper?.dataset?.mnkScrollPersistKey; if(!key) return;"  # noqa: E501
-                "vp.addEventListener('scroll', function(){ try{ localStorage.setItem(key, String(vp.scrollTop)); }catch(e){} });"  # noqa: E501
-                "window.addEventListener('beforeunload', function(){ try{ localStorage.setItem(key, String(vp.scrollTop)); }catch(e){} });"  # noqa: E501
-                # Try to restore from localStorage immediately on mount
-                "(function(){ try{ const key=wrapper?.dataset?.mnkScrollPersistKey; if(!key) return; const v=localStorage.getItem(key); const yy=v?parseInt(v,10):0; if(yy>0){ requestAnimationFrame(()=>requestAnimationFrame(()=>{ vp.scrollTo({ top:yy, behavior:'auto' }); })); } }catch(e){} })();"  # noqa: E501
+                "const save=function(){ try{ localStorage.setItem(key, String(vp.scrollTop)); }catch(_e){} };"  # noqa: E501
+                "vp.addEventListener('scroll', save, { passive: true });"
+                "window.addEventListener('beforeunload', save);"
                 "})();"
             )
 
         io_js += "})();"
 
-        # Skip restore_scroll when autoscroll is enabled
-        if autoscroll:
-            return [rx.call_script(io_js)]
-
-        return [rx.call_script(io_js), self.restore_scroll()]
+        return [rx.call_script(io_js)]
 
     # ---------- Factory: UI ----------
 
@@ -582,6 +489,7 @@ class ScrollAreaWithState(rx.ComponentState):
         scrollbar_size: str | int = "0.75rem",
         scrollbars: Literal[False, "x", "y", "xy"] = "xy",
         show_controls: bool = True,
+        start_scroll_position: dict | Var | None = None,
         top_buffer: int = 0,
         top_button_text: str = "↑ Top",
         type: Literal["auto", "scroll", "always", "hover", "never"] = "auto",  # noqa: A002
@@ -614,6 +522,9 @@ class ScrollAreaWithState(rx.ComponentState):
         if viewport_props is not None:
             vp_props.update(viewport_props)
 
+        if start_scroll_position is None and persist_key and not autoscroll:
+            start_scroll_position = _local_storage_scroll_position_var(persist_key)
+
         # Build component props
         sa_props = {
             "height": height,
@@ -628,23 +539,21 @@ class ScrollAreaWithState(rx.ComponentState):
             "on_bottom_reached": on_bottom_reached,
         }
 
-        # Only attach scroll position tracking if NOT autoscroll
-        # This prevents state updates from interfering with autoscroll behavior
-        if not autoscroll:
-            sa_props["on_scroll_position_change"] = cls.on_position
+        if start_scroll_position is not None:
+            sa_props["start_scroll_position"] = start_scroll_position
 
         # For autoscroll, pass id directly;
         # for regular ScrollArea, id goes in viewport_props
         if autoscroll:
             sa_props["id"] = viewport_id
 
-        # Basis ScrollArea (Viewport-ID + Scroll-Tracking -> State)
+        # Base ScrollArea with viewport id and optional initial scroll position.
         sa = base_component_class.create(
             *children,
             **sa_props,
         )
 
-        # Ohne Controls: nur State-Init + Restore
+        # Without controls: initialize persistence and return the ScrollArea wrapper.
         if not show_controls:
             return rx.box(
                 sa,
@@ -658,8 +567,6 @@ class ScrollAreaWithState(rx.ComponentState):
                     persist_key,
                     autoscroll,
                 ),
-                on_unmount=cls.capture_scroll_from_dom,
-                data_scroll_y=cls.scroll_y,
                 data_mnk_scroll_persist_key=persist_key,
                 **props,
             )
@@ -727,7 +634,7 @@ class ScrollAreaWithState(rx.ComponentState):
             return rx.button(
                 label,
                 id=elem_id,
-                on_click=[rx.call_script(js), cls.capture_scroll_from_dom()],
+                on_click=rx.call_script(js),
                 size="2",
                 style=style,
                 class_name=cls_name,
@@ -787,8 +694,6 @@ class ScrollAreaWithState(rx.ComponentState):
                 persist_key,
                 autoscroll,
             ),
-            on_unmount=cls.capture_scroll_from_dom,
-            data_scroll_y=cls.scroll_y,
             data_mnk_scroll_persist_key=persist_key,
             **props,
         )
