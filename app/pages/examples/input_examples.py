@@ -360,6 +360,16 @@ class InputExamplesState(rx.State):
     def set_switch_checked(self, val: bool) -> None:
         self.switch_checked = val
 
+    # --- Mask Input ---
+    phone_value: str = ""
+    card_value: str = ""
+
+    def set_phone_value(self, val: str) -> None:
+        self.phone_value = val
+
+    def set_card_value(self, val: str) -> None:
+        self.card_value = val
+
 
 def text_input_content() -> rx.Component:
     """Content for Text Input tab."""
@@ -746,6 +756,53 @@ def password_input_content() -> rx.Component:
     )
 
 
+def masked_input_content() -> rx.Component:
+    """Content for MaskInput tab."""
+    return mn.stack(
+        mn.simple_grid(
+            example_box(
+                "Basic Mask Input",
+                mn.stack(
+                    mn.masked_input(
+                        label="Phone number",
+                        description="US Phone format",
+                        mask="(999) 999-9999",
+                        placeholder="(___) ___-____",
+                    ),
+                    mn.masked_input(
+                        label="MAC Address",
+                        mask="**:**:**:**:**:**",
+                        placeholder="00:00:00:00:00:00",
+                    ),
+                    gap="md",
+                ),
+            ),
+            example_box(
+                "Uncontrolled (State Sync)",
+                mn.stack(
+                    mn.masked_input(
+                        label="Credit card",
+                        mask="9999 9999 9999 9999",
+                        placeholder="0000 0000 0000 0000",
+                        default_value=InputExamplesState.card_value,
+                        on_change=InputExamplesState.set_card_value,
+                    ),
+                    mn.text(
+                        f"Stored Value: {InputExamplesState.card_value}",
+                        size="sm",
+                        c="dimmed",
+                    ),
+                    gap="md",
+                ),
+            ),
+            cols=2,
+            spacing="md",
+            w="100%",
+        ),
+        w="100%",
+    )
+
+
 def slider_switch_content() -> rx.Component:
     """Content for Slider & Switch tab."""
     return mn.stack(
@@ -865,6 +922,7 @@ def input_examples_page() -> rx.Component:
                     mn.tabs.tab("NumberInput", value="number"),
                     mn.tabs.tab("JsonInput", value="json"),
                     mn.tabs.tab("TagsInput", value="tags"),
+                    mn.tabs.tab("MaskInput", value="mask"),
                     mn.tabs.tab("Sliders & Switch", value="slider_switch"),
                 ),
                 mn.tabs.panel(
@@ -895,6 +953,11 @@ def input_examples_page() -> rx.Component:
                 mn.tabs.panel(
                     tags_input_content(),
                     value="tags",
+                    py="md",
+                ),
+                mn.tabs.panel(
+                    masked_input_content(),
+                    value="mask",
                     py="md",
                 ),
                 mn.tabs.panel(

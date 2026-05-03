@@ -455,10 +455,15 @@ class MaskInput(MantineInputComponentBase):
     Provides standard input props and supports mask pattern for formatted text.
     Based on: https://mantine.dev/core/mask-input/
 
+    IMPORTANT: For reliable behavior in Reflex, use this as an UNCONTROLLED component!
+    - DO NOT use the 'value' prop for active typing (causes cursor jumping or blocking)
+    - Use 'on_change' to capture formatted values as the user types
+    - Use 'default_value' for initial static values only
+
     Example:
         ```python
         import reflex as rx
-        from appkit_mantine import mask_input
+        from appkit_mantine import masked_input
 
 
         class State(rx.State):
@@ -468,10 +473,11 @@ class MaskInput(MantineInputComponentBase):
                 self.phone = value
 
 
-        mask_input(
+        masked_input(
             mask="(999) 999-9999",
             placeholder="(___) ___-____",
             label="Your phone",
+            default_value="+1 (555) 123-4567",
             on_change=State.handle_phone,
         )
         ```
@@ -504,6 +510,18 @@ class MaskInput(MantineInputComponentBase):
 
     slot_char: Var[str] = None
     """Character for the placeholder slot (default: '_')."""
+
+    def get_event_triggers(self) -> dict[str, Any]:
+        """Transform events to work with Reflex state system."""
+
+        def _on_change(value: Var) -> list[Var]:
+            # Mantine MaskInput sends the string value directly, forward it as-is
+            return [value]
+
+        return {
+            **super().get_event_triggers(),
+            "on_change": _on_change,
+        }
 
 
 class JsonInput(MantineInputComponentBase):
