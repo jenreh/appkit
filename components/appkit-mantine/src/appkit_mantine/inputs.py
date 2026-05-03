@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Final, Literal
+from typing import Any, Literal
 
 import reflex as rx
 from reflex.event import EventHandler
@@ -167,6 +167,13 @@ class NumberInput(MantineInputComponentBase):
         "start_value": "startValue",
         "with_keyboard_events": "withKeyboardEvents",
         "allow_mouse_wheel": "allowMouseWheel",
+        "allow_leading_zeros": "allowLeadingZeros",
+        "allowed_decimal_separators": "allowedDecimalSeparators",
+        "select_all_on_focus": "selectAllOnFocus",
+        "step_hold_delay": "stepHoldDelay",
+        "step_hold_interval": "stepHoldInterval",
+        "trim_leading_zeroes_on_blur": "trimLeadingZeroesOnBlur",
+        "value_is_numeric_string": "valueIsNumericString",
     }
 
     # Numeric constraints
@@ -193,8 +200,19 @@ class NumberInput(MantineInputComponentBase):
     decimal_separator: Var[str] = None
     """Decimal separator character (default: ".")."""
 
+    allowed_decimal_separators: Var[list[str]] = None
+    """Characters which when pressed result in a decimal separator
+    (default: ['.', ','])."""
+
     allow_decimal: Var[bool] = None
     """Allow decimal input (default: True)."""
+
+    # Zero formatting
+    allow_leading_zeros: Var[bool] = None
+    """Determines whether leading zeros are allowed during input (default: True)."""
+
+    trim_leading_zeroes_on_blur: Var[bool] = None
+    """If set, leading zeros are removed on blur (default: True)."""
 
     # Number formatting
     allow_negative: Var[bool] = None
@@ -213,12 +231,26 @@ class NumberInput(MantineInputComponentBase):
     """Grouping style: thousand (1,000,000), lakh (1,00,000), wan (1,0000),
     none (no grouping)."""
 
+    value_is_numeric_string: Var[bool] = None
+    """Advanced: Set to true if passing numeric strings and using formatting
+    props like prefix or suffix."""
+
+    select_all_on_focus: Var[bool] = None
+    """If set, all text is selected when the input receives focus (default: False)."""
+
     # Controls
     hide_controls: Var[bool] = None
     """Hide increment/decrement buttons."""
 
     start_value: Var[int | float] = None
     """Value when empty input is focused (default: 0)."""
+
+    step_hold_delay: Var[int] = None
+    """Initial delay in milliseconds before stepping the value."""
+
+    step_hold_interval: Var[int] = None
+    """Interval in milliseconds between value steps when increment/decrement
+    button is held down."""
 
     with_keyboard_events: Var[bool] = None
     """Enable up/down keyboard events for incrementing/decrementing (default: True).
@@ -228,6 +260,17 @@ class NumberInput(MantineInputComponentBase):
 
     allow_mouse_wheel: Var[bool] = None
     """Enable mouse wheel increments/decrements (default: False)."""
+
+    on_max_reached: EventHandler[rx.event.no_args_event_spec] = None
+    """Called when the decrement button or arrow down key is pressed and
+    the value has reached the minimum."""
+
+    on_min_reached: EventHandler[rx.event.no_args_event_spec] = None
+    """Called when the increment button or arrow up key is pressed and
+    the value has reached the maximum."""
+
+    on_value_change: EventHandler[rx.event.input_event] = None
+    """Called when value changes with react-number-format payload."""
 
     def get_event_triggers(self) -> dict[str, Any]:
         """Override event triggers to handle NumberInput value emission.
@@ -406,33 +449,16 @@ class TagsInput(MantineInputComponentBase):
         }
 
 
-class MaskedInput(MantineInputComponentBase):
-    """Mantine InputBase with IMask integration for masked input fields.
+class MaskInput(MantineInputComponentBase):
+    """Mantine MaskInput component for formatted text entry.
 
-    This component combines Mantine's InputBase with react-imask for automatic
-    input formatting. It inherits all common input props from MantineInputComponentBase
-    (label, description, error, sections, etc.) and adds IMask-specific configuration.
-
-    Based on: https://imask.js.org/guide.html
-
-    IMPORTANT: This is an UNCONTROLLED component!
-    - DO NOT use 'value' prop (it prevents typing)
-    - Use 'on_accept' to capture formatted values
-    - Use 'default_value' for initial values only
-
-    Inherits from MantineInputComponentBase:
-    - Input.Wrapper props (label, description, error, required, with_asterisk)
-    - Visual variants (variant, size, radius)
-    - State props (default_value, placeholder, disabled, read_only)
-    - HTML attributes (name, id, aria_label, max_length, pattern, etc.)
-    - Section props (left_section, right_section with widths and pointer_events)
-    - Mantine style props (w, maw, m, mt, mb, ml, mr, mx, my, p, etc.)
-    - Event handlers (on_focus, on_blur, on_key_down, on_key_up)
+    Provides standard input props and supports mask pattern for formatted text.
+    Based on: https://mantine.dev/core/mask-input/
 
     Example:
         ```python
         import reflex as rx
-        from appkit_mantine import masked_input
+        from appkit_mantine import mask_input
 
 
         class State(rx.State):
@@ -442,117 +468,42 @@ class MaskedInput(MantineInputComponentBase):
                 self.phone = value
 
 
-        # Phone number input - CORRECT USAGE
-        masked_input(
-            mask="+1 (000) 000-0000",
+        mask_input(
+            mask="(999) 999-9999",
+            placeholder="(___) ___-____",
             label="Your phone",
-            placeholder="Your phone",
-            on_accept=State.handle_phone,  # ✅ Capture value here
-            # value=State.phone,  # ❌ DO NOT USE - prevents typing!
-        )
-
-        # Credit card input with icon
-        masked_input(
-            mask="0000 0000 0000 0000",
-            label="Card number",
-            placeholder="Card number",
-            left_section=rx.icon("credit-card"),
-            left_section_pointer_events="none",
-            on_accept=State.handle_card,
-        )
-
-        # Date input
-        masked_input(
-            mask="00/00/0000",
-            label="Date",
-            placeholder="MM/DD/YYYY",
-            description="Enter date in MM/DD/YYYY format",
-            left_section=rx.icon("calendar"),
-            on_accept=State.handle_date,
-        )
-
-        # With initial value
-        masked_input(
-            mask="+1 (000) 000-0000",
-            label="Phone",
-            default_value="+1 (555) 123-4567",  # ✅ Use default_value
-            on_accept=State.handle_phone,
-        )
-
-        # With validation
-        masked_input(
-            mask="+1 (000) 000-0000",
-            label="Phone",
-            required=True,
-            with_asterisk=True,
-            error=State.phone_error,
-            on_accept=State.handle_phone,
+            on_change=State.handle_phone,
         )
         ```
     """
 
-    tag = "InputBase"
-    lib_dependencies: list[str] = [f"react-imask@{IMASK_VERSION}"]
+    tag = "MaskInput"
+    alias = "MantineMaskInput"
 
-    def _get_custom_code(self) -> str:
-        return """import '@mantine/core/styles.css';
-import { IMaskInput } from 'react-imask';"""
-
-    # Extend base _rename_props with IMask-specific camelCase conversions
+    # Extend base _rename_props with MaskInput-specific camelCase conversions
     _rename_props = {
         **MantineInputComponentBase._rename_props,  # noqa: SLF001
-        "placeholder_char": "placeholderChar",
+        "slot_char": "slotChar",
     }
 
     # ========================================================================
-    # Component Configuration
+    # MaskInput Props
     # ========================================================================
 
-    component: Final[Var[rx.Var]] = rx.Var(
-        "IMaskInput"
-    )  # read-only: ensures IMaskInput is used and should never be reassigned
+    mask: Var[str | list[Any]] = None
+    """Mask pattern definition (e.g., '(999) 999-9999')."""
 
-    # ========================================================================
-    # IMask-Specific Props - Only props unique to masked input
-    # ========================================================================
+    modify: Var[Any] = None
+    """Function to change the mask dynamically based on the current input value."""
 
-    mask: Var[str] = None
-    """Mask pattern (e.g., '+1 (000) 000-0000', '0000 0000 0000 0000')."""
+    tokens: Var[dict[str, Any]] = None
+    """Dictionary mapping pattern characters to RegExp/tokens."""
 
-    definitions: Var[dict] = None
-    """Custom pattern definitions for mask characters."""
+    transform: Var[Any] = None
+    """Function to convert characters before validation."""
 
-    blocks: Var[dict] = None
-    """Block-based mask configuration for complex patterns."""
-
-    lazy: Var[bool] = None
-    """Show placeholder before typing (default: True)."""
-
-    placeholder_char: Var[str] = None
-    """Character for placeholder (default: '_')."""
-
-    overwrite: Var[bool] = None
-    """Allow overwriting characters (default: False)."""
-
-    autofix: Var[bool] = None
-    """Auto-fix input on blur (default: False)."""
-
-    eager: Var[bool] = None
-    """Eager mode for immediate mask display."""
-
-    unmask: Var[bool | Literal["typed"]] = None
-    """Return unmasked value. True = all unmasked, 'typed' = only typed chars."""
-
-    # ========================================================================
-    # IMask-Specific Event Handlers
-    # ========================================================================
-
-    on_accept: EventHandler[rx.event.input_event]
-    """Called when mask accepts input (receives value directly, not event).
-    Use this instead of on_change for masked inputs."""
-
-    on_complete: EventHandler[rx.event.input_event]
-    """Called when mask is completely filled (receives value directly)."""
+    slot_char: Var[str] = None
+    """Character for the placeholder slot (default: '_')."""
 
 
 class JsonInput(MantineInputComponentBase):
@@ -651,7 +602,7 @@ class InputNamespace(rx.ComponentNamespace):
     text = staticmethod(TextInput.create)
     password = staticmethod(PasswordInput.create)
     number = staticmethod(NumberInput.create)
-    masked = staticmethod(MaskedInput.create)
+    masked = staticmethod(MaskInput.create)
     textarea = staticmethod(Textarea.create)
     json = staticmethod(JsonInput.create)
     date = staticmethod(DateInput.create)
@@ -675,6 +626,6 @@ password_input = PasswordInput.create
 number_input = NumberInput.create
 json_input = JsonInput.create
 tags_input = TagsInput.create
-masked_input = MaskedInput.create
+masked_input = MaskInput.create
 textarea = Textarea.create
 input_wrapper = InputWrapper.create

@@ -207,10 +207,10 @@ def _password_change_section() -> rx.Component:
     )
 
 
-def user_profile_view(**kwargs) -> rx.Component:
+def user_profile_view(with_header: bool = False, **kwargs) -> rx.Component:
     """Render the user profile view content."""
     return mn.stack(
-        header("Profil"),
+        rx.cond(with_header, header("Profil")),
         _personal_info_section(),
         mn.divider(my="md"),
         _password_change_section(),

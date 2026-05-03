@@ -101,6 +101,7 @@ class Card(MantineLayoutComponentBase):
     radius: Var[str | int]
     with_border: Var[bool]
     padding: Var[str | int]
+    orientation: Var[Literal["horizontal", "vertical"]]
 
 
 class CardSection(MantineLayoutComponentBase):

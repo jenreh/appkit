@@ -65,6 +65,9 @@ class ScrollArea(rx.Component):
     """Adds padding to offset scrollbars: x (horizontal only), y (vertical only),
     xy (both), present (only when scrollbars are visible)."""
 
+    start_scroll_position: Var[dict] = None
+    """Initial scroll position as {x: number, y: number} (default: {x: 0, y: 0})."""
+
     scrollbars: Var[Literal[False, "x", "y", "xy"]] = "xy"
     """Axis at which scrollbars are rendered: x (horizontal), y (vertical),
     xy (both), false (none)."""

@@ -47,7 +47,7 @@ from reflex.vars.base import Var
 public_provider_path = "$/public/" + asset(path="mantine_provider.js", shared=True)
 
 MANTINE_LIBARY: Final[str] = "@mantine/core"
-MANTINE_VERSION: Final[str] = "8.3.15"
+MANTINE_VERSION: Final[str] = "9.1.1"
 
 
 MantineSize = Literal["xs", "sm", "md", "lg", "xl"]
@@ -464,6 +464,9 @@ class MantineInputComponentBase(MantineLayoutComponentBase):
 
     read_only: Var[bool] = None
     """If true, input is read-only (can be focused but not edited)."""
+
+    loading: Var[bool] = None
+    """If true, shows loading state (e.g., spinner) and disables input."""
 
     # ========================================================================
     # HTML Input Attributes - Standard input element attributes

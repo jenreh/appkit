@@ -95,6 +95,7 @@ class Grid(MantineLayoutComponentBase):
     justify: Var[str]
     align: Var[str]
     overflow: Var[str]
+    type: Var[Literal["container", "media"]]
 
 
 class GridCol(MantineLayoutComponentBase):

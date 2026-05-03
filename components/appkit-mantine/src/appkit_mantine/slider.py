@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import reflex as rx
 from reflex.vars import Var
@@ -43,7 +43,9 @@ class MantineSliderBase(MantineLayoutComponentBase):
     disabled: Var[bool]
     inverted: Var[bool]
     scale: Var[Callable]
+    orientation: Var[Literal["horizontal", "vertical"]]
     show_label_on_hover: Var[bool]
+    start_point_value: Var[int | float]
 
     # Style props
     class_name: Var[str]
@@ -61,6 +63,7 @@ class MantineSliderBase(MantineLayoutComponentBase):
         "on_change": "onChange",
         "restrict_to_marks": "restrictToMarks",
         "show_label_on_hover": "showLabelOnHover",
+        "start_point_value": "startPointValue",
         "thumb_children": "thumbChildren",
         "thumb_size": "thumbSize",
     }
