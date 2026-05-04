@@ -248,3 +248,62 @@ class CheckboxNamespace(rx.ComponentNamespace):
 checkbox = CheckboxNamespace()
 radio = RadioNamespace()
 switch = Switch.create
+
+
+class SegmentedControl(MantineInputComponentBase):
+    """Mantine SegmentedControl component.
+
+    Documentation: https://mantine.dev/core/segmented-control/
+    """
+
+    tag = "SegmentedControl"
+
+    data: Var[list[str] | list[dict[str, Any]]] = None
+    """Data based on which controls are rendered."""
+
+    value: Var[str] = None
+    """Controlled component value."""
+
+    default_value: Var[str] = None
+    """Uncontrolled component default value."""
+
+    disabled: Var[bool] = None
+    """Determines whether the component is disabled."""
+
+    name: Var[str] = None
+    """Name attribute for the radio group."""
+
+    full_width: Var[bool] = None
+    """Determines whether the component should take 100% width of its parent."""
+
+    color: Var[str] = None
+    """Changes indicator background color."""
+
+    size: Var[MantineSize] = None
+    """Controls font-size, padding and height properties."""
+
+    radius: Var[MantineNumberSize] = None
+    """Key of theme.radius or any valid CSS value to set border-radius."""
+
+    transition_duration: Var[int] = None
+    """Indicator transition-duration in ms, set 0 to turn off transitions."""
+
+    transition_timing_function: Var[str] = None
+    """Indicator transition-timing-function property."""
+
+    orientation: Var[Literal["horizontal", "vertical"]] = None
+    """Component orientation."""
+
+    read_only: Var[bool] = None
+    """If set to false, prevents changing the value."""
+
+    with_items_borders: Var[bool] = None
+    """Determines whether there should be borders between items."""
+
+    auto_contrast: Var[bool] = None
+    """Automatically adjusts label text color for optimal contrast."""
+
+    on_change: EventHandler[lambda value: [value]] = None
+
+
+segmented_control = SegmentedControl.create

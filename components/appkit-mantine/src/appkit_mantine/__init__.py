@@ -68,7 +68,7 @@ from appkit_mantine.inputs import (
     text_input,
     textarea,
 )
-from appkit_mantine.inputs_toggles import checkbox, radio, switch
+from appkit_mantine.inputs_toggles import checkbox, radio, switch, segmented_control
 from appkit_mantine.layout import (
     center,
     container,
@@ -102,6 +102,7 @@ from appkit_mantine.overlay import (
     tooltip,
     overlay,
     loading_overlay,
+    floating_indicator,
 )
 from appkit_mantine.scroll_area import scroll_area
 from appkit_mantine.slider import slider, range_slider
@@ -185,6 +186,7 @@ __all__ = [
     "donut_chart",
     "drawer",
     "flex",
+    "floating_indicator",
     "focus_trap",
     "form",
     "funnel_chart",
@@ -225,6 +227,7 @@ __all__ = [
     "rich_text_editor",
     "scatter_chart",
     "scroll_area",
+    "segmented_control",
     "select",
     "simple_grid",
     "skeleton",

@@ -370,6 +370,12 @@ class InputExamplesState(rx.State):
     def set_card_value(self, val: str) -> None:
         self.card_value = val
 
+    # --- Segmented Control ---
+    segmented_value: str = "react"
+
+    def set_segmented_value(self, val: str) -> None:
+        self.segmented_value = val
+
 
 def text_input_content() -> rx.Component:
     """Content for Text Input tab."""
@@ -898,6 +904,129 @@ def slider_switch_content() -> rx.Component:
     )
 
 
+def segmented_control_content() -> rx.Component:
+    """Content for SegmentedControl tab."""
+    return mn.stack(
+        mn.simple_grid(
+            example_box(
+                "Basic usage",
+                mn.stack(
+                    mn.segmented_control(
+                        data=["React", "Angular", "Vue", "Svelte"],
+                    ),
+                    mn.segmented_control(
+                        data=[
+                            {"label": "React", "value": "react"},
+                            {"label": "Angular", "value": "ng"},
+                            {"label": "Vue", "value": "vue"},
+                            {"label": "Svelte", "value": "svelte"},
+                        ],
+                        color="blue",
+                    ),
+                    gap="md",
+                ),
+            ),
+            example_box(
+                "Controlled",
+                mn.stack(
+                    mn.segmented_control(
+                        data=[
+                            {"label": "React", "value": "react"},
+                            {"label": "Angular", "value": "ng"},
+                            {"label": "Vue", "value": "vue"},
+                            {"label": "Svelte", "value": "svelte"},
+                        ],
+                        value=InputExamplesState.segmented_value,
+                        on_change=InputExamplesState.set_segmented_value,
+                    ),
+                    mn.text(
+                        f"Selected: {InputExamplesState.segmented_value}",
+                        size="sm",
+                        c="dimmed",
+                    ),
+                    gap="md",
+                ),
+            ),
+            example_box(
+                "Disabled and Orientation",
+                mn.stack(
+                    mn.segmented_control(
+                        data=[
+                            {"label": "React", "value": "react", "disabled": True},
+                            {"label": "Angular", "value": "ng"},
+                            {"label": "Vue", "value": "vue"},
+                        ],
+                    ),
+                    mn.group(
+                        mn.segmented_control(
+                            orientation="vertical",
+                            data=["React", "Angular", "Vue"],
+                        ),
+                        align="flex-start",
+                        gap="md",
+                    ),
+                    gap="md",
+                ),
+            ),
+            example_box(
+                "Styling and Transitions",
+                mn.stack(
+                    mn.segmented_control(
+                        data=["React", "Angular", "Vue"],
+                        radius="xl",
+                        size="md",
+                    ),
+                    mn.segmented_control(
+                        data=["React", "Angular", "Vue"],
+                        transition_duration=500,
+                        transition_timing_function="linear",
+                    ),
+                    mn.segmented_control(
+                        data=["React", "Angular", "Vue"],
+                        color="teal",
+                        auto_contrast=True,
+                    ),
+                    gap="md",
+                ),
+            ),
+            example_box(
+                "Custom Labels (Components)",
+                mn.stack(
+                    mn.segmented_control(
+                        data=[
+                            {
+                                "value": "preview",
+                                "label": mn.center(
+                                    rx.icon("eye", size=16),
+                                    mn.text("Preview", ml="xs"),
+                                ),
+                            },
+                            {
+                                "value": "code",
+                                "label": mn.center(
+                                    rx.icon("code", size=16),
+                                    mn.text("Code", ml="xs"),
+                                ),
+                            },
+                            {
+                                "value": "export",
+                                "label": mn.center(
+                                    rx.icon("file-export", size=16),
+                                    mn.text("Export", ml="xs"),
+                                ),
+                            },
+                        ],
+                    ),
+                ),
+            ),
+            cols=2,
+            spacing="md",
+            w="100%",
+        ),
+        w="100%",
+    )
+
+
 @navbar_layout(
     route="/inputs",
     title="Input Examples",
@@ -923,6 +1052,7 @@ def input_examples_page() -> rx.Component:
                     mn.tabs.tab("JsonInput", value="json"),
                     mn.tabs.tab("TagsInput", value="tags"),
                     mn.tabs.tab("MaskInput", value="mask"),
+                    mn.tabs.tab("SegmentedControl", value="segmented_control"),
                     mn.tabs.tab("Sliders & Switch", value="slider_switch"),
                 ),
                 mn.tabs.panel(
@@ -958,6 +1088,11 @@ def input_examples_page() -> rx.Component:
                 mn.tabs.panel(
                     masked_input_content(),
                     value="mask",
+                    py="md",
+                ),
+                mn.tabs.panel(
+                    segmented_control_content(),
+                    value="segmented_control",
                     py="md",
                 ),
                 mn.tabs.panel(

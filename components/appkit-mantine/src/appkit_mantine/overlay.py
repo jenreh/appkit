@@ -101,6 +101,89 @@ class TooltipFloating(MantineLayoutComponentBase):
     multiline: Var[bool]
 
 
+class FloatingIndicator(MantineLayoutComponentBase):
+    """Mantine FloatingIndicator component.
+
+    Display a floating indicator over a group of elements.
+
+    Example:
+        ```python
+        import reflex as rx
+        import appkit_mantine as mn
+
+
+        class FloatingIndicatorState(rx.State):
+            active_id: str = "btn1"
+
+            def set_active(self, selected_id: str):
+                self.active_id = selected_id
+
+
+        def floating_indicator_example():
+            target_var = rx.Var.create(
+                f"document.getElementById({FloatingIndicatorState.active_id})",
+                _var_is_local=False,
+                _var_is_string=False,
+            )
+            parent_var = rx.Var.create(
+                "document.getElementById('parent-container')",
+                _var_is_local=False,
+                _var_is_string=False,
+            )
+
+            return rx.box(
+                mn.group(
+                    mn.button(
+                        "React",
+                        id="btn1",
+                        on_click=FloatingIndicatorState.set_active("btn1"),
+                    ),
+                    mn.button(
+                        "Vue",
+                        id="btn2",
+                        on_click=FloatingIndicatorState.set_active("btn2"),
+                    ),
+                    mn.button(
+                        "Angular",
+                        id="btn3",
+                        on_click=FloatingIndicatorState.set_active("btn3"),
+                    ),
+                ),
+                mn.floating_indicator(
+                    parent=parent_var,
+                    target=target_var,
+                    transition_duration=150,
+                ),
+                id="parent-container",
+                pos="relative",
+                bg="gray.1",
+                p="md",
+            )
+        ```
+    """
+
+    tag = "FloatingIndicator"
+
+    target: Var[Any]
+    """Target element over which the indicator is displayed."""
+
+    parent: Var[Any]
+    """Parent container element that must have position: relative."""
+
+    display_after_transition_end: Var[bool]
+    """Controls whether the indicator should be hidden initially and displayed
+    after the parent's transition ends."""
+
+    transition_duration: Var[int | str]
+    """Transition duration in ms."""
+
+    on_transition_end: EventHandler[rx.event.no_args_event_spec]
+    """Called when the indicator finishes transitioning to a new position."""
+
+    on_transition_start: EventHandler[rx.event.no_args_event_spec]
+    """Called when the indicator starts transitioning to a new position."""
+
+
 class HoverCardNamespace(rx.ComponentNamespace):
     """Namespace for HoverCard components."""
 
@@ -120,3 +203,4 @@ hover_card = HoverCardNamespace()
 tooltip = TooltipNamespace()
 overlay = Overlay.create
 loading_overlay = LoadingOverlay.create
+floating_indicator = FloatingIndicator.create
