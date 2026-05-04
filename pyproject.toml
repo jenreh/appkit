@@ -16,8 +16,8 @@ dependencies = [
     "appkit-mcp-user",
     "appkit-ui",
     "appkit-user[azure,resend]",
-    "psycopg==3.3.3",
-    "psycopg-binary==3.3.3",
+    "psycopg==3.3.4",
+    "psycopg-binary==3.3.4",
     "reflex>=0.9.1",
 ]
 
