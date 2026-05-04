@@ -233,6 +233,9 @@ class MonthPickerInput(MantineDateInputBase):
 
     tag = "MonthPickerInput"
 
+    presets: Var[list[Any]] = None
+    """Predefined values to pick from (Mantine 9.1+)."""
+
     type: Var[DatePickerType] = None
     """Picker type: default, multiple, range."""
 
@@ -253,6 +256,9 @@ class YearPickerInput(MantineDateInputBase):
     """YearPickerInput component."""
 
     tag = "YearPickerInput"
+
+    presets: Var[list[Any]] = None
+    """Predefined values to pick from (Mantine 9.1+)."""
 
     type: Var[DatePickerType] = None
     """Picker type: default, multiple, range."""
@@ -379,6 +385,9 @@ class MonthPicker(MantineDateComponentBase):
 
     tag = "MonthPicker"
 
+    presets: Var[list[Any]] = None
+    """Predefined values to pick from (Mantine 9.1+)."""
+
     type: Var[DatePickerType] = None
     """Picker type."""
 
@@ -404,6 +413,9 @@ class YearPicker(MantineDateComponentBase):
     """YearPicker component."""
 
     tag = "YearPicker"
+
+    presets: Var[list[Any]] = None
+    """Predefined values to pick from (Mantine 9.1+)."""
 
     type: Var[DatePickerType] = None
     """Picker type."""
@@ -431,6 +443,9 @@ class TimePicker(MantineDateInputBase):
     """
 
     tag = "TimePicker"
+
+    type: Var[Literal["duration"]] = None
+    """Type of time picker, 'duration' mode enables durations exceeding 24h."""
 
     with_seconds: Var[bool] = None
     """Enable seconds."""

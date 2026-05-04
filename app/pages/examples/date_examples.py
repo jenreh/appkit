@@ -95,6 +95,17 @@ def date_examples_page() -> rx.Component:
                     state_value=DateExampleState.datetime_value,
                 ),
                 example_box(
+                    "MonthPickerInput with Presets",
+                    mn.month_picker_input(
+                        label="Pick Month",
+                        placeholder="Pick a month",
+                        presets=[
+                            {"label": "January", "value": "2024-01-01"},
+                            {"label": "December", "value": "2024-12-01"},
+                        ],
+                    ),
+                ),
+                example_box(
                     "MonthPickerInput",
                     mn.month_picker_input(
                         label="Pick Month",

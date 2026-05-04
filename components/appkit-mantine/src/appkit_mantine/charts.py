@@ -331,7 +331,18 @@ class Heatmap(MantineChartComponentBase):
 
     tag = "Heatmap"
 
+    _rename_props = {
+        "with_legend": "withLegend",
+        "legend_labels": "legendLabels",
+    }
+
     data: Var[list[dict[str, Any]] | dict[str, Any]]
+
+    with_legend: Var[bool] = None
+    """Displays a color legend below the chart (Mantine 9.1+)."""
+
+    legend_labels: Var[list[str]] = None
+    """Labels for the color legend (default: ['Less', 'More'])."""
 
     start_date: Var[str]
     end_date: Var[str]
@@ -342,6 +353,18 @@ class Heatmap(MantineChartComponentBase):
     tooltip_animation_duration: Var[int]
     tooltip_props: Var[dict[str, Any]]
     enable_labels: Var[bool]
+
+    w: Var[str | int]
+    h: Var[str | int]
+
+
+class Treemap(MantineChartComponentBase):
+    """Mantine Treemap component."""
+
+    tag = "Treemap"
+
+    data: Var[list[dict[str, Any]]]
+    """Hierarchical data to display."""
 
     w: Var[str | int]
     h: Var[str | int]
@@ -359,3 +382,4 @@ bubble_chart = BubbleChart.create
 sparkline = Sparkline.create
 funnel_chart = FunnelChart.create
 heatmap = Heatmap.create
+treemap = Treemap.create

@@ -83,6 +83,13 @@ class Tabs(MantineLayoutComponentBase):
 
     tag = "Tabs"
 
+    _rename_props = {
+        "default_value": "defaultValue",
+        "keep_mounted_mode": "keepMountedMode",
+    }
+
+    keep_mounted_mode: Var[Literal["display-none", "activity"]] = None
+
     value: Var[str]
     default_value: Var[str]
     orientation: Var[Literal["horizontal", "vertical"]]

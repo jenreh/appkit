@@ -84,6 +84,28 @@ FUNNEL_DATA = [
     {"name": "Block", "value": 120, "color": "teal.6"},
 ]
 
+
+TREEMAP_DATA = [
+    {
+        "name": "Frontend",
+        "color": "blue.8",
+        "children": [
+            {"name": "React", "value": 400},
+            {"name": "Vue", "value": 200},
+            {"name": "Angular", "value": 150},
+        ],
+    },
+    {
+        "name": "Backend",
+        "color": "teal.8",
+        "children": [
+            {"name": "Node", "value": 300},
+            {"name": "Python", "value": 250},
+            {"name": "Go", "value": 100},
+        ],
+    },
+]
+
 HEATMAP_DATA = {
     "2024-01-02": 2,
     "2024-01-03": 5,
@@ -279,6 +301,14 @@ def charts_examples() -> rx.Component:
                             width=300,
                             height=300,
                         ),
+                    ),
+                ),
+                # Treemap
+                example_box(
+                    "Treemap",
+                    mn.treemap(
+                        h=300,
+                        data=TREEMAP_DATA,
                     ),
                 ),
                 # Heatmap

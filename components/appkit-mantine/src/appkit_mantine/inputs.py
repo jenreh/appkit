@@ -388,6 +388,9 @@ class TagsInput(MantineInputComponentBase):
     render_option: Var[Any] = None
     """Function to render option in dropdown."""
 
+    render_pill: Var[Any] = None
+    """Function to render pill (Mantine 9+)."""
+
     # Clear functionality
     clearable: Var[bool] = False
     """If set, the clear button is displayed in the right section. Defaults to False."""

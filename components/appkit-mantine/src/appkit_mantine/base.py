@@ -87,6 +87,12 @@ class MantineComponentBase(rx.Component):
 
     library = f"{MANTINE_LIBARY}@{MANTINE_VERSION}"
 
+    lib_dependencies: list[str] = [
+        f"@mantine/hooks@{MANTINE_VERSION}",
+        "react@^19.2.0",
+        "react-dom@^19.2.0",
+    ]
+
     def _get_custom_code(self) -> str:
         return """import '@mantine/core/styles.css';
 
@@ -147,6 +153,9 @@ class MantineProvider(MantineComponentBase):
 
     # Theme configuration
     theme: Var[dict]
+
+    deduplicate_inline_styles: Var[bool] = None
+    """Enable React 19 style tag deduplication (Mantine 9.1+)."""
 
     # Color scheme settings - Note: forceColorScheme is managed automatically
     # default_color_scheme: Var[Literal["light", "dark", "auto"]]
@@ -408,6 +417,8 @@ class MantineInputComponentBase(MantineLayoutComponentBase):
         "min_length": "minLength",
         "auto_complete": "autoComplete",
         "aria_label": "aria-label",
+        "loading_position": "loadingPosition",
+        "clear_section_mode": "clearSectionMode",
     }
 
     # ========================================================================
@@ -445,6 +456,12 @@ class MantineInputComponentBase(MantineLayoutComponentBase):
 
     pointer: Var[bool]
     """Changes cursor to pointer"""
+
+    loading_position: Var[Literal["left", "right"]] = None
+    """Position of the loader, either 'left' or 'right' (default 'right')."""
+
+    clear_section_mode: Var[Literal["both", "rightSection", "clear"]] = None
+    """Determines how clear button and rightSection are rendered (Mantine 9+)."""
 
     # ========================================================================
     # State Props - Value, placeholder, disabled state

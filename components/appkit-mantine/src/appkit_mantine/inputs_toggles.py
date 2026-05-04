@@ -190,11 +190,18 @@ class CheckboxGroup(MantineInputComponentBase):
 
     tag = "Checkbox.Group"
 
+    _rename_props = {
+        "max_selected_values": "maxSelectedValues",
+    }
+
     value: Var[list[str]] = None
     """Value of the checkbox group (controlled)."""
 
     default_value: Var[list[str]] = None
     """Default value of the checkbox group (uncontrolled)."""
+
+    max_selected_values: Var[int] = None
+    """Maximum number of selected values (Mantine 9+)."""
 
     on_change: EventHandler[lambda value: [value]] = None
 

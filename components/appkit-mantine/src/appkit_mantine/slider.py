@@ -75,6 +75,9 @@ class Slider(MantineSliderBase):
     tag = "Slider"
 
     # Value props
+    start_point_value: Var[int | float] = None
+    """Changes the origin of the filled bar (Mantine 9.1+)."""
+
     value: Var[int | float]
     default_value: Var[int | float]
 
@@ -85,6 +88,7 @@ class Slider(MantineSliderBase):
     _rename_props = {
         **MantineSliderBase._rename_props,  # noqa: SLF001
         "thumb_label": "thumbLabel",
+        "start_point_value": "startPointValue",
     }
 
 

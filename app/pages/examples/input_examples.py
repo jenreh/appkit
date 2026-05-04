@@ -836,6 +836,21 @@ def slider_switch_content() -> rx.Component:
                 ),
             ),
             example_box(
+                "Slider Start Point",
+                mn.stack(
+                    mn.slider(
+                        default_value=80,
+                        start_point_value=50,
+                        marks=[
+                            {"value": 20, "label": "20%"},
+                            {"value": 50, "label": "50%"},
+                            {"value": 80, "label": "80%"},
+                        ],
+                    ),
+                    gap="xl",
+                ),
+            ),
+            example_box(
                 "Controlled Slider",
                 mn.stack(
                     mn.slider(

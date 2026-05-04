@@ -115,6 +115,9 @@ class MultiSelect(MantineSelectBase):
     with_check_icon: Var[bool] = True
     """If set, check icon is displayed near the selected option label."""
 
+    render_pill: Var[Any] = None
+    """Custom pill renderer (Mantine 9+)."""
+
     max_dropdown_height: Var[str | int] = "200px"
     """Max height of the dropdown."""
 
