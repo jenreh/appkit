@@ -94,6 +94,7 @@ from appkit_mantine.markdown_zoom import mermaid_zoom_script
 from appkit_mantine.markdown_preview import (
     markdown_preview,
 )
+from appkit_mantine.menu import menu
 from appkit_mantine.modal import modal
 from appkit_mantine.navigation import (
     breadcrumbs,
@@ -215,6 +216,7 @@ __all__ = [
     "mantine_provider",
     "markdown_preview",
     "masked_input",
+    "menu",
     "mermaid_zoom_script",
     "mini_calendar",
     "modal",

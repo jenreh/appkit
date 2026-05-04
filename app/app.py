@@ -60,6 +60,7 @@ from app.pages.examples.input_examples import input_examples_page  # noqa: F401
 from app.pages.examples.markdown_preview_examples import (
     markdown_preview_examples,  # noqa: F401
 )
+from app.pages.examples.menu_examples import menu_examples  # noqa: F401
 from app.pages.examples.modal_examples import modal_examples  # noqa: F401
 from app.pages.examples.nav_link_examples import nav_link_examples  # noqa: F401
 from app.pages.examples.navigation_examples import navigation_examples  # noqa: F401
