@@ -139,22 +139,25 @@ def login_form(logo: str, logo_dark: str, margin_left: str = "0px") -> rx.Compon
                     on_submit=LoginState.login_with_password,
                     class_name="w-full",
                 ),
-                mn.divider(label="oder", label_position="center"),
-                mn.stack(
-                    _oauth_button(
-                        OAuthProvider.GITHUB,
-                        "Mit Github anmelden",
-                        "/icons/GitHub_light.svg",
-                        LoginState.enable_github_oauth,
-                        icon_dark="/icons/GitHub_dark.svg",
+                rx.cond(
+                    LoginState.enable_github_oauth | LoginState.enable_azure_oauth,
+                    mn.stack(
+                        mn.divider(label="oder", label_position="center"),
+                        _oauth_button(
+                            OAuthProvider.GITHUB,
+                            "Mit Github anmelden",
+                            "/icons/GitHub_light.svg",
+                            LoginState.enable_github_oauth,
+                            icon_dark="/icons/GitHub_dark.svg",
+                        ),
+                        _oauth_button(
+                            OAuthProvider.AZURE,
+                            "Mit Microsoft anmelden",
+                            "/icons/microsoft.svg",
+                            LoginState.enable_azure_oauth,
+                        ),
+                        gap="xs",
                     ),
-                    _oauth_button(
-                        OAuthProvider.AZURE,
-                        "Mit Microsoft anmelden",
-                        "/icons/microsoft.svg",
-                        LoginState.enable_azure_oauth,
-                    ),
-                    gap="xs",
                 ),
                 mn.group(
                     rx.color_mode.button(style={"opacity": "0.8", "scale": "0.95"}),

@@ -44,6 +44,8 @@ from reflex.assets import asset
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
+from appkit_mantine.theme import get_app_theme
+
 public_provider_path = "$/public/" + asset(path="mantine_provider.js", shared=True)
 
 MANTINE_LIBARY: Final[str] = "@mantine/core"
@@ -65,10 +67,52 @@ MantineBackgroundRepeat = Literal[
 MantineBackgroundAttachment = Literal["scroll", "fixed", "local"]
 
 
+_PROVIDER_RENAME_PROPS: Final[dict[str, str]] = {
+    "default_color_scheme": "defaultColorScheme",
+    "force_color_scheme": "forceColorScheme",
+    "css_variables_selector": "cssVariablesSelector",
+    "with_css_variables": "withCssVariables",
+    "deduplicate_css_variables": "deduplicateCssVariables",
+    "deduplicate_inline_styles": "deduplicateInlineStyles",
+    "class_names_prefix": "classNamesPrefix",
+    "with_static_classes": "withStaticClasses",
+    "with_global_classes": "withGlobalClasses",
+}
+
+
 class MemoizedMantineProvider(rx.Component):
+    """Internal MantineProvider rendered as the app-level wrapper.
+
+    Reads the theme configured via :func:`appkit_mantine.set_app_theme` and
+    forwards every supported ``MantineProvider`` prop to ``@mantine/core``'s
+    provider through the local ``mantine_provider.js`` shim.
+    """
+
     library = public_provider_path
     tag = "MemoizedMantineProvider"
     is_default = True
+
+    theme: Var[dict] = None
+    """Theme override merged with Mantine's defaults."""
+
+    default_color_scheme: Var[Literal["light", "dark", "auto"]] = None
+    """Initial color scheme when no manager value is available."""
+
+    force_color_scheme: Var[Literal["light", "dark"]] = None
+    """When set, locks the color scheme regardless of manager/default.
+
+    Leave unset to mirror Reflex's color mode (the default behavior of the
+    underlying JS shim)."""
+
+    css_variables_selector: Var[str] = None
+    with_css_variables: Var[bool] = None
+    deduplicate_css_variables: Var[bool] = None
+    deduplicate_inline_styles: Var[bool] = None
+    class_names_prefix: Var[str] = None
+    with_static_classes: Var[bool] = None
+    with_global_classes: Var[bool] = None
+
+    _rename_props = _PROVIDER_RENAME_PROPS
 
 
 class MantineComponentBase(rx.Component):
@@ -123,51 +167,83 @@ if (typeof document !== 'undefined') {
 
     @staticmethod
     def _get_app_wrap_components() -> dict[tuple[int, str], rx.Component]:
+        provider_kwargs: dict[str, Any] = {}
+        app_theme = get_app_theme()
+        if app_theme is not None:
+            provider_kwargs["theme"] = app_theme
         return {
-            (44, "MantineProvider"): MemoizedMantineProvider.create(),
+            (44, "MantineProvider"): MemoizedMantineProvider.create(
+                **provider_kwargs,
+            ),
         }
 
 
 class MantineProvider(MantineComponentBase):
-    """Mantine Provider - Required wrapper for all Mantine components.
+    """User-facing Mantine provider for page-level theming.
 
-    MantineProvider must be rendered at the root of your application.
-    It provides theme context and manages color scheme.
+    The app already mounts a root ``MemoizedMantineProvider`` automatically
+    (configurable via :func:`appkit_mantine.set_app_theme`). Use
+    ``MantineProvider`` (or the ``mantine_provider`` factory) to override the
+    theme for a subtree — typically a single page.
 
-    This component automatically respects Reflex's color mode system.
+    Color scheme is automatically synced with Reflex's color mode unless an
+    explicit ``force_color_scheme`` is provided.
 
-    Example:
-        ```python
-        def index():
+    Example::
+
+        from appkit_mantine import mantine_provider, create_theme
+
+
+        def settings_page():
             return mantine_provider(
-                mantine_input(placeholder="Search..."),
-                theme={"primaryColor": "blue"},
+                page_content(),
+                theme=create_theme(primary_color="grape"),
             )
-        ```
     """
 
-    # Use the custom provider that respects color mode
     library = public_provider_path
     tag = "MantineProvider"
     is_default = True
 
-    # Theme configuration
-    theme: Var[dict]
+    theme: Var[dict] = None
+    """Theme override merged with Mantine's defaults."""
 
+    default_color_scheme: Var[Literal["light", "dark", "auto"]] = None
+    """Initial color scheme when no manager value is available."""
+
+    force_color_scheme: Var[Literal["light", "dark"]] = None
+    """When set, locks the color scheme regardless of manager/default."""
+
+    css_variables_selector: Var[str] = None
+    with_css_variables: Var[bool] = None
+    deduplicate_css_variables: Var[bool] = None
     deduplicate_inline_styles: Var[bool] = None
     """Enable React 19 style tag deduplication (Mantine 9.1+)."""
 
-    # Color scheme settings - Note: forceColorScheme is managed automatically
-    # default_color_scheme: Var[Literal["light", "dark", "auto"]]
+    class_names_prefix: Var[str] = None
+    with_static_classes: Var[bool] = None
+    with_global_classes: Var[bool] = None
 
-    # CSS variables
-    css_variables_selector: Var[str]
-    with_css_variables: Var[bool]
+    _rename_props = _PROVIDER_RENAME_PROPS
 
-    # Class names
-    class_names_prefix: Var[str]
-    with_static_classes: Var[bool]
-    with_global_classes: Var[bool]
+
+def mantine_provider(*children: Any, **props: Any) -> rx.Component:
+    """Wrap content with a :class:`MantineProvider` for page-level theming.
+
+    Lowercase factory mirroring the reflex.dev component-as-function style.
+
+    Example::
+
+        from appkit_mantine import mantine_provider, create_theme
+
+
+        def my_page():
+            return mantine_provider(
+                content(),
+                theme=create_theme(primary_color="blue"),
+            )
+    """
+    return MantineProvider.create(*children, **props)
 
 
 class MantineLayoutComponentBase(MantineComponentBase):

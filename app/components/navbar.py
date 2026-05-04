@@ -125,6 +125,7 @@ def navbar_items() -> rx.Component:
             sidebar_sub_item(label="ScrollArea", url="/scroll-area"),
             sidebar_sub_item(label="Auto Scroll", url="/auto-scroll"),
             sidebar_sub_item(label="Table", url="/table"),
+            sidebar_sub_item(label="Theme", url="/examples/theme"),
             gap="0",
             w="100%",
         ),

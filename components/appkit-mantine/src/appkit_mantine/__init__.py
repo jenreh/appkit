@@ -5,6 +5,12 @@ from appkit_mantine.base import (
     MantineInputComponentBase,
     MantineProvider,
     MemoizedMantineProvider,
+    mantine_provider,
+)
+from appkit_mantine.theme import (
+    create_theme,
+    get_app_theme,
+    set_app_theme,
 )
 from appkit_mantine.button import button, action_icon
 from appkit_mantine.combobox import select, multi_select, autocomplete
@@ -107,6 +113,7 @@ from appkit_mantine.overlay import (
 from appkit_mantine.scroll_area import scroll_area
 from appkit_mantine.slider import slider, range_slider
 from appkit_mantine.table import table
+from appkit_mantine.tree import tree, Tree
 from appkit_mantine.tiptap import (
     rich_text_editor,
     EditorToolbarConfig,
@@ -157,6 +164,7 @@ __all__ = [
     "TimePicker",
     "TimeValue",
     "ToolbarControlGroup",
+    "Tree",
     "YearPicker",
     "YearPickerInput",
     "accordion",
@@ -179,6 +187,7 @@ __all__ = [
     "code",
     "composite_chart",
     "container",
+    "create_theme",
     "date_input",
     "date_picker",
     "date_picker_input",
@@ -191,6 +200,7 @@ __all__ = [
     "focus_trap",
     "form",
     "funnel_chart",
+    "get_app_theme",
     "grid",
     "grid_col",
     "group",
@@ -202,6 +212,7 @@ __all__ = [
     "line_chart",
     "list_",
     "loading_overlay",
+    "mantine_provider",
     "markdown_preview",
     "masked_input",
     "mermaid_zoom_script",
@@ -230,6 +241,7 @@ __all__ = [
     "scroll_area",
     "segmented_control",
     "select",
+    "set_app_theme",
     "simple_grid",
     "skeleton",
     "slider",
@@ -251,6 +263,7 @@ __all__ = [
     "timeline",
     "title",
     "tooltip",
+    "tree",
     "treemap",
     "typography_styles_provider",
     "year_picker",

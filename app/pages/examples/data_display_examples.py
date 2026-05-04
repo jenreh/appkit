@@ -11,6 +11,62 @@ from app.components.examples import example_box
 from app.components.navbar import app_navbar
 
 
+class TreeExampleState(rx.State):
+    """State for the advanced tree example."""
+
+    search_query: str = ""
+
+
+TREE_DUMMY_DATA = [
+    {
+        "label": "components",
+        "value": "components",
+        "children": [
+            {
+                "label": "appkit-mantine",
+                "value": "appkit-mantine",
+                "children": [
+                    {
+                        "label": "src/appkit_mantine",
+                        "value": "appkit-mantine/src",
+                        "children": [
+                            {
+                                "label": "tree.py",
+                                "value": "appkit-mantine/src/tree.py",
+                            },
+                            {
+                                "label": "button.py",
+                                "value": "appkit-mantine/src/button.py",
+                            },
+                        ],
+                    },
+                    {
+                        "label": "pyproject.toml",
+                        "value": "appkit-mantine/pyproject.toml",
+                    },
+                ],
+            }
+        ],
+    },
+    {
+        "label": "app",
+        "value": "app",
+        "children": [
+            {
+                "label": "pages",
+                "value": "app/pages",
+                "children": [
+                    {
+                        "label": "data_display_examples.py",
+                        "value": "app/pages/data_display_examples.py",
+                    },
+                ],
+            }
+        ],
+    },
+]
+
+
 @navbar_layout(
     route="/data-display",
     title="Data Display",
@@ -48,6 +104,27 @@ def data_display_examples() -> rx.Component:
                     default_value="1",
                     variant="separated",
                     radius="md",
+                ),
+            ),
+            example_box(
+                "Advanced Tree (Lines)",
+                mn.stack(
+                    mn.tree(
+                        data=TREE_DUMMY_DATA,
+                        with_lines=True,
+                        render_node=rx.Var(
+                            "({ node, expanded, hasChildren, elementProps }) => ("
+                            "<div style={{ display: 'flex', alignItems: 'center', "
+                            "gap: '8px' }} {...elementProps}>"
+                            "   {hasChildren && <span>{expanded ? '[-]' : '[+]'}"
+                            "</span>}"
+                            "   {!hasChildren && <span style={{ width: 14 }}></span>}"
+                            "   <span style={{ fontSize: '14px' }}>{node.label}</span>"
+                            "</div>"
+                            ")"
+                        ),
+                    ),
+                    w="100%",
                 ),
             ),
             mn.simple_grid(

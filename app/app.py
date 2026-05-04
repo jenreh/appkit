@@ -7,6 +7,7 @@ import reflex as rx
 from fastapi import FastAPI
 from starlette.types import ASGIApp
 
+import appkit_mantine as am
 from appkit_assistant.backend.ai_model_registry import ai_model_registry
 from appkit_assistant.backend.api.mcp_apps_api import (
     router as mcp_apps_router,
@@ -71,6 +72,7 @@ from app.pages.examples.overlay_examples import (
 )
 from app.pages.examples.scroll_area_examples import scroll_area_examples  # noqa: F401
 from app.pages.examples.table_examples import table_examples  # noqa: F401
+from app.pages.examples.theme_examples import theme_examples  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
 from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.image_generators import image_generators_page  # noqa: F401
@@ -101,6 +103,31 @@ base_style = {
         "stroke_width": "1.5px",
     },
 }
+
+# Configure the app-level Mantine theme. Forwarded to the root MantineProvider
+# that wraps every page. Override per-page with `am.mantine_provider(...)`.
+am.set_app_theme(
+    am.create_theme(
+        primary_color="warm_blue",
+        primary_shade={"light": 5, "dark": 6},
+        font_family="Roboto Flex",
+        headings={"fontFamily": "Roboto Flex", "fontWeight": "600"},
+        colors={
+            "warm_blue": [
+                "#f2f3f5",
+                "#e2e4e9",
+                "#c3c7d2",
+                "#9ea5b8",
+                "#76809a",
+                "#545e7e",
+                "#3d4663",
+                "#2c3350",
+                "#1c2238",
+                "#0e1220",
+            ],
+        },
+    )
+)
 
 
 def init_mcp_apps() -> dict[str, ASGIApp]:
