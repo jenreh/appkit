@@ -183,6 +183,7 @@ class ThreadState(
     # -- ModelSelectionMixin (@rx.var) --
     get_selected_model = ModelSelectionMixin.__dict__["get_selected_model"]
     has_ai_models = ModelSelectionMixin.__dict__["has_ai_models"]
+    model_select_options = ModelSelectionMixin.__dict__["model_select_options"]
     selected_model_supports_tools = ModelSelectionMixin.__dict__[
         "selected_model_supports_tools"
     ]
@@ -322,11 +323,13 @@ class ThreadState(
         Only initializes once per user session. Resets when user
         changes.
         """
+        logger.warning("ThreadState.initialize() called!")
         user_session: UserSession = await self.get_state(UserSession)
         user = await user_session.authenticated_user
         current_user_id = str(user.user_id) if user else ""
 
         self._setup_models(user)
+        logger.warning("Models setup complete. Has models: %d", len(self.ai_models))
 
         if self._initialized and self._current_user_id == current_user_id:
             logger.debug(
@@ -416,7 +419,7 @@ class ThreadState(
         """Set the current thread model (internal use)."""
         self._thread = thread
         self.messages = thread.messages
-        self.selected_model = thread.ai_model
+        self.selected_model = thread.ai_model or ""
         self.thinking_items = []
         self.mcp_app_views = []
         self._ui_tool_registry = {}
@@ -470,7 +473,7 @@ class ThreadState(
         """
         self._thread = full_thread
         self.messages = full_thread.messages
-        self.selected_model = full_thread.ai_model
+        self.selected_model = full_thread.ai_model or ""
         self.thinking_items = []
         self.image_chunks = []
         self.mcp_app_views = []

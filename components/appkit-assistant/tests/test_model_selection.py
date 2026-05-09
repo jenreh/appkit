@@ -85,6 +85,30 @@ class TestComputedVars:
         state.ai_models = [_ai_model()]
         assert _CV["has_ai_models"].fget(state) is True
 
+    def test_model_select_options(self) -> None:
+        state = _make_state()
+        state.ai_models = [
+            _ai_model("active-model"),
+            AIModel(
+                id="inactive-model",
+                text="Inactive Model",
+                active=False,
+            ),
+        ]
+
+        assert _CV["model_select_options"].fget(state) == [
+            {
+                "value": "active-model",
+                "label": "active-model",
+                "disabled": False,
+            },
+            {
+                "value": "inactive-model",
+                "label": "Inactive Model",
+                "disabled": True,
+            },
+        ]
+
     def test_supports_tools_no_model(self) -> None:
         state = _make_state()
         state.selected_model = ""

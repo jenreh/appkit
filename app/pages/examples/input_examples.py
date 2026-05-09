@@ -1026,7 +1026,7 @@ def segmented_control_content() -> rx.Component:
                             {
                                 "value": "export",
                                 "label": mn.center(
-                                    rx.icon("file-export", size=16),
+                                    rx.icon("download", size=16),
                                     mn.text("Export", ml="xs"),
                                 ),
                             },

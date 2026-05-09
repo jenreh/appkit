@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 
 import reflex as rx
@@ -9,25 +10,7 @@ from appkit_assistant.components.composer_key_handler import keyboard_shortcuts
 from appkit_assistant.components.tools_modal import tools_popover
 from appkit_assistant.state.thread_state import ThreadState
 
-
-def render_model_option(model: dict) -> rx.Component:
-    return rx.hstack(
-        rx.cond(
-            model.icon,
-            rx.image(
-                src=rx.color_mode_cond(
-                    light=f"/icons/{model.icon}.svg",
-                    dark=f"/icons/{model.icon}_dark.svg",
-                ),
-                width="13px",
-                margin_right="8px",
-            ),
-            None,
-        ),
-        rx.text(model.text),
-        align="center",
-        spacing="0",
-    )
+log = logging.getLogger(__name__)
 
 
 def composer_input(
@@ -226,20 +209,18 @@ def choose_model(show: bool = False) -> rx.Component | None:
         return None
 
     return rx.cond(
-        ThreadState.ai_models,
-        mn.rich_select(
-            mn.rich_select.map(
-                ThreadState.ai_models,
-                renderer=render_model_option,
-                value=lambda model: model.id,
-                disabled=lambda model: ~model.active,
-            ),
+        ThreadState.has_ai_models,
+        mn.select(
+            data=ThreadState.model_select_options,
             placeholder="Wähle ein Modell",
             value=ThreadState.selected_model,
             on_change=ThreadState.set_selected_model,
             name="model-select",
-            width="252px",
-            position="top",
+            w="252px",
+            combobox_props={"position": "top"},
+            searchable=True,
+            nothing_found_message="Keine Modelle gefunden",
+            allow_deselect=False,
         ),
         None,
     )

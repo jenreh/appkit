@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 class ModelSelectionMixin:
     """Mixin for AI model selection and capability queries.
 
-    Expects state vars: ``ai_models``, ``selected_model``.
+    Expects state vars: ``ai_models`` (list[AIModel]) and ``selected_model`` (str)
+    to be declared on the concrete State class.
     """
 
     ai_models: list[AIModel]
@@ -27,12 +28,24 @@ class ModelSelectionMixin:
     @rx.var
     def get_selected_model(self) -> str:
         """Get the currently selected model ID."""
-        return self.selected_model
+        return self.selected_model or ""
 
     @rx.var
     def has_ai_models(self) -> bool:
         """Check if there are any chat models."""
         return len(self.ai_models) > 0
+
+    @rx.var
+    def model_select_options(self) -> list[dict[str, str | bool]]:
+        """Return options for the model select component."""
+        return [
+            {
+                "value": model.id,
+                "label": model.text,
+                "disabled": not model.active,
+            }
+            for model in self.ai_models
+        ]
 
     @rx.var
     def selected_model_supports_tools(self) -> bool:
