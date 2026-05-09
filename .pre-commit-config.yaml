@@ -37,5 +37,7 @@ repos:
     rev: v0.15.4
     hooks:
       - id: ruff-format
+        exclude: '^\.(claude|github|agents?)/'
       - id: ruff
+        exclude: '^\.(claude|github|agents?)/'
         args: ["--fix"]

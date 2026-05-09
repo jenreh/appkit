@@ -1,10 +1,10 @@
 ---
 name: multi-stage-dockerfile
 description: Creates optimized multi-stage Dockerfiles for any language or framework. Use when building, reviewing, or refactoring Dockerfiles, container images, or Docker Compose configurations. Covers stage structure, base image selection, layer caching, security hardening, and healthchecks.
-license: MIT
 metadata:
   author: jens-rehpoehler
   version: "1.0"
+  license: MIT
 ---
 
 # Multi-Stage Dockerfiles

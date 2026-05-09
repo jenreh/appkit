@@ -1,9 +1,10 @@
 ---
-name: using-appkit-mantine
-description: Builds UI with appkit_mantine — a Reflex wrapper library for Mantine v8.3 components. Use when creating pages, forms, layouts, modals, drawers, charts, inputs, buttons, navigation, or any Mantine-based UI in this project. Covers component API, inheritance hierarchy, event handler patterns, and common pitfalls.
+name: appkit-mantine-reference
+description: Complete API reference for appkit_mantine components — inputs, layout, overlays, charts, data display, navigation. Use when creating any visible UI with mn.* components. Covers inheritance hierarchy, event handler patterns, colors, anti-patterns, and common pitfalls.
 metadata:
   author: jens-rehpoehler
-  version: "1.0"
+  version: "1.1"
+  license: MIT
 ---
 
 # Using appkit_mantine Components
@@ -11,7 +12,6 @@ metadata:
 ## Quick reference
 
 **Import**: `import appkit_mantine as mn`
-**Mantine version**: 8.3.14 (`@mantine/core`)
 **All components use lowercase factory functions**: `mn.button()`, `mn.text_input()`, `mn.modal()`
 
 ## Inheritance hierarchy
@@ -148,3 +148,34 @@ mn.text_input(
 ```
 
 Available: `w`, `h`, `miw`, `maw`, `mih`, `mah`, `m`, `my`, `mx`, `mt`, `mb`, `ml`, `mr`, `p`, `py`, `px`, `pt`, `pb`, `pl`, `pr`, `bg`, `c`, `display`, `pos`, `flex`, `opacity`, `fz`, `fw`, `ta`, `td`, `bd`, `hidden_from`, `visible_from`.
+
+## Colors
+
+Use the Radix color scale: `<name>.<shade>` where shade is 1–12. Higher shade = darker in light mode:
+
+```python
+c="blue.6"           # text color
+bg="gray.1"          # background color
+bd="red.3"           # border color
+"color": "teal.5"    # in chart series dict
+rx.color("blue", 4)  # programmatic color (e.g. for rx.cond results)
+```
+
+Common color names: `blue`, `gray`, `red`, `green`, `teal`, `orange`, `violet`, `yellow`, `pink`, `dark`.
+Use `c="dimmed"` for secondary text.
+
+## Anti-Patterns
+
+| Anti-pattern | Correct approach |
+|---|---|
+| `rx.vstack` / `rx.hstack` for layout | `mn.stack` / `mn.group` |
+| `rx.box` as a container | `mn.card` or `mn.paper` |
+| `rx.text` / `rx.heading` for typography | `mn.text` / `mn.heading` |
+| Inline styles as strings `style="..."` | Mantine style props: `c="blue.6"`, `fw="bold"`, `p="md"` |
+| `and` / `or` inside `rx.cond(...)` | Use `&` and `\|` operators |
+| Bare Python `if` in component functions | `rx.cond(condition, true_comp, false_comp)` |
+| Bare Python `for` in component functions | `rx.foreach(State.items, render_fn)` |
+
+---
+
+**→ For state management, event handlers, background tasks, form validation, page factory, service registry, repository pattern, database models, and project architecture, use the `reflex-state-and-architecture` skill.**
