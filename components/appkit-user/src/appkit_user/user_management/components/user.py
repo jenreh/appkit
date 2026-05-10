@@ -314,6 +314,18 @@ def add_user_button(
     )
 
 
+def search_user_input() -> rx.Component:
+    return mn.text_input(
+        placeholder="Benutzer suchen...",
+        left_section=rx.icon("search", size=16),
+        left_section_pointer_events="none",
+        value=UserState.search_filter,
+        on_change=UserState.set_search_filter,
+        size="sm",
+        w="18rem",
+    )
+
+
 def update_user_button(
     user: User,
     icon: str = "square-pen",
@@ -431,6 +443,58 @@ def loading() -> rx.Component:
     )
 
 
+def user_table_view(additional_components: list | None = None) -> rx.Component:
+    def render_user_row(user: User) -> rx.Component:
+        """Render a single user row - avoids capturing in lambda."""
+        return users_table_row(
+            user=user,
+            additional_components=additional_components,
+        )
+
+    return mn.table(
+        mn.table.thead(
+            mn.table.tr(
+                mn.table.th(mn.text("Name", size="sm", fw="700")),
+                mn.table.th(mn.text("Email", size="sm", fw="700")),
+                mn.table.th(
+                    mn.text("Aktiv", size="sm", fw="700"),
+                    style={"textAlign": "center"},
+                ),
+                mn.table.th(
+                    mn.text("Verifiziert", size="sm", fw="700"),
+                    style={"textAlign": "center"},
+                ),
+                mn.table.th(
+                    mn.text("Admin", size="sm", fw="700"),
+                    style={"textAlign": "center"},
+                ),
+                mn.table.th(mn.text("", size="sm")),
+                style=sticky_header_style,
+            ),
+        ),
+        mn.table.tbody(
+            rx.cond(
+                UserState.is_loading,
+                loading(),
+                rx.foreach(
+                    UserState.filtered_users,
+                    render_user_row,
+                ),
+            )
+        ),
+        sticky_header=True,
+        sticky_header_offset="0px",
+        striped=False,
+        highlight_on_hover=True,
+        highlight_on_hover_color=rx.color_mode_cond(
+            light="gray.0",
+            dark="dark.8",
+        ),
+        w="100%",
+        on_mount=UserState.load_users,
+    )
+
+
 def users_table(additional_components: list | None = None) -> rx.Component:
     """Create a users table with optional additional components.
 
@@ -443,75 +507,18 @@ def users_table(additional_components: list | None = None) -> rx.Component:
     if additional_components is None:
         additional_components = []
 
-    # Solution 1: Store in component props instead of capturing
-    def render_user_row(user: User) -> rx.Component:
-        """Render a single user row - avoids capturing in lambda."""
-        return users_table_row(
-            user=user,
-            additional_components=additional_components,
-        )
-
     return mn.stack(
         add_user_modal(),
         edit_user_modal(),
         rx.flex(
             add_user_button(),
-            mn.text_input(
-                placeholder="Benutzer suchen...",
-                left_section=rx.icon("search", size=16),
-                left_section_pointer_events="none",
-                value=UserState.search_filter,
-                on_change=UserState.set_search_filter,
-                size="sm",
-                w="18rem",
-            ),
+            search_user_input(),
             rx.spacer(),
             width="100%",
             margin_bottom="md",
             gap="12px",
             align="center",
         ),
-        mn.table(
-            mn.table.thead(
-                mn.table.tr(
-                    mn.table.th(mn.text("Name", size="sm", fw="700")),
-                    mn.table.th(mn.text("Email", size="sm", fw="700")),
-                    mn.table.th(
-                        mn.text("Aktiv", size="sm", fw="700"),
-                        style={"textAlign": "center"},
-                    ),
-                    mn.table.th(
-                        mn.text("Verifiziert", size="sm", fw="700"),
-                        style={"textAlign": "center"},
-                    ),
-                    mn.table.th(
-                        mn.text("Admin", size="sm", fw="700"),
-                        style={"textAlign": "center"},
-                    ),
-                    mn.table.th(mn.text("", size="sm")),
-                    style=sticky_header_style,
-                ),
-            ),
-            mn.table.tbody(
-                rx.cond(
-                    UserState.is_loading,
-                    loading(),
-                    rx.foreach(
-                        UserState.filtered_users,
-                        render_user_row,
-                    ),
-                )
-            ),
-            sticky_header=True,
-            sticky_header_offset="0px",
-            striped=False,
-            highlight_on_hover=True,
-            highlight_on_hover_color=rx.color_mode_cond(
-                light="gray.0",
-                dark="dark.8",
-            ),
-            w="100%",
-        ),
+        user_table_view(additional_components=additional_components),
         w="100%",
-        on_mount=UserState.load_users,
     )
