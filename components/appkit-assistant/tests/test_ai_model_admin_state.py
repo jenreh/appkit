@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_assistant.backend.schemas import AssistantAIModelConfigModel
 from appkit_assistant.state.ai_model_admin_state import AIModelAdminState
 
 _PATCH = "appkit_assistant.state.ai_model_admin_state"
@@ -31,42 +32,25 @@ def _model(
     active: bool = True,
     requires_role: str | None = None,
     api_key: str | None = None,
-) -> MagicMock:
-    m = MagicMock()
-    m.id = mid
-    m.model_id = model_id
-    m.text = text
-    m.active = active
-    m.requires_role = requires_role
-    m.api_key = api_key
-    m.model_dump.return_value = {
-        "id": mid,
-        "model_id": model_id,
-        "text": text,
-        "active": active,
-        "requires_role": requires_role,
-        "api_key": api_key,
-        "icon": "codesandbox",
-        "model": model_id,
-        "processor_type": "openai",
-        "stream": True,
-        "temperature": 0.05,
-        "supports_tools": False,
-        "supports_attachments": False,
-        "supports_search": False,
-        "supports_skills": False,
-        "base_url": None,
-        "on_azure": False,
-        "enable_tracking": True,
-    }
-    m.model_copy.return_value = MagicMock(
+) -> AssistantAIModelConfigModel:
+    return AssistantAIModelConfigModel(
         id=mid,
         model_id=model_id,
         text=text,
-        active=not active,
+        active=active,
         requires_role=requires_role,
+        api_key=api_key,
+        icon="codesandbox",
+        model=model_id,
+        processor_type="openai",
+        stream=True,
+        temperature=0.05,
+        supports_tools=False,
+        supports_attachments=False,
+        supports_search=False,
+        supports_skills=False,
+        base_url=None,
     )
-    return m
 
 
 def _db_context(session: AsyncMock | None = None):

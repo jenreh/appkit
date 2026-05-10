@@ -139,6 +139,7 @@ class TestHandleMcpOauthCallback:
             gsm.return_value.session.return_value = _sync_ctx(sess)
             result = MagicMock()
             result.scalars.return_value.first.return_value = None
+            sess.scalars.return_value.first.return_value = None
             sess.execute.return_value = result
             _ = [c async for c in state.handle_mcp_oauth_callback()]
         assert state.status == "error"
@@ -160,11 +161,14 @@ class TestHandleMcpOauthCallback:
     @pytest.mark.asyncio
     async def test_server_not_found(self) -> None:
         state = _make_state({"code": "abc", "server_id": "1"})
-        rx_session = _sync_ctx(MagicMock())
-        rx_sess_mock = MagicMock()
-        rx_sess_mock.exec.return_value.first.return_value = None
-        rx_session.__enter__ = MagicMock(return_value=rx_sess_mock)
-        with patch(f"{_PATCH}.rx.session", return_value=rx_session):
+        gsm = MagicMock()
+        sess = MagicMock()
+        result = MagicMock()
+        result.scalars.return_value.first.return_value = None
+        sess.scalars.return_value.first.return_value = None
+        sess.execute.return_value = result
+        gsm.session.return_value = _sync_ctx(sess)
+        with patch(f"{_PATCH}.get_session_manager", return_value=gsm):
             _ = [c async for c in state.handle_mcp_oauth_callback()]
         assert state.status == "error"
         assert "nicht gefunden" in state.message
@@ -178,12 +182,12 @@ class TestHandleMcpOauthCallback:
         server.id = 1
 
         rx_sess_mock = MagicMock()
-        rx_sess_mock.exec.return_value.first.return_value = server
+        rx_sess_mock.execute.return_value.first.return_value = server
         rx_session = _sync_ctx(rx_sess_mock)
 
         state._mock_user_session = _user_session(0)
 
-        with patch(f"{_PATCH}.rx.session", return_value=rx_session):
+        with patch(f"{_PATCH}.get_session_manager", return_value=rx_session):
             _ = [c async for c in state.handle_mcp_oauth_callback()]
         assert state.status == "error"
         assert "angemeldet" in state.message
@@ -199,14 +203,13 @@ class TestHandleMcpOauthCallback:
         sess = MagicMock()
         result = MagicMock()
         result.scalars.return_value.first.return_value = oauth_entity
+        sess.scalars.return_value.first.return_value = None
         sess.execute.return_value = result
         gsm.session.return_value = _sync_ctx(sess)
 
         server = MagicMock()
         server.name = "Recovered"
         server.id = 42
-        rx_sess = MagicMock()
-        rx_sess.exec.return_value.first.return_value = server
 
         state._mock_user_session = _user_session(1)
 
@@ -214,14 +217,14 @@ class TestHandleMcpOauthCallback:
             state.status = "success"
             yield
 
+        result2 = MagicMock()
+        result2.scalars.return_value.first.return_value = server
+        sess.scalars.return_value.first.return_value = server
+
         with (
             patch(
                 f"{_PATCH}.get_session_manager",
                 return_value=gsm,
-            ),
-            patch(
-                f"{_PATCH}.rx.session",
-                return_value=_sync_ctx(rx_sess),
             ),
             patch.object(
                 _StubMCPOAuthState,

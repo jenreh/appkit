@@ -18,7 +18,8 @@ from http import HTTPStatus
 from urllib.parse import urlencode, urlparse
 
 import httpx
-from sqlmodel import Session, select
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from appkit_assistant.backend.database.models import (
     AssistantMCPUserToken,
@@ -476,7 +477,7 @@ class MCPAuthService:
         code_verifier: str | None = None
         if state and session:
             provider_key = f"mcp:{server.id}" if server.id else "mcp:unknown"
-            oauth_state = session.exec(
+            oauth_state = session.scalars(
                 select(OAuthStateEntity).where(
                     OAuthStateEntity.state == state,
                     OAuthStateEntity.provider == provider_key,
@@ -639,7 +640,7 @@ class MCPAuthService:
             AssistantMCPUserToken.user_id == user_id,
             AssistantMCPUserToken.mcp_server_id == mcp_server_id,
         )
-        return session.exec(statement).first()
+        return session.scalars(statement).first()
 
     def save_user_token(
         self,

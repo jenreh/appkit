@@ -30,19 +30,17 @@ from typing import Any
 
 import reflex as rx
 
-from appkit_assistant.backend.database.models import (
-    MCPServer,
-    Skill,
-    ThreadStatus,
-)
+from appkit_assistant.backend.database.models import ThreadStatus
 from appkit_assistant.backend.model_manager import ModelManager
 from appkit_assistant.backend.schemas import (
     AIModel,
     Chunk,
     CommandDefinition,
     McpAppViewData,
+    MCPServerConfigModel,
     Message,
     MessageType,
+    SkillModel,
     Suggestion,
     Thinking,
     ThinkingType,
@@ -121,9 +119,9 @@ class ThreadState(
     expanded_message_ids: list[str] = []
 
     # MCP Server tool support state
-    selected_mcp_servers: list[MCPServer] = []
+    selected_mcp_servers: list[MCPServerConfigModel] = []
     show_tools_modal: bool = False
-    available_mcp_servers: list[MCPServer] = []
+    available_mcp_servers: list[MCPServerConfigModel] = []
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
 
@@ -132,8 +130,8 @@ class ThreadState(
     _ui_tool_registry: dict[str, dict] = {}
 
     # Skills selection state
-    selected_skills: list[Skill] = []
-    available_skills_for_selection: list[Skill] = []
+    selected_skills: list[SkillModel] = []
+    available_skills_for_selection: list[SkillModel] = []
     temp_selected_skill_ids: list[str] = []
     skill_selection_state: dict[str, bool] = {}
     modal_active_tab: str = "tools"

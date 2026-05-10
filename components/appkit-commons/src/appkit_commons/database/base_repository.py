@@ -23,7 +23,7 @@ class BaseRepository[T, S](ABC):
     """Generic asynchronous repository base class for CRUD operations.
 
     This abstract base class provides a set of common Create/Read/Update/Delete
-    operations for working with SQLModel/SQLAlchemy model objects in an
+    operations for working with SQLAlchemy model objects in an
     asynchronous context. It is intended to be subclassed for concrete model
     repositories.
 

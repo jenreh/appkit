@@ -113,7 +113,7 @@ async def _get_server(server_id: int) -> MCPServer:
                 status_code=404,
                 detail="MCP server not found",
             )
-        return MCPServer(**server.model_dump())
+        return server
 
 
 @router.get("/{server_id}/resource")

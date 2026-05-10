@@ -541,7 +541,7 @@ class TestDBOperations:
         svc = MCPAuthService(redirect_uri="https://app.test/callback")
         session = MagicMock()
         mock_token = MagicMock()
-        session.exec.return_value.first.return_value = mock_token
+        session.scalars.return_value.first.return_value = mock_token
 
         result = svc.get_user_token(session, user_id=1, mcp_server_id=1)
         assert result is mock_token
@@ -549,7 +549,7 @@ class TestDBOperations:
     def test_get_user_token_not_found(self) -> None:
         svc = MCPAuthService(redirect_uri="https://app.test/callback")
         session = MagicMock()
-        session.exec.return_value.first.return_value = None
+        session.scalars.return_value.first.return_value = None
 
         result = svc.get_user_token(session, user_id=1, mcp_server_id=1)
         assert result is None
@@ -557,7 +557,7 @@ class TestDBOperations:
     def test_save_user_token_new(self) -> None:
         svc = MCPAuthService(redirect_uri="https://app.test/callback")
         session = MagicMock()
-        session.exec.return_value.first.return_value = None
+        session.scalars.return_value.first.return_value = None
 
         token_result = TokenResult(
             access_token="at-123", refresh_token="rt-456", expires_in=3600
@@ -571,7 +571,7 @@ class TestDBOperations:
         session = MagicMock()
         existing = MagicMock()
         existing.access_token = "old-at"
-        session.exec.return_value.first.return_value = existing
+        session.scalars.return_value.first.return_value = existing
 
         token_result = TokenResult(
             access_token="new-at", refresh_token="new-rt", expires_in=3600
@@ -584,7 +584,7 @@ class TestDBOperations:
         svc = MCPAuthService(redirect_uri="https://app.test/callback")
         session = MagicMock()
         token = MagicMock()
-        session.exec.return_value.first.return_value = token
+        session.scalars.return_value.first.return_value = token
 
         result = svc.delete_user_token(session, 1, 1)
         assert result is True
@@ -593,7 +593,7 @@ class TestDBOperations:
     def test_delete_user_token_not_found(self) -> None:
         svc = MCPAuthService(redirect_uri="https://app.test/callback")
         session = MagicMock()
-        session.exec.return_value.first.return_value = None
+        session.scalars.return_value.first.return_value = None
 
         result = svc.delete_user_token(session, 1, 1)
         assert result is False
@@ -959,7 +959,7 @@ class TestExchangeCodeWithPKCE:
         oauth_state.code_verifier = "test-verifier"
 
         session = MagicMock()
-        session.exec.return_value.first.return_value = oauth_state
+        session.scalars.return_value.first.return_value = oauth_state
 
         mock_response = MagicMock()
         mock_response.status_code = HTTPStatus.OK
@@ -993,7 +993,7 @@ class TestExchangeCodeWithPKCE:
         oauth_state.expires_at = datetime.now(UTC) - timedelta(hours=1)
 
         session = MagicMock()
-        session.exec.return_value.first.return_value = oauth_state
+        session.scalars.return_value.first.return_value = oauth_state
 
         result = await svc.exchange_code_for_tokens(
             server, "code", state="s1", session=session

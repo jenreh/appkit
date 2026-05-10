@@ -52,13 +52,14 @@ def _user_entity(
 ) -> MagicMock:
     entity = MagicMock()
     entity.id = user_id
-    entity.to_dict.return_value = {
-        "user_id": user_id,
-        "name": name,
-        "email": email,
-        "is_active": True,
-        "is_verified": True,
-    }
+    entity.name = name
+    entity.email = email
+    entity.avatar_url = ""
+    entity.is_active = True
+    entity.is_admin = False
+    entity.is_verified = True
+    entity.needs_password_reset = False
+    entity.roles = []
     return entity
 
 

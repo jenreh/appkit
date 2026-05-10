@@ -8,7 +8,8 @@ import logging
 from collections.abc import AsyncGenerator
 
 import reflex as rx
-from sqlmodel import Session, select
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.backend.processors.processor_base import mcp_oauth_redirect_uri
@@ -97,8 +98,9 @@ class MCPOAuthState(rx.State):
         self._server_id = server_id
 
         # Get the server configuration
-        with rx.session() as session:
-            server = session.exec(
+
+        with get_session_manager().session() as session:
+            server = session.scalars(
                 select(MCPServer).where(MCPServer.id == server_id)
             ).first()
 

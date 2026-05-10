@@ -5,11 +5,11 @@ from typing import Any, Final
 import reflex as rx
 from reflex.state import State
 
-from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.backend.database.repositories import (
     mcp_server_repo,
     user_prompt_repo,
 )
+from appkit_assistant.backend.schemas import MCPServerConfigModel
 from appkit_assistant.backend.services.user_prompt_service import validate_handle
 from appkit_assistant.state.thread_state import ThreadState
 from appkit_commons.database.session import get_asyncdb_session
@@ -51,7 +51,7 @@ class UserPromptState(State):
     modal_selected_version_id: int = 0
 
     # Modal MCP server selection
-    modal_available_mcp_servers: list[MCPServer] = []
+    modal_available_mcp_servers: list[MCPServerConfigModel] = []
     modal_selected_mcp_server_ids: list[str] = []  # Strings for UI multiselect
     # Map version_id_str -> mcp_server_ids for version switching
     modal_mcp_server_map: dict[str, list[str]] = {}
@@ -159,7 +159,7 @@ class UserPromptState(State):
             servers = await mcp_server_repo.find_all_active_ordered_by_name(session)
             # Filter servers by user roles (same logic as ThreadState)
             filtered_servers = [
-                MCPServer(**s.model_dump())
+                MCPServerConfigModel.model_validate(s)
                 for s in servers
                 if not s.required_role or s.required_role in user_roles
             ]

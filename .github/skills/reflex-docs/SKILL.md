@@ -71,5 +71,5 @@ Reflex is an open-source framework for building full-stack web applications in p
 
 ### Database
 
-- Built-in SQLModel integration for database tables
+- Appkit commons/database SQLAlchemy integration for database tables
 - Define models, run queries, set up relationships

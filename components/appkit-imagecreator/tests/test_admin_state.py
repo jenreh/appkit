@@ -12,7 +12,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from appkit_imagecreator.admin_state import ImageGeneratorAdminState
-from appkit_imagecreator.backend.models import ImageGeneratorModel
+from appkit_imagecreator.backend.models import (
+    ImageGeneratorConfigModel,
+    ImageGeneratorModel,
+)
 
 _PATCH = "appkit_imagecreator.admin_state"
 
@@ -27,8 +30,8 @@ def _gen_model(
     processor_type: str = "openai",
     active: bool = True,
     required_role: str | None = None,
-) -> ImageGeneratorModel:
-    return ImageGeneratorModel(
+) -> ImageGeneratorConfigModel:
+    return ImageGeneratorConfigModel(
         id=gen_id,
         model_id=model_id,
         model=model_id,

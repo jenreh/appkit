@@ -14,7 +14,10 @@ from appkit_imagecreator.backend.generator_registry import (
 from appkit_imagecreator.backend.generator_repository import (
     generator_model_repo,
 )
-from appkit_imagecreator.backend.models import ImageGeneratorModel
+from appkit_imagecreator.backend.models import (
+    ImageGeneratorConfigModel,
+    ImageGeneratorModel,
+)
 from appkit_imagecreator.state import ImageGalleryState
 
 logger = logging.getLogger(__name__)
@@ -23,8 +26,8 @@ logger = logging.getLogger(__name__)
 class ImageGeneratorAdminState(rx.State):
     """State for managing image generator models in the admin UI."""
 
-    generators: list[ImageGeneratorModel] = []
-    current_generator: ImageGeneratorModel | None = None
+    generators: list[ImageGeneratorConfigModel] = []
+    current_generator: ImageGeneratorConfigModel | None = None
     loading: bool = False
     search_filter: str = ""
     updating_active_generator_id: int | None = None
@@ -39,7 +42,7 @@ class ImageGeneratorAdminState(rx.State):
         self.search_filter = value
 
     @rx.var
-    def filtered_generators(self) -> list[ImageGeneratorModel]:
+    def filtered_generators(self) -> list[ImageGeneratorConfigModel]:
         """Return generators filtered by search text."""
         if not self.search_filter:
             return self.generators
@@ -82,7 +85,7 @@ class ImageGeneratorAdminState(rx.State):
             async with get_asyncdb_session() as session:
                 models = await generator_model_repo.find_all_ordered_by_name(session)
                 self.generators = [
-                    ImageGeneratorModel(**m.model_dump()) for m in models
+                    ImageGeneratorConfigModel.model_validate(m) for m in models
                 ]
             logger.debug(
                 "Loaded %d image generator models",
@@ -112,7 +115,9 @@ class ImageGeneratorAdminState(rx.State):
             async with get_asyncdb_session() as session:
                 gen = await generator_model_repo.find_by_id(session, generator_id)
                 if gen:
-                    self.current_generator = ImageGeneratorModel(**gen.model_dump())
+                    self.current_generator = ImageGeneratorConfigModel.model_validate(
+                        gen
+                    )
                 else:
                     self.current_generator = None
             if not self.current_generator:

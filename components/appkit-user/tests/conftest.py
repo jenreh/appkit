@@ -9,6 +9,7 @@ import pytest_asyncio
 from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import appkit_commons.testing  # noqa: F401
 from appkit_commons.security import generate_password_hash
 from appkit_user.authentication.backend.database import (
     OAuthAccountEntity,

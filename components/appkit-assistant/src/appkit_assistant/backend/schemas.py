@@ -2,8 +2,7 @@ import uuid
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel
-from sqlmodel import Field
+from pydantic import BaseModel, Field
 
 
 class ChunkType(StrEnum):
@@ -207,3 +206,66 @@ class McpAppViewData(BaseModel):
 
 # Resolve forward reference in Message
 Message.model_rebuild()
+
+
+class SkillModel(BaseModel):
+    """Pydantic model for an OpenAI Skill used in UI State."""
+
+    model_config = {"from_attributes": True}
+
+    id: int = 0
+    openai_id: str = ""
+    name: str = ""
+    description: str | None = None
+    default_version: str = "1"
+    latest_version: str = "1"
+    active: bool = True
+    required_role: str | None = None
+    api_key_hash: str | None = None
+
+
+class MCPServerConfigModel(BaseModel):
+    """Pydantic model for MCP server configuration used in UI State."""
+
+    model_config = {"from_attributes": True}
+
+    id: int = 0
+    name: str = ""
+    description: str | None = ""
+    url: str = ""
+    headers: str = ""
+    prompt: str | None = ""
+    auth_type: str = MCPAuthType.NONE
+    discovery_url: str | None = None
+    oauth_client_id: str | None = None
+    oauth_client_secret: str | None = None
+    oauth_issuer: str | None = None
+    oauth_authorize_url: str | None = None
+    oauth_token_url: str | None = None
+    oauth_scopes: str | None = None
+    active: bool = True
+    required_role: str | None = None
+    inject_user_id: bool = True
+
+
+class AssistantAIModelConfigModel(BaseModel):
+    """Pydantic model for AI Model configuration used in UI State."""
+
+    model_config = {"from_attributes": True}
+
+    id: int | None = None
+    model_id: str
+    text: str
+    icon: str = "codesandbox"
+    model: str = "default"
+    processor_type: str = "openai"
+    stream: bool = False
+    temperature: float = 0.05
+    supports_tools: bool = False
+    supports_attachments: bool = False
+    supports_search: bool = False
+    supports_skills: bool = False
+    active: bool = True
+    requires_role: str | None = None
+    api_key: str | None = None
+    base_url: str | None = None

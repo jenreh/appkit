@@ -276,6 +276,23 @@ def _user_modal(
     )
 
 
+def loading() -> rx.Component:
+    """Loading indicator for the users table."""
+    return mn.table.tr(
+        mn.table.td(
+            rx.hstack(
+                rx.spinner(size="3"),
+                mn.text("Lade Benutzer...", size="sm"),
+                align="center",
+                justify="center",
+                spacing="3",
+            ),
+            col_span=6,
+            style={"textAlign": "center"},
+        ),
+    )
+
+
 def add_user_modal() -> rx.Component:
     """Modal for adding a new user."""
     return _user_modal(
@@ -422,23 +439,6 @@ def users_table_row(
             ),
             width="1%",
             style={"whiteSpace": "nowrap"},
-        ),
-    )
-
-
-def loading() -> rx.Component:
-    """Loading indicator for the users table."""
-    return mn.table.tr(
-        mn.table.td(
-            rx.hstack(
-                rx.spinner(size="3"),
-                mn.text("Lade Benutzer...", size="sm"),
-                align="center",
-                justify="center",
-                spacing="3",
-            ),
-            col_span=6,
-            style={"textAlign": "center"},
         ),
     )
 

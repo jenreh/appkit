@@ -23,7 +23,7 @@ components/alloq-<feature>/
     ├── __init__.py          # public exports only
     ├── configuration.py     # Pydantic config schemas
     ├── backend/             # or backend.py — pure Python, no Reflex
-    │   ├── models.py        # SQLModel table + UI models
+    │   ├── models.py        # SQLAlchemy table + UI models
     │   ├── repository.py    # async DB access
     │   └── services/        # business logic
     ├── state/               # or state.py — rx.State subclasses

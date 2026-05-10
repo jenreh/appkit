@@ -1,6 +1,6 @@
 import logging
 from datetime import UTC, datetime
-from typing import Final, Optional
+from typing import Optional
 
 from sqlalchemy import (
     Boolean,
@@ -21,15 +21,10 @@ from sqlalchemy.sql import func
 from sqlalchemy_utils import StringEncryptedType
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 
-from appkit_commons.database.configuration import DatabaseConfig
-from appkit_commons.database.entities import ArrayType, Base, Entity
-from appkit_commons.registry import service_registry
+from appkit_commons.database.entities import ArrayType, Base, Entity, get_cipher_key
 from appkit_commons.security import check_password_hash, generate_password_hash
 
 logger = logging.getLogger(__name__)
-db_config: DatabaseConfig = service_registry().get(DatabaseConfig)
-
-SECRET_VALUE: Final = db_config.encryption_key.get_secret_value()
 
 
 class UserEntity(Entity, Base):
@@ -157,10 +152,10 @@ class OAuthAccountEntity(Entity, Base):
         String(200), nullable=False
     )  # Provider's email
     access_token: Mapped[str] = mapped_column(
-        StringEncryptedType(Unicode, SECRET_VALUE, FernetEngine)
+        StringEncryptedType(Unicode, get_cipher_key, FernetEngine)
     )
     refresh_token: Mapped[str | None] = mapped_column(
-        StringEncryptedType(Unicode, SECRET_VALUE, FernetEngine)
+        StringEncryptedType(Unicode, get_cipher_key, FernetEngine)
     )
     expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)

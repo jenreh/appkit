@@ -233,7 +233,10 @@ class AIModelRegistry:
         if not all_models:
             return
 
-        config: AssistantConfig | None = service_registry().get(AssistantConfig)
+        try:
+            config: AssistantConfig | None = service_registry().get(AssistantConfig)
+        except KeyError:
+            config = None
         configured_default = config.default_model if config else ""
 
         if configured_default and configured_default in {m.id for m in all_models}:

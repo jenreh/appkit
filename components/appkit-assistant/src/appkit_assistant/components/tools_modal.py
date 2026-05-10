@@ -6,7 +6,7 @@ from typing import Any
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.database.models import MCPServer, Skill
+from appkit_assistant.backend.schemas import MCPServerConfigModel, SkillModel
 from appkit_assistant.state.thread_state import ThreadState
 
 
@@ -39,7 +39,7 @@ def _render_tool_row(
     )
 
 
-def render_mcp_server_item(server: MCPServer) -> rx.Component:
+def render_mcp_server_item(server: MCPServerConfigModel) -> rx.Component:
     """Render a single MCP server item in the modal."""
     return _render_tool_row(
         name=server.name,
@@ -51,7 +51,7 @@ def render_mcp_server_item(server: MCPServer) -> rx.Component:
     )
 
 
-def render_skill_item(skill: Skill) -> rx.Component:
+def render_skill_item(skill: SkillModel) -> rx.Component:
     """Render a single skill item in the modal."""
     return _render_tool_row(
         name=skill.name,

@@ -10,18 +10,18 @@ state machinery while exercising all business logic paths.
 import asyncio
 import json
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from appkit_assistant.backend.database.models import MCPServer, Skill
 from appkit_assistant.backend.schemas import (
     AIModel,
     CommandDefinition,
+    MCPServerConfigModel,
     Message,
     MessageType,
+    SkillModel,
     ThreadModel,
     UploadedFile,
 )
@@ -93,26 +93,27 @@ def _mcp_server(
     id: int,  # noqa: A002
     name: str = "srv",
     **kw: Any,
-) -> MCPServer:
+) -> MCPServerConfigModel:
     defaults: dict[str, Any] = {
+        "id": id,
         "name": name,
         "url": f"https://{name}.example.com",
         "active": True,
     }
     defaults.update(kw)
-    server = MCPServer(**defaults)
-    server.id = id
-    return server
+    return MCPServerConfigModel(**defaults)
 
 
 def _skill(
+    id: int,  # noqa: A002
     openai_id: str,
     name: str = "skill",
     *,
     required_role: str | None = None,
     api_key_hash: str = "abc",
-) -> Skill:
-    return Skill(
+) -> SkillModel:
+    return SkillModel(
+        id=id,
         openai_id=openai_id,
         name=name,
         description="Test skill",
@@ -121,7 +122,6 @@ def _skill(
         active=True,
         required_role=required_role,
         api_key_hash=api_key_hash,
-        last_synced=datetime.now(UTC),
     )
 
 
@@ -136,11 +136,11 @@ class _ModelState(ModelSelectionMixin):
     ai_models: list[AIModel] = []
     selected_model: str = ""
     web_search_enabled: bool = False
-    selected_mcp_servers: list[MCPServer] = []
+    selected_mcp_servers: list[MCPServerConfigModel] = []
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
     uploaded_files: list[UploadedFile] = []
-    selected_skills: list[Skill] = []
+    selected_skills: list[SkillModel] = []
     temp_selected_skill_ids: list[str] = []
     skill_selection_state: dict[str, bool] = {}
     modal_active_tab: str = "tools"
@@ -310,7 +310,7 @@ class TestModelSelectionMixin:
 
     def test_set_selected_model_clears_skills(self) -> None:
         """Skills cleared when model doesn't support skills."""
-        sk = _skill("sk1")
+        sk = _skill(1, "sk1")
         st = self._state(selected_skills=[sk])
         model = _model("m1", supports_skills=False)
 
@@ -357,8 +357,8 @@ class _CmdState(CommandPaletteMixin):
     command_trigger_position: int = 0
     available_commands: list[CommandDefinition] = []
     prompt: str = ""
-    available_mcp_servers: list[MCPServer] = []
-    selected_mcp_servers: list[MCPServer] = []
+    available_mcp_servers: list[MCPServerConfigModel] = []
+    selected_mcp_servers: list[MCPServerConfigModel] = []
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
     _current_user_id: str = ""
@@ -752,9 +752,9 @@ class TestCommandPaletteMixin:
 class _McpState(McpToolsMixin):
     """Stub owning the state vars needed by McpToolsMixin."""
 
-    selected_mcp_servers: list[MCPServer] = []
+    selected_mcp_servers: list[MCPServerConfigModel] = []
     show_tools_modal: bool = False
-    available_mcp_servers: list[MCPServer] = []
+    available_mcp_servers: list[MCPServerConfigModel] = []
     temp_selected_mcp_servers: list[int] = []
     server_selection_state: dict[int, bool] = {}
 
@@ -895,23 +895,8 @@ class TestMcpToolsMixin:
 
         st.get_state = _fake_get_state
 
-        srv_no_role = MagicMock()
-        srv_no_role.model_dump.return_value = {
-            "name": "s1",
-            "url": "https://s1.com",
-            "active": True,
-            "required_role": None,
-        }
-        srv_no_role.required_role = None
-
-        srv_admin = MagicMock()
-        srv_admin.model_dump.return_value = {
-            "name": "s2",
-            "url": "https://s2.com",
-            "active": True,
-            "required_role": "admin",
-        }
-        srv_admin.required_role = "admin"
+        srv_no_role = _mcp_server(1, "s1", required_role=None)
+        srv_admin = _mcp_server(2, "s2", required_role="admin")
 
         mock_repo = MagicMock()
         mock_repo.find_all_active_ordered_by_name = AsyncMock(
@@ -948,8 +933,8 @@ class TestMcpToolsMixin:
 class _SkillState(SkillsMixin):
     """Stub owning the state vars needed by SkillsMixin."""
 
-    selected_skills: list[Skill] = []
-    available_skills_for_selection: list[Skill] = []
+    selected_skills: list[SkillModel] = []
+    available_skills_for_selection: list[SkillModel] = []
     temp_selected_skill_ids: list[str] = []
     skill_selection_state: dict[str, bool] = {}
     modal_active_tab: str = "tools"
@@ -1017,7 +1002,7 @@ class TestSkillsMixin:
     # -- apply_skill_selection ------------------------------------------
 
     def test_apply_skill_selection(self) -> None:
-        sk = _skill("sk1", "Skill1")
+        sk = _skill(1, "sk1", "Skill1")
         st = self._state(
             available_skills_for_selection=[sk],
             temp_selected_skill_ids=["sk1"],
@@ -1042,7 +1027,7 @@ class TestSkillsMixin:
     # -- _restore_skill_selection ---------------------------------------
 
     def test_restore_skill_selection(self) -> None:
-        sk = _skill("sk1", "Skill1")
+        sk = _skill(1, "sk1", "Skill1")
         st = self._state(available_skills_for_selection=[sk])
         st._restore_skill_selection(["sk1"])
 
@@ -1051,7 +1036,7 @@ class TestSkillsMixin:
         assert st.skill_selection_state == {"sk1": True}
 
     def test_restore_skill_selection_empty(self) -> None:
-        sk = _skill("sk1", "Skill1")
+        sk = _skill(1, "sk1", "Skill1")
         st = self._state(
             available_skills_for_selection=[sk],
             selected_skills=[sk],
@@ -1080,33 +1065,8 @@ class TestSkillsMixin:
 
         st.get_state = _fake_get_state
 
-        sk_no_role = MagicMock()
-        sk_no_role.model_dump.return_value = {
-            "openai_id": "sk1",
-            "name": "Skill1",
-            "description": "d",
-            "default_version": "1",
-            "latest_version": "1",
-            "active": True,
-            "required_role": None,
-            "api_key_hash": "h",
-            "last_synced": datetime.now(UTC),
-        }
-        sk_no_role.required_role = None
-
-        sk_admin = MagicMock()
-        sk_admin.model_dump.return_value = {
-            "openai_id": "sk2",
-            "name": "Skill2",
-            "description": "d",
-            "default_version": "1",
-            "latest_version": "1",
-            "active": True,
-            "required_role": "admin",
-            "api_key_hash": "h",
-            "last_synced": datetime.now(UTC),
-        }
-        sk_admin.required_role = "admin"
+        sk_no_role = _skill(1, "sk1", "Skill1", required_role=None)
+        sk_admin = _skill(2, "sk2", "Skill2", required_role="admin")
 
         mock_skill_repo = MagicMock()
         mock_skill_repo.find_all_active_by_api_key_hash = AsyncMock(
@@ -1537,8 +1497,8 @@ class _ProcessState(MessageProcessingMixin):
     show_thinking: bool = False
     current_activity: str = ""
     uploaded_files: list[UploadedFile]
-    selected_mcp_servers: list[MCPServer]
-    selected_skills: list[Skill]
+    selected_mcp_servers: list[MCPServerConfigModel]
+    selected_skills: list[SkillModel]
     web_search_enabled: bool = False
     with_thread_list: bool = False
     _thread: ThreadModel = ThreadModel(thread_id="t1")

@@ -7,8 +7,8 @@ import logging
 
 import reflex as rx
 
-from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.backend.database.repositories import mcp_server_repo
+from appkit_assistant.backend.schemas import MCPServerConfigModel
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.states import UserSession
 
@@ -33,7 +33,7 @@ class McpToolsMixin:
         async with get_asyncdb_session() as session:
             servers = await mcp_server_repo.find_all_active_ordered_by_name(session)
             filtered_servers = [
-                MCPServer(**s.model_dump())
+                MCPServerConfigModel.model_validate(s)
                 for s in servers
                 if not s.required_role or s.required_role in user_roles
             ]

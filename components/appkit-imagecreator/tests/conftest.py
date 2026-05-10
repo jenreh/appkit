@@ -9,6 +9,7 @@ import pytest_asyncio
 from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import appkit_commons.testing  # noqa: F401
 from appkit_imagecreator.backend.generator_repository import (
     ImageGeneratorModelRepository,
 )

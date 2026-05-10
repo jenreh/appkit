@@ -1,6 +1,7 @@
 """Tests for database entities and custom types."""
 
 import json
+from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -34,18 +35,17 @@ class TestGetCipherKey:
             pass
 
     def test_encrypted_string_initializes(self) -> None:
-        """EncryptedString initializes with a cipher key."""
+        """EncryptedString initializes and _cipher() returns a Fernet instance."""
         # Arrange
+        test_key = Fernet.generate_key().decode()
         with patch("appkit_commons.database.entities.get_cipher_key") as mock_get_key:  # noqa: E501
-            test_key = Fernet.generate_key().decode()
             mock_get_key.return_value = test_key
 
             # Act
             column = EncryptedString()
 
             # Assert
-            assert column.cipher is not None
-            assert column.cipher_key == test_key
+            assert column._cipher() is not None
 
 
 class TestEncryptedString:
@@ -57,22 +57,23 @@ class TestEncryptedString:
         return Fernet.generate_key().decode()
 
     @pytest.fixture
-    def encrypted_column(self, cipher_key: str) -> EncryptedString:
-        """Fixture providing an EncryptedString instance."""
+    def encrypted_column(
+        self, cipher_key: str
+    ) -> Generator[EncryptedString, None, None]:
+        """Fixture providing an EncryptedString instance with get_cipher_key patched."""
         with patch("appkit_commons.database.entities.get_cipher_key") as mock_get_key:
             mock_get_key.return_value = cipher_key
-            return EncryptedString()
+            yield EncryptedString()
 
     def test_encrypted_string_initialization(self, cipher_key: str) -> None:
-        """EncryptedString initializes with cipher key."""
+        """EncryptedString initializes; _cipher() returns a Fernet instance."""
         # Arrange & Act
         with patch("appkit_commons.database.entities.get_cipher_key") as mock_get_key:
             mock_get_key.return_value = cipher_key
             column = EncryptedString()
 
-        # Assert
-        assert column.cipher_key == cipher_key
-        assert column.cipher is not None
+            # Assert
+            assert column._cipher() is not None
 
     def test_encrypted_string_cache_ok(self) -> None:
         """EncryptedString has cache_ok set to True."""
@@ -97,7 +98,7 @@ class TestEncryptedString:
         assert encrypted is not None
         assert encrypted != plaintext
         # Verify it's a valid encrypted string (can be decrypted)
-        decrypted = encrypted_column.cipher.decrypt(encrypted.encode()).decode()
+        decrypted = encrypted_column._cipher().decrypt(encrypted.encode()).decode()
         assert decrypted == plaintext
 
     def test_process_bind_param_none_returns_none(
@@ -119,7 +120,7 @@ class TestEncryptedString:
         """process_result_value decrypts the value."""
         # Arrange
         plaintext = "decrypted_secret"
-        encrypted = encrypted_column.cipher.encrypt(plaintext.encode()).decode()
+        encrypted = encrypted_column._cipher().encrypt(plaintext.encode()).decode()
         dialect = MagicMock(spec=Dialect)
 
         # Act

@@ -6,8 +6,8 @@ from typing import Any
 
 import reflex as rx
 
-from appkit_assistant.backend.database.models import AssistantAIModel, Skill
 from appkit_assistant.backend.database.repositories import ai_model_repo, skill_repo
+from appkit_assistant.backend.schemas import AssistantAIModelConfigModel, SkillModel
 from appkit_assistant.backend.services.skill_service import (
     compute_api_key_hash,
     get_skill_service,
@@ -21,12 +21,12 @@ class SkillAdminState(rx.State):
     """State for the admin skill management page."""
 
     # Data State
-    skills: list[Skill] = []
+    skills: list[SkillModel] = []
     available_roles: list[dict[str, str]] = []
     role_labels: dict[str, str] = {}
 
     # Model selection
-    skill_models: list[AssistantAIModel] = []
+    skill_models: list[AssistantAIModelConfigModel] = []
     selected_model_id: str = ""
 
     # UI State
@@ -46,7 +46,7 @@ class SkillAdminState(rx.State):
         self.search_filter = value
 
     @rx.var
-    def filtered_skills(self) -> list[Skill]:
+    def filtered_skills(self) -> list[SkillModel]:
         """Return skills filtered by search_filter (contains in name)."""
         if not self.search_filter:
             return self.skills
@@ -96,8 +96,8 @@ class SkillAdminState(rx.State):
         """Whether any skill-capable models exist."""
         return len(self.skill_models) > 0
 
-    def _get_selected_model(self) -> AssistantAIModel | None:
-        """Return the AssistantAIModel matching selected_model_id."""
+    def _get_selected_model(self) -> AssistantAIModelConfigModel | None:
+        """Return the AssistantAIModelConfigModel matching selected_model_id."""
         if not self.selected_model_id:
             return None
         return next(
@@ -110,7 +110,9 @@ class SkillAdminState(rx.State):
         async with get_asyncdb_session() as session:
             models = await ai_model_repo.find_all_skill_capable(session)
             session.expunge_all()
-        self.skill_models = [AssistantAIModel(**m.model_dump()) for m in models]
+        self.skill_models = [
+            AssistantAIModelConfigModel.model_validate(m) for m in models
+        ]
 
         # Auto-select first model if nothing selected yet
         if not self.selected_model_id and self.skill_models:
@@ -134,7 +136,7 @@ class SkillAdminState(rx.State):
                 else:
                     items = await skill_repo.find_all_ordered_by_name(session)
                 # Convert DB models to Pydantic models for State
-                self.skills = [Skill(**s.model_dump()) for s in items]
+                self.skills = [SkillModel.model_validate(s) for s in items]
             logger.debug("Loaded %d skills", len(self.skills))
         except Exception as e:
             logger.error("Failed to load skills: %s", e)
@@ -323,7 +325,7 @@ class SkillAdminState(rx.State):
         yield
 
         # Optimistic update: create new list with updated item
-        # Using model_copy (Pydantic V2 / SQLModel)
+        # Using model_copy (Pydantic V2)
         self.skills = [
             s.model_copy(update={"active": active}) if s.id == skill_id else s
             for s in self.skills

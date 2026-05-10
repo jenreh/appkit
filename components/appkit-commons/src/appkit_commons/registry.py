@@ -181,6 +181,15 @@ class ServiceRegistry:
         self._instances.clear()
         logger.debug("Cleared %d instances from registry", count)
 
+    def snapshot(self) -> dict:
+        """Return a shallow copy of the current registry state."""
+        return dict(self._instances)
+
+    def restore(self, saved: dict) -> None:
+        """Restore the registry to a previously snapshotted state."""
+        self._instances.clear()
+        self._instances.update(saved)
+
 
 @lru_cache(maxsize=1)
 def service_registry() -> ServiceRegistry:

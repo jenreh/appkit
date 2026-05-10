@@ -7,8 +7,8 @@ from typing import Any
 import reflex as rx
 
 from appkit_assistant.backend.ai_model_registry import ai_model_registry
-from appkit_assistant.backend.database.models import AssistantAIModel
 from appkit_assistant.backend.database.repositories import ai_model_repo
+from appkit_assistant.backend.schemas import AssistantAIModelConfigModel
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 class AIModelAdminState(rx.State):
     """State for managing AI models in the admin UI."""
 
-    models: list[AssistantAIModel] = []
-    current_model: AssistantAIModel | None = None
+    models: list[AssistantAIModelConfigModel] = []
+    current_model: AssistantAIModelConfigModel | None = None
     loading: bool = False
     search_filter: str = ""
     updating_active_model_id: int | None = None
@@ -33,7 +33,7 @@ class AIModelAdminState(rx.State):
         self.search_filter = value
 
     @rx.var
-    def filtered_models(self) -> list[AssistantAIModel]:
+    def filtered_models(self) -> list[AssistantAIModelConfigModel]:
         """Return models filtered by search text."""
         if not self.search_filter:
             return self.models
@@ -85,7 +85,9 @@ class AIModelAdminState(rx.State):
         try:
             async with get_asyncdb_session() as session:
                 db_models = await ai_model_repo.find_all_ordered_by_text(session)
-                self.models = [AssistantAIModel(**m.model_dump()) for m in db_models]
+                self.models = [
+                    AssistantAIModelConfigModel.model_validate(m) for m in db_models
+                ]
             logger.debug("Loaded %d AI models", len(self.models))
         except Exception as e:
             logger.error("Failed to load AI models: %s", e)
@@ -111,7 +113,7 @@ class AIModelAdminState(rx.State):
             async with get_asyncdb_session() as session:
                 rec = await ai_model_repo.find_by_id(session, model_id)
                 self.current_model = (
-                    AssistantAIModel(**rec.model_dump()) if rec else None
+                    AssistantAIModelConfigModel.model_validate(rec) if rec else None
                 )
         except Exception as e:
             logger.error("Failed to get AI model %d: %s", model_id, e)
@@ -121,7 +123,7 @@ class AIModelAdminState(rx.State):
         self.loading = True
         yield
         try:
-            entity = AssistantAIModel(
+            entity = AssistantAIModelConfigModel(
                 model_id=form_data["model_id"].strip(),
                 text=form_data["text"].strip(),
                 icon=(form_data.get("icon") or "codesandbox").strip() or "codesandbox",

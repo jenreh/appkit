@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_assistant.backend.schemas import MCPServerConfigModel
 from appkit_assistant.state.user_prompt_state import (
     MAX_DESCRIPTION_LENGTH,
     MAX_PROMPT_LENGTH,
@@ -56,19 +57,15 @@ def _version(
     return v
 
 
-def _mcp_server(server_id: int = 1, name: str = "srv") -> MagicMock:
-    s = MagicMock()
-    s.id = server_id
-    s.name = name
-    s.active = True
-    s.required_role = None
-    s.model_dump.return_value = {
-        "id": server_id,
-        "name": name,
-        "active": True,
-        "required_role": None,
-    }
-    return s
+def _mcp_server(server_id: int = 1, name: str = "srv") -> MCPServerConfigModel:
+    return MCPServerConfigModel(
+        id=server_id,
+        name=name,
+        active=True,
+        required_role=None,
+        url="http://example.com",
+        headers="{}",
+    )
 
 
 class _StubUserPromptState:

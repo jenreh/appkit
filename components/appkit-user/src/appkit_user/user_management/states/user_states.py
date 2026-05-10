@@ -103,7 +103,7 @@ class UserState(rx.State):
             user_entities = await user_repo.find_all_paginated(
                 session, limit=limit, offset=offset
             )
-            self.users = [User(**user.to_dict()) for user in user_entities]
+            self.users = [User.model_validate(user) for user in user_entities]
 
     @is_authenticated
     async def load_users(
@@ -213,7 +213,9 @@ class UserState(rx.State):
     async def select_user(self, user_id: int) -> None:
         async with get_asyncdb_session() as session:
             user_entity = await user_repo.find_by_id(session, user_id)
-            self.selected_user = User(**user_entity.to_dict()) if user_entity else None
+            self.selected_user = (
+                User.model_validate(user_entity) if user_entity else None
+            )
 
     async def user_has_role(self, role_name: str) -> bool:
         """Check if the selected user has a specific role."""

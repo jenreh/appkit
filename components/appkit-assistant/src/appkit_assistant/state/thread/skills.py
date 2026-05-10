@@ -7,11 +7,11 @@ import logging
 
 import reflex as rx
 
-from appkit_assistant.backend.database.models import Skill
 from appkit_assistant.backend.database.repositories import (
     ai_model_repo,
     skill_repo,
 )
+from appkit_assistant.backend.schemas import SkillModel
 from appkit_assistant.backend.services.skill_service import (
     compute_api_key_hash,
 )
@@ -53,7 +53,7 @@ class SkillsMixin:
                 skills = await skill_repo.find_all_active_ordered_by_name(session)
 
             filtered = [
-                Skill(**s.model_dump())
+                SkillModel.model_validate(s)
                 for s in skills
                 if not s.required_role or s.required_role in user_roles
             ]

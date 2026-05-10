@@ -2,39 +2,35 @@ import logging
 from abc import ABC
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any, ClassVar, Final
+from typing import Any, ClassVar
 
-import reflex as rx
 from pydantic import BaseModel, computed_field
-from sqlalchemy import JSON, Column, DateTime, LargeBinary, Unicode
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    LargeBinary,
+    String,
+    Unicode,
+)
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy_utils import StringEncryptedType
 from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
-from sqlmodel import Field
 
 from appkit_commons.configuration.configuration import ReflexConfig
-from appkit_commons.database.configuration import DatabaseConfig
+from appkit_commons.database.entities import Base, get_cipher_key
 from appkit_commons.registry import service_registry
 
 logger = logging.getLogger(__name__)
 
-db_config: DatabaseConfig = service_registry().get(DatabaseConfig)
-SECRET_VALUE: Final = db_config.encryption_key.get_secret_value()
-
 
 def get_image_api_base_url() -> str:
-    """Get the base URL for the image API based on configuration.
-
-    Returns the backend URL with port for development (separate ports),
-    or just the deploy URL for production (single port).
-    Falls back to default localhost URL if ReflexConfig is not available.
-    """
+    """Get the base URL for the image API based on configuration."""
     try:
         reflex_config = service_registry().get(ReflexConfig)
         if reflex_config.single_port:
             return reflex_config.deploy_url
         return f"{reflex_config.api_url}"
     except KeyError:
-        # Fallback for testing or unconfigured environments
         logger.error("ReflexConfig not found in registry, using default localhost")
         return "http://localhost:3000"
 
@@ -49,46 +45,33 @@ class ImageModel(BaseModel):
     required_role: str | None = None
 
 
-class ImageGeneratorModel(rx.Model, table=True):
-    """Database model for image generator configuration.
-
-    Stores generator metadata, credentials, and configuration
-    in the database for dynamic plugin-based instantiation.
-
-    Documentation: Mirrors MCPServer pattern for encrypted
-    credentials and role-based access control.
-    """
+class ImageGeneratorModel(Base):
+    """Database model for image generator configuration."""
 
     __tablename__ = "imagecreator_generator_models"
 
-    id: int | None = Field(default=None, primary_key=True)
-    model_id: str = Field(unique=True, max_length=100, nullable=False)
-    model: str = Field(max_length=100, nullable=False)
-    label: str = Field(max_length=100, nullable=False)
-    processor_type: str = Field(max_length=255, nullable=False)
-    api_key: str = Field(
-        default="",
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    model_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    label: Mapped[str] = mapped_column(String(100), nullable=False)
+    processor_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    api_key: Mapped[str] = mapped_column(
+        StringEncryptedType(Unicode, get_cipher_key, FernetEngine),
         nullable=False,
-        sa_type=StringEncryptedType(Unicode, SECRET_VALUE, FernetEngine),
+        default="",
     )
-    base_url: str | None = Field(default=None, nullable=True)
-    extra_config: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
-    required_role: str | None = Field(default=None, nullable=True)
-    active: bool = Field(default=True, nullable=False)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True)),
+    base_url: Mapped[str | None] = mapped_column(String, default=None)
+    extra_config: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
+    required_role: Mapped[str | None] = mapped_column(String, default=None)
+    active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
-    # Keys in extra_config that control instantiation, not API parameters.
     _NON_API_KEYS: ClassVar[frozenset[str]] = frozenset({"on_azure"})
 
     def to_image_model(self) -> "ImageModel":
-        """Convert DB entity to runtime ImageModel.
-
-        Strips non-API keys (e.g. ``on_azure``) so only parameters
-        intended for the provider API end up in ``config``.
-        """
+        """Convert DB entity to runtime ImageModel."""
         raw = self.extra_config or {}
         api_config = {k: v for k, v in raw.items() if k not in self._NON_API_KEYS}
         return ImageModel(
@@ -100,32 +83,29 @@ class ImageGeneratorModel(rx.Model, table=True):
         )
 
 
-class GeneratedImage(rx.Model, table=True):
-    """Model for storing generated images in the database.
-
-    Stores image metadata including prompt, style, model configuration,
-    and the binary image data as a BLOB.
-    """
+class GeneratedImage(Base):
+    """Model for storing generated images in the database."""
 
     __tablename__ = "imagecreator_generated_images"
 
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(index=True, nullable=False)
-    prompt: str = Field(max_length=4000, nullable=False)
-    enhanced_prompt: str | None = Field(default=None, max_length=8000, nullable=True)
-    style: str | None = Field(default=None, max_length=100, nullable=True)
-    model: str = Field(max_length=100, nullable=False)
-    image_data: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
-    content_type: str = Field(max_length=50, nullable=False, default="image/png")
-    width: int = Field(nullable=False)
-    height: int = Field(nullable=False)
-    quality: str | None = Field(default=None, max_length=20, nullable=True)
-    config: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
-    is_uploaded: bool = Field(default=False, nullable=False, index=True)
-    is_deleted: bool = Field(default=False, nullable=False, index=True)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True)),
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(index=True, nullable=False)
+    prompt: Mapped[str] = mapped_column(String(4000), nullable=False)
+    enhanced_prompt: Mapped[str | None] = mapped_column(String(8000), default=None)
+    style: Mapped[str | None] = mapped_column(String(100), default=None)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    image_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    content_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="image/png"
+    )
+    width: Mapped[int] = mapped_column(nullable=False)
+    height: Mapped[int] = mapped_column(nullable=False)
+    quality: Mapped[str | None] = mapped_column(String(20), default=None)
+    config: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
+    is_uploaded: Mapped[bool] = mapped_column(default=False, nullable=False, index=True)
+    is_deleted: Mapped[bool] = mapped_column(default=False, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
 
@@ -163,19 +143,7 @@ class ImageResponseState(StrEnum):
 
 
 class GenerationInput(BaseModel):
-    """Input parameters for image generation or editing.
-
-    Attributes:
-        prompt: Text description of the desired image
-        negative_prompt: What to avoid in the image
-        width: Output image width
-        height: Output image height
-        steps: Number of diffusion steps (model-specific)
-        n: Number of images to generate
-        seed: Random seed for reproducibility
-        enhance_prompt: Whether to AI-enhance the prompt
-        reference_image_ids: IDs of images to use as references (image-to-image)
-    """
+    """Input parameters for image generation or editing."""
 
     prompt: str
     negative_prompt: str = ""
@@ -189,11 +157,7 @@ class GenerationInput(BaseModel):
 
 
 class GeneratedImageData(BaseModel):
-    """Single generated image with raw data or external URL.
-
-    Used to pass image data from generators to the state layer.
-    Either image_bytes or external_url should be set, not both.
-    """
+    """Single generated image with raw data or external URL."""
 
     image_bytes: bytes | None = None
     external_url: str | None = None
@@ -201,15 +165,7 @@ class GeneratedImageData(BaseModel):
 
 
 class ImageGeneratorResponse(BaseModel):
-    """Response from image generation.
-
-    Attributes:
-        state: Success or failure state
-        generated_images: List of generated images with bytes or URLs (preferred)
-        images: DEPRECATED - List of image URLs for backwards compatibility
-        error: Error message if generation failed
-        enhanced_prompt: The AI-enhanced prompt used for generation
-    """
+    """Response from image generation."""
 
     state: ImageResponseState
     generated_images: list[GeneratedImageData] = []
@@ -218,11 +174,7 @@ class ImageGeneratorResponse(BaseModel):
 
 
 class ImageGenerator(ABC):
-    """Base class for image generation.
-
-    Subclasses implement _perform_generation() to call their respective APIs
-    and return GeneratedImageData with raw bytes or external URLs.
-    """
+    """Base class for image generation."""
 
     model: ImageModel
     api_key: str
@@ -239,7 +191,6 @@ class ImageGenerator(ABC):
         self.supports_edit = supports_edit
 
     def _format_prompt(self, prompt: str, negative_prompt: str | None = None) -> str:
-        """Formats the prompt including an optional negative prompt."""
         if negative_prompt:
             return (
                 f"## Image Prompt:\n{prompt}\n\n"
@@ -252,22 +203,12 @@ class ImageGenerator(ABC):
         image_bytes: bytes,
         content_type: str = "image/png",
     ) -> GeneratedImageData:
-        """Create GeneratedImageData from raw image bytes.
-
-        Args:
-            image_bytes: Raw binary image data
-            content_type: MIME type of the image (e.g., 'image/png', 'image/jpeg')
-
-        Returns:
-            GeneratedImageData with the image bytes set
-        """
         return GeneratedImageData(
             image_bytes=image_bytes,
             content_type=content_type,
         )
 
     def _aspect_ratio(self, width: int, height: int) -> str:
-        """Calculate the closest supported aspect ratio based on width and height."""
         ratios = {
             "2:1": 2 / 1,
             "1:1": 1.0,
@@ -282,10 +223,6 @@ class ImageGenerator(ABC):
         return ratio
 
     async def generate(self, input_data: GenerationInput) -> ImageGeneratorResponse:
-        """
-        Generates images based on the input data.
-        Handles common error logging and response for failures.
-        """
         try:
             return await self._perform_generation(input_data)
         except Exception as e:
@@ -297,9 +234,6 @@ class ImageGenerator(ABC):
     async def _perform_generation(
         self, input_data: GenerationInput
     ) -> ImageGeneratorResponse:
-        """
-        Subclasses must implement this method to perform the actual image generation.
-        """
         raise NotImplementedError(
             "Subclasses must implement the _perform_generation method."
         )
@@ -309,15 +243,6 @@ class ImageGenerator(ABC):
         input_data: GenerationInput,
         reference_images: list[tuple[bytes, str]],
     ) -> ImageGeneratorResponse:
-        """Edit images using reference images.
-
-        Args:
-            input_data: Generation parameters including prompt and edit mode
-            reference_images: List of (image_bytes, content_type) tuples
-
-        Returns:
-            ImageGeneratorResponse with edited images
-        """
         if not self.supports_edit:
             logger.error(
                 "Image editing is not supported by %s",
@@ -342,18 +267,22 @@ class ImageGenerator(ABC):
         input_data: GenerationInput,
         reference_images: list[tuple[bytes, str]],
     ) -> ImageGeneratorResponse:
-        """Perform image editing with reference images.
-
-        Subclasses must implement this method for image-to-image generation.
-
-        Args:
-            input_data: Generation parameters
-            reference_images: List of (image_bytes, content_type) tuples
-
-        Returns:
-            ImageGeneratorResponse with edited images
-
-        Raises:
-            NotImplementedError: If editing is not supported by this generator
-        """
         raise NotImplementedError("Subclasses must implement the _perform_edit method.")
+
+
+class ImageGeneratorConfigModel(BaseModel):
+    """Pydantic model for ImageGeneratorModel used in UI State."""
+
+    model_config = {"from_attributes": True}
+
+    id: int = 0
+    model_id: str = ""
+    model: str = ""
+    label: str = ""
+    processor_type: str = ""
+    api_key: str = ""
+    base_url: str | None = None
+    extra_config: dict[str, Any] | None = None
+    required_role: str | None = None
+    active: bool = True
+    created_at: datetime | None = None

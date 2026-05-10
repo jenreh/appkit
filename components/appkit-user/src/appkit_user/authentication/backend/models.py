@@ -1,10 +1,14 @@
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class User(BaseModel):
     """User model for managing user data and relationships."""
 
-    user_id: int = 0
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    user_id: int = Field(default=0, validation_alias="id")
     name: str = ""
     email: str = ""
     avatar_url: str = ""
@@ -14,6 +18,13 @@ class User(BaseModel):
     is_active: bool = True
     needs_password_reset: bool = False
     roles: list[str] = []
+
+    @field_validator("roles", mode="before")
+    @classmethod
+    def extract_roles(cls, v: Any) -> list[str]:
+        if not v:
+            return []
+        return [str(r.name) if hasattr(r, "name") else str(r) for r in v]
 
 
 class UserCreate(User):

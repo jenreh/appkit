@@ -2,18 +2,12 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-import reflex as rx
-from sqlalchemy import Index, Integer
+from sqlalchemy import DateTime, Index, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
-from sqlmodel import Column, DateTime, Field
 
 from appkit_assistant.backend.schemas import AIModel, MCPAuthType, ThreadStatus
-from appkit_commons.database.configuration import DatabaseConfig
-from appkit_commons.database.entities import ArrayType, EncryptedString
-from appkit_commons.registry import service_registry
-
-db_config = service_registry().get(DatabaseConfig)
-SECRET_VALUE = db_config.encryption_key.get_secret_value()
+from appkit_commons.database.entities import ArrayType, Base, EncryptedString
 
 
 class EncryptedJSON(EncryptedString):
@@ -31,168 +25,149 @@ class EncryptedJSON(EncryptedString):
         return value
 
 
-class MCPServer(rx.Model, table=True):
+class MCPServer(Base):
     """Model for MCP (Model Context Protocol) server configuration."""
 
     __tablename__ = "assistant_mcp_servers"
 
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(unique=True, max_length=100, nullable=False)
-    description: str = Field(default="", max_length=255, nullable=True)
-    url: str = Field(nullable=False)
-    headers: str = Field(nullable=False, sa_type=EncryptedString)
-    prompt: str = Field(default="", max_length=2000, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255), default="")
+    url: Mapped[str] = mapped_column(nullable=False)
+    headers: Mapped[str] = mapped_column(EncryptedString, nullable=False)
+    prompt: Mapped[str | None] = mapped_column(String(2000), default="")
 
-    # Authentication type
-    auth_type: str = Field(default=MCPAuthType.NONE, nullable=False)
+    auth_type: Mapped[str] = mapped_column(default=MCPAuthType.NONE, nullable=False)
+    discovery_url: Mapped[str | None] = mapped_column(default=None)
 
-    # Optional discovery URL override
-    discovery_url: str | None = Field(default=None, nullable=True)
-
-    # OAuth client credentials (encrypted)
-    oauth_client_id: str | None = Field(default=None, nullable=True)
-    oauth_client_secret: str | None = Field(
-        default=None, nullable=True, sa_type=EncryptedString
+    oauth_client_id: Mapped[str | None] = mapped_column(default=None)
+    oauth_client_secret: Mapped[str | None] = mapped_column(
+        EncryptedString, default=None
     )
 
-    # Cached OAuth/Discovery metadata (read-only for user mostly)
-    oauth_issuer: str | None = Field(default=None, nullable=True)
-    oauth_authorize_url: str | None = Field(default=None, nullable=True)
-    oauth_token_url: str | None = Field(default=None, nullable=True)
-    oauth_scopes: str | None = Field(
-        default=None, nullable=True
-    )  # Space separated scopes
+    oauth_issuer: Mapped[str | None] = mapped_column(default=None)
+    oauth_authorize_url: Mapped[str | None] = mapped_column(default=None)
+    oauth_token_url: Mapped[str | None] = mapped_column(default=None)
+    oauth_scopes: Mapped[str | None] = mapped_column(default=None)
 
-    # Timestamp when discovery was last successfully run
-    oauth_discovered_at: datetime | None = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    oauth_discovered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
     )
-    active: bool = Field(default=True, nullable=False)
-    required_role: str | None = Field(default=None, nullable=True)
+    active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    required_role: Mapped[str | None] = mapped_column(default=None)
 
-    # Whether to inject x-user-id header/param into MCP requests
-    inject_user_id: bool = Field(default=True, nullable=False)
+    inject_user_id: Mapped[bool] = mapped_column(default=True, nullable=False)
 
 
-class SystemPrompt(rx.Model, table=True):
-    """Model for system prompt versioning and management.
-
-    Each save creates a new immutable version. Supports up to 20,000 characters.
-    """
+class SystemPrompt(Base):
+    """Model for system prompt versioning and management."""
 
     __tablename__ = "assistant_system_prompt"
 
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(max_length=200, nullable=False)
-    prompt: str = Field(max_length=20000, nullable=False)
-    version: int = Field(nullable=False)
-    user_id: int = Field(nullable=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(nullable=False)
+    user_id: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
 
 
-class AssistantThread(rx.Model, table=True):
+class AssistantThread(Base):
     """Model for storing chat threads in the database."""
 
     __tablename__ = "assistant_thread"
 
-    id: int | None = Field(default=None, primary_key=True)
-    thread_id: str = Field(unique=True, index=True, nullable=False)
-    user_id: int = Field(index=True, nullable=False)
-    title: str = Field(default="", nullable=False)
-    state: str = Field(default=ThreadStatus.NEW, nullable=False)
-    ai_model: str = Field(default="", nullable=False)
-    active: bool = Field(default=False, nullable=False)
-    messages: list[dict[str, Any]] = Field(default=[], sa_column=Column(EncryptedJSON))
-    mcp_server_ids: list[int] = Field(
-        default=[], sa_column=Column(ArrayType(Integer), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    thread_id: Mapped[str] = mapped_column(unique=True, index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(index=True, nullable=False)
+    title: Mapped[str] = mapped_column(default="", nullable=False)
+    state: Mapped[str] = mapped_column(default=ThreadStatus.NEW, nullable=False)
+    ai_model: Mapped[str] = mapped_column(default="", nullable=False)
+    active: Mapped[bool] = mapped_column(default=False, nullable=False)
+    messages: Mapped[list[dict[str, Any]]] = mapped_column(
+        EncryptedJSON, default=list, nullable=False
     )
-    skill_openai_ids: list[str] = Field(
-        default=[], sa_column=Column(ArrayType(), nullable=False)
+    mcp_server_ids: Mapped[list[int]] = mapped_column(
+        ArrayType(Integer), default=list, nullable=False
     )
-    vector_store_id: str | None = Field(default=None, nullable=True)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True)),
+    skill_openai_ids: Mapped[list[str]] = mapped_column(
+        ArrayType(String), default=list, nullable=False
     )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    vector_store_id: Mapped[str | None] = mapped_column(default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=func.now(),
+        nullable=False,
     )
 
 
-class AssistantMCPUserToken(rx.Model, table=True):
-    """Model for storing user-specific OAuth tokens for MCP servers.
-
-    Each user can have one token per MCP server. Tokens are encrypted at rest.
-    """
+class AssistantMCPUserToken(Base):
+    """Model for storing user-specific OAuth tokens for MCP servers."""
 
     __tablename__ = "assistant_mcp_user_token"
 
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(index=True, nullable=False)
-    mcp_server_id: int = Field(
-        index=True, nullable=False, foreign_key="assistant_mcp_servers.id"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(index=True, nullable=False)
+    mcp_server_id: Mapped[int] = mapped_column(index=True, nullable=False)
+
+    access_token: Mapped[str] = mapped_column(EncryptedString, nullable=False)
+    refresh_token: Mapped[str | None] = mapped_column(EncryptedString, default=None)
+
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
     )
 
-    # Tokens are encrypted at rest
-    access_token: str = Field(nullable=False, sa_type=EncryptedString)
-    refresh_token: str | None = Field(
-        default=None, nullable=True, sa_type=EncryptedString
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
-
-    # Token expiry timestamp
-    expires_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=False)
-    )
-
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True)),
-    )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=func.now(),
+        nullable=False,
     )
 
 
-class AssistantFileUpload(rx.Model, table=True):
-    """Model for tracking files uploaded to OpenAI for vector search.
-
-    Each file is associated with a thread, vector store, and AI model
-    (subscription). The ``ai_model`` field stores the model_id string
-    of the :class:`AssistantAIModel` whose API key was used for the upload.
-    """
+class AssistantFileUpload(Base):
+    """Model for tracking files uploaded to OpenAI for vector search."""
 
     __tablename__ = "assistant_file_uploads"
 
-    id: int | None = Field(default=None, primary_key=True)
-    filename: str = Field(max_length=255, nullable=False)
-    openai_file_id: str = Field(max_length=255, nullable=False, index=True)
-    vector_store_id: str = Field(max_length=255, nullable=False, index=True)
-    vector_store_name: str = Field(max_length=255, default="", nullable=False)
-    thread_id: int = Field(
-        index=True, nullable=False, foreign_key="assistant_thread.id"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    openai_file_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    vector_store_id: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True
     )
-    user_id: int = Field(index=True, nullable=False)
-    file_size: int = Field(default=0, nullable=False)
-    ai_model: str = Field(default="", max_length=100, nullable=False, index=True)
-
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True)),
+    vector_store_name: Mapped[str] = mapped_column(
+        String(255), default="", nullable=False
     )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True), onupdate=func.now()),
+    thread_id: Mapped[int] = mapped_column(index=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(index=True, nullable=False)
+    file_size: Mapped[int] = mapped_column(default=0, nullable=False)
+    ai_model: Mapped[str] = mapped_column(
+        String(100), default="", nullable=False, index=True
     )
 
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
-class UserPrompt(rx.Model, table=True):
-    """Model for user-defined prompts.
 
-    Handles are unique per user. Prompts can be shared with other users.
-    Single table design with versioning (similar to SystemPrompt).
-    """
+class UserPrompt(Base):
+    """Model for user-defined prompts."""
 
     __tablename__ = "assistant_user_prompts"
     __table_args__ = (
@@ -201,87 +176,73 @@ class UserPrompt(rx.Model, table=True):
         Index("ix_user_prompt_shared", "is_shared", "is_latest"),
     )
 
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(index=True, nullable=False)
-    handle: str = Field(max_length=50, nullable=False)
-    description: str = Field(default="", max_length=100, nullable=False)
-    prompt_text: str = Field(max_length=20000, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(index=True, nullable=False)
+    handle: Mapped[str] = mapped_column(String(50), nullable=False)
+    description: Mapped[str] = mapped_column(String(100), default="", nullable=False)
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
 
-    # Versioning fields
-    version: int = Field(nullable=False)
-    is_latest: bool = Field(default=False, nullable=False)
-    is_shared: bool = Field(default=False, nullable=False)
+    version: Mapped[int] = mapped_column(nullable=False)
+    is_latest: Mapped[bool] = mapped_column(default=False, nullable=False)
+    is_shared: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    # Associated MCP server IDs (stored as integer array)
-    mcp_server_ids: list[int] = Field(
-        default=[], sa_column=Column(ArrayType(Integer), nullable=False)
+    mcp_server_ids: Mapped[list[int]] = mapped_column(
+        ArrayType(Integer), default=list, nullable=False
     )
 
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True)),
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
 
-class Skill(rx.Model, table=True):
-    """Model for OpenAI skill management.
-
-    Stores metadata synced from the OpenAI Skills API alongside
-    local administration state (active toggle, role restriction).
-    The ``api_key_hash`` links the skill to the API key that was
-    used to create/sync it so that skills can be filtered by model.
-    """
+class Skill(Base):
+    """Model for OpenAI skill management."""
 
     __tablename__ = "assistant_skills"
 
-    id: int | None = Field(default=None, primary_key=True)
-    openai_id: str = Field(unique=True, max_length=255, nullable=False)
-    name: str = Field(max_length=100, nullable=False)
-    description: str = Field(default="", max_length=500, nullable=True)
-    default_version: str = Field(default="1", max_length=20, nullable=False)
-    latest_version: str = Field(default="1", max_length=20, nullable=False)
-    active: bool = Field(default=True, nullable=False)
-    required_role: str | None = Field(default=None, nullable=True)
-    api_key_hash: str | None = Field(
-        default=None, max_length=64, nullable=True, index=True
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    openai_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500), default=None)
+    default_version: Mapped[str] = mapped_column(
+        String(20), default="1", nullable=False
     )
-    last_synced: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True)),
+    latest_version: Mapped[str] = mapped_column(String(20), default="1", nullable=False)
+    active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    required_role: Mapped[str | None] = mapped_column(default=None)
+    api_key_hash: Mapped[str | None] = mapped_column(
+        String(64), default=None, index=True
+    )
+    last_synced: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
 
-class AssistantAIModel(rx.Model, table=True):
-    """Database model for AI model configuration.
-
-    Stores model metadata, capabilities, and processor assignment
-    for dynamic admin-driven management.
-    """
+class AssistantAIModel(Base):
+    """Database model for AI model configuration."""
 
     __tablename__ = "assistant_ai_models"
 
-    id: int | None = Field(default=None, primary_key=True)
-    model_id: str = Field(unique=True, max_length=100, nullable=False)
-    text: str = Field(max_length=100, nullable=False)
-    icon: str = Field(default="codesandbox", max_length=50, nullable=False)
-    model: str = Field(max_length=100, nullable=False)
-    processor_type: str = Field(max_length=50, nullable=False)
-    stream: bool = Field(default=False, nullable=False)
-    temperature: float = Field(default=0.05, nullable=False)
-    supports_tools: bool = Field(default=False, nullable=False)
-    supports_attachments: bool = Field(default=False, nullable=False)
-    supports_search: bool = Field(default=False, nullable=False)
-    supports_skills: bool = Field(default=False, nullable=False)
-    active: bool = Field(default=True, nullable=False)
-    requires_role: str | None = Field(default=None, nullable=True)
-    # Per-model API credentials (override global config when set)
-    api_key: str | None = Field(default=None, nullable=True, sa_type=EncryptedString)
-    base_url: str | None = Field(default=None, nullable=True, max_length=500)
-    on_azure: bool = Field(default=False, nullable=False)
-    enable_tracking: bool = Field(default=True, nullable=False)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        sa_column=Column(DateTime(timezone=True)),
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    model_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    text: Mapped[str] = mapped_column(String(100), nullable=False)
+    icon: Mapped[str] = mapped_column(String(50), default="codesandbox", nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    processor_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    stream: Mapped[bool] = mapped_column(default=False, nullable=False)
+    temperature: Mapped[float] = mapped_column(default=0.05, nullable=False)
+    supports_tools: Mapped[bool] = mapped_column(default=False, nullable=False)
+    supports_attachments: Mapped[bool] = mapped_column(default=False, nullable=False)
+    supports_search: Mapped[bool] = mapped_column(default=False, nullable=False)
+    supports_skills: Mapped[bool] = mapped_column(default=False, nullable=False)
+    active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    requires_role: Mapped[str | None] = mapped_column(default=None)
+    api_key: Mapped[str | None] = mapped_column(EncryptedString, default=None)
+    base_url: Mapped[str | None] = mapped_column(String(500), default=None)
+    on_azure: Mapped[bool] = mapped_column(default=False, nullable=False)
+    enable_tracking: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
 
     def to_ai_model(self) -> AIModel:
@@ -302,7 +263,7 @@ class AssistantAIModel(rx.Model, table=True):
         )
 
 
-class UserSkillSelection(rx.Model, table=True):
+class UserSkillSelection(Base):
     """Model for user-specific skill enable/disable preferences."""
 
     __tablename__ = "assistant_user_skill_selections"
@@ -315,7 +276,9 @@ class UserSkillSelection(rx.Model, table=True):
         ),
     )
 
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(index=True, nullable=False)
-    skill_openai_id: str = Field(max_length=255, nullable=False, index=True)
-    enabled: bool = Field(default=False, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(index=True, nullable=False)
+    skill_openai_id: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True
+    )
+    enabled: Mapped[bool] = mapped_column(default=False, nullable=False)

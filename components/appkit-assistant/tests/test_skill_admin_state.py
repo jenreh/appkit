@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from appkit_assistant.backend.database.models import Skill
+from appkit_assistant.backend.schemas import AssistantAIModelConfigModel, SkillModel
 from appkit_assistant.state.skill_admin_state import SkillAdminState
 
 _PATCH = "appkit_assistant.state.skill_admin_state"
@@ -52,18 +53,14 @@ def _mock_model(
     api_key: str | None = "sk-test",
     base_url: str | None = None,
 ):
-    m = MagicMock()
-    m.model_id = model_id
-    m.text = text
-    m.api_key = api_key
-    m.base_url = base_url
-    m.model_dump.return_value = {
-        "model_id": model_id,
-        "text": text,
-        "api_key": api_key,
-        "base_url": base_url,
-    }
-    return m
+    return AssistantAIModelConfigModel(
+        model_id=model_id,
+        text=text,
+        api_key=api_key,
+        base_url=base_url,
+        processor_type="openai",
+        active=True,
+    )
 
 
 def _mock_skill(
@@ -73,21 +70,17 @@ def _mock_skill(
     active: bool = True,
     required_role: str | None = None,
 ):
-    s = MagicMock()
-    s.id = skill_id
-    s.name = name
-    s.openai_id = openai_id
-    s.active = active
-    s.required_role = required_role
-    s.model_dump.return_value = {
-        "id": skill_id,
-        "name": name,
-        "openai_id": openai_id,
-        "active": active,
-        "required_role": required_role,
-    }
-    s.model_copy.return_value = s
-    return s
+    return SkillModel(
+        id=skill_id,
+        name=name,
+        openai_id=openai_id,
+        active=active,
+        required_role=required_role,
+        description="test",
+        default_version="1",
+        latest_version="1",
+        api_key_hash="hash",
+    )
 
 
 class _StubSkillAdminState:
@@ -268,10 +261,6 @@ class TestLoadSkillModels:
                 return_value=_db_context(),
             ),
             patch(f"{_PATCH}.ai_model_repo") as repo,
-            patch(
-                f"{_PATCH}.AssistantAIModel",
-                side_effect=lambda **_kw: m,
-            ),
         ):
             repo.find_all_skill_capable = AsyncMock(return_value=[m])
             await state.load_skill_models()
@@ -288,10 +277,6 @@ class TestLoadSkillModels:
                 return_value=_db_context(),
             ),
             patch(f"{_PATCH}.ai_model_repo") as repo,
-            patch(
-                f"{_PATCH}.AssistantAIModel",
-                side_effect=lambda **_kw: m,
-            ),
         ):
             repo.find_all_skill_capable = AsyncMock(return_value=[m])
             await state.load_skill_models()
@@ -321,10 +306,6 @@ class TestLoadSkills:
                 f"{_PATCH}.compute_api_key_hash",
                 return_value="h",
             ),
-            patch(
-                f"{_PATCH}.Skill",
-                side_effect=lambda **_kw: s,
-            ),
         ):
             repo.find_all_by_api_key_hash = AsyncMock(return_value=[s])
             await state.load_skills()
@@ -340,10 +321,6 @@ class TestLoadSkills:
                 return_value=_db_context(),
             ),
             patch(f"{_PATCH}.skill_repo") as repo,
-            patch(
-                f"{_PATCH}.Skill",
-                side_effect=lambda **_kw: s,
-            ),
         ):
             repo.find_all_ordered_by_name = AsyncMock(return_value=[s])
             await state.load_skills()

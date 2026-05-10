@@ -6,10 +6,9 @@ across all AI processors.
 
 import logging
 
-import reflex as rx
-
 from appkit_assistant.backend.database.models import AssistantMCPUserToken, MCPServer
 from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
+from appkit_commons.database.session import get_session_manager
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class MCPTokenService:
             logger.debug("Server %s has no ID, cannot retrieve token", server.name)
             return None
 
-        with rx.session() as session:
+        with get_session_manager().session() as session:
             token = self._mcp_auth_service.get_user_token(session, user_id, server.id)
 
             if token is None:

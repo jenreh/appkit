@@ -126,7 +126,7 @@ class UserSession(rx.State):
             expires_at.replace(tzinfo=None),
         )
         self.user_id = user_entity.id
-        self.user = User(**user_entity.to_dict())
+        self.user = User.model_validate(user_entity)
 
     @rx.var(cache=True, interval=AUTH_TOKEN_REFRESH_DELTA)
     async def authenticated_user(self) -> User | None:
@@ -145,7 +145,7 @@ class UserSession(rx.State):
                 return None
 
             if user_session.user:
-                return User(**user_session.user.to_dict())
+                return User.model_validate(user_session.user)
             return None
 
         try:
@@ -477,7 +477,7 @@ class LoginState(UserSession):
                 return None
 
             if user_session.user:
-                return User(**user_session.user.to_dict())
+                return User.model_validate(user_session.user)
             return None
 
         try:

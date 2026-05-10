@@ -23,7 +23,6 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-import reflex as rx
 from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -115,7 +114,7 @@ async def async_engine() -> AsyncGenerator[AsyncEngine, None]:
     Uses StaticPool to ensure the same connection is reused,
     preventing SQLite from losing in-memory data between transactions.
 
-    Creates tables from both appkit_commons.Base and rx.Model.metadata
+    Creates tables from both appkit_commons.Base
     to support all model types in the test suite. ArrayType custom type
     handles both PostgreSQL ARRAY and SQLite JSON compatibility.
     """
@@ -130,9 +129,7 @@ async def async_engine() -> AsyncGenerator[AsyncEngine, None]:
     async with engine.begin() as conn:
         # Create appkit_commons.Base tables (appkit_user models)
         await conn.run_sync(Base.metadata.create_all)
-        # Create rx.Model tables (appkit_imagecreator, appkit_assistant models)
         # ArrayType custom type handles both PostgreSQL ARRAY and SQLite JSON
-        await conn.run_sync(rx.Model.metadata.create_all)
 
     yield engine
 
@@ -146,7 +143,7 @@ def async_session_factory(
 ) -> sessionmaker[AsyncSession]:
     """Create an async session factory for the test engine.
 
-    Configures explicit binds for both Base and rx.Model metadata
+    Configures explicit binds for both Base
     to ensure the session can locate the correct engine for any model.
     """
     return sessionmaker(
@@ -157,7 +154,6 @@ def async_session_factory(
         autoflush=False,
         binds={
             Base: async_engine,
-            rx.Model: async_engine,
         },
     )
 
@@ -185,13 +181,14 @@ async def async_session(
 def clean_service_registry() -> Generator[ServiceRegistry, None, None]:
     """Provide a clean service registry for each test.
 
-    Clears the global singleton registry before and after each test
-    to prevent state leakage between tests.
+    Saves the current registry state, clears it for the test, then restores
+    the original state on teardown to prevent cross-package test pollution.
     """
     registry = service_registry()
+    saved = registry.snapshot()
     registry.clear()
     yield registry
-    registry.clear()
+    registry.restore(saved)
 
 
 # ============================================================================

@@ -120,7 +120,7 @@ class ThreadService:
                     existing.messages = messages_dict
                     existing.mcp_server_ids = thread.mcp_server_ids
                     existing.skill_openai_ids = thread.skill_openai_ids
-                    # updated_at handled by DB/SQLModel defaults,
+                    # updated_at handled by DB defaults,
                     # explicit save triggers it
                     await thread_repo.save(session, existing)
                 else:

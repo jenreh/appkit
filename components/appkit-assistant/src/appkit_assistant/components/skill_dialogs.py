@@ -3,7 +3,7 @@
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.database.models import Skill
+from appkit_assistant.backend.schemas import SkillModel
 from appkit_assistant.state.skill_admin_state import SkillAdminState
 from appkit_ui.components.dialogs import delete_dialog
 
@@ -88,7 +88,7 @@ def create_skill_modal() -> rx.Component:
     )
 
 
-def delete_skill_dialog(skill: Skill) -> rx.Component:
+def delete_skill_dialog(skill: SkillModel) -> rx.Component:
     """Delete confirmation dialog for a skill."""
     return delete_dialog(
         title="Skill löschen",

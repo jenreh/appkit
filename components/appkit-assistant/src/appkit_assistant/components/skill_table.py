@@ -3,7 +3,7 @@
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_assistant.backend.database.models import Skill
+from appkit_assistant.backend.schemas import SkillModel
 from appkit_assistant.components.skill_dialogs import (
     create_skill_modal,
     delete_skill_dialog,
@@ -12,7 +12,7 @@ from appkit_assistant.state.skill_admin_state import SkillAdminState
 from appkit_ui.styles import sticky_header_style
 
 
-def _skill_table_row(skill: Skill) -> rx.Component:
+def _skill_table_row(skill: SkillModel) -> rx.Component:
     """Render a single skill row."""
     return mn.table.tr(
         mn.table.td(

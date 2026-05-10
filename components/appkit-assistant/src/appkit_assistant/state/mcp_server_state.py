@@ -12,6 +12,7 @@ from appkit_assistant.backend.database.models import MCPAuthType, MCPServer
 from appkit_assistant.backend.database.repositories import (
     mcp_server_repo,
 )
+from appkit_assistant.backend.schemas import MCPServerConfigModel
 from appkit_commons.database.session import get_asyncdb_session
 
 logger = logging.getLogger(__name__)
@@ -20,8 +21,8 @@ logger = logging.getLogger(__name__)
 class MCPServerState(rx.State):
     """State class for managing MCP servers."""
 
-    servers: list[MCPServer] = []
-    current_server: MCPServer | None = None
+    servers: list[MCPServerConfigModel] = []
+    current_server: MCPServerConfigModel | None = None
     loading: bool = False
     updating_active_server_id: int | None = None
     updating_role_server_id: int | None = None
@@ -38,7 +39,7 @@ class MCPServerState(rx.State):
         self.search_filter = value
 
     @rx.var
-    def filtered_servers(self) -> list[MCPServer]:
+    def filtered_servers(self) -> list[MCPServerConfigModel]:
         """Get filtered servers based on search criteria."""
         if not self.search_filter:
             return self.servers
@@ -98,7 +99,7 @@ class MCPServerState(rx.State):
         try:
             async with get_asyncdb_session() as session:
                 servers = await mcp_server_repo.find_all_ordered_by_name(session)
-                self.servers = [MCPServer(**s.model_dump()) for s in servers]
+                self.servers = [MCPServerConfigModel.model_validate(s) for s in servers]
             logger.debug("Loaded %d MCP servers", len(self.servers))
         except Exception as e:
             logger.error("Failed to load MCP servers: %s", e)
@@ -124,7 +125,7 @@ class MCPServerState(rx.State):
             async with get_asyncdb_session() as session:
                 server = await mcp_server_repo.find_by_id(session, server_id)
                 if server:
-                    self.current_server = MCPServer(**server.model_dump())
+                    self.current_server = MCPServerConfigModel.model_validate(server)
                 else:
                     self.current_server = None
 
@@ -145,7 +146,7 @@ class MCPServerState(rx.State):
             headers = self._parse_headers_from_form(form_data)
             auth_type = form_data.get("auth_type", MCPAuthType.API_KEY)
 
-            server_entity = MCPServer(
+            server_entity = MCPServerConfigModel(
                 name=form_data["name"],
                 url=form_data["url"],
                 headers=headers,

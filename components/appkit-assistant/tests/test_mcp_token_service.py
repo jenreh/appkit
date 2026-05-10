@@ -27,13 +27,14 @@ class TestGetValidToken:
         mock_session = MagicMock()
         token_service._mcp_auth_service.get_user_token.return_value = None  # noqa: SLF001
 
+        gsm = MagicMock()
+        gsm.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        gsm.session.return_value.__exit__ = MagicMock(return_value=False)
+
         with patch(
-            "appkit_assistant.backend.services.mcp_token_service.rx.session"
-        ) as mock_rx_session:
-            mock_rx_session.return_value.__enter__ = MagicMock(
-                return_value=mock_session
-            )
-            mock_rx_session.return_value.__exit__ = MagicMock(return_value=False)
+            "appkit_assistant.backend.services.mcp_token_service.get_session_manager",
+            return_value=gsm,
+        ):
             result = await token_service.get_valid_token(server, user_id=1)
 
         assert result is None
@@ -51,13 +52,14 @@ class TestGetValidToken:
             return_value=token
         )
 
+        gsm = MagicMock()
+        gsm.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        gsm.session.return_value.__exit__ = MagicMock(return_value=False)
+
         with patch(
-            "appkit_assistant.backend.services.mcp_token_service.rx.session"
-        ) as mock_rx_session:
-            mock_rx_session.return_value.__enter__ = MagicMock(
-                return_value=mock_session
-            )
-            mock_rx_session.return_value.__exit__ = MagicMock(return_value=False)
+            "appkit_assistant.backend.services.mcp_token_service.get_session_manager",
+            return_value=gsm,
+        ):
             result = await token_service.get_valid_token(server, user_id=1)
 
         assert result is token
@@ -77,13 +79,14 @@ class TestGetValidToken:
             return_value=None
         )
 
+        gsm = MagicMock()
+        gsm.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        gsm.session.return_value.__exit__ = MagicMock(return_value=False)
+
         with patch(
-            "appkit_assistant.backend.services.mcp_token_service.rx.session"
-        ) as mock_rx_session:
-            mock_rx_session.return_value.__enter__ = MagicMock(
-                return_value=mock_session
-            )
-            mock_rx_session.return_value.__exit__ = MagicMock(return_value=False)
+            "appkit_assistant.backend.services.mcp_token_service.get_session_manager",
+            return_value=gsm,
+        ):
             result = await token_service.get_valid_token(server, user_id=1)
 
         assert result is None

@@ -43,6 +43,18 @@ def _server(
     s.url = url
     s.active = active
     s.required_role = required_role
+    s.description = "desc"
+    s.headers = ""
+    s.prompt = "prompt"
+    s.auth_type = "none"
+    s.discovery_url = None
+    s.oauth_client_id = None
+    s.oauth_client_secret = None
+    s.oauth_issuer = None
+    s.oauth_authorize_url = None
+    s.oauth_token_url = None
+    s.oauth_scopes = None
+    s.inject_user_id = True
     s.model_dump.return_value = {
         "id": server_id,
         "name": name,

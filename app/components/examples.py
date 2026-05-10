@@ -25,4 +25,5 @@ def example_box(
         with_border=True,
         radius="md",
         padding="lg",
+        overflow="visible",
     )
