@@ -234,7 +234,7 @@ pgqueuer = [
 
 [package.metadata]
 requires-dist = [
-    { name = "apscheduler", extras = ["psycopg"], marker = "extra == 'apscheduler'", specifier = ">=4.0.0a5" },
+    { name = "apscheduler", extras = ["psycopg"], marker = "extra == 'apscheduler'", specifier = ">=4.0.0a6" },
     { name = "azure-identity", marker = "extra == 'azure'", specifier = ">=1.25.2" },
     { name = "azure-keyvault-secrets", marker = "extra == 'azure'", specifier = ">=4.10.0" },
     { name = "colorlog", specifier = ">=6.10.1" },
