@@ -8,7 +8,6 @@ def delete_dialog(
     content: str,
     on_click: rx.EventHandler,
     icon_button: bool = False,
-    class_name: str = "dialog",
     action_loading: bool = False,
     **kwargs,
 ) -> rx.Component:
@@ -18,55 +17,37 @@ def delete_dialog(
         title: Dialog title
         content: The name/identifier of the item to delete
         on_click: Event handler for delete action
-        icon_button: If True, use icon_button instead of button for trigger
+        icon_button: If True, use action_icon instead of button for trigger
         **kwargs: Additional props for the trigger button
     """
-    # Create the appropriate trigger based on icon_button parameter
     if icon_button:
         trigger = mn.action_icon(rx.icon("trash-2", size=19), m=0, **kwargs)
     else:
         trigger = mn.button(rx.icon("trash-2", size=19), **kwargs)
 
-    return rx.alert_dialog.root(
-        rx.alert_dialog.trigger(trigger),
-        rx.alert_dialog.content(
-            rx.alert_dialog.title(title),
-            rx.alert_dialog.description(
-                rx.text(
+    return mn.alert_dialog.root(
+        mn.alert_dialog.trigger(trigger),
+        mn.alert_dialog.content(
+            mn.alert_dialog.title(title),
+            mn.alert_dialog.description(
+                mn.text(
                     "Bist du sicher, dass du ",
-                    rx.text.strong(content),
+                    rx.el.strong(content),
                     " löschen möchtest? ",
                     "Diese Aktion wird das ausgewählte Element und alle zugehörigen ",
                     "Daten dauerhaft löschen. Dieser Vorgang kann nicht rückgängig ",
                     "gemacht werden!",
+                    size="sm",
                 ),
-                class_name="mb-4",
             ),
-            rx.flex(
-                rx.alert_dialog.cancel(
-                    rx.button(
-                        "Abbrechen",
-                        class_name=(
-                            "bg-gray-100 dark:bg-neutral-700 text-gray-700 "
-                            "dark:text-neutral-300 hover:bg-gray-200 "
-                            "dark:hover:bg-neutral-600 px-4 py-2 rounded"
-                        ),
-                    ),
-                ),
-                rx.alert_dialog.action(
-                    rx.button(
-                        "Löschen",
-                        class_name=(
-                            "bg-red-500 text-white hover:bg-red-600 px-4 py-2 rounded"
-                        ),
-                        loading=action_loading,
-                        on_click=on_click,
-                    )
-                ),
-                class_name="justify-end gap-3",
+            mn.alert_dialog.footer(
+                action_label="Löschen",
+                on_action=on_click,
+                action_loading=action_loading,
             ),
-            class_name=class_name,
         ),
+        size="lg",
+        centered=True,
     )
 
 

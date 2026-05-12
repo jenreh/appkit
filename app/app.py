@@ -47,6 +47,7 @@ from app.components.navbar import app_navbar
 # Import pages to ensure they are registered
 from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
 from app.pages.assistant.assistant import assistant_page  # noqa: F401
+from app.pages.examples.alert_dialog_examples import alert_dialog_examples  # noqa: F401
 from app.pages.examples.auto_scroll_examples import auto_scroll_examples  # noqa: F401
 from app.pages.examples.button_examples import button_examples  # noqa: F401
 from app.pages.examples.charts_examples import charts_examples  # noqa: F401

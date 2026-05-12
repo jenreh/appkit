@@ -189,6 +189,9 @@ class UserPrompt(Base):
     mcp_server_ids: Mapped[list[int]] = mapped_column(
         ArrayType(Integer), default=list, nullable=False
     )
+    skill_ids: Mapped[list[int]] = mapped_column(
+        ArrayType(Integer), default=list, nullable=False
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
