@@ -1,3 +1,4 @@
+exclude: '^\.agents?/skills/'
 default_install_hook_types:
   - pre-commit
   - post-checkout
