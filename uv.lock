@@ -155,7 +155,7 @@ requires-dist = [
     { name = "appkit-user", extras = ["azure", "resend"], editable = "components/appkit-user" },
     { name = "psycopg", specifier = "==3.3.4" },
     { name = "psycopg-binary", specifier = "==3.3.4" },
-    { name = "reflex", extras = ["db"], specifier = ">=0.9.2" },
+    { name = "reflex", extras = ["db"], specifier = ">=0.9.2.post1" },
 ]
 
 [package.metadata.requires-dev]
