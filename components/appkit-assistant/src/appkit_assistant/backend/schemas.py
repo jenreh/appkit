@@ -165,6 +165,7 @@ class CommandDefinition(BaseModel):
     is_editable: bool = False  # True only for user's own prompts
     user_id: int = 0  # Owner user ID for prompts
     mcp_server_ids: list[int] = []  # MCP servers to auto-select
+    skill_ids: list[int] = []  # Skills to auto-select (only on supporting models)
 
 
 class McpAppToolInfo(BaseModel):

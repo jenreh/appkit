@@ -7,9 +7,10 @@ from reflex.state import State
 
 from appkit_assistant.backend.database.repositories import (
     mcp_server_repo,
+    skill_repo,
     user_prompt_repo,
 )
-from appkit_assistant.backend.schemas import MCPServerConfigModel
+from appkit_assistant.backend.schemas import MCPServerConfigModel, SkillModel
 from appkit_assistant.backend.services.user_prompt_service import validate_handle
 from appkit_assistant.state.thread_state import ThreadState
 from appkit_commons.database.session import get_asyncdb_session
@@ -55,6 +56,12 @@ class UserPromptState(State):
     modal_selected_mcp_server_ids: list[str] = []  # Strings for UI multiselect
     # Map version_id_str -> mcp_server_ids for version switching
     modal_mcp_server_map: dict[str, list[str]] = {}
+
+    # Modal skill selection
+    modal_available_skills: list[SkillModel] = []
+    modal_selected_skill_ids: list[str] = []  # Strings for UI multiselect
+    # Map version_id_str -> skill_ids for version switching
+    modal_skill_map: dict[str, list[str]] = {}
 
     @rx.var
     def modal_title(self) -> str:
@@ -102,6 +109,10 @@ class UserPromptState(State):
         self.modal_available_mcp_servers = []
         self.modal_selected_mcp_server_ids = []
         self.modal_mcp_server_map = {}
+        # Clear skill state
+        self.modal_available_skills = []
+        self.modal_selected_skill_ids = []
+        self.modal_skill_map = {}
 
     @rx.var
     def modal_selected_version_str(self) -> str:
@@ -127,6 +138,12 @@ class UserPromptState(State):
             self.modal_selected_mcp_server_ids = [
                 sid for sid in self.modal_mcp_server_map[value] if sid in available_ids
             ]
+        # Switch skills to match the selected version
+        if value in self.modal_skill_map:
+            available_skill_ids = {str(s.id) for s in self.modal_available_skills}
+            self.modal_selected_skill_ids = [
+                sid for sid in self.modal_skill_map[value] if sid in available_skill_ids
+            ]
 
     @rx.event
     def set_modal_selected_mcp_servers(self, value: Any) -> None:
@@ -144,6 +161,24 @@ class UserPromptState(State):
         return [
             {"value": str(server.id), "label": server.name}
             for server in self.modal_available_mcp_servers
+        ]
+
+    @rx.event
+    def set_modal_selected_skills(self, value: Any) -> None:
+        """Handle skill multiselect change."""
+        if value is None:
+            self.modal_selected_skill_ids = []
+        elif isinstance(value, list):
+            self.modal_selected_skill_ids = [str(v) for v in value]
+        else:
+            self.modal_selected_skill_ids = []
+
+    @rx.var
+    def modal_skill_options(self) -> list[dict[str, str]]:
+        """Return skill options for multiselect."""
+        return [
+            {"value": str(skill.id), "label": skill.name}
+            for skill in self.modal_available_skills
         ]
 
     async def _load_modal_available_mcp_servers(self) -> None:
@@ -165,6 +200,21 @@ class UserPromptState(State):
             ]
             self.modal_available_mcp_servers = filtered_servers
 
+    async def _load_modal_available_skills(self) -> None:
+        """Load available skills for the current user filtered by role."""
+        user_session: UserSession = await self.get_state(UserSession)
+        user = await user_session.authenticated_user
+        user_roles: list[str] = user.roles if user else []
+
+        async with get_asyncdb_session() as session:
+            skills = await skill_repo.find_all_active_ordered_by_name(session)
+            filtered = [
+                SkillModel.model_validate(s)
+                for s in skills
+                if not s.required_role or s.required_role in user_roles
+            ]
+            self.modal_available_skills = filtered
+
     @rx.event
     async def open_edit_modal(self, handle: str) -> None:
         """Open modal to edit an existing prompt."""
@@ -179,6 +229,10 @@ class UserPromptState(State):
             # Load available MCP servers first
             await self._load_modal_available_mcp_servers()
             available_ids = {s.id for s in self.modal_available_mcp_servers}
+
+            # Load available skills
+            await self._load_modal_available_skills()
+            available_skill_ids = {s.id for s in self.modal_available_skills}
 
             async with get_asyncdb_session() as session:
                 # Load all versions for version selector
@@ -208,6 +262,11 @@ class UserPromptState(State):
                     for v in versions_list
                 }
 
+                # Map DB ID to skill IDs (convert ints to strings for UI)
+                self.modal_skill_map = {
+                    str(v.id): [str(sid) for sid in v.skill_ids] for v in versions_list
+                }
+
                 # Get latest version
                 latest = next(
                     (v for v in versions_list if v.is_latest),
@@ -227,6 +286,12 @@ class UserPromptState(State):
                         for sid in latest.mcp_server_ids
                         if sid in available_ids
                     ]
+                    # Filter skills to only those available to current user
+                    self.modal_selected_skill_ids = [
+                        str(sid)
+                        for sid in latest.skill_ids
+                        if sid in available_skill_ids
+                    ]
                     self.modal_open = True
                 else:
                     self.modal_error = "Prompt nicht gefunden"
@@ -239,8 +304,9 @@ class UserPromptState(State):
         """Open modal to create a new prompt."""
         self._reset_modal()
         self.modal_is_new = True
-        # Load available MCP servers
+        # Load available MCP servers and skills
         await self._load_modal_available_mcp_servers()
+        await self._load_modal_available_skills()
         self.modal_open = True
 
     @rx.event
@@ -309,6 +375,7 @@ class UserPromptState(State):
         prompt_text = self.modal_prompt.strip()
         # Convert UI strings to ints for DB
         mcp_server_ids = [int(sid) for sid in self.modal_selected_mcp_server_ids if sid]
+        skill_ids = [int(sid) for sid in self.modal_selected_skill_ids if sid]
 
         # Validation
         is_handle_valid, handle_error = validate_handle(handle)
@@ -352,6 +419,7 @@ class UserPromptState(State):
                         prompt_text=prompt_text,
                         is_shared=self.modal_is_shared,
                         mcp_server_ids=mcp_server_ids,
+                        skill_ids=skill_ids,
                     )
                 else:
                     # Update existing (create new version)
@@ -382,6 +450,7 @@ class UserPromptState(State):
                         prompt_text=prompt_text,
                         is_shared=self.modal_is_shared,
                         mcp_server_ids=mcp_server_ids,
+                        skill_ids=skill_ids,
                     )
 
             self._reset_modal()

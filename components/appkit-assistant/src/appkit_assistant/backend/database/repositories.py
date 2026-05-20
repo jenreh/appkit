@@ -373,8 +373,9 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         for prompt, creator_name in result:
             prompt_dict = prompt.model_dump()
             prompt_dict["creator_name"] = creator_name or "Unbekannt"
-            # Ensure mcp_server_ids is included as a list
+            # Ensure mcp_server_ids and skill_ids are included as lists
             prompt_dict["mcp_server_ids"] = list(prompt.mcp_server_ids)
+            prompt_dict["skill_ids"] = list(prompt.skill_ids)
             prompts.append(prompt_dict)
 
         return prompts
@@ -446,6 +447,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         prompt_text: str,
         is_shared: bool = False,
         mcp_server_ids: list[int] | None = None,
+        skill_ids: list[int] | None = None,
     ) -> UserPrompt:
         """Create the first version of a new prompt."""
         prompt = UserPrompt(
@@ -457,6 +459,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
             is_latest=True,
             is_shared=is_shared,
             mcp_server_ids=mcp_server_ids or [],
+            skill_ids=skill_ids or [],
             created_at=datetime.now(UTC),
         )
         session.add(prompt)
@@ -473,6 +476,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
         prompt_text: str | None = None,
         is_shared: bool | None = None,
         mcp_server_ids: list[int] | None = None,
+        skill_ids: list[int] | None = None,
     ) -> UserPrompt:
         """Create a new version for an existing prompt.
 
@@ -503,6 +507,9 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
             if mcp_server_ids is not None
             else list(current_latest.mcp_server_ids)
         )
+        new_skills = (
+            skill_ids if skill_ids is not None else list(current_latest.skill_ids)
+        )
 
         # 4. Create new version
         new_version = UserPrompt(
@@ -514,6 +521,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
             is_latest=True,
             is_shared=new_shared,
             mcp_server_ids=new_mcp_servers,
+            skill_ids=new_skills,
             created_at=datetime.now(UTC),
         )
         session.add(new_version)
@@ -607,6 +615,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
                 "description": p.description,
                 "prompt_text": p.prompt_text,
                 "mcp_server_ids": list(p.mcp_server_ids),
+                "skill_ids": list(p.skill_ids),
                 "is_own": True,
             }
             for p in own_prompts
@@ -618,6 +627,7 @@ class UserPromptRepository(BaseRepository[UserPrompt, AsyncSession]):
                 "description": p.description,
                 "prompt_text": p.prompt_text,
                 "mcp_server_ids": list(p.mcp_server_ids),
+                "skill_ids": list(p.skill_ids),
                 "is_own": False,
             }
             for p in shared_prompts

@@ -115,6 +115,7 @@ def navbar_items() -> rx.Component:
         ),
         sub_heading("Others"),
         mn.stack(
+            sidebar_sub_item(label="Alert Dialog", url="/alert-dialog"),
             sidebar_sub_item(label="Charts", url="/charts"),
             sidebar_sub_item(label="Data Display", url="/data-display"),
             sidebar_sub_item(label="Feedback", url="/feedback"),

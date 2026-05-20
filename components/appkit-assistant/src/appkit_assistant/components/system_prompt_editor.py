@@ -50,7 +50,6 @@ automatisch einfügen kann."""
                 content="die ausgewählte Version",
                 on_click=SystemPromptState.delete_version,
                 icon_button=False,
-                class_name="dialog",
                 variant="outline",
                 color="red",
                 m="-2px 0",

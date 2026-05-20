@@ -12,6 +12,7 @@ from appkit_mantine.theme import (
     get_app_theme,
     set_app_theme,
 )
+from appkit_mantine.alert_dialog import alert_dialog
 from appkit_mantine.button import button, action_icon
 from appkit_mantine.combobox import select, multi_select, autocomplete
 from appkit_mantine.rich_select import rich_select
@@ -172,6 +173,7 @@ __all__ = [
     "action_icon",
     "affix",
     "alert",
+    "alert_dialog",
     "area_chart",
     "autocomplete",
     "avatar",

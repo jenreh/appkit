@@ -1,6 +1,6 @@
 [project]
 name = "appkit-user"
-version = "1.10.0"
+version = "1.10.2"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 dependencies = [
-    "greenlet>=3.5.0",
+    "greenlet>=3.5.1",
     "appkit-commons",
     "appkit-ui",
     "requests_oauthlib>=2.0.0",

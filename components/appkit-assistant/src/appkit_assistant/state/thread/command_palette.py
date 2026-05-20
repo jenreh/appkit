@@ -23,7 +23,9 @@ class CommandPaletteMixin:
     ``command_trigger_position``, ``available_commands``, ``prompt``,
     ``available_mcp_servers``, ``selected_mcp_servers``,
     ``temp_selected_mcp_servers``, ``server_selection_state``,
-    ``_current_user_id``.
+    ``available_skills_for_selection``, ``selected_skills``,
+    ``temp_selected_skill_ids``, ``skill_selection_state``,
+    ``selected_model_supports_skills``, ``_current_user_id``.
     """
 
     @rx.var
@@ -83,6 +85,7 @@ class CommandPaletteMixin:
                         is_editable=True,
                         user_id=user_id,
                         mcp_server_ids=list(p.mcp_server_ids),
+                        skill_ids=list(p.skill_ids),
                     )
                     for p in own_prompts
                 ] + [
@@ -94,6 +97,7 @@ class CommandPaletteMixin:
                         is_editable=False,
                         user_id=p.get("user_id", 0),
                         mcp_server_ids=p.get("mcp_server_ids", []),
+                        skill_ids=p.get("skill_ids", []),
                     )
                     for p in shared_prompts
                 ]
@@ -187,10 +191,31 @@ class CommandPaletteMixin:
                     if server.id not in existing_ids:
                         self.selected_mcp_servers.append(server)
                         existing_ids.add(server.id)
-                for sid in valid_ids:
-                    if sid not in self.temp_selected_mcp_servers:
-                        self.temp_selected_mcp_servers.append(sid)
-                        self.server_selection_state[sid] = True
+                    if server.id not in self.temp_selected_mcp_servers:
+                        self.temp_selected_mcp_servers.append(server.id)
+                        self.server_selection_state[server.id] = True
+
+        # Activate skills associated with the prompt (only if model supports skills)
+        if command.skill_ids and self.selected_model_supports_skills:
+            available_skill_ids = {s.id for s in self.available_skills_for_selection}
+            valid_skill_ids = [
+                sid for sid in command.skill_ids if sid in available_skill_ids
+            ]
+            if valid_skill_ids:
+                skills_to_add = [
+                    s
+                    for s in self.available_skills_for_selection
+                    if s.id in valid_skill_ids
+                ]
+                existing_openai_ids = {s.openai_id for s in self.selected_skills}
+                for skill in skills_to_add:
+                    if skill.openai_id not in existing_openai_ids:
+                        self.selected_skills.append(skill)
+                        existing_openai_ids.add(skill.openai_id)
+                for skill in skills_to_add:
+                    if skill.openai_id not in self.temp_selected_skill_ids:
+                        self.temp_selected_skill_ids.append(skill.openai_id)
+                        self.skill_selection_state[skill.openai_id] = True
 
         self._hide_command_palette()
 

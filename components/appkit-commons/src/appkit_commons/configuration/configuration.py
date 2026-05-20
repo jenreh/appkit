@@ -59,7 +59,7 @@ class ApplicationConfig(BaseConfig):
     name: str
     logging: str
     environment: Environment | None = Environment.local
-    database: DatabaseConfig | None = Field(..., alias="database")
+    database: DatabaseConfig | None = Field(default=None, alias="database")
 
 
 T = TypeVar("T", bound=ApplicationConfig)

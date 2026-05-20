@@ -51,7 +51,7 @@ uv add appkit-ui
 ### Dependencies
 
 - `appkit-commons` (shared utilities)
-- `reflex>=0.8.12` (UI framework)
+- `reflex>=0.9.2` (UI framework)
 
 ---
 
@@ -65,16 +65,13 @@ Create a responsive page layout with header:
 import reflex as rx
 import appkit_ui as ui
 
+
 def my_page():
     return rx.vstack(
         ui.header("My Application"),
-        rx.container(
-            rx.text("Welcome to my app!"),
-            max_width="800px",
-            padding="2em"
-        ),
+        rx.container(rx.text("Welcome to my app!"), max_width="800px", padding="2em"),
         spacing="0",
-        min_height="100vh"
+        min_height="100vh",
     )
 ```
 
@@ -85,21 +82,16 @@ Add styled form inputs:
 ```python
 from appkit_ui.components.form_inputs import inline_form_field
 
+
 def contact_form():
     return rx.form(
         inline_form_field(
-            icon="user",
-            label="Name",
-            placeholder="Enter your name",
-            required=True
+            icon="user", label="Name", placeholder="Enter your name", required=True
         ),
         inline_form_field(
-            icon="mail",
-            label="Email",
-            type="email",
-            placeholder="Enter your email"
+            icon="mail", label="Email", type="email", placeholder="Enter your email"
         ),
-        rx.button("Submit", type="submit")
+        rx.button("Submit", type="submit"),
     )
 ```
 
@@ -110,11 +102,12 @@ Add a WYSIWYG editor to your page:
 ```python
 from appkit_ui.components import editor
 
+
 def blog_editor():
     return editor(
         placeholder="Write your blog post...",
         button_list=editor.EditorButtonList.COMPLEX,
-        height="400px"
+        height="400px",
     )
 ```
 
@@ -142,10 +135,11 @@ Apply consistent styling:
 ```python
 import appkit_ui.styles as styles
 
+
 def styled_page():
     return rx.box(
         rx.text("Content"),
-        **styles.splash_container  # Gradient background
+        **styles.splash_container,  # Gradient background
     )
 ```
 
@@ -164,23 +158,15 @@ inline_form_field(
     label="Username",
     placeholder="Enter username",
     min_length=3,
-    max_length=50
+    max_length=50,
 )
 
 # Email input
-inline_form_field(
-    icon="mail",
-    label="Email",
-    type="email",
-    required=True
-)
+inline_form_field(icon="mail", label="Email", type="email", required=True)
 
 # Password input
 inline_form_field(
-    icon="lock",
-    label="Password",
-    type="password",
-    hint="Must be at least 8 characters"
+    icon="lock", label="Password", type="password", hint="Must be at least 8 characters"
 )
 ```
 
@@ -203,12 +189,13 @@ Create a confirmation dialog for destructive actions:
 ```python
 from appkit_ui.components.dialogs import delete_dialog
 
+
 def user_management():
     return rx.vstack(
         delete_dialog(
             title="Delete User",
             content="user@example.com",
-            on_click=lambda: print("User deleted")
+            on_click=lambda: print("User deleted"),
         ),
         # Other user management UI
     )
@@ -231,7 +218,7 @@ editor(
     button_list=editor.EditorButtonList.COMPLEX,
     height="500px",
     placeholder="Write your content...",
-    on_change=lambda value: print(f"Content: {value}")
+    on_change=lambda value: print(f"Content: {value}"),
 )
 ```
 
@@ -245,11 +232,7 @@ from appkit_ui.components.editor import EditorOptions
 custom_options = EditorOptions(
     height="400px",
     placeholder="Custom placeholder...",
-    button_list=[
-        ["bold", "italic"],
-        ["link", "image"],
-        ["undo", "redo"]
-    ]
+    button_list=[["bold", "italic"], ["link", "image"], ["undo", "redo"]],
 )
 
 editor(options=custom_options)
@@ -264,19 +247,20 @@ Create expandable content areas:
 ```python
 from appkit_ui.components import collabsible
 
+
 def settings_page():
     return rx.vstack(
         collabsible(
             rx.text("Account settings content..."),
             title="Account Settings",
             info_text="Configure your account",
-            expanded=True
+            expanded=True,
         ),
         collabsible(
             rx.text("Notification settings content..."),
             title="Notifications",
-            info_text="Manage email preferences"
-        )
+            info_text="Manage email preferences",
+        ),
     )
 ```
 
@@ -289,6 +273,7 @@ Manage loading indicators across your app:
 ```python
 from appkit_ui.global_states import LoadingState
 
+
 class MyState(LoadingState):
     def load_data(self):
         self.set_is_loading(True)
@@ -296,11 +281,12 @@ class MyState(LoadingState):
         await asyncio.sleep(2)
         self.set_is_loading(False)
 
+
 def loading_component():
     return rx.cond(
         LoadingState.is_loading,
         rx.text(LoadingState.is_loading_message),
-        rx.text("Content loaded")
+        rx.text("Content loaded"),
     )
 ```
 
@@ -339,7 +325,7 @@ import appkit_ui.styles as styles
 custom_dialog_styles = {
     **styles.dialog_styles,
     "border_radius": "15px",
-    "box_shadow": "0 10px 25px rgba(0,0,0,0.1)"
+    "box_shadow": "0 10px 25px rgba(0,0,0,0.1)",
 }
 ```
 
@@ -407,6 +393,7 @@ import appkit_ui as ui
 import appkit_mantine as mn
 import appkit_user as user
 
+
 def dashboard():
     return rx.vstack(
         ui.header("Dashboard"),
@@ -418,13 +405,13 @@ def dashboard():
                 ui.collabsible(
                     mn.data_table(),  # From appkit-mantine
                     title="User Data",
-                    expanded=True
+                    expanded=True,
                 ),
-                max_width="1200px"
+                max_width="1200px",
             ),
-            flex_grow="1"
+            flex_grow="1",
         ),
-        min_height="100vh"
+        min_height="100vh",
     )
 ```
 
@@ -435,6 +422,7 @@ Create forms with integrated validation:
 ```python
 from appkit_ui.components.form_inputs import inline_form_field
 
+
 def registration_form():
     return rx.form(
         inline_form_field(
@@ -444,14 +432,10 @@ def registration_form():
             min_length=3,
             max_length=20,
             pattern=r"^[a-zA-Z0-9_]+$",
-            required=True
+            required=True,
         ),
         inline_form_field(
-            icon="mail",
-            label="Email",
-            name="email",
-            type="email",
-            required=True
+            icon="mail", label="Email", name="email", type="email", required=True
         ),
         inline_form_field(
             icon="lock",
@@ -460,9 +444,9 @@ def registration_form():
             type="password",
             min_length=8,
             hint="At least 8 characters",
-            required=True
+            required=True,
         ),
-        rx.button("Register", type="submit")
+        rx.button("Register", type="submit"),
     )
 ```
 
@@ -473,12 +457,14 @@ Use the editor in content management:
 ```python
 from appkit_ui.components import editor
 
+
 class BlogState(rx.State):
     content: str = ""
 
     def save_post(self):
         # Save self.content to database
         pass
+
 
 def blog_editor_page():
     return rx.vstack(
@@ -488,11 +474,11 @@ def blog_editor_page():
             on_change=BlogState.set_content,
             button_list=editor.EditorButtonList.COMPLEX,
             height="600px",
-            placeholder="Write your blog post..."
+            placeholder="Write your blog post...",
         ),
         rx.button("Save", on_click=BlogState.save_post),
         spacing="4",
-        padding="2em"
+        padding="2em",
     )
 ```
 

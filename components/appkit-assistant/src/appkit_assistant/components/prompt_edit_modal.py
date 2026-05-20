@@ -98,6 +98,29 @@ def _render_mcp_servers_multiselect() -> rx.Component:
     )
 
 
+def _render_skills_multiselect() -> rx.Component:
+    """Render multiselect for skill association."""
+    return rx.cond(
+        UserPromptState.modal_available_skills.length() > 0,
+        mn.multi_select(
+            label="Skills (optional)",
+            description=(
+                "Wähle Skills, die automatisch aktiviert werden, "
+                "wenn dieser Prompt verwendet wird. "
+                "Skills werden nur auf Modellen aktiviert, die Skills unterstützen."
+            ),
+            placeholder="Keine Skills ausgewählt",
+            data=UserPromptState.modal_skill_options,
+            value=UserPromptState.modal_selected_skill_ids,
+            on_change=UserPromptState.set_modal_selected_skills,
+            searchable=True,
+            clearable=True,
+            width="100%",
+        ),
+        rx.fragment(),
+    )
+
+
 def _render_metadata_row() -> rx.Component:
     return rx.flex(
         # Version selector (only for edit mode)
@@ -183,6 +206,7 @@ def prompt_edit_modal() -> rx.Component:
             _render_description_input(),
             _render_prompt_textarea(),
             _render_mcp_servers_multiselect(),
+            _render_skills_multiselect(),
             _render_metadata_row(),
             rx.cond(
                 UserPromptState.modal_error != "",

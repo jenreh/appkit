@@ -88,7 +88,7 @@ def user_form_fields(user: User | None = None) -> rx.Component:
     # They should be visible in both Add and Edit modes
     status_fields = [
         mn.stack(
-            mn.divider(label="Status", size="xs", width="100%", my="xs"),
+            mn.divider(label="Status", size="xs", w="100%", my="xs"),
             mn.flex(
                 mn.box(
                     mn.switch(
@@ -131,6 +131,7 @@ def user_form_fields(user: User | None = None) -> rx.Component:
                 ),
                 class_name="w-full flex-wrap gap-2",
             ),
+            mn.space(h="2rem"),
             align="stretch",
             gap="xs",
             my="4px",
@@ -145,7 +146,7 @@ def user_form_fields(user: User | None = None) -> rx.Component:
             mn.divider(
                 label=group_name,
                 size="xs",
-                width="100%",
+                w="100%",
                 my="3px",
             ),
             rx.foreach(
@@ -184,31 +185,31 @@ def user_form_fields(user: User | None = None) -> rx.Component:
                 *left_fields,
                 direction="column",
                 gap="md" if is_edit_mode else "sm",
-                width="100%",
+                w="100%",
             ),
             flex="1",
-            min_width="0",
+            miw="0",
             overflow="hidden",
         ),
         mn.box(
             mn.text("Berechtigungen", size="sm", fw="500", mt="3px"),
             mn.scroll_area.autosize(
                 *role_fields,
-                max_height="60vh",
-                width="100%",
+                mah="60vh",
+                w="100%",
                 type="always",
                 offset_scrollbars=True,
-                padding="0",
+                p="0",
             ),
             flex="1",
-            min_width="0",
-            height="100%",
+            miw="0",
+            h="100%",
             overflow="hidden",
         ),
         direction="row",
         gap="md",
-        width="100%",
-        height="100%",
+        w="100%",
+        h="100%",
         align="flex-start",
     )
 
@@ -218,7 +219,7 @@ def _modal_footer(
     on_cancel: rx.EventHandler,
 ) -> rx.Component:
     """Footer buttons for add/edit modals."""
-    return rx.flex(
+    return mn.flex(
         mn.button(
             "Abbrechen",
             variant="subtle",
@@ -231,11 +232,13 @@ def _modal_footer(
         ),
         direction="row",
         gap="9px",
-        justify_content="end",
-        padding="16px",
+        justify="flex-end",
+        p="16px",
         border_top="1px solid var(--mantine-color-default-border)",
-        background="var(--mantine-color-body)",
-        width="100%",
+        bg="var(--mantine-color-body)",
+        w="100%",
+        pos="sticky",
+        style={"bottom": "0", "zIndex": "200"},
     )
 
 
@@ -248,31 +251,26 @@ def _user_modal(
     content: rx.Component,
 ) -> rx.Component:
     """Shared modal structure for add/edit user."""
-    return mn.modal(
-        rx.form.root(
-            rx.flex(
-                rx.box(
+    return mn.modal.root(
+        mn.modal.overlay(background_opacity=0.5, blur=4),
+        mn.modal.content(
+            rx.form.root(
+                mn.modal.header(
+                    mn.modal.title(title),
+                    mn.modal.close_button(),
+                ),
+                mn.modal.body(
                     content,
-                    flex="1",
-                    min_height="0",
-                    width="100%",
-                    gap="md",
                 ),
                 _modal_footer(submit_label, on_close),
-                direction="column",
-                height="100%",
-                width="100%",
+                on_submit=on_submit,
+                reset_on_submit=False,
             ),
-            on_submit=on_submit,
-            reset_on_submit=False,
-            height="100%",
         ),
-        title=title,
         opened=opened,
         on_close=on_close,
         size="lg",
         centered=True,
-        overlay_props={"backgroundOpacity": 0.5, "blur": 4},
     )
 
 
@@ -280,12 +278,12 @@ def loading() -> rx.Component:
     """Loading indicator for the users table."""
     return mn.table.tr(
         mn.table.td(
-            rx.hstack(
+            mn.group(
                 rx.spinner(size="3"),
                 mn.text("Lade Benutzer...", size="sm"),
                 align="center",
                 justify="center",
-                spacing="3",
+                gap="xs",
             ),
             col_span=6,
             style={"textAlign": "center"},
@@ -349,7 +347,7 @@ def update_user_button(
     icon_size: int = 16,
     **kwargs,
 ) -> rx.Component:
-    return rx.icon_button(
+    return mn.action_icon(
         rx.icon(icon, size=icon_size),
         on_click=lambda: UserState.select_user_and_open_edit(user.user_id),
         **kwargs,
@@ -396,7 +394,7 @@ def users_table_row(
             mn.text(user.email, size="sm", c="dimmed", style={"whiteSpace": "nowrap"}),
         ),
         mn.table.td(
-            rx.center(
+            mn.center(
                 rx.cond(
                     user.is_active,
                     rx.icon("check", color="green", size=18),
@@ -406,7 +404,7 @@ def users_table_row(
             width="72px",
         ),
         mn.table.td(
-            rx.center(
+            mn.center(
                 rx.cond(
                     user.is_verified,
                     rx.icon("check", color="green", size=18),
@@ -416,7 +414,7 @@ def users_table_row(
             width="72px",
         ),
         mn.table.td(
-            rx.center(
+            mn.center(
                 rx.cond(
                     user.is_admin,
                     rx.icon("check", color="green", size=18),
@@ -428,7 +426,7 @@ def users_table_row(
         mn.table.td(
             mn.group(
                 *rendered_additional_components,
-                update_user_button(user=user, variant="ghost"),
+                update_user_button(user=user, variant="subtle"),
                 delete_user_button(
                     user=user,
                     variant="subtle",
@@ -510,12 +508,11 @@ def users_table(additional_components: list | None = None) -> rx.Component:
     return mn.stack(
         add_user_modal(),
         edit_user_modal(),
-        rx.flex(
+        mn.flex(
             add_user_button(),
             search_user_input(),
-            rx.spacer(),
-            width="100%",
-            margin_bottom="md",
+            w="100%",
+            mb="md",
             gap="12px",
             align="center",
         ),
