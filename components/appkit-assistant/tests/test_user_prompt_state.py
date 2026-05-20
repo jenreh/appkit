@@ -43,6 +43,7 @@ def _version(
     is_latest: bool = True,
     is_shared: bool = False,
     mcp_server_ids: list[int] | None = None,
+    skill_ids: list[int] | None = None,
 ) -> MagicMock:
     v = MagicMock()
     v.id = vid
@@ -52,6 +53,7 @@ def _version(
     v.is_latest = is_latest
     v.is_shared = is_shared
     v.mcp_server_ids = mcp_server_ids or []
+    v.skill_ids = skill_ids or []
     v.created_at = MagicMock()
     v.created_at.strftime.return_value = "01.01.2025 12:00"
     return v
@@ -90,6 +92,9 @@ class _StubUserPromptState:
         self.modal_available_mcp_servers: list = []
         self.modal_selected_mcp_server_ids: list = []
         self.modal_mcp_server_map: dict = {}
+        self.modal_available_skills: list = []
+        self.modal_selected_skill_ids: list = []
+        self.modal_skill_map: dict = {}
 
     _reset_modal = _unwrap("_reset_modal")
     set_modal_selected_version_id = _unwrap("set_modal_selected_version_id")
@@ -109,6 +114,7 @@ class _StubUserPromptState:
     save_from_modal = _unwrap("save_from_modal")
     delete_from_modal = _unwrap("delete_from_modal")
     _load_modal_available_mcp_servers = _unwrap("_load_modal_available_mcp_servers")
+    _load_modal_available_skills = _unwrap("_load_modal_available_skills")
 
     async def get_state(self, _cls):  # noqa: ANN001
         user_obj = MagicMock()
@@ -384,9 +390,11 @@ class TestOpenEditModal:
             ),
             patch(f"{_PATCH}.user_prompt_repo") as repo,
             patch(f"{_PATCH}.mcp_server_repo") as mcp_repo,
+            patch(f"{_PATCH}.skill_repo") as skill_repo,
         ):
             repo.find_all_versions = AsyncMock(return_value=[v])
             mcp_repo.find_all_active_ordered_by_name = AsyncMock(return_value=[srv])
+            skill_repo.find_all_active_ordered_by_name = AsyncMock(return_value=[])
             await state.open_edit_modal("test-handle")
 
         assert state.modal_open is True
@@ -404,9 +412,11 @@ class TestOpenEditModal:
             ),
             patch(f"{_PATCH}.user_prompt_repo") as repo,
             patch(f"{_PATCH}.mcp_server_repo") as mcp_repo,
+            patch(f"{_PATCH}.skill_repo") as skill_repo,
         ):
             repo.find_all_versions = AsyncMock(return_value=[])
             mcp_repo.find_all_active_ordered_by_name = AsyncMock(return_value=[])
+            skill_repo.find_all_active_ordered_by_name = AsyncMock(return_value=[])
             await state.open_edit_modal("missing")
 
         assert state.modal_open is False
@@ -439,8 +449,10 @@ class TestOpenNewModal:
                 return_value=_db_context(),
             ),
             patch(f"{_PATCH}.mcp_server_repo") as mcp_repo,
+            patch(f"{_PATCH}.skill_repo") as skill_repo,
         ):
             mcp_repo.find_all_active_ordered_by_name = AsyncMock(return_value=[])
+            skill_repo.find_all_active_ordered_by_name = AsyncMock(return_value=[])
             await state.open_new_modal()
 
         assert state.modal_open is True
