@@ -49,7 +49,7 @@
 		}
 	},
 	"features": {
-		"ghcr.io/devcontainers/features/common-utils:2.5.7": {
+		"ghcr.io/devcontainers/features/common-utils:2.5.8": {
 			"configureZshAsDefaultShell": true,
 			"username": "vscode"
 		},
