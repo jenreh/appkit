@@ -29,11 +29,25 @@ class ComboboxExamplesState(rx.State):
 
     # TreeSelect / PillsInput
     tree_value: str = ""
+    pills: list[str] = ["React", "FastAPI"]
     pills_input_value: str = ""
 
     def set_value(self, field: str, value: str | list[str]) -> None:
         """Generic setter for state values."""
         setattr(self, field, value)
+
+    def handle_pill_key(self, key: str) -> None:
+        """Add a pill when Enter is pressed."""
+        if key != "Enter":
+            return
+        value = self.pills_input_value.strip()
+        if value and value not in self.pills:
+            self.pills.append(value)
+        self.pills_input_value = ""
+
+    def remove_pill(self, pill: str) -> None:
+        """Remove a pill by value."""
+        self.pills = [p for p in self.pills if p != pill]
 
 
 TREE_SELECT_DATA = [
@@ -348,18 +362,25 @@ def _render_tree_and_pills_section() -> rx.Component:
                 "PillsInput",
                 mn.pills_input(
                     mn.pill.group(
-                        mn.pill("React", with_remove_button=True),
-                        mn.pill("FastAPI", with_remove_button=True),
+                        rx.foreach(
+                            ComboboxExamplesState.pills,
+                            lambda pill: mn.pill(
+                                pill,
+                                with_remove_button=True,
+                                on_remove=ComboboxExamplesState.remove_pill(pill),
+                            ),
+                        ),
                         mn.pills_input.field(
-                            placeholder="Add tag",
+                            placeholder="Add tag, press Enter",
                             value=ComboboxExamplesState.pills_input_value,
                             on_change=lambda v: ComboboxExamplesState.set_value(
                                 "pills_input_value", v
                             ),
+                            on_key_down=ComboboxExamplesState.handle_pill_key,
                         ),
                     ),
                     label="Technology tags",
-                    description="Pills can be mixed with an input field.",
+                    description="Type a tag and press Enter to add. Click x to remove.",
                 ),
                 ComboboxExamplesState.pills_input_value,
             ),

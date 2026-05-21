@@ -764,16 +764,18 @@ class Chip(MantineLayoutComponentBase):
         "default_checked": "defaultChecked",
     }
 
+    auto_contrast: Var[bool] = None
     checked: Var[bool] = None
-    default_checked: Var[bool] = None
     color: Var[str] = None
+    default_checked: Var[bool] = None
+    disabled: Var[bool] = None
+    icon: Var[Any] = None
+    id: Var[str] = None
     radius: Var[str | int] = None
     size: Var[str | int] = None
-    icon: Var[Any] = None
     type: Var[Literal["checkbox", "radio"]] = None
-    auto_contrast: Var[bool] = None
-    disabled: Var[bool] = None
-    id: Var[str] = None
+    value: Var[str] = None
+    variant: Var[Literal["outline", "light", "filled"]] = None
 
     on_change: EventHandler[lambda checked: [checked]] = None
 

@@ -373,8 +373,11 @@ class PillsInputField(MantineLayoutComponentBase):
 
     pointer: Var[bool] = None
     type: Var[Literal["hidden", "auto", "visible"]] = None
+    value: Var[str] = None
+    placeholder: Var[str] = None
 
     on_change: EventHandler[rx.event.input_event] = None
+    on_key_down: EventHandler[rx.event.key_event] = None
 
 
 class TreeSelect(MantineLayoutComponentBase):

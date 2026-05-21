@@ -84,9 +84,12 @@ def inputs_advanced_examples() -> rx.Component:
                 example_box(
                     "Chip Group",
                     mn.chip.group(
-                        mn.chip("React", value="react"),
-                        mn.chip("Vue", value="vue"),
-                        mn.chip("Angular", value="angular"),
+                        mn.group(
+                            mn.chip("React", value="react"),
+                            mn.chip("Vue", value="vue"),
+                            mn.chip("Angular", value="angular"),
+                            gap="xs",
+                        ),
                         value=InputsAdvancedState.chip_group_value,
                         on_change=InputsAdvancedState.set_chip_group,
                     ),

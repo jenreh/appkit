@@ -14,6 +14,7 @@ from app.components.navbar import app_navbar
 class OverlayExamplesState(rx.State):
     dialog_opened: bool = False
     loading_visible: bool = True
+    active_indicator_id: str = "indicator-react"
 
     def open_dialog(self) -> None:
         self.dialog_opened = True
@@ -23,6 +24,9 @@ class OverlayExamplesState(rx.State):
 
     def toggle_loading(self) -> None:
         self.loading_visible = not self.loading_visible
+
+    def set_active_indicator(self, btn_id: str) -> None:
+        self.active_indicator_id = btn_id
 
 
 @navbar_layout(
@@ -220,23 +224,54 @@ def overlay_examples() -> rx.Component:
                     "FloatingIndicator",
                     mn.box(
                         mn.group(
-                            mn.button("React", id="indicator-react", variant="subtle"),
-                            mn.button("Vue", variant="subtle"),
-                            mn.button("Svelte", variant="subtle"),
+                            mn.button(
+                                "React",
+                                id="indicator-react",
+                                variant="subtle",
+                                style={"z_index": 1, "position": "relative"},
+                                on_click=OverlayExamplesState.set_active_indicator(
+                                    "indicator-react"
+                                ),
+                            ),
+                            mn.button(
+                                "Vue",
+                                id="indicator-vue",
+                                variant="subtle",
+                                style={"z_index": 1, "position": "relative"},
+                                on_click=OverlayExamplesState.set_active_indicator(
+                                    "indicator-vue"
+                                ),
+                            ),
+                            mn.button(
+                                "Svelte",
+                                id="indicator-svelte",
+                                variant="subtle",
+                                style={"z_index": 1, "position": "relative"},
+                                on_click=OverlayExamplesState.set_active_indicator(
+                                    "indicator-svelte"
+                                ),
+                            ),
                         ),
                         mn.floating_indicator(
                             parent=rx.Var(
                                 _js_expr="document.getElementById('indicator-parent')",
                             ),
                             target=rx.Var(
-                                _js_expr="document.getElementById('indicator-react')",
+                                _js_expr=f"document.getElementById({OverlayExamplesState.active_indicator_id})",
                             ),
                             transition_duration=150,
+                            style={
+                                "background": "white",
+                                "border_radius": "var(--mantine-radius-md)",
+                                "border": "1px solid var(--mantine-color-gray-3)",
+                                "box_shadow": "var(--mantine-shadow-sm)",
+                            },
                         ),
                         id="indicator-parent",
                         pos="relative",
                         bg="gray.1",
                         p="sm",
+                        r="md",
                     ),
                 ),
                 cols=2,
