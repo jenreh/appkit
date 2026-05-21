@@ -68,7 +68,7 @@ Status indicator, label, or count chip.
 
 ```python
 mn.badge("New", color="blue", variant="light", size="md", radius="sm")
-mn.badge("99+", color="red", variant="filled", circle=True)   # circular badge
+mn.badge("99+", color="red", variant="filled", circle=True)  # circular badge
 mn.badge(
     "Premium",
     variant="gradient",
@@ -95,7 +95,7 @@ mn.card(
     padding="lg",
     radius="md",
     with_border=True,
-    orientation="vertical",   # "vertical" (default) | "horizontal"
+    orientation="vertical",  # "vertical" (default) | "horizontal"
 )
 ```
 
@@ -333,13 +333,13 @@ Props: `width`, `shadow`, `open_delay`, `close_delay`, `position`, `disabled`.
 ```python
 mn.button(
     "Click me",
-    variant="filled",       # filled, light, subtle, outline, default, gradient, link
+    variant="filled",  # filled, light, subtle, outline, default, gradient, link
     color="blue",
     size="md",
     radius="md",
     loading=State.is_loading,
     disabled=State.is_disabled,
-    data_disabled=True,     # visually disabled but keeps pointer events (for Tooltip wrapping)
+    data_disabled=True,  # visually disabled but keeps pointer events (for Tooltip wrapping)
     left_section=rx.icon("download"),
     full_width=True,
     on_click=State.handle_click,
@@ -381,3 +381,205 @@ Props: same as Button minus `left_section`/`right_section`/`full_width`.
 Group: `mn.action_icon.group(icon1, icon2, orientation="horizontal")`.
 
 > [Mantine docs — ActionIcon](https://mantine.dev/core/action-icon/)
+
+## CloseButton
+
+X-icon button for closing modals, dismissing alerts, removing tags, etc.
+
+```python
+mn.close_button(
+    on_click=State.dismiss,
+    size="md",
+    radius="xl",
+    variant="subtle",
+    icon_size=16,
+    aria_label="Close",
+)
+```
+
+Props: `size`, `radius`, `icon`, `icon_size`, `variant`, `color`, `disabled`, plus
+`MantineButtonBase` props.
+
+> [Mantine docs — CloseButton](https://mantine.dev/core/close-button/)
+
+## UnstyledButton
+
+Button element with no default styling — use when wrapping arbitrary clickable content.
+
+```python
+mn.unstyled_button(
+    mn.group(
+        mn.avatar(src=State.user.avatar),
+        mn.text(State.user.name),
+    ),
+    on_click=State.open_profile,
+)
+```
+
+No component-specific props beyond `MantineButtonBase` (href, target, type,
+loading, loader_props, disabled, etc.).
+
+> [Mantine docs — UnstyledButton](https://mantine.dev/core/unstyled-button/)
+
+## Loader
+
+Animated loading indicator (spinner, bars, dots).
+
+```python
+mn.loader(size="md", color="blue", type="dots")  # "bars" | "dots" | "oval"
+```
+
+Props: `size`, `color`, `type`.
+
+> [Mantine docs — Loader](https://mantine.dev/core/loader/)
+
+## RingProgress
+
+Circular progress ring with optional center label and multiple sections.
+
+```python
+mn.ring_progress(
+    sections=[
+        {"value": 40, "color": "blue", "tooltip": "Done"},
+        {"value": 25, "color": "orange", "tooltip": "In progress"},
+    ],
+    label=mn.text("65%", ta="center", fw=700),
+    size=140,
+    thickness=12,
+    round_caps=True,
+    section_gap=4,
+)
+```
+
+Props: `sections` (list of `{value, color, tooltip?}`), `size`, `thickness`,
+`label`, `root_color`, `round_caps`, `section_gap`, `start_angle`, `transition_duration`.
+
+> [Mantine docs — RingProgress](https://mantine.dev/core/ring-progress/)
+
+## SemiCircleProgress
+
+Half-circle gauge (0–100).
+
+```python
+mn.semi_circle_progress(
+    value=68,
+    size=200,
+    thickness=12,
+    label=mn.text("68%", fw=600),
+    label_position="center",  # "center" | "bottom"
+    orientation="up",  # "up" | "down"
+    fill_direction="left-to-right",  # "left-to-right" | "right-to-left"
+    filled_segment_color="blue",
+    empty_segment_color="gray.2",
+    transition_duration=500,
+)
+```
+
+Props: `value`, `size`, `thickness`, `label`, `label_position`, `orientation`,
+`fill_direction`, `filled_segment_color`, `empty_segment_color`, `transition_duration`.
+
+> [Mantine docs — SemiCircleProgress](https://mantine.dev/core/semi-circle-progress/)
+
+## ThemeIcon
+
+Colored icon container — fixed-size box around an icon.
+
+```python
+mn.theme_icon(
+    rx.icon("check"),
+    size="lg",
+    radius="xl",
+    color="green",
+    variant="filled",  # "filled" | "light" | "outline" | "default" | "gradient" | "white" | "transparent"
+    gradient={"from": "teal", "to": "lime", "deg": 105},
+)
+```
+
+Props: `size`, `radius`, `color`, `variant`, `gradient`, `autocontrast`.
+
+> [Mantine docs — ThemeIcon](https://mantine.dev/core/theme-icon/)
+
+## ColorSwatch
+
+Solid-color circular swatch — for palettes, color pickers, indicators.
+
+```python
+mn.color_swatch(color="#fa5252", size=24, radius="xl", with_shadow=True)
+```
+
+Props: `color`, `size`, `radius`, `with_shadow`.
+
+> [Mantine docs — ColorSwatch](https://mantine.dev/core/color-swatch/)
+
+## Kbd
+
+Renders a keyboard key (`<kbd>`).
+
+```python
+mn.group(
+    mn.kbd("⌘"),
+    mn.text("+", c="dimmed"),
+    mn.kbd("K"),
+    gap=4,
+)
+```
+
+Props: `size`, plus standard layout props.
+
+> [Mantine docs — Kbd](https://mantine.dev/core/kbd/)
+
+## Spoiler
+
+Collapses long content with show-more/show-less toggle.
+
+```python
+mn.spoiler(
+    rx.text(State.long_text),
+    max_height=120,
+    show_label="Show more",
+    hide_label="Hide",
+    initial_state=False,
+    expanded=State.expanded,
+    on_expanded_change=State.set_expanded,
+    transition_duration=200,
+)
+```
+
+Props: `max_height`, `show_label`, `hide_label`, `initial_state`, `expanded`,
+`transition_duration`, `control_ref`, `on_expanded_change` (receives `bool`).
+
+> [Mantine docs — Spoiler](https://mantine.dev/core/spoiler/)
+
+## BackgroundImage
+
+Renders any element with a background image (covers, hero blocks).
+
+```python
+mn.background_image(
+    mn.center(mn.title("Welcome", c="white"), h="100%"),
+    src="/img/hero.jpg",
+    h=300,
+    radius="md",
+)
+```
+
+Props: `src`, `radius`.
+
+> [Mantine docs — BackgroundImage](https://mantine.dev/core/background-image/)
+
+## RollingNumber
+
+Animated counter that "rolls" when the value changes.
+
+```python
+mn.rolling_number(
+    value=State.live_count,
+    size="xl",
+    fw=700,
+    duration=500,
+)
+```
+
+Props: `value` (number), `duration`, `easing`, plus typography style props.
+
+> Mantine extension component.

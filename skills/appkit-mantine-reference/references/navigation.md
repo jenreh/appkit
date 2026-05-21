@@ -127,6 +127,7 @@ Top-of-page loading bar controlled via JavaScript.
 # Add to app root
 mn.navigation_progress(color="blue", size=3)
 
+
 # Control from state
 class State(rx.State):
     def start_loading(self):
@@ -186,7 +187,7 @@ but stops auto-scrolling if the user manually scrolls up.
 ```python
 mn.scroll_area.autoscroll(
     rx.foreach(State.messages, message_row),
-    height="400px",   # required — fixed height
+    height="400px",  # required — fixed height
     type="auto",
 )
 ```
@@ -229,3 +230,74 @@ mn.markdown_preview(
 Props: `content`, `code_highlight_theme`.
 
 > [Mantine docs — RichTextEditor](https://mantine.dev/x/tiptap/)
+
+## Anchor
+
+Styled hyperlink (Mantine wrapper around `<a>`). Use instead of `rx.link` when you
+need Mantine-themed styling, gradients, line-clamp, or hover/underline variants.
+
+```python
+mn.anchor(
+    "Go to docs",
+    href="https://mantine.dev",
+    target="_blank",
+    underline="hover",  # "always" | "hover" | "not-hover" | "never"
+    c="blue",
+    size="sm",
+    inherit=False,
+    line_clamp=1,
+)
+```
+
+Props: `href`, `target`, `underline`, `size`, `gradient`, `inherit`, `inline`,
+`line_clamp`, `on_click`.
+
+> [Mantine docs — Anchor](https://mantine.dev/core/anchor/)
+
+## Burger
+
+Animated hamburger menu toggle — commonly used with `AppShell` navbar collapse.
+
+```python
+mn.burger(
+    opened=State.nav_opened,
+    on_click=State.toggle_nav,
+    size="md",
+    color="gray.6",
+    line_size=2,
+    transition_duration=300,
+    hidden_from="sm",  # Mantine breakpoint helper
+    aria_label="Toggle navigation",
+)
+```
+
+Props: `opened`, `color`, `size`, `line_size`, `transition_duration`,
+`transition_timing_function`, `on_click`.
+
+> [Mantine docs — Burger](https://mantine.dev/core/burger/)
+
+## TableOfContents
+
+Page-section navigator that scroll-spies headings.
+
+```python
+mn.table_of_contents(
+    initial_data=[
+        {"id": "intro", "value": "Introduction", "depth": 1},
+        {"id": "setup", "value": "Setup", "depth": 1},
+        {"id": "config", "value": "Configuration", "depth": 2},
+    ],
+    scroll_spy_options={"selector": "h1, h2, h3"},
+    color="blue",
+    size="sm",
+    radius="sm",
+    depth_offset=20,
+    min_depth_to_offset=2,
+    auto_contrast=True,
+)
+```
+
+Props: `color`, `size`, `radius`, `auto_contrast`, `depth_offset`, `min_depth_to_offset`,
+`initial_data`, `scroll_spy_options`.
+
+> [Mantine docs — TableOfContents](https://mantine.dev/core/table-of-contents/)

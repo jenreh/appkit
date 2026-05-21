@@ -275,3 +275,91 @@ mn.treemap(
 Props: `data` (hierarchical list of dicts with `name`, `value`, `children`), `w`, `h`.
 
 > [Mantine docs — Charts](https://mantine.dev/charts/getting-started/)
+
+## RadialBarChart
+
+Polar bar chart — bars laid out around a circle.
+
+```python
+mn.radial_bar_chart(
+    data=[
+        {"name": "Mobile", "value": 60, "color": "blue.6"},
+        {"name": "Desktop", "value": 35, "color": "teal.6"},
+        {"name": "Tablet", "value": 12, "color": "yellow.6"},
+    ],
+    data_key="value",
+    h=300,
+    bar_size=20,
+    start_angle=90,
+    end_angle=-270,
+    with_legend=True,
+    with_tooltip=True,
+    with_labels=True,
+    with_background=True,
+)
+```
+
+Props: `data`, `data_key`, `bar_size`, `start_angle`, `end_angle`,
+`empty_background_color`, `with_background`, `with_labels`, `with_legend`,
+`with_tooltip`, `legend_props`, `tooltip_props`, `radial_bar_props`,
+`radial_bar_chart_props`, `h`, `w`.
+
+> [Mantine docs — RadialBarChart](https://mantine.dev/charts/radial-bar-chart/)
+
+## BarsList
+
+Lightweight horizontal-bars list (not a Recharts chart) — useful for ranked metric
+displays inside cards.
+
+```python
+mn.bars_list(
+    data=[
+        {"label": "Frontend", "value": 4200, "color": "blue"},
+        {"label": "Backend", "value": 3100, "color": "teal"},
+        {"label": "DevOps", "value": 1800, "color": "orange"},
+    ],
+    bar_height=10,
+    bar_gap=6,
+    auto_contrast=True,
+)
+```
+
+Props: `data`, `bar_color`, `bar_gap`, `bar_height`, `bar_text_color`,
+`bars_label`, `min_bar_size`, `value_label`, `auto_contrast`.
+
+> [Mantine docs — BarsList](https://mantine.dev/charts/bars-list/)
+
+## SankeyChart
+
+Flow diagram showing weighted links between nodes.
+
+```python
+mn.sankey_chart(
+    data={
+        "nodes": [
+            {"name": "Visitors"},
+            {"name": "Signups"},
+            {"name": "Activated"},
+            {"name": "Paid"},
+        ],
+        "links": [
+            {"source": 0, "target": 1, "value": 400},
+            {"source": 1, "target": 2, "value": 250},
+            {"source": 2, "target": 3, "value": 80},
+        ],
+    },
+    h=300,
+    colors=["blue.5", "teal.5", "orange.5", "grape.5"],
+    node_padding=20,
+    node_width=14,
+    link_opacity=0.4,
+    with_tooltip=True,
+)
+```
+
+Props: `data` (`{nodes: [{name}], links: [{source, target, value}]}`), `height`,
+`colors`, `iterations`, `link_color`, `link_curvature`, `link_opacity`,
+`node_color`, `node_padding`, `node_width`, `text_color`, `with_tooltip`,
+`tooltip_animation_duration`, `tooltip_props`, `w`, `h`.
+
+> [Mantine docs — SankeyChart](https://mantine.dev/charts/sankey-chart/)

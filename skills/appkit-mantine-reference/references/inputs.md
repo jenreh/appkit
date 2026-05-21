@@ -729,3 +729,314 @@ mn.rich_select(
 Props: `searchable`, `clearable`, `creatable`, `search_placeholder`, `nothing_found`,
 `max_dropdown_height`, `position`, `value`, `values` (multi-select list),
 `on_change`, `on_create`, `on_search_change`, `on_clear`, `on_opened_change`.
+
+## NativeSelect
+
+Wraps a native HTML `<select>` — use when you want browser-native dropdown UX or
+need to support older browsers. No search, no portal — just a plain select.
+
+```python
+mn.native_select(
+    label="Country",
+    description="Choose your country",
+    data=["USA", "Canada", "Mexico"],
+    value=State.country,
+    on_change=State.set_country,  # receives str
+)
+```
+
+Props: `data` (list of strings or `{value, label}` dicts), `value`, `default_value`,
+`label`, `description`, `error`, `required`, `disabled`, `radius`, `size`,
+`left_section`, `right_section`, `with_asterisk`, `on_change` (receives `str`).
+
+> [Mantine docs — NativeSelect](https://mantine.dev/core/native-select/)
+
+## TreeSelect
+
+Hierarchical selection in a dropdown — pick from a tree of values.
+
+```python
+mn.tree_select(
+    label="Category",
+    data=[
+        {
+            "value": "fruits",
+            "label": "Fruits",
+            "children": [
+                {"value": "apple", "label": "Apple"},
+                {"value": "banana", "label": "Banana"},
+            ],
+        },
+    ],
+    value=State.category,
+    on_change=State.set_category,  # str or list[str] depending on mode
+    searchable=True,
+    clearable=True,
+    expand_on_click=True,
+    with_lines=True,
+)
+```
+
+Props: `data`, `value`, `default_value`, `mode` (e.g. `"multiple"`), `searchable`,
+`search_value`, `clearable`, `disabled`, `required`, `label`, `description`, `error`,
+`radius`, `size`, `max_dropdown_height`, `max_values`, `nothing_found_message`,
+`allow_deselect`, `expand_on_click`, `with_lines`, `expanded_values`,
+`default_expanded_values`, `default_expand_all`, `on_change`, `on_clear`,
+`on_search_change`, `on_dropdown_open`, `on_dropdown_close`, `on_expanded_change`.
+
+> [Mantine docs — TreeSelect](https://mantine.dev/core/tree-select/)
+
+## FileInput
+
+Button-style file picker. Use `mn.dropzone` (extensions.md) for drag-and-drop.
+
+```python
+mn.file_input(
+    label="Upload document",
+    placeholder="Click to select file",
+    accept="image/png,image/jpeg",  # MIME types
+    multiple=False,
+    clearable=True,
+    value=State.uploaded_file,
+    on_change=State.handle_file,  # receives a File object (or list when multiple)
+)
+```
+
+Props: `value`, `default_value`, `accept`, `multiple`, `capture`, `clearable`,
+`clear_button_props`, `file_input_props`, `value_component`, `placeholder`,
+`label`, `description`, `error`, `required`, `disabled`, `radius`, `size`,
+`left_section`, `right_section`, `with_asterisk`, `name`, `form`, `on_change`.
+
+> [Mantine docs — FileInput](https://mantine.dev/core/file-input/)
+
+## PinInput
+
+Multi-character PIN / OTP code entry.
+
+```python
+mn.pin_input(
+    length=6,
+    type="number",  # "number" | "alphanumeric" | regex
+    placeholder="·",
+    mask=True,  # hides characters like password
+    one_time_code=True,  # autocomplete="one-time-code" for SMS OTP
+    value=State.otp,
+    on_change=State.set_otp,  # receives str on each change
+    on_complete=State.verify_otp,  # receives str when all chars filled
+)
+```
+
+Props: `length`, `type` (`"number"`, `"alphanumeric"`, or regex), `mask`,
+`one_time_code`, `placeholder`, `value`, `default_value`, `name`, `form`,
+`autofocus`, `disabled`, `error`, `inputmode`, `size`, `radius`, `gap`,
+`input_type`, `manage_focus`, `on_change`, `on_complete` (both receive `str`).
+
+> [Mantine docs — PinInput](https://mantine.dev/core/pin-input/)
+
+## Rating
+
+Star rating input.
+
+```python
+mn.rating(
+    value=State.rating,
+    on_change=State.set_rating,  # receives float
+    count=5,
+    fractions=2,  # half-stars
+    size="lg",
+    color="yellow",
+    readonly=False,
+    highlight_selected_only=False,
+)
+```
+
+Props: `value`, `default_value`, `count`, `fractions` (segments per item, e.g. 2 = half),
+`size`, `color`, `readonly`, `highlight_selected_only`, `empty_symbol`, `full_symbol`,
+`name`, `on_change`, `on_hover` (receives `float`), `on_hover_end`.
+
+> [Mantine docs — Rating](https://mantine.dev/core/rating/)
+
+## Chip and Chip.Group
+
+Single chip (toggle-button style) or group of chips for multi-/single-select.
+
+```python
+mn.chip("Important", value="important", color="red", variant="filled")
+
+mn.chip.group(
+    mn.group(
+        mn.chip("Frontend", value="frontend"),
+        mn.chip("Backend", value="backend"),
+        mn.chip("DevOps", value="devops"),
+    ),
+    value=State.tags,  # str (single) or list[str] (multiple)
+    multiple=True,
+    on_change=State.set_tags,
+)
+```
+
+Chip props: `value`, `checked`, `default_checked`, `color`, `variant`
+(`"outline"`, `"filled"`, `"light"`), `size`, `radius`, `icon`, `wrapper_props`,
+`autocontrast`, `disabled`, `id`, `name`, `type` (`"checkbox"` | `"radio"`), `on_change`
+(receives `bool` when used standalone).
+
+Chip.Group props: `multiple`, `value`, `default_value`, `on_change`
+(receives `str` for single, `list[str]` for multiple).
+
+> [Mantine docs — Chip](https://mantine.dev/core/chip/)
+
+## Fieldset
+
+Groups related inputs with an optional legend.
+
+```python
+mn.fieldset(
+    mn.stack(
+        mn.text_input(label="First name"),
+        mn.text_input(label="Last name"),
+    ),
+    legend="Personal information",
+    variant="filled",  # "default" | "filled" | "unstyled"
+    radius="md",
+    disabled=False,
+)
+```
+
+Props: `legend`, `variant`, `radius`, `disabled`.
+
+> [Mantine docs — Fieldset](https://mantine.dev/core/fieldset/)
+
+## ColorInput
+
+Text input + swatch + popover color picker.
+
+```python
+mn.color_input(
+    label="Brand color",
+    value=State.color,
+    on_change=State.set_color,  # receives str (hex/rgba)
+    on_change_end=State.persist_color,  # receives str when commit
+    format="hex",  # "hex" | "rgba" | "hsla" | "hsl" | "rgb"
+    swatches=["#fa5252", "#fd7e14", "#fab005", "#2f9e44", "#1971c2"],
+    disallow_input=False,
+    with_eye_dropper=True,
+    with_picker=True,
+    fix_on_blur=True,
+    close_on_color_swatch_click=False,
+)
+```
+
+Props: `format`, `swatches`, `swatches_per_row`, `disallow_input`, `fix_on_blur`,
+`with_eye_dropper`, `with_picker`, `with_preview`, `picker_type` (`"chrome"` etc.),
+`popover_props`, `close_on_color_swatch_click`, `eye_dropper_icon`,
+`left_section`, `right_section`, `label`, `description`, `error`, `placeholder`,
+`size`, `radius`, `disabled`, `required`, `with_asterisk`, `value`, `default_value`,
+`on_change`, `on_change_end`.
+
+> [Mantine docs — ColorInput](https://mantine.dev/core/color-input/)
+
+## ColorPicker
+
+Standalone color picker (no input field).
+
+```python
+mn.color_picker(
+    value=State.color,
+    on_change=State.set_color,
+    format="hex",
+    swatches=["#fa5252", "#fab005", "#1971c2"],
+    swatches_per_row=10,
+    full_width=False,
+    size="md",
+)
+```
+
+Props: `format`, `swatches`, `swatches_per_row`, `full_width`, `size`, `saturation_label`,
+`hue_label`, `alpha_label`, `focusable`, `with_picker`, `value`, `default_value`,
+`on_change`, `on_change_end`.
+
+> [Mantine docs — ColorPicker](https://mantine.dev/core/color-picker/)
+
+## HueSlider / AlphaSlider
+
+Standalone slider primitives for building custom color UIs.
+
+```python
+mn.hue_slider(
+    value=State.hue,
+    on_change=State.set_hue,  # receives float (0-360)
+    on_change_end=State.commit_hue,
+    size="sm",
+)
+
+mn.alpha_slider(
+    color="#ff0000",
+    value=State.alpha,
+    on_change=State.set_alpha,  # receives float (0-1)
+    size="sm",
+)
+```
+
+HueSlider props: `value`, `on_change`, `on_change_end`, `size`, `focusable`.
+
+AlphaSlider props: `value`, `color` (base color for transparency preview),
+`on_change`, `on_change_end`, `size`, `focusable`.
+
+> [Mantine docs — Color Picker primitives](https://mantine.dev/core/color-picker/)
+
+## AngleSlider
+
+Circular slider for picking an angle (0–360°). Useful for rotation, direction, gradient angle.
+
+```python
+mn.angle_slider(
+    value=State.angle,
+    on_change=State.set_angle,  # receives int (0-360)
+    on_change_end=State.commit_angle,
+    size=120,
+    thumb_size=12,
+    marks=[
+        {"value": 0, "label": "N"},
+        {"value": 90, "label": "E"},
+        {"value": 180, "label": "S"},
+        {"value": 270, "label": "W"},
+    ],
+    with_label=True,
+    step=1,
+    format_label=lambda v: f"{v}°",
+)
+```
+
+Props: `value`, `default_value`, `size`, `thumb_size`, `step`, `marks`, `with_label`,
+`format_label`, `restrict_to_marks`, `disabled`, `aria_label`, `name`, `hidden_input_props`,
+`thumb_props`, `on_change`, `on_change_end`, `on_mouse_down`, `on_scrub_start`, `on_scrub_end`.
+
+> [Mantine docs — AngleSlider](https://mantine.dev/core/angle-slider/)
+
+## InlineDateTimePicker
+
+Inline calendar + time picker without a popover trigger.
+
+```python
+mn.inline_date_time_picker(
+    value=State.scheduled_at,
+    on_change=State.set_scheduled_at,
+    type="default",  # "default" | "multiple" | "range"
+    min_date="2024-01-01",
+    max_date="2030-12-31",
+    with_seconds=False,
+    first_day_of_week=1,  # 0 Sun, 1 Mon
+    highlight_today=True,
+    number_of_columns=1,
+    submit_button_props={"children": "Apply"},
+)
+```
+
+Props: `type`, `value`, `default_value`, `size`, `full_width`, `number_of_columns`,
+`max_date`, `min_date`, `allow_deselect`, `allow_single_date_in_range`,
+`hide_outside_dates`, `hide_weekdays`, `highlight_today`, `with_cell_spacing`,
+`with_week_numbers`, `with_seconds`, `first_day_of_week`, `time_picker_props`,
+`end_time_picker_props`, `submit_button_props`, `default_time_value`,
+`on_change`, `on_submit`, `on_level_change`, `on_date_change`.
+
+> [Mantine docs — InlineDateTimePicker](https://mantine.dev/dates/inline-date-time-picker/)

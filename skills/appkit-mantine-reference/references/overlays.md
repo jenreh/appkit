@@ -205,3 +205,74 @@ mn.floating_indicator(
 
 Typically used when building custom tab or pill navigation with animated selection highlight.
 Props: `target` (ref of active element), `parent` (ref of container), `transition_duration`.
+
+## Dialog
+
+Small floating panel that stays in place (no backdrop, no focus trap). Use for
+contextual prompts, cookie banners, in-app announcements. For modals with backdrops
+use `mn.modal` instead.
+
+```python
+mn.dialog(
+    mn.stack(
+        mn.text("Subscribe to our newsletter"),
+        mn.text_input(label="Email", value=State.email, on_change=State.set_email),
+        mn.button("Subscribe", on_click=State.subscribe, size="xs"),
+    ),
+    opened=State.dialog_opened,
+    on_close=State.close_dialog,
+    position={"top": 20, "right": 20},
+    size="md",
+    radius="md",
+    with_close_button=True,
+    with_border=True,
+    transition_props={"transition": "slide-up", "duration": 200},
+    z_index=300,
+)
+```
+
+Props: `opened`, `on_close`, `position` (dict of `top`/`bottom`/`left`/`right`),
+`size`, `radius`, `shadow`, `with_close_button`, `with_border`, `keep_mounted`,
+`transition_props`, `close_button_props`, `z_index`.
+
+> [Mantine docs — Dialog](https://mantine.dev/core/dialog/)
+
+## Popover
+
+Anchored floating panel. Namespaced into `target` (trigger) and `dropdown` (content).
+
+```python
+mn.popover(
+    mn.popover.target(mn.button("Toggle popover")),
+    mn.popover.dropdown(
+        mn.text("Popover content here"),
+    ),
+    opened=State.pop_opened,
+    on_change=State.set_pop_opened,  # receives bool
+    position="bottom",  # 12 floating-ui positions
+    offset=8,
+    with_arrow=True,
+    arrow_size=8,
+    trap_focus=False,
+    close_on_click_outside=True,
+    close_on_escape=True,
+    shadow="md",
+    width="target",  # "target" | number | "auto"
+    radius="md",
+    transition_props={"transition": "pop", "duration": 150},
+    within_portal=True,
+)
+```
+
+Root props: `opened`, `default_opened`, `position`, `offset`, `width`, `shadow`,
+`radius`, `with_arrow`, `arrow_size`, `arrow_radius`, `arrow_offset`, `arrow_position`,
+`trap_focus`, `close_on_click_outside`, `close_on_escape`, `clickout_events`,
+`return_focus`, `keep_mounted`, `with_roles`, `within_portal`, `portal_props`,
+`z_index`, `middlewares`, `transition_props`, `on_change`, `on_open`, `on_close`,
+`on_dismiss`, `on_position_change`.
+
+`popover.target` props: forwarded to the trigger; usually a button or component.
+
+`popover.dropdown` props: standard layout/style props.
+
+> [Mantine docs — Popover](https://mantine.dev/core/popover/)

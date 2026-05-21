@@ -109,3 +109,60 @@ No component-specific props — only inherits layout/style props from
 `MantineLayoutComponentBase`.
 
 > [Mantine docs — TypographyStylesProvider](https://mantine.dev/core/typography-styles-provider/)
+
+## Blockquote
+
+Styled quote block with optional cite and icon.
+
+```python
+mn.blockquote(
+    "Imagination is more important than knowledge.",
+    cite="— Albert Einstein",
+    icon=rx.icon("quote"),
+    icon_size=42,
+    color="blue",
+    radius="md",
+    iconSize=42,
+)
+```
+
+Props: `color`, `icon`, `icon_size`, `cite`, `radius`, plus standard layout/style props.
+
+> [Mantine docs — Blockquote](https://mantine.dev/core/blockquote/)
+
+## Highlight
+
+`Text`-like component that highlights one or more substrings within its content.
+
+```python
+mn.highlight(
+    "Reflex apps run on a Python backend with React frontend",
+    highlight=["Python", "React"],
+    color="yellow",
+    highlight_styles={
+        "backgroundColor": "var(--mantine-color-yellow-2)",
+        "padding": "0 4px",
+    },
+    fw=500,
+)
+```
+
+Props: `highlight` (str | list[str]), `color`, `highlight_styles`, plus all `Text`
+props (`size`, `fw`, `c`, `ta`, `tt`, `td`, `line_clamp`, `truncate`, etc.).
+
+> [Mantine docs — Highlight](https://mantine.dev/core/highlight/)
+
+## Mark
+
+Inline `<mark>`-style highlight (single substring or wrapper).
+
+```python
+mn.text(
+    "Important: ",
+    mn.mark("save before closing", color="yellow"),
+)
+```
+
+Props: `color`, plus standard layout/style props.
+
+> [Mantine docs — Mark](https://mantine.dev/core/mark/)
