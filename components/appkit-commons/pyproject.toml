@@ -32,7 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 apscheduler = [
-    "apscheduler[psycopg]>=4.0.0a5",
+    "apscheduler[psycopg]>=4.0.0a6",
 ]
 pgqueuer = [
     "pgqueuer>=1.0.1",
