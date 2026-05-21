@@ -77,6 +77,7 @@ from app.pages.examples.number_formatter_examples import (
 from app.pages.examples.overlay_examples import (
     overlay_examples,  # noqa: F401
 )
+from app.pages.examples.schedule_examples import schedule_examples  # noqa: F401
 from app.pages.examples.scroll_area_examples import scroll_area_examples  # noqa: F401
 from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.theme_examples import theme_examples  # noqa: F401

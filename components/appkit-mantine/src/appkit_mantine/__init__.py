@@ -341,6 +341,7 @@ __all__ = [
     "rolling_number",
     "sankey_chart",
     "scatter_chart",
+    "schedule",
     "scroll_area",
     "scroller",
     "segmented_control",

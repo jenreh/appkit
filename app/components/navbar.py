@@ -101,6 +101,7 @@ def navbar_items() -> rx.Component:
             sidebar_sub_item(label="Comboboxes", url="/comboboxes"),
             sidebar_sub_item(label="Date & Time", url="/examples/date"),
             sidebar_sub_item(label="Extension Components", url="/extensions"),
+            sidebar_sub_item(label="Schedule", url="/schedule"),
             sidebar_sub_item(label="Inputs", url="/inputs"),
             sidebar_sub_item(label="Advanced Inputs", url="/inputs-advanced"),
             sidebar_sub_item(label="Menu", url="/menu"),

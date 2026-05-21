@@ -16,12 +16,15 @@ REQUIRED_COMPONENT_EXAMPLES = (
     "color_swatch",
     "collapse",
     "dialog",
+    "day_view",
     "floating_indicator",
     "floating_window",
     "inline_date_time_picker",
     "kbd",
     "loading_overlay",
     "marquee",
+    "mobile_month_view",
+    "month_view",
     "overflow_list",
     "overlay",
     "pill",
@@ -30,6 +33,7 @@ REQUIRED_COMPONENT_EXAMPLES = (
     "radial_bar_chart",
     "rolling_number",
     "sankey_chart",
+    "schedule",
     "scroller",
     "spoiler",
     "table_of_contents",
@@ -37,6 +41,8 @@ REQUIRED_COMPONENT_EXAMPLES = (
     "transition",
     "tree_select",
     "unstyled_button",
+    "week_view",
+    "year_view",
 )
 
 
