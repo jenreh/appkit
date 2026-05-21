@@ -1,6 +1,6 @@
 ---
 name: appkit-mantine-reference
-description: Complete API reference for appkit_mantine components — inputs, layout, overlays, charts, data display, navigation, menu, table, tree, typography, schedule, and Mantine extensions (carousel, dropzone, code-highlight, modals manager). Use when creating any visible UI with mn.* components. Covers inheritance hierarchy, event handler patterns, colors, anti-patterns, and common pitfalls.
+description: Complete API reference for appkit_mantine components — inputs, layout, overlays, charts, data display, feedback, navigation, menu, table, tree, typography, schedule, and Mantine extensions (carousel, dropzone, code-highlight, modals manager). Use when creating any visible UI with mn.* components. Covers inheritance hierarchy, event handler patterns, colors, anti-patterns, and common pitfalls.
 metadata:
   author: jens-rehpoehler
   version: "1.3"
@@ -78,8 +78,20 @@ def set_date(self, value: str) -> None:
 
 ## Component categories
 
-**Inputs**: See [references/inputs.md](references/inputs.md)
-— TextInput, NumberInput, PasswordInput, Textarea, TagsInput, Select, MultiSelect, Autocomplete, NativeSelect, TreeSelect, RichSelect, DateInput, DatePickerInput, DateTimePicker, InlineDateTimePicker, MonthPickerInput, YearPickerInput, TimeInput, TimePicker, TimeGrid, MaskedInput, JsonInput, FileInput, PinInput, Rating, Fieldset, Chip/ChipGroup, ColorInput, ColorPicker, AlphaSlider, AngleSlider, HueSlider, Checkbox/CheckboxGroup/CheckboxCard, Radio/RadioGroup/RadioCard, Switch, Slider, RangeSlider, SegmentedControl, Form (input sub-components)
+**Text inputs**: See [references/inputs-text.md](references/inputs-text.md)
+— TextInput, NumberInput, PasswordInput, Textarea, MaskedInput, JsonInput, Form (input sub-components)
+
+**Selection inputs**: See [references/inputs-selection.md](references/inputs-selection.md)
+— Select, MultiSelect, Autocomplete, NativeSelect, TreeSelect, TagsInput, RichSelect
+
+**Toggle inputs**: See [references/inputs-toggle.md](references/inputs-toggle.md)
+— Checkbox/CheckboxGroup/CheckboxCard, Radio/RadioGroup/RadioCard, Switch, Chip/ChipGroup, SegmentedControl, Fieldset
+
+**Date & time inputs**: See [references/inputs-datetime.md](references/inputs-datetime.md)
+— DateInput, DatePickerInput, DateTimePicker, InlineDateTimePicker, MonthPickerInput, YearPickerInput, TimeInput, TimePicker, TimeGrid, Calendar, DatePicker, MonthPicker, YearPicker, MiniCalendar
+
+**Specialized inputs**: See [references/inputs-specialized.md](references/inputs-specialized.md)
+— Slider, RangeSlider, FileInput, PinInput, Rating, ColorInput, ColorPicker, HueSlider, AlphaSlider, AngleSlider
 
 **Layout**: See [references/layout.md](references/layout.md)
 — Stack, Group, Flex, Grid, SimpleGrid, Container, Center, Box, Space, Divider, Affix, FocusTrap, AppShell, AspectRatio, Collapse, Marquee, Portal, Scroller, Transition, VisuallyHidden, FloatingWindow, OverflowList
@@ -87,8 +99,11 @@ def set_date(self, value: str) -> None:
 **Overlays**: See [references/overlays.md](references/overlays.md)
 — Modal, Drawer, AlertDialog, LoadingOverlay, Overlay, FloatingIndicator, Dialog, Popover
 
-**Data display & feedback**: See [references/data-display.md](references/data-display.md)
-— Accordion, Avatar, Badge, Card, Image, BackgroundImage, Paper, Indicator, Timeline, NumberFormatter, RollingNumber, Spoiler, ThemeIcon, ColorSwatch, Kbd, Alert, Notification, Progress, RingProgress, SemiCircleProgress, Loader, Skeleton, Tooltip, HoverCard, Button, ActionIcon, CloseButton, UnstyledButton
+**Data display**: See [references/data-display.md](references/data-display.md)
+— Accordion, Avatar, Badge, Card, Image, BackgroundImage, Paper, Indicator, Timeline, NumberFormatter, RollingNumber, Spoiler, ThemeIcon, ColorSwatch, Kbd, Tooltip, HoverCard, Button, ActionIcon, CloseButton, UnstyledButton
+
+**Feedback & status**: See [references/feedback.md](references/feedback.md)
+— Alert, Notification, Progress, RingProgress, SemiCircleProgress, Loader, Skeleton
 
 **Navigation**: See [references/navigation.md](references/navigation.md)
 — Breadcrumbs, Pagination, Stepper, Tabs, NavLink, NavigationProgress, Anchor, Burger, TableOfContents, ScrollArea (autosize/autoscroll/stateful), RichTextEditor, MarkdownPreview
@@ -103,16 +118,10 @@ def set_date(self, value: str) -> None:
 — Hierarchical tree view with search, checkboxes, drag-and-drop
 
 **Typography**: See [references/typography.md](references/typography.md)
-— Text, Title, Code, List, TypographyStylesProvider
-
-**Typography**: See [references/typography.md](references/typography.md)
 — Text, Title, Code, List, Blockquote, Highlight, Mark, TypographyStylesProvider
 
 **Charts**: See [references/charts.md](references/charts.md)
 — AreaChart, BarChart, LineChart, CompositeChart, DonutChart, PieChart, RadarChart, RadialBarChart, ScatterChart, BubbleChart, Sparkline, FunnelChart, Heatmap, Treemap, BarsList, SankeyChart
-
-**Date/Time**: See [references/inputs.md](references/inputs.md) (DateInput section)
-— DateInput, DatePickerInput, DateTimePicker, InlineDateTimePicker, MonthPickerInput, YearPickerInput, TimeInput, TimePicker, TimeGrid, Calendar, DatePicker, MonthPicker, YearPicker, MiniCalendar
 
 **Schedule** (calendar views): See [references/schedule.md](references/schedule.md)
 — Schedule, DayView, WeekView, MonthView, YearView, MobileMonthView
@@ -125,17 +134,22 @@ def set_date(self, value: str) -> None:
 
 ## Decision tree
 
-**Need a form input?** → inputs.md (`mn.text_input`, `mn.number_input`, `mn.select`, `mn.checkbox`, etc.)
-**Need a custom input layout (label+description+error)?** → inputs.md (`mn.form.wrapper`, `mn.form.label`, `mn.form.error`)
-**Need a date/time picker?** → inputs.md (`mn.date_picker_input`, `mn.time_picker`, `mn.date_time_picker`, `mn.inline_date_time_picker`)
-**Need a toggle/selector?** → inputs.md (`mn.segmented_control`, `mn.radio.group`, `mn.checkbox.group`, `mn.chip.group`, `mn.switch`)
-**Need a color picker?** → inputs.md (`mn.color_input` with text input, `mn.color_picker` standalone, `mn.hue_slider`, `mn.alpha_slider`)
-**Need file upload?** → inputs.md (`mn.file_input` button-style) or extensions.md (`mn.dropzone` drag-and-drop)
-**Need a PIN / OTP code entry?** → inputs.md (`mn.pin_input`)
-**Need a star rating?** → inputs.md (`mn.rating`)
-**Need to group related inputs with a legend?** → inputs.md (`mn.fieldset`)
-**Need hierarchical selection?** → inputs.md (`mn.tree_select`)
-**Need an angle / direction picker?** → inputs.md (`mn.angle_slider`)
+**Need a text / number / password input?** → inputs-text.md (`mn.text_input`, `mn.number_input`, `mn.password_input`, `mn.textarea`)
+**Need a custom input layout (label+description+error)?** → inputs-text.md (`mn.form.wrapper`, `mn.form.label`, `mn.form.error`)
+**Need a masked or JSON input?** → inputs-text.md (`mn.masked_input`, `mn.json_input`)
+**Need a dropdown / combobox?** → inputs-selection.md (`mn.select`, `mn.multi_select`, `mn.autocomplete`, `mn.native_select`)
+**Need a tags input?** → inputs-selection.md (`mn.tags_input`)
+**Need hierarchical selection?** → inputs-selection.md (`mn.tree_select`)
+**Need a custom-rendered select?** → inputs-selection.md (`mn.rich_select` with `mn.rich_select.map(data, renderer=...)`)
+**Need a toggle/selector?** → inputs-toggle.md (`mn.segmented_control`, `mn.radio.group`, `mn.checkbox.group`, `mn.chip.group`, `mn.switch`)
+**Need to group related inputs with a legend?** → inputs-toggle.md (`mn.fieldset`)
+**Need a date/time picker?** → inputs-datetime.md (`mn.date_picker_input`, `mn.time_picker`, `mn.date_time_picker`, `mn.inline_date_time_picker`)
+**Need a range / numeric slider?** → inputs-specialized.md (`mn.slider`, `mn.range_slider`)
+**Need a color picker?** → inputs-specialized.md (`mn.color_input` with text input, `mn.color_picker` standalone, `mn.hue_slider`, `mn.alpha_slider`)
+**Need file upload?** → inputs-specialized.md (`mn.file_input` button-style) or extensions.md (`mn.dropzone` drag-and-drop)
+**Need a PIN / OTP code entry?** → inputs-specialized.md (`mn.pin_input`)
+**Need a star rating?** → inputs-specialized.md (`mn.rating`)
+**Need an angle / direction picker?** → inputs-specialized.md (`mn.angle_slider`)
 **Need layout?** → layout.md (`mn.stack` vertical, `mn.group` horizontal, `mn.flex`, `mn.grid`)
 **Need a full app shell (header / navbar / footer / aside)?** → layout.md (`mn.app_shell`)
 **Need fixed aspect ratio container?** → layout.md (`mn.aspect_ratio`)
@@ -149,8 +163,8 @@ def set_date(self, value: str) -> None:
 **Need a dialog?** → overlays.md (`mn.modal` centered, `mn.drawer` side panel, `mn.alert_dialog` confirmation, `mn.dialog` small floating panel)
 **Need a popover anchored to a trigger?** → overlays.md (`mn.popover`)
 **Need programmatic modal/confirm management?** → extensions.md (`mn.modals_provider`)
-**Need a loading state?** → overlays.md (`mn.loading_overlay`) or data-display.md (`mn.skeleton`, `mn.loader`)
-**Need feedback?** → data-display.md (`mn.alert`, `mn.notification`, `mn.progress`, `mn.ring_progress`, `mn.semi_circle_progress`, `mn.skeleton`)
+**Need a loading state?** → overlays.md (`mn.loading_overlay`) or feedback.md (`mn.skeleton`, `mn.loader`)
+**Need feedback / status messages?** → feedback.md (`mn.alert`, `mn.notification`, `mn.progress`, `mn.ring_progress`, `mn.semi_circle_progress`, `mn.skeleton`)
 **Need a status label?** → data-display.md (`mn.badge`)
 **Need an animated rolling counter?** → data-display.md (`mn.rolling_number`)
 **Need expandable/spoiler content?** → data-display.md (`mn.spoiler`)
@@ -168,7 +182,6 @@ def set_date(self, value: str) -> None:
 **Need a `<mark>` inline highlight?** → typography.md (`mn.mark`)
 **Need a blockquote?** → typography.md (`mn.blockquote`)
 **Need a dropdown/context menu?** → menu.md (`mn.menu`)
-**Need a custom-rendered select?** → inputs.md (`mn.rich_select` with `mn.rich_select.map(data, renderer=...)`)
 **Need chat/streaming scroll?** → navigation.md (`mn.scroll_area.autoscroll`)
 **Need tabular data?** → table.md (`mn.table`)
 **Need hierarchical data?** → tree.md (`mn.tree`)

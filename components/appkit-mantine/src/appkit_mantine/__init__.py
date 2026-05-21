@@ -15,7 +15,6 @@ from appkit_mantine.theme import (
 from appkit_mantine.alert_dialog import alert_dialog
 from appkit_mantine.button import button, action_icon, close_button, unstyled_button
 from appkit_mantine.carousel import carousel
-from appkit_mantine.code_highlight import code_highlight
 from appkit_mantine.combobox import (
     select,
     multi_select,
@@ -257,7 +256,6 @@ __all__ = [
     "chip",
     "close_button",
     "code",
-    "code_highlight",
     "collapse",
     "color_input",
     "color_picker",

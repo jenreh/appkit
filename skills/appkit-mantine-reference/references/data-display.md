@@ -1,4 +1,4 @@
-# Data Display & Feedback Reference
+# Data Display Reference
 
 ## Contents
 
@@ -6,18 +6,19 @@
 - Avatar
 - Badge
 - Card
-- Image
+- Image, BackgroundImage
 - Paper
 - Indicator
 - Timeline
-- NumberFormatter
-- Alert
-- Notification
-- Progress
-- Skeleton
-- Tooltip
-- HoverCard
-- Button and ActionIcon
+- NumberFormatter, RollingNumber
+- ThemeIcon, ColorSwatch
+- Kbd
+- Spoiler
+- Button, ActionIcon
+- CloseButton, UnstyledButton
+- Tooltip, HoverCard
+
+For status feedback (Alert, Notification, Progress, Skeleton, Loader) → see [references/feedback.md](references/feedback.md)
 
 ## Accordion
 
@@ -121,6 +122,23 @@ Props: `src`, `fit`, `fallback_src`, `radius`, `w`, `h`.
 
 > [Mantine docs — Image](https://mantine.dev/core/image/)
 
+## BackgroundImage
+
+Renders any element with a background image (covers, hero blocks).
+
+```python
+mn.background_image(
+    mn.center(mn.title("Welcome", c="white"), h="100%"),
+    src="/img/hero.jpg",
+    h=300,
+    radius="md",
+)
+```
+
+Props: `src`, `radius`.
+
+> [Mantine docs — BackgroundImage](https://mantine.dev/core/background-image/)
+
 ## Paper
 
 ```python
@@ -188,145 +206,92 @@ Props: `allow_negative`, `decimal_scale`, `decimal_separator`, `fixed_decimal_sc
 
 > [Mantine docs — NumberFormatter](https://mantine.dev/core/number-formatter/)
 
-## Alert
+## RollingNumber
+
+Animated counter that "rolls" when the value changes.
 
 ```python
-mn.alert(
-    "This is an important message",
-    title="Warning",
-    color="yellow",
-    variant="light",
-    icon=rx.icon("alert-triangle"),
-    with_close_button=True,
-    on_close=State.dismiss_alert,
-)
-```
-
-Props: `title`, `color`, `variant`, `radius`, `with_close_button`, `icon`, `on_close`.
-
-> [Mantine docs — Alert](https://mantine.dev/core/alert/)
-
-## Notification
-
-```python
-mn.notification(
-    "Your file has been uploaded",
-    title="Success",
-    color="green",
-    icon=rx.icon("check"),
-    with_close_button=True,
-    loading=False,
-)
-```
-
-Props: `title`, `color`, `radius`, `icon`, `with_close_button`, `with_border`,
-`loading`, `on_close`.
-
-> [Mantine docs — Notification](https://mantine.dev/core/notification/)
-
-## Progress
-
-Simple:
-
-```python
-mn.progress(value=65, color="blue", size="lg", striped=True, animated=True)
-```
-
-Compound (multi-section with labels):
-
-```python
-mn.progress.root(
-    mn.progress.section(
-        mn.progress.label("Docs 40%"),
-        value=40,
-        color="blue",
-    ),
-    mn.progress.section(
-        mn.progress.label("Code 25%"),
-        value=25,
-        color="teal",
-    ),
-    mn.progress.section(
-        mn.progress.label("Tests 15%"),
-        value=15,
-        color="orange",
-    ),
+mn.rolling_number(
+    value=State.live_count,
     size="xl",
+    fw=700,
+    duration=500,
 )
 ```
 
-Sub-components: `mn.progress.root`, `mn.progress.section`, `mn.progress.label`.
+Props: `value` (number), `duration`, `easing`, plus typography style props.
 
-Props: `value`, `color`, `size`, `radius`, `striped`, `animated`, `transition_duration`, `auto_contrast`.
+> Mantine extension component.
 
-> [Mantine docs — Progress](https://mantine.dev/core/progress/)
+## ThemeIcon
 
-## Skeleton
-
-```python
-mn.skeleton(height=50, radius="md", animate=True)
-mn.skeleton(height=8, radius="xl", visible=State.loading)  # inline
-mn.skeleton(height=40, circle=True)  # circular
-```
-
-Props: `visible`, `height`, `width`, `circle`, `radius`, `animate`.
-
-> [Mantine docs — Skeleton](https://mantine.dev/core/skeleton/)
-
-## Tooltip
+Colored icon container — fixed-size box around an icon.
 
 ```python
-mn.tooltip(
-    mn.button("Hover me"),
-    label="Tooltip text",
-    position="top",
-    with_arrow=True,
-    open_delay=200,
+mn.theme_icon(
+    rx.icon("check"),
+    size="lg",
+    radius="xl",
+    color="green",
+    variant="filled",  # "filled" | "light" | "outline" | "default" | "gradient" | "white" | "transparent"
+    gradient={"from": "teal", "to": "lime", "deg": 105},
 )
 ```
 
-Props: `label`, `position`, `offset`, `open_delay`, `close_delay`, `color`,
-`radius`, `with_arrow`, `multiline`, `opened` (controlled).
+Props: `size`, `radius`, `color`, `variant`, `gradient`, `autocontrast`.
 
-Floating tooltip: `mn.tooltip.floating(child, label="Follows cursor")`.
+> [Mantine docs — ThemeIcon](https://mantine.dev/core/theme-icon/)
 
-> [Mantine docs — Tooltip](https://mantine.dev/core/tooltip/)
+## ColorSwatch
 
-## HoverCard
-
-Reveals a card when hovering over a trigger element.
+Solid-color circular swatch — for palettes, color pickers, indicators.
 
 ```python
-mn.hover_card(
-    mn.hover_card.target(
-        mn.avatar(src="/img/user.jpg", radius="xl"),
-    ),
-    mn.hover_card.dropdown(
-        mn.stack(
-            mn.group(
-                mn.avatar(src="/img/user.jpg"),
-                mn.stack(
-                    mn.text("Alice Smith", fw=500),
-                    mn.text("@alice", size="xs", c="dimmed"),
-                    gap=2,
-                ),
-            ),
-            mn.text("Full stack developer at Acme Corp.", size="sm"),
-            gap="xs",
-        ),
-    ),
-    width=280,
-    shadow="md",
-    open_delay=200,
-    close_delay=150,
+mn.color_swatch(color="#fa5252", size=24, radius="xl", with_shadow=True)
+```
+
+Props: `color`, `size`, `radius`, `with_shadow`.
+
+> [Mantine docs — ColorSwatch](https://mantine.dev/core/color-swatch/)
+
+## Kbd
+
+Renders a keyboard key (`<kbd>`).
+
+```python
+mn.group(
+    mn.kbd("⌘"),
+    mn.text("+", c="dimmed"),
+    mn.kbd("K"),
+    gap=4,
 )
 ```
 
-Sub-components: `mn.hover_card.target(child)`, `mn.hover_card.dropdown(*content)`.
+Props: `size`, plus standard layout props.
 
-Props: `width`, `shadow`, `open_delay`, `close_delay`, `position`, `disabled`.
+> [Mantine docs — Kbd](https://mantine.dev/core/kbd/)
 
-> [Mantine docs — HoverCard](https://mantine.dev/core/hover-card/)
+## Spoiler
+
+Collapses long content with show-more/show-less toggle.
+
+```python
+mn.spoiler(
+    rx.text(State.long_text),
+    max_height=120,
+    show_label="Show more",
+    hide_label="Hide",
+    initial_state=False,
+    expanded=State.expanded,
+    on_expanded_change=State.set_expanded,
+    transition_duration=200,
+)
+```
+
+Props: `max_height`, `show_label`, `hide_label`, `initial_state`, `expanded`,
+`transition_duration`, `control_ref`, `on_expanded_change` (receives `bool`).
+
+> [Mantine docs — Spoiler](https://mantine.dev/core/spoiler/)
 
 ## Button
 
@@ -421,165 +386,57 @@ loading, loader_props, disabled, etc.).
 
 > [Mantine docs — UnstyledButton](https://mantine.dev/core/unstyled-button/)
 
-## Loader
-
-Animated loading indicator (spinner, bars, dots).
+## Tooltip
 
 ```python
-mn.loader(size="md", color="blue", type="dots")  # "bars" | "dots" | "oval"
-```
-
-Props: `size`, `color`, `type`.
-
-> [Mantine docs — Loader](https://mantine.dev/core/loader/)
-
-## RingProgress
-
-Circular progress ring with optional center label and multiple sections.
-
-```python
-mn.ring_progress(
-    sections=[
-        {"value": 40, "color": "blue", "tooltip": "Done"},
-        {"value": 25, "color": "orange", "tooltip": "In progress"},
-    ],
-    label=mn.text("65%", ta="center", fw=700),
-    size=140,
-    thickness=12,
-    round_caps=True,
-    section_gap=4,
+mn.tooltip(
+    mn.button("Hover me"),
+    label="Tooltip text",
+    position="top",
+    with_arrow=True,
+    open_delay=200,
 )
 ```
 
-Props: `sections` (list of `{value, color, tooltip?}`), `size`, `thickness`,
-`label`, `root_color`, `round_caps`, `section_gap`, `start_angle`, `transition_duration`.
+Props: `label`, `position`, `offset`, `open_delay`, `close_delay`, `color`,
+`radius`, `with_arrow`, `multiline`, `opened` (controlled).
 
-> [Mantine docs — RingProgress](https://mantine.dev/core/ring-progress/)
+Floating tooltip: `mn.tooltip.floating(child, label="Follows cursor")`.
 
-## SemiCircleProgress
+> [Mantine docs — Tooltip](https://mantine.dev/core/tooltip/)
 
-Half-circle gauge (0–100).
+## HoverCard
+
+Reveals a card when hovering over a trigger element.
 
 ```python
-mn.semi_circle_progress(
-    value=68,
-    size=200,
-    thickness=12,
-    label=mn.text("68%", fw=600),
-    label_position="center",  # "center" | "bottom"
-    orientation="up",  # "up" | "down"
-    fill_direction="left-to-right",  # "left-to-right" | "right-to-left"
-    filled_segment_color="blue",
-    empty_segment_color="gray.2",
-    transition_duration=500,
+mn.hover_card(
+    mn.hover_card.target(
+        mn.avatar(src="/img/user.jpg", radius="xl"),
+    ),
+    mn.hover_card.dropdown(
+        mn.stack(
+            mn.group(
+                mn.avatar(src="/img/user.jpg"),
+                mn.stack(
+                    mn.text("Alice Smith", fw=500),
+                    mn.text("@alice", size="xs", c="dimmed"),
+                    gap=2,
+                ),
+            ),
+            mn.text("Full stack developer at Acme Corp.", size="sm"),
+            gap="xs",
+        ),
+    ),
+    width=280,
+    shadow="md",
+    open_delay=200,
+    close_delay=150,
 )
 ```
 
-Props: `value`, `size`, `thickness`, `label`, `label_position`, `orientation`,
-`fill_direction`, `filled_segment_color`, `empty_segment_color`, `transition_duration`.
+Sub-components: `mn.hover_card.target(child)`, `mn.hover_card.dropdown(*content)`.
 
-> [Mantine docs — SemiCircleProgress](https://mantine.dev/core/semi-circle-progress/)
+Props: `width`, `shadow`, `open_delay`, `close_delay`, `position`, `disabled`.
 
-## ThemeIcon
-
-Colored icon container — fixed-size box around an icon.
-
-```python
-mn.theme_icon(
-    rx.icon("check"),
-    size="lg",
-    radius="xl",
-    color="green",
-    variant="filled",  # "filled" | "light" | "outline" | "default" | "gradient" | "white" | "transparent"
-    gradient={"from": "teal", "to": "lime", "deg": 105},
-)
-```
-
-Props: `size`, `radius`, `color`, `variant`, `gradient`, `autocontrast`.
-
-> [Mantine docs — ThemeIcon](https://mantine.dev/core/theme-icon/)
-
-## ColorSwatch
-
-Solid-color circular swatch — for palettes, color pickers, indicators.
-
-```python
-mn.color_swatch(color="#fa5252", size=24, radius="xl", with_shadow=True)
-```
-
-Props: `color`, `size`, `radius`, `with_shadow`.
-
-> [Mantine docs — ColorSwatch](https://mantine.dev/core/color-swatch/)
-
-## Kbd
-
-Renders a keyboard key (`<kbd>`).
-
-```python
-mn.group(
-    mn.kbd("⌘"),
-    mn.text("+", c="dimmed"),
-    mn.kbd("K"),
-    gap=4,
-)
-```
-
-Props: `size`, plus standard layout props.
-
-> [Mantine docs — Kbd](https://mantine.dev/core/kbd/)
-
-## Spoiler
-
-Collapses long content with show-more/show-less toggle.
-
-```python
-mn.spoiler(
-    rx.text(State.long_text),
-    max_height=120,
-    show_label="Show more",
-    hide_label="Hide",
-    initial_state=False,
-    expanded=State.expanded,
-    on_expanded_change=State.set_expanded,
-    transition_duration=200,
-)
-```
-
-Props: `max_height`, `show_label`, `hide_label`, `initial_state`, `expanded`,
-`transition_duration`, `control_ref`, `on_expanded_change` (receives `bool`).
-
-> [Mantine docs — Spoiler](https://mantine.dev/core/spoiler/)
-
-## BackgroundImage
-
-Renders any element with a background image (covers, hero blocks).
-
-```python
-mn.background_image(
-    mn.center(mn.title("Welcome", c="white"), h="100%"),
-    src="/img/hero.jpg",
-    h=300,
-    radius="md",
-)
-```
-
-Props: `src`, `radius`.
-
-> [Mantine docs — BackgroundImage](https://mantine.dev/core/background-image/)
-
-## RollingNumber
-
-Animated counter that "rolls" when the value changes.
-
-```python
-mn.rolling_number(
-    value=State.live_count,
-    size="xl",
-    fw=700,
-    duration=500,
-)
-```
-
-Props: `value` (number), `duration`, `easing`, plus typography style props.
-
-> Mantine extension component.
+> [Mantine docs — HoverCard](https://mantine.dev/core/hover-card/)

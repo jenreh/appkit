@@ -7,7 +7,6 @@ automatically when you use the component.
 ## Contents
 
 - Carousel (`@mantine/carousel`)
-- CodeHighlight (`@mantine/code-highlight`)
 - Dropzone (`@mantine/dropzone`)
 - ModalsProvider (`@mantine/modals`)
 
@@ -50,60 +49,6 @@ Root props: `height`, `initial_slide`, `orientation`, `slide_size`, `slide_gap`,
 `carousel.slide` has no special props — just layout/style props.
 
 > [Mantine docs — Carousel](https://mantine.dev/x/carousel/)
-
-## CodeHighlight
-
-Syntax-highlighted code block with optional copy / expand controls.
-Namespaced: `mn.code_highlight(...)` (single), `mn.code_highlight.tabs(...)`
-(multi-file tabs), `mn.code_highlight.inline(...)` (inline snippet).
-
-```python
-mn.code_highlight(
-    code='print("hello world")',
-    language="python",
-    with_copy_button=True,
-    with_expand_button=False,
-    with_border=True,
-    radius="md",
-    copy_label="Copy",
-    copied_label="Copied!",
-    code_color_scheme="dark",
-)
-```
-
-```python
-mn.code_highlight.tabs(
-    code=[
-        {"fileName": "app.py", "code": "print('hi')", "language": "python"},
-        {"fileName": "index.ts", "code": "console.log('hi')", "language": "ts"},
-    ],
-    default_active_tab=0,
-    with_copy_button=True,
-    radius="md",
-    on_tab_change=State.set_tab,  # receives int
-)
-```
-
-```python
-mn.text(
-    "Run ",
-    mn.code_highlight.inline(code="task test", language="bash"),
-    " in the project root.",
-)
-```
-
-CodeHighlight props: `code`, `language`, `background`, `radius`, `with_border`,
-`with_copy_button`, `with_expand_button`, `default_expanded`, `expanded`,
-`max_collapsed_height`, `copy_label`, `copied_label`, `expand_code_label`,
-`collapse_code_label`, `code_color_scheme` (`"dark"` | `"light"`), `controls`,
-`on_expanded_change` (receives `bool`).
-
-CodeHighlightTabs props: `code` (list of `{code, language, fileName?}`),
-`active_tab`, `default_active_tab`, `background`, `radius`, `with_border`,
-`with_copy_button`, `with_expand_button`, `max_collapsed_height`,
-`code_color_scheme`, `on_tab_change` (receives `int`), `on_expanded_change`.
-
-> [Mantine docs — CodeHighlight](https://mantine.dev/x/code-highlight/)
 
 ## Dropzone
 
