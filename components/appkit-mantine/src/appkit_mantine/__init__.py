@@ -161,6 +161,7 @@ from appkit_mantine.overlay import (
     loading_overlay,
     floating_indicator,
 )
+from appkit_mantine.schedule import schedule
 from appkit_mantine.scroll_area import scroll_area
 from appkit_mantine.slider import slider, range_slider
 from appkit_mantine.table import table
