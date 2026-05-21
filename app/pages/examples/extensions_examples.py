@@ -6,7 +6,6 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_mantine.carousel import carousel
-from appkit_mantine.code_highlight import code_highlight
 from appkit_mantine.dropzone import dropzone
 from appkit_user.authentication.templates import navbar_layout
 
@@ -87,48 +86,6 @@ def extensions_examples() -> rx.Component:
                     with_indicators=True,
                     slide_size="100%",
                 ),
-            ),
-            # Code Highlight
-            mn.title("Code Highlight", order=2, mt="lg"),
-            mn.text(
-                "Syntax-highlighted code blocks.",
-                size="sm",
-                c="dimmed",
-                mb="md",
-            ),
-            mn.simple_grid(
-                example_box(
-                    "Python Block",
-                    code_highlight(
-                        code=EXAMPLE_CODE_PY,
-                        language="python",
-                        with_copy_button=True,
-                        with_border=True,
-                        radius="md",
-                    ),
-                ),
-                example_box(
-                    "Tabbed Code",
-                    code_highlight.tabs(
-                        code=[
-                            {
-                                "code": EXAMPLE_CODE_PY,
-                                "language": "python",
-                                "fileName": "page.py",
-                            },
-                            {
-                                "code": EXAMPLE_CODE_TS,
-                                "language": "tsx",
-                                "fileName": "page.tsx",
-                            },
-                        ],
-                        with_copy_button=True,
-                        with_border=True,
-                        radius="md",
-                    ),
-                ),
-                cols=2,
-                spacing="md",
             ),
             # Dropzone
             mn.title("Dropzone", order=2, mt="lg"),
