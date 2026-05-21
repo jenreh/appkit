@@ -277,11 +277,90 @@ class NavLink(MantineComponentBase):
     sx: Var[dict] = None
 
 
+class Anchor(MantineLayoutComponentBase):
+    """Mantine Anchor component — styled hyperlink.
+
+    https://mantine.dev/core/anchor/
+    """
+
+    tag = "Anchor"
+
+    _rename_props = {
+        "line_clamp": "lineClamp",
+    }
+
+    href: Var[str] = None
+    target: Var[str] = None
+    underline: Var[Literal["always", "hover", "not-hover", "never"]] = None
+    size: Var[str | int] = None
+    gradient: Var[dict] = None
+    inherit: Var[bool] = None
+    inline: Var[bool] = None
+    line_clamp: Var[int] = None
+
+    on_click: EventHandler[rx.event.no_args_event_spec] = None
+
+
+class Burger(MantineLayoutComponentBase):
+    """Mantine Burger component — animated hamburger menu toggle.
+
+    https://mantine.dev/core/burger/
+    """
+
+    tag = "Burger"
+
+    _rename_props = {
+        "line_size": "lineSize",
+        "transition_duration": "transitionDuration",
+        "transition_timing_function": "transitionTimingFunction",
+    }
+
+    opened: Var[bool] = None
+    color: Var[str] = None
+    size: Var[str | int] = None
+    line_size: Var[str | int] = None
+    transition_duration: Var[int] = None
+    transition_timing_function: Var[str] = None
+
+    on_click: EventHandler[rx.event.no_args_event_spec] = None
+
+
+class TableOfContents(MantineLayoutComponentBase):
+    """Mantine TableOfContents component — page section navigator.
+
+    https://mantine.dev/core/table-of-contents/
+    """
+
+    tag = "TableOfContents"
+
+    _rename_props = {
+        "auto_contrast": "autoContrast",
+        "depth_offset": "depthOffset",
+        "get_control_props": "getControlProps",
+        "initial_data": "initialData",
+        "min_depth_to_offset": "minDepthToOffset",
+        "reinitialize_ref": "reinitializeRef",
+        "scroll_spy_options": "scrollSpyOptions",
+    }
+
+    color: Var[str] = None
+    size: Var[str | int] = None
+    radius: Var[str | int] = None
+    auto_contrast: Var[bool] = None
+    depth_offset: Var[str | int] = None
+    min_depth_to_offset: Var[int] = None
+    initial_data: Var[list[dict[str, Any]]] = None
+    scroll_spy_options: Var[dict] = None
+
+
 # Convenience factory to match other components' usage
 
+anchor = Anchor.create
 breadcrumbs = Breadcrumbs.create
+burger = Burger.create
 navigation_progress = NavigationProgress.create
 nav_link = NavLink.create
 pagination = Pagination.create
 stepper = StepperNamespace()
+table_of_contents = TableOfContents.create
 tabs = TabsNamespace()

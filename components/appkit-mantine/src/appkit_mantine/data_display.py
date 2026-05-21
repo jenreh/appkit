@@ -203,6 +203,101 @@ class NumberFormatter(MantineInputComponentBase):
     thousands_group_style: Var[Literal["thousand", "lakh", "wan", "none"]] = "none"
 
 
+class Kbd(MantineLayoutComponentBase):
+    """Mantine Kbd component — keyboard key display.
+
+    https://mantine.dev/core/kbd/
+    """
+
+    tag = "Kbd"
+
+    size: Var[str | int] = None
+
+
+class ColorSwatch(MantineLayoutComponentBase):
+    """Mantine ColorSwatch component — displays a color sample.
+
+    https://mantine.dev/core/color-swatch/
+    """
+
+    tag = "ColorSwatch"
+
+    _rename_props = {
+        "with_shadow": "withShadow",
+    }
+
+    color: Var[str] = None
+    radius: Var[str | int] = None
+    size: Var[str | int] = None
+    with_shadow: Var[bool] = None
+
+
+class ThemeIcon(MantineLayoutComponentBase):
+    """Mantine ThemeIcon component — colored icon container.
+
+    https://mantine.dev/core/theme-icon/
+    """
+
+    tag = "ThemeIcon"
+
+    _rename_props = {
+        "auto_contrast": "autoContrast",
+    }
+
+    color: Var[str] = None
+    gradient: Var[dict] = None
+    radius: Var[str | int] = None
+    size: Var[str | int] = None
+    variant: Var[str] = None
+    auto_contrast: Var[bool] = None
+
+
+class Spoiler(MantineLayoutComponentBase):
+    """Mantine Spoiler component — expandable content with show/hide toggle.
+
+    https://mantine.dev/core/spoiler/
+    """
+
+    tag = "Spoiler"
+
+    _rename_props = {
+        "default_expanded": "defaultExpanded",
+        "hide_label": "hideLabel",
+        "hide_aria_label": "hideAriaLabel",
+        "max_height": "maxHeight",
+        "show_label": "showLabel",
+        "show_aria_label": "showAriaLabel",
+        "transition_duration": "transitionDuration",
+    }
+
+    show_label: Var[Any] = None
+    """Label for the show more button (required)."""
+
+    hide_label: Var[Any] = None
+    """Label for the hide button (required)."""
+
+    max_height: Var[int] = None
+    default_expanded: Var[bool] = None
+    expanded: Var[bool] = None
+    transition_duration: Var[int] = None
+    show_aria_label: Var[str] = None
+    hide_aria_label: Var[str] = None
+
+    on_expanded_change: EventHandler[lambda expanded: [expanded]] = None
+
+
+class BackgroundImage(MantineLayoutComponentBase):
+    """Mantine BackgroundImage component — div with background image.
+
+    https://mantine.dev/core/background-image/
+    """
+
+    tag = "BackgroundImage"
+
+    src: Var[str] = None
+    radius: Var[str | int] = None
+
+
 #### Factory functions for easier imports and usage
 
 
@@ -238,10 +333,15 @@ class TimelineNamespace(rx.ComponentNamespace):
 
 accordion = AccordionNamespace()
 avatar = AvatarNamespace()
+background_image = BackgroundImage.create
 badge = Badge.create
 card = CardNamespace()
+color_swatch = ColorSwatch.create
 image = Image.create
 indicator = Indicator.create
+kbd = Kbd.create
 number_formatter = NumberFormatter.create
 paper = Paper.create
+spoiler = Spoiler.create
+theme_icon = ThemeIcon.create
 timeline = TimelineNamespace()

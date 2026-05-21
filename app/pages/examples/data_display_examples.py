@@ -284,6 +284,72 @@ def data_display_examples() -> rx.Component:
                 cols=2,
                 spacing="md",
             ),
+            mn.title("Display Utilities", order=2, mt="lg"),
+            mn.simple_grid(
+                example_box(
+                    "BackgroundImage",
+                    mn.background_image(
+                        mn.stack(
+                            mn.title("Cover panel", order=3, c="white"),
+                            mn.text("Text remains normal content.", c="white"),
+                            gap="xs",
+                            p="xl",
+                        ),
+                        src="https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-8.png",
+                        radius="md",
+                    ),
+                ),
+                example_box(
+                    "ColorSwatch",
+                    mn.group(
+                        mn.color_swatch(color="#228be6"),
+                        mn.color_swatch(color="#12b886", size=32, with_shadow=True),
+                        mn.color_swatch(color="#fa5252", radius="sm"),
+                    ),
+                ),
+                example_box(
+                    "Kbd",
+                    mn.group(
+                        mn.kbd("Cmd"),
+                        mn.kbd("K"),
+                        mn.text("opens the command menu", c="dimmed"),
+                        gap="xs",
+                    ),
+                ),
+                example_box(
+                    "Spoiler",
+                    mn.spoiler(
+                        mn.text(
+                            "This long content starts compact and can be expanded "
+                            "when the reader wants the full details. It is useful "
+                            "for notes, previews, and changelog entries."
+                        ),
+                        max_height=48,
+                        show_label="Show more",
+                        hide_label="Hide",
+                    ),
+                ),
+                example_box(
+                    "ThemeIcon",
+                    mn.group(
+                        mn.theme_icon(rx.icon("bell"), color="blue", radius="xl"),
+                        mn.theme_icon(
+                            rx.icon("check"),
+                            color="teal",
+                            variant="light",
+                            radius="xl",
+                        ),
+                        mn.theme_icon(
+                            rx.icon("sparkles"),
+                            variant="gradient",
+                            gradient={"from": "orange", "to": "red"},
+                            radius="xl",
+                        ),
+                    ),
+                ),
+                cols=2,
+                spacing="md",
+            ),
             spacing="md",
             w="100%",
             mb="6rem",

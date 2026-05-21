@@ -7,7 +7,7 @@ import reflex as rx
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
-from appkit_mantine.base import MantineInputComponentBase
+from appkit_mantine.base import MantineInputComponentBase, MantineLayoutComponentBase
 from appkit_mantine.date import DateInput
 
 IMASK_VERSION: str = "7.6.1"
@@ -611,13 +611,379 @@ class Textarea(MantineInputComponentBase):
     """Mantine styles object for targeting internal elements (root, wrapper, input)."""
 
 
+class NativeSelect(MantineInputComponentBase):
+    """Mantine NativeSelect component — native browser select element.
+
+    https://mantine.dev/core/native-select/
+    """
+
+    tag = "NativeSelect"
+
+    data: Var[list[Any]] = None
+    """Options as list of strings or {value, label, disabled?} dicts."""
+
+
+class FileInput(MantineInputComponentBase):
+    """Mantine FileInput component — file picker with input wrapper.
+
+    https://mantine.dev/core/file-input/
+    """
+
+    tag = "FileInput"
+
+    _rename_props = {
+        **MantineInputComponentBase._rename_props,  # noqa: SLF001
+        "accept": "accept",
+        "capture": "capture",
+        "clearable": "clearable",
+        "multiple": "multiple",
+        "value_component": "valueComponent",
+    }
+
+    accept: Var[str] = None
+    capture: Var[str | bool] = None
+    multiple: Var[bool] = None
+    clearable: Var[bool] = None
+    value_component: Var[Any] = None
+
+    def get_event_triggers(self) -> dict[str, Any]:
+        def _on_change(value: Var) -> list[Var]:
+            return [value]
+
+        return {
+            **super().get_event_triggers(),
+            "on_change": _on_change,
+        }
+
+
+class PinInput(MantineInputComponentBase):
+    """Mantine PinInput component — individual character pin/code entry.
+
+    https://mantine.dev/core/pin-input/
+    """
+
+    tag = "PinInput"
+
+    _rename_props = {
+        **MantineInputComponentBase._rename_props,  # noqa: SLF001
+        "auto_focus": "autoFocus",
+        "input_mode": "inputMode",
+        "input_type": "inputType",
+        "manage_focus": "manageFocus",
+        "one_time_code": "oneTimeCode",
+        "restrict_to_marks": "restrictToMarks",
+    }
+
+    length: Var[int] = None
+    """Number of input fields (default: 4)."""
+
+    mask: Var[bool] = None
+    """If set, inputs are rendered as password."""
+
+    placeholder: Var[str] = None
+    type: Var[Literal["number", "alphanumeric"]] = None
+    input_type: Var[str] = None
+    input_mode: Var[str] = None
+    manage_focus: Var[bool] = None
+    one_time_code: Var[bool] = None
+    auto_focus: Var[bool] = None
+
+    on_complete: EventHandler[lambda value: [value]] = None
+
+    def get_event_triggers(self) -> dict[str, Any]:
+        def _on_change(value: Var) -> list[Var]:
+            return [value]
+
+        return {
+            **super().get_event_triggers(),
+            "on_change": _on_change,
+        }
+
+
+class Rating(MantineLayoutComponentBase):
+    """Mantine Rating component — star/symbol rating input.
+
+    https://mantine.dev/core/rating/
+    """
+
+    tag = "Rating"
+
+    _rename_props = {
+        "allow_clear": "allowClear",
+        "default_value": "defaultValue",
+        "empty_symbol": "emptySymbol",
+        "full_symbol": "fullSymbol",
+        "get_symbol_label": "getSymbolLabel",
+        "highlight_selected_only": "highlightSelectedOnly",
+        "on_change_end": "onChangeEnd",
+        "on_hover": "onHover",
+        "read_only": "readOnly",
+    }
+
+    value: Var[int | float] = None
+    default_value: Var[int | float] = None
+    count: Var[int] = None
+    fractions: Var[int] = None
+    color: Var[str] = None
+    size: Var[str | int] = None
+    name: Var[str] = None
+    read_only: Var[bool] = None
+    allow_clear: Var[bool] = None
+    highlight_selected_only: Var[bool] = None
+    empty_symbol: Var[Any] = None
+    full_symbol: Var[Any] = None
+
+    on_change: EventHandler[lambda value: [value]] = None
+    on_hover: EventHandler[lambda value: [value]] = None
+
+
+class Fieldset(MantineLayoutComponentBase):
+    """Mantine Fieldset component — groups related inputs with a legend.
+
+    https://mantine.dev/core/fieldset/
+    """
+
+    tag = "Fieldset"
+
+    legend: Var[Any] = None
+    radius: Var[str | int] = None
+    disabled: Var[bool] = None
+    variant: Var[Literal["default", "filled", "unstyled"]] = None
+
+
+class Chip(MantineLayoutComponentBase):
+    """Mantine Chip component — toggleable chip/tag input.
+
+    https://mantine.dev/core/chip/
+    """
+
+    tag = "Chip"
+
+    _rename_props = {
+        "auto_contrast": "autoContrast",
+        "default_checked": "defaultChecked",
+    }
+
+    checked: Var[bool] = None
+    default_checked: Var[bool] = None
+    color: Var[str] = None
+    radius: Var[str | int] = None
+    size: Var[str | int] = None
+    icon: Var[Any] = None
+    type: Var[Literal["checkbox", "radio"]] = None
+    auto_contrast: Var[bool] = None
+    disabled: Var[bool] = None
+    id: Var[str] = None
+
+    on_change: EventHandler[lambda checked: [checked]] = None
+
+
+class ChipGroup(MantineLayoutComponentBase):
+    """Mantine Chip.Group component — manages multiple Chip selections.
+
+    https://mantine.dev/core/chip/
+    """
+
+    tag = "Chip.Group"
+
+    _rename_props = {
+        "default_value": "defaultValue",
+    }
+
+    value: Var[str | list[str]] = None
+    default_value: Var[str | list[str]] = None
+    multiple: Var[bool] = None
+
+    on_change: EventHandler[lambda value: [value]] = None
+
+
+class ColorInput(MantineInputComponentBase):
+    """Mantine ColorInput component — color picker combined with text input.
+
+    https://mantine.dev/core/color-input/
+    """
+
+    tag = "ColorInput"
+
+    _rename_props = {
+        **MantineInputComponentBase._rename_props,  # noqa: SLF001
+        "close_on_color_swatch_click": "closeOnColorSwatchClick",
+        "disallow_input": "disallowInput",
+        "eye_dropper_button_props": "eyeDropperButtonProps",
+        "eye_dropper_icon": "eyeDropperIcon",
+        "fix_on_blur": "fixOnBlur",
+        "on_change_end": "onChangeEnd",
+        "popover_props": "popoverProps",
+        "swatches_per_row": "swatchesPerRow",
+        "with_eye_dropper": "withEyeDropper",
+        "with_picker": "withPicker",
+        "with_preview": "withPreview",
+    }
+
+    format: Var[Literal["hex", "hexa", "rgba", "rgb", "hsl", "hsla"]] = None
+    swatches: Var[list[str]] = None
+    swatches_per_row: Var[int] = None
+    with_picker: Var[bool] = None
+    with_preview: Var[bool] = None
+    with_eye_dropper: Var[bool] = None
+    disallow_input: Var[bool] = None
+    close_on_color_swatch_click: Var[bool] = None
+    fix_on_blur: Var[bool] = None
+    popover_props: Var[dict] = None
+    eye_dropper_icon: Var[Any] = None
+
+    on_change_end: EventHandler[lambda value: [value]] = None
+
+    def get_event_triggers(self) -> dict[str, Any]:
+        def _on_change(value: Var) -> list[Var]:
+            return [value]
+
+        return {
+            **super().get_event_triggers(),
+            "on_change": _on_change,
+        }
+
+
+class ColorPicker(MantineLayoutComponentBase):
+    """Mantine ColorPicker component — standalone color picker UI.
+
+    https://mantine.dev/core/color-picker/
+    """
+
+    tag = "ColorPicker"
+
+    _rename_props = {
+        "alpha_label": "alphaLabel",
+        "default_value": "defaultValue",
+        "full_width": "fullWidth",
+        "hidden_input_props": "hiddenInputProps",
+        "hue_label": "hueLabel",
+        "on_change_end": "onChangeEnd",
+        "on_color_swatch_click": "onColorSwatchClick",
+        "saturation_label": "saturationLabel",
+        "swatches_per_row": "swatchesPerRow",
+        "with_picker": "withPicker",
+    }
+
+    value: Var[str] = None
+    default_value: Var[str] = None
+    format: Var[Literal["hex", "hexa", "rgba", "rgb", "hsl", "hsla"]] = None
+    swatches: Var[list[str]] = None
+    swatches_per_row: Var[int] = None
+    with_picker: Var[bool] = None
+    size: Var[str | int] = None
+    full_width: Var[bool] = None
+    focusable: Var[bool] = None
+    name: Var[str] = None
+    alpha_label: Var[str] = None
+    hue_label: Var[str] = None
+    saturation_label: Var[str] = None
+
+    on_change: EventHandler[lambda value: [value]] = None
+    on_change_end: EventHandler[lambda value: [value]] = None
+    on_color_swatch_click: EventHandler[lambda color: [color]] = None
+
+
+class AlphaSlider(MantineLayoutComponentBase):
+    """Mantine AlphaSlider component — alpha transparency slider.
+
+    https://mantine.dev/core/alpha-slider/
+    """
+
+    tag = "AlphaSlider"
+
+    _rename_props = {
+        "on_change_end": "onChangeEnd",
+        "on_scrub_end": "onScrubEnd",
+        "on_scrub_start": "onScrubStart",
+    }
+
+    value: Var[int | float] = None
+    color: Var[str] = None
+    size: Var[str | int] = None
+    focusable: Var[bool] = None
+
+    on_change: EventHandler[lambda value: [value]] = None
+    on_change_end: EventHandler[lambda value: [value]] = None
+    on_scrub_start: EventHandler[rx.event.no_args_event_spec] = None
+    on_scrub_end: EventHandler[rx.event.no_args_event_spec] = None
+
+
+class AngleSlider(MantineLayoutComponentBase):
+    """Mantine AngleSlider component — circular angle input slider.
+
+    https://mantine.dev/core/angle-slider/
+    """
+
+    tag = "AngleSlider"
+
+    _rename_props = {
+        "default_value": "defaultValue",
+        "format_label": "formatLabel",
+        "hidden_input_props": "hiddenInputProps",
+        "on_change_end": "onChangeEnd",
+        "on_scrub_end": "onScrubEnd",
+        "on_scrub_start": "onScrubStart",
+        "restrict_to_marks": "restrictToMarks",
+        "thumb_size": "thumbSize",
+        "with_label": "withLabel",
+    }
+
+    value: Var[int | float] = None
+    default_value: Var[int | float] = None
+    step: Var[int] = None
+    size: Var[int] = None
+    thumb_size: Var[int] = None
+    disabled: Var[bool] = None
+    with_label: Var[bool] = None
+    restrict_to_marks: Var[bool] = None
+    marks: Var[list[dict]] = None
+    name: Var[str] = None
+
+    on_change: EventHandler[lambda value: [value]] = None
+    on_change_end: EventHandler[lambda value: [value]] = None
+    on_scrub_start: EventHandler[rx.event.no_args_event_spec] = None
+    on_scrub_end: EventHandler[rx.event.no_args_event_spec] = None
+
+
+class HueSlider(MantineLayoutComponentBase):
+    """Mantine HueSlider component — hue color picker slider.
+
+    https://mantine.dev/core/hue-slider/
+    """
+
+    tag = "HueSlider"
+
+    _rename_props = {
+        "on_change_end": "onChangeEnd",
+        "on_scrub_end": "onScrubEnd",
+        "on_scrub_start": "onScrubStart",
+    }
+
+    value: Var[int | float] = None
+    size: Var[str | int] = None
+    focusable: Var[bool] = None
+
+    on_change: EventHandler[lambda value: [value]] = None
+    on_change_end: EventHandler[lambda value: [value]] = None
+    on_scrub_start: EventHandler[rx.event.no_args_event_spec] = None
+    on_scrub_end: EventHandler[rx.event.no_args_event_spec] = None
+
+
 # ============================================================================
 # Convenience Functions
 # ============================================================================
 
 
+class ChipNamespace(rx.ComponentNamespace):
+    """Namespace for Chip components."""
+
+    __call__ = staticmethod(Chip.create)
+    group = staticmethod(ChipGroup.create)
+
+
 class InputNamespace(rx.ComponentNamespace):
-    """Namespace for Combobox components."""
+    """Namespace for input components."""
 
     input = staticmethod(Input.create)
     text = staticmethod(TextInput.create)
@@ -642,11 +1008,22 @@ form = InputNamespace()
 
 
 # Export convenience functions for direct access
-text_input = TextInput.create
-password_input = PasswordInput.create
-number_input = NumberInput.create
+alpha_slider = AlphaSlider.create
+angle_slider = AngleSlider.create
+chip = ChipNamespace()
+color_input = ColorInput.create
+color_picker = ColorPicker.create
+fieldset = Fieldset.create
+file_input = FileInput.create
+hue_slider = HueSlider.create
 json_input = JsonInput.create
-tags_input = TagsInput.create
 masked_input = MaskInput.create
+native_select = NativeSelect.create
+number_input = NumberInput.create
+password_input = PasswordInput.create
+pin_input = PinInput.create
+rating = Rating.create
+tags_input = TagsInput.create
+text_input = TextInput.create
 textarea = Textarea.create
 input_wrapper = InputWrapper.create

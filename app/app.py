@@ -56,8 +56,13 @@ from app.pages.examples.data_display_examples import (
     data_display_examples,  # noqa: F401
 )
 from app.pages.examples.date_examples import date_examples_page  # noqa: F401
+from app.pages.examples.extensions_examples import extensions_examples  # noqa: F401
 from app.pages.examples.feedback_examples import feedback_examples  # noqa: F401
 from app.pages.examples.input_examples import input_examples_page  # noqa: F401
+from app.pages.examples.inputs_advanced_examples import (
+    inputs_advanced_examples,  # noqa: F401
+)
+from app.pages.examples.layout_examples import layout_examples  # noqa: F401
 from app.pages.examples.markdown_preview_examples import (
     markdown_preview_examples,  # noqa: F401
 )
@@ -76,6 +81,7 @@ from app.pages.examples.scroll_area_examples import scroll_area_examples  # noqa
 from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.theme_examples import theme_examples  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
+from app.pages.examples.typography_examples import typography_examples  # noqa: F401
 from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.image_generators import image_generators_page  # noqa: F401
 from app.pages.index import index  # noqa: F401

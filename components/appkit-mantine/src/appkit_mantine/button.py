@@ -153,6 +153,34 @@ class Button(MantineButtonBase):
     right_section: Var[Any] = None
 
 
+class CloseButton(MantineButtonBase):
+    """Mantine CloseButton component — X icon button for closing UI elements.
+
+    https://mantine.dev/core/close-button/
+    """
+
+    tag = "CloseButton"
+
+    _rename_props = {
+        **_COMMON_RENAME_PROPS,
+        "icon_size": "iconSize",
+    }
+
+    icon: Var[Any] = None
+    icon_size: Var[str | int] = None
+    radius: Var[str | int] = None
+    size: Var[str | int] = None
+
+
+class UnstyledButton(MantineButtonBase):
+    """Mantine UnstyledButton — button with no default styles.
+
+    https://mantine.dev/core/unstyled-button/
+    """
+
+    tag = "UnstyledButton"
+
+
 class ActionIconNamespace(rx.ComponentNamespace):
     """Namespace factory for ActionIcon to match other components."""
 
@@ -163,3 +191,5 @@ class ActionIconNamespace(rx.ComponentNamespace):
 
 action_icon = ActionIconNamespace()
 button = Button.create
+close_button = CloseButton.create
+unstyled_button = UnstyledButton.create
