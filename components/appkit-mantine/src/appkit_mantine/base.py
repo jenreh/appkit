@@ -49,7 +49,7 @@ from appkit_mantine.theme import get_app_theme
 public_provider_path = "$/public/" + asset(path="mantine_provider.js", shared=True)
 
 MANTINE_LIBARY: Final[str] = "@mantine/core"
-MANTINE_VERSION: Final[str] = "9.1.1"
+MANTINE_VERSION: Final[str] = "9.2.1"
 
 
 MantineSize = Literal["xs", "sm", "md", "lg", "xl"]
