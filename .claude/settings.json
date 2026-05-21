@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(xargs -I{} basename {})",
+      "Bash(python3 -c \"import appkit_mantine as mn; print\\(hasattr\\(mn, 'mark'\\), hasattr\\(mn, 'blockquote'\\), hasattr\\(mn, 'anchor'\\)\\)\")"
+    ]
+  }
+}
