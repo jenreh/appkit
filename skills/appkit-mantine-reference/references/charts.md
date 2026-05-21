@@ -15,7 +15,7 @@
 - FunnelChart
 - Heatmap
 
-All charts use `@mantine/charts@8.3.10` (Recharts under the hood).
+All charts use `@mantine/charts@9.1.1` (Recharts under the hood).
 
 ## Common props (categorical charts)
 
@@ -27,7 +27,7 @@ mn.bar_chart(
         {"month": "Jan", "sales": 100, "expenses": 80},
         {"month": "Feb", "sales": 140, "expenses": 90},
     ],
-    data_key="month",       # x-axis key
+    data_key="month",  # x-axis key
     series=[
         {"name": "sales", "color": "blue.6"},
         {"name": "expenses", "color": "red.6"},
@@ -51,7 +51,7 @@ Common props: `data`, `data_key`, `series`, `with_legend`, `legend_props`,
 ### Series format
 
 ```python
-series=[
+series = [
     {"name": "column_key", "color": "blue.6", "label": "Display Name"},
 ]
 ```
@@ -242,3 +242,124 @@ mn.heatmap(
 
 Props: `data`, `start_date`, `end_date`, `min`, `max`, `color_scale`,
 `value_label`, `enable_labels`.
+
+## Treemap
+
+Hierarchical proportional area chart. Each leaf node is sized by its `value`.
+
+```python
+treemap_data = [
+    {
+        "name": "Frontend",
+        "children": [
+            {"name": "React", "value": 400},
+            {"name": "CSS", "value": 150},
+        ],
+    },
+    {
+        "name": "Backend",
+        "children": [
+            {"name": "Python", "value": 600},
+            {"name": "SQL", "value": 200},
+        ],
+    },
+]
+
+mn.treemap(
+    data=treemap_data,
+    h=300,
+    w="100%",
+)
+```
+
+Props: `data` (hierarchical list of dicts with `name`, `value`, `children`), `w`, `h`.
+
+> [Mantine docs — Charts](https://mantine.dev/charts/getting-started/)
+
+## RadialBarChart
+
+Polar bar chart — bars laid out around a circle.
+
+```python
+mn.radial_bar_chart(
+    data=[
+        {"name": "Mobile", "value": 60, "color": "blue.6"},
+        {"name": "Desktop", "value": 35, "color": "teal.6"},
+        {"name": "Tablet", "value": 12, "color": "yellow.6"},
+    ],
+    data_key="value",
+    h=300,
+    bar_size=20,
+    start_angle=90,
+    end_angle=-270,
+    with_legend=True,
+    with_tooltip=True,
+    with_labels=True,
+    with_background=True,
+)
+```
+
+Props: `data`, `data_key`, `bar_size`, `start_angle`, `end_angle`,
+`empty_background_color`, `with_background`, `with_labels`, `with_legend`,
+`with_tooltip`, `legend_props`, `tooltip_props`, `radial_bar_props`,
+`radial_bar_chart_props`, `h`, `w`.
+
+> [Mantine docs — RadialBarChart](https://mantine.dev/charts/radial-bar-chart/)
+
+## BarsList
+
+Lightweight horizontal-bars list (not a Recharts chart) — useful for ranked metric
+displays inside cards.
+
+```python
+mn.bars_list(
+    data=[
+        {"label": "Frontend", "value": 4200, "color": "blue"},
+        {"label": "Backend", "value": 3100, "color": "teal"},
+        {"label": "DevOps", "value": 1800, "color": "orange"},
+    ],
+    bar_height=10,
+    bar_gap=6,
+    auto_contrast=True,
+)
+```
+
+Props: `data`, `bar_color`, `bar_gap`, `bar_height`, `bar_text_color`,
+`bars_label`, `min_bar_size`, `value_label`, `auto_contrast`.
+
+> [Mantine docs — BarsList](https://mantine.dev/charts/bars-list/)
+
+## SankeyChart
+
+Flow diagram showing weighted links between nodes.
+
+```python
+mn.sankey_chart(
+    data={
+        "nodes": [
+            {"name": "Visitors"},
+            {"name": "Signups"},
+            {"name": "Activated"},
+            {"name": "Paid"},
+        ],
+        "links": [
+            {"source": 0, "target": 1, "value": 400},
+            {"source": 1, "target": 2, "value": 250},
+            {"source": 2, "target": 3, "value": 80},
+        ],
+    },
+    h=300,
+    colors=["blue.5", "teal.5", "orange.5", "grape.5"],
+    node_padding=20,
+    node_width=14,
+    link_opacity=0.4,
+    with_tooltip=True,
+)
+```
+
+Props: `data` (`{nodes: [{name}], links: [{source, target, value}]}`), `height`,
+`colors`, `iterations`, `link_color`, `link_curvature`, `link_opacity`,
+`node_color`, `node_padding`, `node_width`, `text_color`, `with_tooltip`,
+`tooltip_animation_duration`, `tooltip_props`, `w`, `h`.
+
+> [Mantine docs — SankeyChart](https://mantine.dev/charts/sankey-chart/)

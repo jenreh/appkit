@@ -189,6 +189,109 @@ def feedback_examples() -> rx.Component:
                 ),
                 spacing="md",
             ),
+            # Loader examples
+            mn.title("Loader", order=2, mt="lg"),
+            mn.text(
+                "Animated loading indicators.",
+                size="sm",
+                c="dimmed",
+                mb="md",
+            ),
+            mn.simple_grid(
+                example_box(
+                    "Oval (default)",
+                    mn.loader(type="oval", color="blue"),
+                ),
+                example_box(
+                    "Bars",
+                    mn.loader(type="bars", color="teal"),
+                ),
+                example_box(
+                    "Dots",
+                    mn.loader(type="dots", color="violet"),
+                ),
+                cols=3,
+                spacing="md",
+            ),
+            # Ring Progress examples
+            mn.title("Ring Progress", order=2, mt="lg"),
+            mn.text(
+                "Circular progress rings.",
+                size="sm",
+                c="dimmed",
+                mb="md",
+            ),
+            mn.simple_grid(
+                example_box(
+                    "Single Section",
+                    mn.ring_progress(
+                        sections=[{"value": 65, "color": "blue"}],
+                        label=mn.center(mn.text("65%", fw="bold", ta="center")),
+                    ),
+                ),
+                example_box(
+                    "Multi-Section",
+                    mn.ring_progress(
+                        sections=[
+                            {
+                                "value": 40,
+                                "color": "blue",
+                                "tooltip": "Documents - 40%",
+                            },
+                            {"value": 25, "color": "orange", "tooltip": "Images - 25%"},
+                            {"value": 15, "color": "teal", "tooltip": "Code - 15%"},
+                        ],
+                        round_caps=True,
+                        size=120,
+                    ),
+                ),
+                cols=2,
+                spacing="md",
+            ),
+            # Semi-circle Progress
+            mn.title("Semi-Circle Progress", order=2, mt="lg"),
+            mn.text(
+                "Half-circle progress indicator.",
+                size="sm",
+                c="dimmed",
+                mb="md",
+            ),
+            mn.simple_grid(
+                example_box(
+                    "Basic",
+                    mn.semi_circle_progress(
+                        value=ProgressState.value,
+                        filled_segment_color="blue",
+                        size=200,
+                        label=mn.text(
+                            f"{ProgressState.value}%",
+                            ta="center",
+                            fw="bold",
+                            fz="xl",
+                        ),
+                        label_position="center",
+                    ),
+                ),
+                example_box(
+                    "With Button",
+                    mn.stack(
+                        mn.semi_circle_progress(
+                            value=ProgressState.value,
+                            filled_segment_color="teal",
+                            size=150,
+                        ),
+                        mn.button(
+                            "Randomize",
+                            on_click=ProgressState.randomize,
+                            size="sm",
+                        ),
+                        align="center",
+                        gap="sm",
+                    ),
+                ),
+                cols=2,
+                spacing="md",
+            ),
             # Skeleton examples
             mn.title("Skeleton", order=2, mt="lg"),
             mn.text(

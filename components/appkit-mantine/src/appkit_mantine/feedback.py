@@ -1,6 +1,6 @@
 """Mantine feedback components."""
 
-from typing import Any
+from typing import Any, Literal
 
 import reflex as rx
 from reflex.event import EventHandler
@@ -97,6 +97,76 @@ class Skeleton(MantineLayoutComponentBase):
     animate: Var[bool]
 
 
+class Loader(MantineLayoutComponentBase):
+    """Mantine Loader component — animated loading indicator.
+
+    https://mantine.dev/core/loader/
+    """
+
+    tag = "Loader"
+
+    color: Var[str] = None
+    size: Var[str | int] = None
+    type: Var[Literal["bars", "dots", "oval"]] = None
+
+
+class RingProgress(MantineLayoutComponentBase):
+    """Mantine RingProgress component — circular progress ring.
+
+    https://mantine.dev/core/ring-progress/
+    """
+
+    tag = "RingProgress"
+
+    _rename_props = {
+        "root_color": "rootColor",
+        "round_caps": "roundCaps",
+        "section_gap": "sectionGap",
+        "start_angle": "startAngle",
+        "transition_duration": "transitionDuration",
+    }
+
+    sections: Var[list[dict[str, Any]]] = None
+    """List of sections: [{value: number, color: str, tooltip?: str}]"""
+
+    size: Var[int] = None
+    thickness: Var[int] = None
+    label: Var[Any] = None
+    root_color: Var[str] = None
+    round_caps: Var[bool] = None
+    section_gap: Var[int] = None
+    start_angle: Var[int] = None
+    transition_duration: Var[int] = None
+
+
+class SemiCircleProgress(MantineLayoutComponentBase):
+    """Mantine SemiCircleProgress component — half-circle progress indicator.
+
+    https://mantine.dev/core/semi-circle-progress/
+    """
+
+    tag = "SemiCircleProgress"
+
+    _rename_props = {
+        "empty_segment_color": "emptySegmentColor",
+        "fill_direction": "fillDirection",
+        "filled_segment_color": "filledSegmentColor",
+        "label_position": "labelPosition",
+        "transition_duration": "transitionDuration",
+    }
+
+    value: Var[int | float] = None
+    size: Var[int] = None
+    thickness: Var[int] = None
+    label: Var[Any] = None
+    label_position: Var[Literal["center", "bottom"]] = None
+    orientation: Var[Literal["up", "down"]] = None
+    fill_direction: Var[Literal["right-to-left", "left-to-right"]] = None
+    filled_segment_color: Var[str] = None
+    empty_segment_color: Var[str] = None
+    transition_duration: Var[int] = None
+
+
 class ProgressNamespace(rx.ComponentNamespace):
     """Namespace for Progress components."""
 
@@ -108,6 +178,9 @@ class ProgressNamespace(rx.ComponentNamespace):
 
 
 alert = Alert.create
+loader = Loader.create
 notification = Notification.create
 progress = ProgressNamespace()
+ring_progress = RingProgress.create
+semi_circle_progress = SemiCircleProgress.create
 skeleton = Skeleton.create

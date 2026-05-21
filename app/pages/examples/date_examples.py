@@ -17,6 +17,7 @@ class DateExampleState(rx.State):
     date_value: str = ""
     date_range: list[str] = []
     datetime_value: str = ""
+    inline_datetime_value: str = ""
     time_value: str = ""
 
     def set_date_value(self, val: str) -> None:
@@ -26,6 +27,10 @@ class DateExampleState(rx.State):
     def set_datetime_value(self, val: str) -> None:
         """Set datetime value."""
         self.datetime_value = val
+
+    def set_inline_datetime_value(self, val: str) -> None:
+        """Set inline date time value."""
+        self.inline_datetime_value = val
 
     def set_time_value(self, val: str) -> None:
         """Set time value."""
@@ -165,6 +170,18 @@ def date_examples_page() -> rx.Component:
                             data=["09:00", "10:00", "11:00", "12:00"],
                         )
                     ),
+                ),
+                example_box(
+                    "InlineDateTimePicker",
+                    mn.center(
+                        mn.inline_date_time_picker(
+                            value=DateExampleState.inline_datetime_value,
+                            on_change=DateExampleState.set_inline_datetime_value,
+                            with_seconds=True,
+                            value_format="DD.MM.YYYY HH:mm:ss",
+                        )
+                    ),
+                    state_value=DateExampleState.inline_datetime_value,
                 ),
                 cols=2,
                 spacing="md",

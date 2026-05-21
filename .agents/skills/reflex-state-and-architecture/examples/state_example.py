@@ -225,10 +225,10 @@ class MyFeatureState(UserSession):
     Always acquire state with `async with self:` before mutating."""
 
     @rx.background
-    async def fetch_data(self):
+    async def fetch_data(self) -> None:
         async with self:
             self.is_loading = True
-        result = await some_long_running_api_call()
+        result = await some_long_running_api_call()  # type: ignore[name-defined]  # noqa: F821
         async with self:
             self.data = result
             self.is_loading = False

@@ -120,15 +120,11 @@ class FloatingIndicator(MantineLayoutComponentBase):
 
 
         def floating_indicator_example():
-            target_var = rx.Var.create(
-                f"document.getElementById({FloatingIndicatorState.active_id})",
-                _var_is_local=False,
-                _var_is_string=False,
+            target_var = rx.Var(
+                _js_expr=f"document.getElementById({FloatingIndicatorState.active_id})",
             )
-            parent_var = rx.Var.create(
-                "document.getElementById('parent-container')",
-                _var_is_local=False,
-                _var_is_string=False,
+            parent_var = rx.Var(
+                _js_expr="document.getElementById('parent-container')",
             )
 
             return rx.box(
@@ -184,6 +180,116 @@ class FloatingIndicator(MantineLayoutComponentBase):
     """Called when the indicator starts transitioning to a new position."""
 
 
+class PopoverRoot(MantineLayoutComponentBase):
+    """Mantine Popover — floating content panel anchored to a trigger.
+
+    https://mantine.dev/core/popover/
+    """
+
+    tag = "Popover"
+
+    _rename_props = {
+        "arrow_offset": "arrowOffset",
+        "arrow_position": "arrowPosition",
+        "arrow_radius": "arrowRadius",
+        "arrow_size": "arrowSize",
+        "close_on_click_outside": "closeOnClickOutside",
+        "close_on_escape": "closeOnEscape",
+        "default_opened": "defaultOpened",
+        "keep_mounted": "keepMounted",
+        "return_focus": "returnFocus",
+        "trap_focus": "trapFocus",
+        "with_arrow": "withArrow",
+        "with_overlay": "withOverlay",
+        "within_portal": "withinPortal",
+    }
+
+    opened: Var[bool] = None
+    default_opened: Var[bool] = None
+    position: Var[str] = None
+    offset: Var[int | dict] = None
+    width: Var[str | int] = None
+    with_arrow: Var[bool] = None
+    with_overlay: Var[bool] = None
+    arrow_size: Var[int] = None
+    arrow_offset: Var[int] = None
+    arrow_radius: Var[int] = None
+    arrow_position: Var[str] = None
+    shadow: Var[str] = None
+    radius: Var[str | int] = None
+    z_index: Var[str | int] = None
+    trap_focus: Var[bool] = None
+    return_focus: Var[bool] = None
+    keep_mounted: Var[bool] = None
+    close_on_click_outside: Var[bool] = None
+    close_on_escape: Var[bool] = None
+    within_portal: Var[bool] = None
+    disabled: Var[bool] = None
+
+    on_open: EventHandler[rx.event.no_args_event_spec] = None
+    on_close: EventHandler[rx.event.no_args_event_spec] = None
+    on_dismiss: EventHandler[rx.event.no_args_event_spec] = None
+    on_change: EventHandler[lambda opened: [opened]] = None
+
+
+class PopoverTarget(MantineLayoutComponentBase):
+    """Mantine Popover.Target — the trigger element."""
+
+    tag = "Popover.Target"
+
+    popup_type: Var[str] = None
+    ref_prop: Var[str] = None
+
+
+class PopoverDropdown(MantineLayoutComponentBase):
+    """Mantine Popover.Dropdown — the floating content panel."""
+
+    tag = "Popover.Dropdown"
+
+
+class PopoverNamespace(rx.ComponentNamespace):
+    """Namespace for Popover components."""
+
+    __call__ = staticmethod(PopoverRoot.create)
+    target = staticmethod(PopoverTarget.create)
+    dropdown = staticmethod(PopoverDropdown.create)
+
+
+class Dialog(MantineLayoutComponentBase):
+    """Mantine Dialog — small floating dialog panel.
+
+    https://mantine.dev/core/dialog/
+    """
+
+    tag = "Dialog"
+
+    _rename_props = {
+        "keep_mounted": "keepMounted",
+        "on_close": "onClose",
+        "portal_props": "portalProps",
+        "transition_props": "transitionProps",
+        "with_border": "withBorder",
+        "with_close_button": "withCloseButton",
+        "within_portal": "withinPortal",
+        "z_index": "zIndex",
+    }
+
+    opened: Var[bool] = None
+    position: Var[dict] = None
+    radius: Var[str | int] = None
+    shadow: Var[str] = None
+    size: Var[str | int] = None
+    keep_mounted: Var[bool] = None
+    with_border: Var[bool] = None
+    with_close_button: Var[bool] = None
+    within_portal: Var[bool] = None
+    z_index: Var[str | int] = None
+    transition_props: Var[dict] = None
+    portal_props: Var[dict] = None
+
+    on_close: EventHandler[rx.event.no_args_event_spec] = None
+
+
 class HoverCardNamespace(rx.ComponentNamespace):
     """Namespace for HoverCard components."""
 
@@ -199,6 +305,8 @@ class TooltipNamespace(rx.ComponentNamespace):
     floating = staticmethod(TooltipFloating.create)
 
 
+popover = PopoverNamespace()
+dialog = Dialog.create
 hover_card = HoverCardNamespace()
 tooltip = TooltipNamespace()
 overlay = Overlay.create

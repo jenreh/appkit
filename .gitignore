@@ -112,3 +112,6 @@ var/
 venv.bak/
 venv/
 wheels/
+.playwright-mcp/
+.claude/scheduled_tasks.lock
+trigger-eval.json

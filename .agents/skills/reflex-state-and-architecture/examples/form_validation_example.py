@@ -29,6 +29,7 @@ from typing import Any
 
 import reflex as rx
 from alloq_commons.repositories.item_repository import item_repo
+from alloq_feature.backend.entities import ItemEntity
 from alloq_feature.models.item import Item
 
 import appkit_mantine as mn
@@ -203,9 +204,7 @@ class MyFeatureState(rx.State):
                     entity.quantity = int(form_state.quantity)
                     await item_repo.update(session, entity)
                 else:
-                    # Create new — import ItemEntity from backend
-                    from alloq_feature.backend.entities import ItemEntity
-
+                    # Create new
                     entity = ItemEntity(
                         name=form_state.name,
                         email=form_state.email or None,

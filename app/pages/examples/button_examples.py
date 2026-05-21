@@ -19,15 +19,25 @@ class ButtonExState(rx.State):
     """State for Button and ActionIcon examples."""
 
     button_clicks: int = 0
+    close_clicks: int = 0
     icon_clicks: int = 0
+    unstyled_clicks: int = 0
 
     @rx.event
     def increment_button(self) -> None:
         self.button_clicks += 1
 
     @rx.event
+    def increment_close(self) -> None:
+        self.close_clicks += 1
+
+    @rx.event
     def increment_icon(self) -> None:
         self.icon_clicks += 1
+
+    @rx.event
+    def increment_unstyled(self) -> None:
+        self.unstyled_clicks += 1
 
 
 @navbar_layout(
@@ -125,6 +135,33 @@ def button_examples() -> rx.Component:
                         ),
                         gap="md",
                     ),
+                ),
+                example_box(
+                    "CloseButton",
+                    mn.stack(
+                        mn.close_button(
+                            on_click=ButtonExState.increment_close,
+                            aria_label="Close notification",
+                        ),
+                        mn.text(f"Closes: {ButtonExState.close_clicks}"),
+                    ),
+                ),
+                example_box(
+                    "UnstyledButton",
+                    mn.unstyled_button(
+                        mn.paper(
+                            mn.group(
+                                rx.icon("sparkles", size=18),
+                                mn.text("Custom clickable surface"),
+                                gap="sm",
+                            ),
+                            with_border=True,
+                            p="sm",
+                            radius="md",
+                        ),
+                        on_click=ButtonExState.increment_unstyled,
+                    ),
+                    state_value=ButtonExState.unstyled_clicks.to_string(),
                 ),
                 cols=2,
                 w="100%",

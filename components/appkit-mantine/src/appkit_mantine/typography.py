@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 import reflex as rx
 from reflex.vars.base import Var
@@ -148,8 +148,78 @@ class ListNamespace(rx.ComponentNamespace):
     item = staticmethod(ListItem.create)
 
 
+class Blockquote(MantineLayoutComponentBase):
+    """Mantine Blockquote component.
+
+    https://mantine.dev/core/blockquote/
+    """
+
+    tag = "Blockquote"
+
+    _rename_props = {
+        "icon_size": "iconSize",
+    }
+
+    cite: Var[Any] = None
+    color: Var[str] = None
+    icon: Var[Any] = None
+    icon_size: Var[str | int] = None
+    radius: Var[str | int] = None
+
+
+class Highlight(MantineLayoutComponentBase):
+    """Mantine Highlight component — renders text with highlighted substrings.
+
+    https://mantine.dev/core/highlight/
+    """
+
+    tag = "Highlight"
+
+    _rename_props = {
+        "accent_insensitive": "accentInsensitive",
+        "case_insensitive": "caseInsensitive",
+        "highlight_styles": "highlightStyles",
+        "line_clamp": "lineClamp",
+        "whole_word": "wholeWord",
+    }
+
+    highlight: Var[str | list[str]] = None
+    """Substring or list of substrings to highlight (required)."""
+
+    color: Var[str] = None
+    gradient: Var[dict] = None
+    size: Var[MantineNumberSize] = None
+    inherit: Var[bool] = None
+    inline: Var[bool] = None
+    span: Var[bool] = None
+    truncate: Var[Literal["end", "start"] | bool] = None
+    line_clamp: Var[int] = None
+    case_insensitive: Var[bool] = None
+    accent_insensitive: Var[bool] = None
+    whole_word: Var[bool] = None
+    highlight_styles: Var[dict] = None
+
+
+class Mark(MantineLayoutComponentBase):
+    """Mantine Mark component — inline highlight for text.
+
+    https://mantine.dev/core/mark/
+    """
+
+    tag = "Mark"
+
+    color: Var[str] = None
+
+
+# ============================================================================
+# Factory functions
+# ============================================================================
+
 list_ = ListNamespace()  # noqa: A001
+blockquote = Blockquote.create
 code = Code.create
+highlight = Highlight.create
+mark = Mark.create
 text = Text.create
 title = Title.create
 typography_styles_provider = TypographyStylesProvider.create

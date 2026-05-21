@@ -481,6 +481,73 @@ class TimeValue(MantineComponentBase):
         return "import '@mantine/dates/styles.css';"
 
 
+class InlineDateTimePicker(MantineDateComponentBase):
+    """Mantine InlineDateTimePicker — inline calendar + time picker combined.
+
+    https://mantine.dev/dates/inline-date-time-picker/
+    """
+
+    tag = "InlineDateTimePicker"
+
+    _rename_props = {
+        "allow_deselect": "allowDeselect",
+        "allow_single_date_in_range": "allowSingleDateInRange",
+        "columns_to_scroll": "columnsToScroll",
+        "default_level": "defaultLevel",
+        "default_time_value": "defaultTimeValue",
+        "default_value": "defaultValue",
+        "enable_keyboard_navigation": "enableKeyboardNavigation",
+        "end_time_picker_props": "endTimePickerProps",
+        "exclude_date": "excludeDate",
+        "first_day_of_week": "firstDayOfWeek",
+        "full_width": "fullWidth",
+        "header_controls_order": "headerControlsOrder",
+        "hide_outside_dates": "hideOutsideDates",
+        "hide_weekdays": "hideWeekdays",
+        "highlight_today": "highlightToday",
+        "label_separator": "labelSeparator",
+        "max_date": "maxDate",
+        "max_level": "maxLevel",
+        "min_date": "minDate",
+        "number_of_columns": "numberOfColumns",
+        "on_date_change": "onDateChange",
+        "on_level_change": "onLevelChange",
+        "on_submit": "onSubmit",
+        "submit_button_props": "submitButtonProps",
+        "time_picker_props": "timePickerProps",
+        "value_format": "valueFormat",
+        "with_cell_spacing": "withCellSpacing",
+        "with_seconds": "withSeconds",
+        "with_week_numbers": "withWeekNumbers",
+    }
+
+    type: Var[Literal["default", "multiple", "range"]] = None
+    value: Var[Any] = None
+    default_value: Var[Any] = None
+    size: Var[str] = None
+    full_width: Var[bool] = None
+    number_of_columns: Var[int] = None
+    max_date: Var[str] = None
+    min_date: Var[str] = None
+    allow_deselect: Var[bool] = None
+    allow_single_date_in_range: Var[bool] = None
+    hide_outside_dates: Var[bool] = None
+    hide_weekdays: Var[bool] = None
+    highlight_today: Var[bool] = None
+    with_cell_spacing: Var[bool] = None
+    with_week_numbers: Var[bool] = None
+    with_seconds: Var[bool] = None
+    first_day_of_week: Var[int] = None
+    default_level: Var[Literal["month", "year", "decade"]] = None
+    level: Var[Literal["month", "year", "decade"]] = None
+    max_level: Var[Literal["month", "year", "decade"]] = None
+
+    on_change: EventHandler[lambda value: [value]] = None
+    on_date_change: EventHandler[lambda date: [date]] = None
+    on_level_change: EventHandler[lambda level: [level]] = None
+    on_submit: EventHandler[rx.event.no_args_event_spec] = None
+
+
 # Convenience functions
 calendar = Calendar.create
 date_input = DateInput.create
@@ -496,3 +563,4 @@ time_picker = TimePicker.create
 time_value = TimeValue.create
 year_picker = YearPicker.create
 year_picker_input = YearPickerInput.create
+inline_date_time_picker = InlineDateTimePicker.create

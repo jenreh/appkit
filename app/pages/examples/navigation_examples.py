@@ -14,6 +14,12 @@ from app.components.navbar import app_navbar
 class NavigationState(rx.State):
     """State for navigation examples."""
 
+    burger_opened: bool = False
+
+    @rx.event
+    def toggle_burger(self) -> None:
+        self.burger_opened = not self.burger_opened
+
     # Pagination
     active_page: int = 1
 
@@ -62,6 +68,39 @@ def navigation_examples() -> rx.Component:
                     separator="/",
                     separator_margin="sm",
                 ),
+            ),
+            mn.simple_grid(
+                example_box(
+                    "Anchor",
+                    mn.group(
+                        mn.anchor("Always underlined", href="#", underline="always"),
+                        mn.anchor("Hover underline", href="#", underline="hover"),
+                        mn.anchor(
+                            "External docs",
+                            href="https://mantine.dev/core/anchor/",
+                            target="_blank",
+                        ),
+                    ),
+                ),
+                example_box(
+                    "Burger",
+                    mn.group(
+                        mn.burger(
+                            opened=NavigationState.burger_opened,
+                            on_click=NavigationState.toggle_burger,
+                            aria_label="Toggle navigation",
+                        ),
+                        mn.text(
+                            rx.cond(
+                                NavigationState.burger_opened,
+                                "Menu opened",
+                                "Menu closed",
+                            )
+                        ),
+                    ),
+                ),
+                cols=2,
+                spacing="md",
             ),
             # Pagination
             mn.title("Pagination", order=2, mt="lg"),
@@ -155,6 +194,32 @@ def navigation_examples() -> rx.Component:
                     mn.tabs.panel("Settings content", value="settings", pt="xs"),
                     default_value="gallery",
                     variant="outline",
+                ),
+            ),
+            mn.title("Table of Contents", order=2, mt="lg"),
+            mn.text(
+                "Generate section navigation from heading data.", size="sm", c="dimmed"
+            ),
+            example_box(
+                "Static Table of Contents",
+                mn.table_of_contents(
+                    initial_data=[
+                        {
+                            "id": "navigation-breadcrumbs",
+                            "value": "Breadcrumbs",
+                            "depth": 2,
+                        },
+                        {
+                            "id": "navigation-pagination",
+                            "value": "Pagination",
+                            "depth": 2,
+                        },
+                        {"id": "navigation-stepper", "value": "Stepper", "depth": 2},
+                        {"id": "navigation-tabs", "value": "Tabs", "depth": 2},
+                    ],
+                    color="blue",
+                    size="sm",
+                    radius="md",
                 ),
             ),
             spacing="md",

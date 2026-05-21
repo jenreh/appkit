@@ -119,6 +119,33 @@ HEATMAP_DATA = {
     "2024-01-12": 5,
 }
 
+RADIAL_BAR_DATA = [
+    {"name": "Planning", "value": 84, "color": "blue.6"},
+    {"name": "Build", "value": 72, "color": "teal.6"},
+    {"name": "Review", "value": 58, "color": "orange.6"},
+]
+
+BARS_LIST_DATA = [
+    {"name": "Python", "value": 92, "color": "blue.6"},
+    {"name": "TypeScript", "value": 76, "color": "grape.6"},
+    {"name": "SQL", "value": 54, "color": "teal.6"},
+]
+
+SANKEY_DATA = {
+    "nodes": [
+        {"name": "Visits"},
+        {"name": "Docs"},
+        {"name": "Examples"},
+        {"name": "Install"},
+    ],
+    "links": [
+        {"source": 0, "target": 1, "value": 12},
+        {"source": 0, "target": 2, "value": 8},
+        {"source": 1, "target": 3, "value": 6},
+        {"source": 2, "target": 3, "value": 5},
+    ],
+}
+
 
 @navbar_layout(
     route="/charts",
@@ -319,6 +346,38 @@ def charts_examples() -> rx.Component:
                         data=HEATMAP_DATA,
                         start_date="2024-01-01",
                         end_date="2024-03-01",
+                    ),
+                ),
+                # Radial Bar Chart
+                example_box(
+                    "Radial Bar Chart",
+                    mn.radial_bar_chart(
+                        h=300,
+                        data=RADIAL_BAR_DATA,
+                        data_key="value",
+                        with_labels=True,
+                        with_legend=True,
+                    ),
+                ),
+                # Bars List
+                example_box(
+                    "Bars List",
+                    mn.bars_list(
+                        data=BARS_LIST_DATA,
+                        bar_height=24,
+                        bar_gap="sm",
+                        value_label="Usage",
+                    ),
+                ),
+                # Sankey Chart
+                example_box(
+                    "Sankey Chart",
+                    mn.sankey_chart(
+                        height=300,
+                        data=SANKEY_DATA,
+                        node_width=14,
+                        node_padding=18,
+                        with_tooltip=True,
                     ),
                 ),
                 cols=2,

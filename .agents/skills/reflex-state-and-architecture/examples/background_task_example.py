@@ -16,13 +16,19 @@ Key Reflex rules for background tasks:
 """
 
 import logging
+import pathlib
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
+import pandas as pd
 import reflex as rx
 from knai_myfeature.backend.models import ImportStatus, ImportSummary
-from knai_myfeature.backend.repository import ImportSummaryRepository, MyItemRepository
+from knai_myfeature.backend.repository import (
+    ImportSummaryRepository,
+    MyItemRepository,
+)
 
+import appkit_mantine as mn
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
@@ -135,8 +141,6 @@ class MyImportState(UserSession):
           - After each `async with self:` block, yield to push updates.
           - Never yield inside `async with self:`.
         """
-        import pathlib  # noqa:PLC0415
-
         async with self:
             self.is_processing = True
             self.process_progress = 10
@@ -145,7 +149,7 @@ class MyImportState(UserSession):
         try:
             # ── Step 1: Read file (20%) ───────────────────────────────────────
             path = pathlib.Path(file_path)
-            if not path.exists():
+            if not path.exists():  # noqa: ASYNC240
                 raise FileNotFoundError(f"Temp file not found: {file_path}")
 
             raw_data = _read_file(path)  # pure function, no Reflex
@@ -207,9 +211,7 @@ class MyImportState(UserSession):
 
         finally:
             # Always clean up temp file
-            import pathlib
-
-            pathlib.Path(file_path).unlink(missing_ok=True)
+            pathlib.Path(file_path).unlink(missing_ok=True)  # noqa: ASYNC240
 
     # ── History ───────────────────────────────────────────────────────────────
 
@@ -252,10 +254,8 @@ class MyImportState(UserSession):
 # ─── Pure helper functions (no Reflex, easily testable) ──────────────────────
 
 
-def _read_file(path) -> list[dict]:
+def _read_file(path: pathlib.Path) -> list[dict]:
     """Read and parse the uploaded file. Raise on unreadable input."""
-    import pandas as pd
-
     df = pd.read_excel(path)
     return df.to_dict("records")
 
@@ -278,8 +278,6 @@ def upload_section() -> rx.Component:
     Drop-zone + upload button + progress bar + results grid.
     Mirrors the knai-hours import_section.py pattern.
     """
-    import appkit_mantine as mn
-
     return mn.stack(
         # Drop zone
         rx.upload(
@@ -350,9 +348,7 @@ def upload_section() -> rx.Component:
 
 
 def _import_results_grid() -> rx.Component:
-    import appkit_mantine as mn
-
-    def result_card(value, label: str, color: str) -> rx.Component:
+    def result_card(value: rx.Var, label: str, color: str) -> rx.Component:
         return mn.stack(
             mn.text(value, size="5", fw="bold", c=color),
             mn.text(label, size="2", c="dimmed"),

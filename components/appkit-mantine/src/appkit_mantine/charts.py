@@ -370,6 +370,125 @@ class Treemap(MantineChartComponentBase):
     h: Var[str | int]
 
 
+class RadialBarChart(MantineChartComponentBase):
+    """Mantine RadialBarChart component.
+
+    https://mantine.dev/charts/radial-bar-chart/
+    """
+
+    tag = "RadialBarChart"
+
+    _rename_props = {
+        "bar_size": "barSize",
+        "data_key": "dataKey",
+        "empty_background_color": "emptyBackgroundColor",
+        "end_angle": "endAngle",
+        "legend_props": "legendProps",
+        "radial_bar_chart_props": "radialBarChartProps",
+        "radial_bar_props": "radialBarProps",
+        "start_angle": "startAngle",
+        "tooltip_props": "tooltipProps",
+        "with_background": "withBackground",
+        "with_labels": "withLabels",
+        "with_legend": "withLegend",
+        "with_tooltip": "withTooltip",
+    }
+
+    data: Var[list[dict[str, Any]]] = None
+    data_key: Var[str] = None
+    bar_size: Var[int] = None
+    empty_background_color: Var[str] = None
+    end_angle: Var[int] = None
+    start_angle: Var[int] = None
+    with_background: Var[bool] = None
+    with_labels: Var[bool] = None
+    with_legend: Var[bool] = None
+    with_tooltip: Var[bool] = None
+    legend_props: Var[dict] = None
+    tooltip_props: Var[dict] = None
+
+    h: Var[str | int] = None
+    w: Var[str | int] = None
+
+
+class BarsList(MantineChartComponentBase):
+    """Mantine BarsList component — simple horizontal bars list.
+
+    https://mantine.dev/charts/bars-list/
+    """
+
+    tag = "BarsList"
+
+    _rename_props = {
+        "auto_contrast": "autoContrast",
+        "bar_color": "barColor",
+        "bar_gap": "barGap",
+        "bar_height": "barHeight",
+        "bar_text_color": "barTextColor",
+        "bars_label": "barsLabel",
+        "get_bar_props": "getBarProps",
+        "min_bar_size": "minBarSize",
+        "render_bar": "renderBar",
+        "value_formatter": "valueFormatter",
+        "value_label": "valueLabel",
+    }
+
+    data: Var[list[dict[str, Any]]] = None
+    bar_color: Var[str] = None
+    bar_gap: Var[str | int] = None
+    bar_height: Var[str | int] = None
+    bar_text_color: Var[str] = None
+    bars_label: Var[str] = None
+    min_bar_size: Var[str | int] = None
+    value_label: Var[str] = None
+    auto_contrast: Var[bool] = None
+
+
+class SankeyChart(MantineChartComponentBase):
+    """Mantine SankeyChart component — Sankey flow diagram.
+
+    https://mantine.dev/charts/sankey-chart/
+    """
+
+    tag = "SankeyChart"
+
+    _rename_props = {
+        "link_color": "linkColor",
+        "link_curvature": "linkCurvature",
+        "link_opacity": "linkOpacity",
+        "node_color": "nodeColor",
+        "node_padding": "nodePadding",
+        "node_width": "nodeWidth",
+        "sankey_props": "sankeyProps",
+        "text_color": "textColor",
+        "tooltip_animation_duration": "tooltipAnimationDuration",
+        "tooltip_props": "tooltipProps",
+        "value_formatter": "valueFormatter",
+        "with_tooltip": "withTooltip",
+    }
+
+    data: Var[dict[str, Any]] = None
+    """SankeyChartData: {nodes: [{name: str}],
+    links: [{source: int, target: int, value: int}]}"""
+
+    height: Var[int] = None
+    colors: Var[list[str]] = None
+    iterations: Var[int] = None
+    link_color: Var[str] = None
+    link_curvature: Var[float] = None
+    link_opacity: Var[float] = None
+    node_color: Var[str] = None
+    node_padding: Var[int] = None
+    node_width: Var[int] = None
+    text_color: Var[str] = None
+    with_tooltip: Var[bool] = None
+    tooltip_animation_duration: Var[int] = None
+    tooltip_props: Var[dict] = None
+
+    w: Var[str | int] = None
+    h: Var[str | int] = None
+
+
 area_chart = AreaChart.create
 bar_chart = BarChart.create
 line_chart = LineChart.create
@@ -383,3 +502,6 @@ sparkline = Sparkline.create
 funnel_chart = FunnelChart.create
 heatmap = Heatmap.create
 treemap = Treemap.create
+radial_bar_chart = RadialBarChart.create
+bars_list = BarsList.create
+sankey_chart = SankeyChart.create

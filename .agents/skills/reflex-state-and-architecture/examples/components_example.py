@@ -125,7 +125,7 @@ def _filter_bar() -> rx.Component:
 # ─── Data table ───────────────────────────────────────────────────────────────
 
 
-def _table_row(item) -> rx.Component:
+def _table_row(item: rx.Var) -> rx.Component:
     """One row in the items table."""
     return mn.table.tr(
         mn.table.td(mn.text(item.name, size="2")),
@@ -303,7 +303,11 @@ def my_feature_page_content() -> rx.Component:
 # not reactively.
 #
 # CORRECT:
-#   rx.cond(ListState.is_empty, mn.text("No items"), rx.foreach(ListState.items, render_item))
+#   rx.cond(
+#       ListState.is_empty,
+#       mn.text("No items"),
+#       rx.foreach(ListState.items, render_item),
+#   )
 #
 # WRONG (won't react to state changes):
 #   if ListState.is_empty: return mn.text("No items")
@@ -510,7 +514,8 @@ def compound_modal_example(opened: rx.Var, on_close: rx.EventSpec) -> rx.Compone
 def data_table_example() -> rx.Component:
     """
     mn.table — sticky header, hover highlight, scroll area.
-    Sub-components: mn.table.thead / mn.table.tbody / mn.table.tr / mn.table.th / mn.table.td
+    Sub-components: mn.table.thead / mn.table.tbody / mn.table.tr
+    / mn.table.th / mn.table.td
     """
 
     def _row(item: dict) -> rx.Component:
