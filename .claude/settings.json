@@ -1,15 +1,25 @@
 {
   "permissions": {
     "allow": [
-      "mcp__plugin_context7_context7__resolve-library-id",
-      "mcp__plugin_context7_context7__query-docs",
+      "Bash(claude --version)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(ls -t ~/Downloads/eval_set*.json 2>/dev/null | head -3)",
+      "Bash(ls /Users/jens/.claude/skills/**)",
+      "Bash(mkdir -p /Users/jens/Workspace/projekte/appkit/**)",
+      "Bash(open /tmp/**)",
+      "Bash(python -m *)",
+      "Bash(python3 -c *)",
       "Bash(xargs -I{} basename {})",
-      "Bash(python3 -c \"import appkit_mantine as mn; print\\(hasattr\\(mn, 'mark'\\), hasattr\\(mn, 'blockquote'\\), hasattr\\(mn, 'anchor'\\)\\)\")",
       "mcp__duckduckgo__fetch_content",
+      "mcp__plugin_context7_context7__query-docs",
+      "mcp__plugin_context7_context7__resolve-library-id",
       "mcp__plugin_playwright_playwright__browser_navigate",
       "mcp__plugin_playwright_playwright__browser_snapshot",
-      "Bash(ls /Users/jens/.claude/skills/appkit-mantine-reference/references/)",
-      "Read(//Users/jens/.claude/skills/appkit-mantine-reference/references/**)"
+      "Read(//Users/jens/.claude/skills/**)",
+      "Read(//Users/jens/Downloads/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/jens/Downloads"
     ]
   }
 }
