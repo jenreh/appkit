@@ -12,7 +12,7 @@ dependencies = [
     "python-multipart>=0.0.27",
 ]
 name = "appkit-assistant"
-version = "1.11.0"
+version = "1.11.1"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
