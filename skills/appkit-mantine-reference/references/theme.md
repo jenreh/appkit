@@ -45,7 +45,7 @@ my_theme = mn.create_theme(
 | `black` | `str` | `"#000"` | Base black color |
 | `default_radius` | `str \| int` | `"sm"` | Default border radius (`xs`/`sm`/`md`/`lg`/`xl` or px) |
 | `font_family` | `str` | system stack | CSS font-family for body text and most components |
-| `font_family_monospace` | `str` | system mono | Font for `Code`, `Kbd`, `CodeHighlight` components |
+| `font_family_monospace` | `str` | system mono | Font for `Code`, `Kbd` components |
 | `font_sizes` | `dict` | — | Override `xs`/`sm`/`md`/`lg`/`xl` font sizes |
 | `line_heights` | `dict` | — | Override `xs`/`sm`/`md`/`lg`/`xl` line heights |
 | `font_smoothing` | `bool` | `True` | Enable `-webkit-font-smoothing: antialiased` |
@@ -175,7 +175,7 @@ Components expose `light_hidden` / `dark_hidden` boolean props:
 
 ```python
 mn.text("Only in light mode", light_hidden=False, dark_hidden=True)
-mn.text("Only in dark mode",  light_hidden=True,  dark_hidden=False)
+mn.text("Only in dark mode", light_hidden=True, dark_hidden=False)
 ```
 
 ---
@@ -187,7 +187,7 @@ Three theme keys control fonts; all others fall back to `font_family`:
 | Key | Applies to |
 | --- | ---------- |
 | `font_family` | Most components (Button, Input, Text, …) |
-| `font_family_monospace` | `Code`, `Kbd`, `CodeHighlight` |
+| `font_family_monospace` | `Code`, `Kbd` |
 | `headings.fontFamily` | h1–h6; falls back to `font_family` if unset |
 
 ### Full typography example
@@ -216,7 +216,7 @@ my_theme = mn.create_theme(
         "sizes": {
             "h1": {"fontSize": "2.25rem", "lineHeight": "1.3"},
             "h2": {"fontSize": "1.875rem", "lineHeight": "1.35"},
-            "h3": {"fontSize": "1.5rem",   "lineHeight": "1.4"},
+            "h3": {"fontSize": "1.5rem", "lineHeight": "1.4"},
         },
     },
 )
@@ -272,6 +272,7 @@ SECTION_THEME = mn.create_theme(
     }
 )
 
+
 def compact_section() -> rx.Component:
     return mn.mantine_provider(
         content(),
@@ -291,6 +292,7 @@ PAGE_THEME = mn.create_theme(
     primary_color="teal",
     default_radius="xl",
 )
+
 
 def themed_page() -> rx.Component:
     return mn.mantine_provider(

@@ -16,7 +16,8 @@
       "mcp__plugin_playwright_playwright__browser_navigate",
       "mcp__plugin_playwright_playwright__browser_snapshot",
       "Read(//Users/jens/.claude/skills/**)",
-      "Read(//Users/jens/Downloads/**)"
+      "Read(//Users/jens/Downloads/**)",
+      "Bash(kill -0 41408)"
     ],
     "additionalDirectories": [
       "/Users/jens/Downloads"

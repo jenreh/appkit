@@ -1,4 +1,4 @@
-"""Extension component examples — Carousel, Dropzone, CodeHighlight."""
+"""Extension component examples — Carousel, Dropzone."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def extensions_examples() -> rx.Component:
         mn.stack(
             mn.title("Extension Components", order=1, size="xl"),
             mn.text(
-                "Carousel, Dropzone, and CodeHighlight — separate @mantine packages.",
+                "Carousel, Dropzone — separate @mantine packages.",
                 size="md",
                 c="dimmed",
             ),

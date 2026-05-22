@@ -117,6 +117,13 @@ def navbar_items() -> rx.Component:
             gap="0",
             w="100%",
         ),
+        sub_heading("Page Templates"),
+        mn.stack(
+            sidebar_sub_item(label="Header + Navbar", url="/examples/template-header"),
+            sidebar_sub_item(label="Navbar + Aside", url="/examples/template-aside"),
+            gap="0",
+            w="100%",
+        ),
         sub_heading("Others"),
         mn.stack(
             sidebar_sub_item(label="Alert Dialog", url="/alert-dialog"),

@@ -125,6 +125,21 @@ def _render_layout(
     )
 
 
+def _build_auth_handlers(
+    on_load: rx.EventHandler | list[rx.EventHandler] | None,
+) -> list[rx.EventHandler]:
+    """Build on_load handlers: auth check first, loading state last."""
+    handlers: list[rx.EventHandler] = [LoginState.check_auth]
+    if on_load is None:
+        handlers.append(LoadingState.set_is_loading(False))
+    elif isinstance(on_load, list):
+        handlers.extend(on_load)
+        handlers.append(LoadingState.set_is_loading(False))
+    else:
+        handlers.extend([on_load, LoadingState.set_is_loading(False)])
+    return handlers
+
+
 def navbar_layout(
     route: str | None = None,
     title: str | None = None,
@@ -207,17 +222,7 @@ def authenticated(
     on_load: rx.EventHandler | list[rx.EventHandler] | None = None,
 ) -> Callable[[Callable[[], rx.Component]], rx.Component]:
     """The template for each page of the app that requires authentication."""
-
-    # Build on_load handlers with auth check FIRST
-    handlers = [LoginState.check_auth]
-
-    if on_load is None:
-        handlers.append(LoadingState.set_is_loading(False))
-    elif isinstance(on_load, list):
-        handlers.extend(on_load)
-        handlers.append(LoadingState.set_is_loading(False))
-    elif isinstance(on_load, rx.EventHandler):
-        handlers.extend([on_load, LoadingState.set_is_loading(False)])
+    handlers = _build_auth_handlers(on_load)
 
     def decorator(page_content: Callable[[], rx.Component]) -> rx.Component:
         all_meta = [*default_meta, *(meta or [])]
@@ -265,6 +270,97 @@ def authenticated(
                     default_page,
                     no_permission_page,
                 ),
+                default_page,
+            )
+
+        return theme_wrap
+
+    return decorator
+
+
+def _default_template(content: rx.Component) -> rx.Component:
+    """Default page template: bare mn.app_shell with main content only."""
+    return mn.app_shell(mn.app_shell.main(content))
+
+
+def authenticated_page(
+    route: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    template: Callable[[rx.Component], rx.Component] | None = None,
+    admin_only: bool = False,
+    meta: list[dict] | None = None,
+    script_tags: list[rx.Component] | None = None,
+    on_load: rx.EventHandler | list[rx.EventHandler] | None = None,
+) -> Callable[[Callable[[], rx.Component]], rx.Component]:
+    """Page decorator with authentication check and flexible layout.
+
+    The ``template`` callable receives the page content as an ``rx.Component``
+    and must return an ``rx.Component`` wrapping it.  When omitted,
+    ``_default_template`` is used (bare ``mn.app_shell`` with no sections).
+
+    Usage::
+
+        @authenticated_page(route="/dashboard", title="Dashboard")
+        def dashboard_page() -> rx.Component:
+            return rx.box("Content")
+
+
+        # With a custom layout template:
+        def my_template(content: rx.Component) -> rx.Component:
+            return mn.app_shell(
+                mn.app_shell.navbar(app_navbar()),
+                mn.app_shell.main(content),
+                navbar={"width": 250, "breakpoint": "sm"},
+            )
+
+
+        @authenticated_page(route="/settings", title="Settings", template=my_template)
+        def settings_page() -> rx.Component:
+            return rx.box("Settings")
+
+    Args:
+        route: URL route for this page.
+        title: Page title shown in the browser tab.
+        description: Meta description for the page.
+        template: Callable ``(content) -> rx.Component`` defining the layout.
+            Defaults to a bare ``mn.app_shell``.
+        admin_only: Restrict access to admin users only.
+        meta: Additional meta tags to add to the page.
+        script_tags: Script components to inject into the page.
+        on_load: Additional handlers called on page load. Auth check always runs first.
+    """
+    resolved_template = template if template is not None else _default_template
+    handlers = _build_auth_handlers(on_load)
+
+    def decorator(page_content: Callable[[], rx.Component]) -> rx.Component:
+        all_meta = [*default_meta, *(meta or [])]
+        is_admin: bool = UserSession.user.is_admin
+
+        @rx.page(
+            route=route,
+            title=title,
+            description=description,
+            meta=all_meta,
+            script_tags=script_tags,
+            on_load=handlers,
+        )
+        def theme_wrap() -> rx.Component:
+            default_page = theme_wrapper(
+                rx.fragment(
+                    session_monitor(),
+                    resolved_template(page_content()),
+                )
+            )
+            no_permission_page = theme_wrapper(
+                rx.fragment(
+                    session_monitor(),
+                    resolved_template(default_fallback()),
+                )
+            )
+            return rx.cond(
+                admin_only,
+                rx.cond(is_admin, default_page, no_permission_page),
                 default_page,
             )
 

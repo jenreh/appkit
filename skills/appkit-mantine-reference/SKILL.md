@@ -1,6 +1,6 @@
 ---
 name: appkit-mantine-reference
-description: Complete API reference for appkit_mantine components — inputs, layout, overlays, charts, data display, feedback, navigation, menu, table, tree, typography, schedule, and Mantine extensions (carousel, dropzone, code-highlight, modals manager). Use when creating any visible UI with mn.* components. Covers inheritance hierarchy, event handler patterns, colors, anti-patterns, and common pitfalls.
+description: "MUST invoke when generating mn.* based UIs or the user asks how to use, configure, or debug any mn.* or appkit_mantine component. appkit_mantine is NOT in Claude's training data — always use this skill rather than guessing at APIs. Covers building forms, tables, drawers, modals, tooltips, color pickers, date/time pickers, charts, and navigation; looking up correct props; debugging on_change handler types (NumberInput sends float|str, DateInput sends str|\"\"); troubleshooting component quirks like tooltips on disabled elements, overlays not closing, or props having no effect."
 metadata:
   author: jens-rehpoehler
   version: "1.3"
@@ -127,7 +127,7 @@ def set_date(self, value: str) -> None:
 — Schedule, DayView, WeekView, MonthView, YearView, MobileMonthView
 
 **Extensions**: See [references/extensions.md](references/extensions.md)
-— Carousel, CodeHighlight, Dropzone, ModalsProvider
+— Carousel, Dropzone, ModalsProvider
 
 **Theme**: See [references/theme.md](references/theme.md)
 — create_theme, mantine_provider (scoped theme override), mermaid_zoom_script
