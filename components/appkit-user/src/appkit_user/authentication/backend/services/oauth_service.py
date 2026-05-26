@@ -3,7 +3,6 @@
 import base64
 import hashlib
 import logging
-import os
 import secrets
 from typing import Any
 
@@ -11,9 +10,11 @@ from requests_oauthlib import OAuth2Session
 
 from appkit_commons.registry import service_registry
 from appkit_user.configuration import (
+    AppleOAuthConfig,
     AuthenticationConfiguration,
     AzureOAuthConfig,
     GithubOAuthConfig,
+    GoogleOAuthConfig,
     OAuthConfig,
     OAuthProvider,
 )
@@ -41,11 +42,15 @@ def generate_pkce_pair() -> tuple[str, str]:
 class OAuthService:
     """Service class for OAuth2 operations."""
 
-    providers: dict[OAuthProvider, OAuthConfig]
+    providers: dict[str, OAuthConfig]
     github_config: GithubOAuthConfig
     azure_config: AzureOAuthConfig
+    google_config: GoogleOAuthConfig
+    apple_config: AppleOAuthConfig
     azure_enabled: bool = False
     github_enabled: bool = False
+    google_enabled: bool = False
+    apple_enabled: bool = False
 
     def __init__(self, config: AuthenticationConfiguration | None = None) -> None:
         """Initialize OAuth service with configuration."""
@@ -61,83 +66,88 @@ class OAuthService:
         self.server_port = config.server_port
         self.github_config = None  # type: ignore[assignment]
         self.azure_config = None  # type: ignore[assignment]
+        self.google_config = None  # type: ignore[assignment]
+        self.apple_config = None  # type: ignore[assignment]
 
-        self._initialze_providers(config.oauth_providers)
+        self._initialize_providers(config.oauth_providers)
 
-    def _initialze_providers(self, oauth_providers: list[Any]) -> None:
-        """Initialize OAuth provider configurations."""
-        for provider in oauth_providers:
-            if isinstance(provider, GithubOAuthConfig):
-                self._initialzize_github_config(provider)
-            elif isinstance(provider, AzureOAuthConfig):
-                self._initialize_azure_config(provider)
+    def _initialize_providers(self, oauth_providers: list[OAuthConfig]) -> None:
+        """Initialize provider configurations from configured entries."""
+        self.providers = {}
 
-        self.providers = {
-            OAuthProvider.GITHUB: self.github_config,
-            OAuthProvider.AZURE: self.azure_config,
-        }
+        for provider_config in oauth_providers:
+            normalized_config = self._apply_provider_defaults(provider_config)
+            provider_key = self._provider_key(normalized_config.provider)
+            self.providers[provider_key] = normalized_config
 
-    def _initialzize_github_config(
-        self, github_config: GithubOAuthConfig | None
-    ) -> None:
-        if github_config is None:
-            self.github_config = GithubOAuthConfig(
-                client_id=os.getenv("GITHUB_CLIENT_ID", ""),
-                client_secret=os.getenv("GITHUB_CLIENT_SECRET", ""),
+            if provider_key == OAuthProvider.GITHUB.value:
+                self.github_config = normalized_config
+                self.github_enabled = True
+            elif provider_key == OAuthProvider.AZURE.value:
+                self.azure_config = normalized_config
+                self.azure_enabled = True
+            elif provider_key == OAuthProvider.GOOGLE.value:
+                self.google_config = normalized_config
+                self.google_enabled = True
+            elif provider_key == OAuthProvider.APPLE.value:
+                self.apple_config = normalized_config
+                self.apple_enabled = True
+
+    def _apply_provider_defaults(self, provider_config: OAuthConfig) -> OAuthConfig:
+        """Apply provider-specific defaults and normalization."""
+        provider_key = self._provider_key(provider_config.provider)
+
+        if provider_config.redirect_url is None:
+            provider_config.redirect_url = (
+                f"{self.server_url}:{self.server_port}/oauth/{provider_key}/callback"
             )
-        else:
-            self.github_config = github_config
-            self.github_enabled = True
 
-        if self.github_config.redirect_url is None:
-            self.github_config.redirect_url = (
-                f"{self.server_url}:{self.server_port}/oauth/github/callback"
+        if provider_key == OAuthProvider.AZURE.value and isinstance(
+            provider_config, AzureOAuthConfig
+        ):
+            provider_config.auth_url = provider_config.auth_url.format(
+                tenant=provider_config.tenant_id
+            )
+            provider_config.token_url = provider_config.token_url.format(
+                tenant=provider_config.tenant_id
             )
 
-    def _initialize_azure_config(self, azure_config: AzureOAuthConfig | None) -> None:
-        if azure_config is None:
-            self.azure_config = AzureOAuthConfig(
-                client_id=os.getenv("AZURE_CLIENT_ID", ""),
-                client_secret=os.getenv("AZURE_CLIENT_SECRET", ""),
-                tenant_id=os.getenv("AZURE_TENANT_ID", "common"),
-            )
-        else:
-            self.azure_config = azure_config
-            self.azure_enabled = True
+        return provider_config
 
-        if self.azure_config.redirect_url is None:
-            self.azure_config.redirect_url = (
-                f"{self.server_url}:{self.server_port}/oauth/azure/callback"
-            )
-        # Format URLs with tenant
-        self.azure_config.auth_url = self.azure_config.auth_url.format(
-            tenant=self.azure_config.tenant_id
-        )
-        self.azure_config.token_url = self.azure_config.token_url.format(
-            tenant=self.azure_config.tenant_id
-        )
-
-    def _as_provider(self, provider: OAuthProvider | str) -> OAuthProvider:
+    def _as_provider(self, provider: OAuthProvider | str) -> OAuthProvider | str:
         if isinstance(provider, OAuthProvider):
             return provider
+
+        provider_key = self._provider_key(provider)
+        if provider_key in self.providers:
+            return provider_key
+
         try:
             return OAuthProvider(provider)
         except ValueError as e:
             raise ValueError(f"Unsupported OAuth provider: {provider}") from e
 
+    @staticmethod
+    def _provider_key(provider: OAuthProvider | str) -> str:
+        if isinstance(provider, OAuthProvider):
+            return provider.value
+        return str(provider).strip().lower()
+
     def _get_provider_config(self, provider: OAuthProvider | str) -> OAuthConfig:
         """Get provider configuration with tenant URL formatting."""
         prov = self._as_provider(provider)
-        config = self.providers.get(prov)
+        config = self.providers.get(self._provider_key(prov))
         if config is None:
             raise ValueError(f"Unsupported OAuth provider: {provider}")
         return config
 
     def _normalize_user_data(
-        self, provider: OAuthProvider, user_data: dict[str, Any]
+        self, provider: OAuthProvider | str, user_data: dict[str, Any]
     ) -> dict[str, Any]:
         """Normalize user data from different providers."""
-        if provider == OAuthProvider.GITHUB:
+        provider_key = self._provider_key(provider)
+
+        if provider_key == OAuthProvider.GITHUB.value:
             user_data = {
                 "id": str(user_data.get("id", "")),
                 "email": user_data.get("email") or "",
@@ -146,7 +156,7 @@ class OAuthService:
                 "username": user_data.get("login", ""),
             }
 
-        if provider == OAuthProvider.AZURE:
+        if provider_key == OAuthProvider.AZURE.value:
             user_data = {
                 "id": user_data.get("id") or user_data.get("sub") or "",
                 "email": self._convert_upn_to_email(user_data.get("email"))
@@ -203,7 +213,7 @@ class OAuthService:
 
         code_verifier: str | None = None
         # For Azure, enforce PKCE (S256)
-        if prov == OAuthProvider.AZURE:
+        if self._provider_key(prov) == OAuthProvider.AZURE.value:
             code_verifier, code_challenge = generate_pkce_pair()
             auth_url, _ = oauth.authorization_url(
                 config.auth_url,
@@ -247,7 +257,7 @@ class OAuthService:
         include_client_id: bool = False
 
         # Include PKCE code_verifier for Azure
-        if prov == OAuthProvider.AZURE:
+        if self._provider_key(prov) == OAuthProvider.AZURE.value:
             if not code_verifier:
                 raise ValueError(
                     "code_verifier required for Azure OAuth token exchange"
@@ -285,7 +295,12 @@ class OAuthService:
         response.raise_for_status()
         user_data = response.json()
 
-        if user_data.get("email") is None and prov == OAuthProvider.GITHUB:
+        provider_key = self._provider_key(prov)
+
+        if (
+            user_data.get("email") is None
+            and provider_key == OAuthProvider.GITHUB.value
+        ):
             email_response = oauth.get(self.github_config.user_email_url)
             email_response.raise_for_status()
             emails = email_response.json()
@@ -293,7 +308,7 @@ class OAuthService:
                 (email["email"] for email in emails if email["primary"]), ""
             )
 
-        if user_data.get("email") is None and prov == OAuthProvider.AZURE:
+        if user_data.get("email") is None and provider_key == OAuthProvider.AZURE.value:
             email_response = oauth.get(self.azure_config.user_url)
             email_response.raise_for_status()
             profile_data = email_response.json()
@@ -306,8 +321,8 @@ class OAuthService:
                 or ""
             )
 
-        return self._normalize_user_data(prov, user_data)
+        return self._normalize_user_data(provider_key, user_data)
 
     def provider_supported(self, provider: OAuthProvider | str) -> bool:
         prov = self._as_provider(provider)
-        return prov in self.providers
+        return self._provider_key(prov) in self.providers

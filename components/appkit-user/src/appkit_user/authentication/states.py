@@ -266,6 +266,16 @@ class LoginState(UserSession):
         """Whether GitHub OAuth is enabled."""
         return self._oauth_service.github_enabled
 
+    @rx.var
+    def enable_google_oauth(self) -> bool:
+        """Whether Google OAuth is enabled."""
+        return self._oauth_service.google_enabled
+
+    @rx.var
+    def enable_apple_oauth(self) -> bool:
+        """Whether Apple OAuth is enabled."""
+        return self._oauth_service.apple_enabled
+
     async def _prepare_login(self) -> str:
         """Prepare for login: save redirect, terminate old session. Returns redirect."""
         redirect_target = self.redirect_to
