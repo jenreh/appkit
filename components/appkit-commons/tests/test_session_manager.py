@@ -28,6 +28,18 @@ class TestAsyncSessionManager:
         await manager.close()
 
     @pytest.mark.asyncio
+    async def test_sessionmaker_keeps_attributes_after_commit(self) -> None:
+        """Committed async sessions do not expire loaded ORM attributes."""
+        # Arrange & Act
+        manager = AsyncSessionManager("sqlite+aiosqlite:///:memory:")
+
+        # Assert
+        assert manager._sessionmaker.kw["expire_on_commit"] is False
+
+        # Cleanup
+        await manager.close()
+
+    @pytest.mark.asyncio
     async def test_session_context_manager_commits_on_success(self) -> None:
         """Session context manager commits on successful completion."""
         # Arrange
@@ -162,6 +174,17 @@ class TestSessionManager:
         # Assert
         assert manager._engine is not None
         assert manager._sessionmaker is not None
+
+        # Cleanup
+        manager.close()
+
+    def test_sessionmaker_keeps_attributes_after_commit(self) -> None:
+        """Committed sessions do not expire loaded ORM attributes."""
+        # Arrange & Act
+        manager = SessionManager("sqlite:///:memory:")
+
+        # Assert
+        assert manager._sessionmaker.kw["expire_on_commit"] is False
 
         # Cleanup
         manager.close()

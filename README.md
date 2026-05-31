@@ -1,327 +1,202 @@
-# AppKit
+<!-- markdownlint-disable MD033 MD041 -->
+<div align="center">
+<img src="./assets/img/appkit_logo.svg" alt="AppKit logo" width="180" />
+<p>&nbsp;</p>
+<p>A production-ready Reflex application framework with Mantine UI components,<br />
+enterprise authentication, AI assistants, image generation, and built-in MCP servers.</p>
 
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Release](https://img.shields.io/badge/status-release-green.svg)](https://github.com/jenreh/appkit)
+<p>
+<a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13+" /></a>
+<a href="https://reflex.dev/"><img src="https://img.shields.io/badge/Reflex-0.9%2B-5646ED?style=flat-square" alt="Reflex 0.9+" /></a>
+<a href="https://mantine.dev/"><img src="https://img.shields.io/badge/Mantine-9.2-339AF0?style=flat-square" alt="Mantine 9.2" /></a>
+<a href="./pyproject.toml"><img src="https://img.shields.io/badge/version-1.11.2-2F855A?style=flat-square" alt="Version 1.11.2" /></a>
+</p>
 
-**A comprehensive, production-ready Reflex web application framework with AI-powered features, enterprise user management, and Mantine UI components.**
+<p>
+<a href="#overview">Overview</a> |
+<a href="#screenshots">Screenshots</a> |
+<a href="#packages">Packages</a> |
+<a href="#getting-started">Getting Started</a> |
+<a href="#configuration">Configuration</a> |
+<a href="#development">Development</a>
+</p>
+</div>
+<!-- markdownlint-enable MD033 MD041 -->
 
-Appkit is a full-featured web application framework built on [Reflex](https://reflex.dev) that combines modular, reusable components with production-grade infrastructure. It serves as both a functional application and a showcase for building robust Python web applications with AI integrations, multi-tenant support, and professional UI patterns.
+## Overview
 
----
+AppKit is a modular Python workspace for building authenticated, AI-enabled Reflex applications. The repository contains both a runnable application and reusable packages for Mantine-based UI, user management, assistants, image generation, shared infrastructure, and Model Context Protocol (MCP) servers.
 
-## 🎯 Core Components
+The current app combines:
 
-Appkit is structured as a workspace of specialized modules, each solving specific problems:
+- **Mantine UI for Reflex** with typed components, examples, forms, tables, navigation, overlays, rich text editing, charts, and page templates.
+- **Enterprise user management** with OAuth login, sessions, role-based access control, profile pages, password reset flows, and admin screens.
+- **AI assistant workflows** with model management, file upload support, MCP app integration, slash-command style prompts, and configurable providers.
+- **Image generation** with multiple generator backends, galleries, cleanup jobs, and admin-managed generator configuration.
+- **MCP servers** for user analytics, chart generation, BPMN diagrams, and image generation, mounted into the FastAPI backend.
+- **Production infrastructure** with SQLAlchemy 2.0, Alembic migrations, Pydantic settings, encrypted configuration values, PostgreSQL scheduling via PGQueuer, Docker support, and structured logging.
 
-### UI Components
+> [!NOTE]
+> AppKit is both an application and a set of reusable workspace packages. You can run the full app locally or depend on individual packages such as `appkit-mantine` in another Reflex project.
 
-**[appkit-mantine](./components/appkit-mantine)** - Comprehensive Mantine UI wrapper for Reflex
+## Screenshots
 
-- 50+ production-ready Mantine input components with full type safety
-- Text inputs, date pickers, number inputs, masked inputs, rich editors, and more
-- Inheritance-based architecture eliminates 40+ common properties duplication
-- Complete examples and integration patterns
+Small previews are shown below. See the [full-size screenshot gallery](./docs/SCREENSHOTS.md) for the complete images.
 
-### Application Features
+| Screenshot | Screenshot | Screenshot |
+| --- | --- | --- |
+| Assistant workspace | LLM model management | MCP server management |
+| [![AppKit assistant thumbnail](./docs/images/thumbnails/appkit-assistant.png)](./docs/SCREENSHOTS.md#assistant-workspace) | [![AppKit LLM model management thumbnail](./docs/images/thumbnails/appkit-llm-mgmt.png)](./docs/SCREENSHOTS.md#llm-model-management) | [![AppKit MCP management thumbnail](./docs/images/thumbnails/appkit-mcp-mgmt.png)](./docs/SCREENSHOTS.md#mcp-server-management) |
+| Image model management | User management modal | Mantine input examples |
+| [![AppKit image model management thumbnail](./docs/images/thumbnails/appkit-image-model-mgmt.png)](./docs/SCREENSHOTS.md#image-model-management) | [![AppKit user management modal thumbnail](./docs/images/thumbnails/appkit-user-mgmt-modal.png)](./docs/SCREENSHOTS.md#user-management-modal) | [![AppKit Mantine input examples thumbnail](./docs/images/thumbnails/appkit-inputs.png)](./docs/SCREENSHOTS.md#mantine-input-examples) |
+| Markdown preview example | Theme example | Image creator |
+| [![AppKit Markdown preview example thumbnail](./docs/images/thumbnails/appkit-markdown-example.png)](./docs/SCREENSHOTS.md#markdown-preview-example) | [![AppKit theme example thumbnail](./docs/images/thumbnails/appkit-theme-example.png)](./docs/SCREENSHOTS.md#theme-example) | [![AppKit image creator thumbnail](./docs/images/thumbnails/appkit-imagecreator.jpeg)](./docs/SCREENSHOTS.md#image-creator) |
 
-**[appkit-assistant](./components/appkit-assistant)** - AI assistant with MCP server integration
+## Packages
 
-- OpenAI-powered conversational interface
-- Multi-model support (OpenAI, Perplexity, etc.)
-- Model Context Protocol (MCP) server management
-- Secure server credential handling with encryption
+| Package | Purpose |
+| --- | --- |
+| [`appkit-mantine`](./components/appkit-mantine) | Mantine 9 components for Reflex with typed Python wrappers and example pages. |
+| [`appkit-ui`](./components/appkit-ui) | Shared layout, templates, and navigation helpers for AppKit-style applications. |
+| [`appkit-user`](./components/appkit-user) | Authentication, sessions, RBAC, profile management, password reset, and user admin. |
+| [`appkit-assistant`](./components/appkit-assistant) | AI assistant UI and backend services with model registry, MCP integration, and file cleanup. |
+| [`appkit-imagecreator`](./components/appkit-imagecreator) | Image generation workflows, galleries, generator registry, and generated-image cleanup. |
+| [`appkit-commons`](./components/appkit-commons) | Configuration, registry, database entities, repositories, encryption helpers, middleware, and scheduler support. |
+| [`appkit-mcp-commons`](./components/appkit-mcp-commons) | Shared MCP server utilities. |
+| [`appkit-mcp-user`](./components/appkit-mcp-user) | MCP server for user analytics and user-management context. |
+| [`appkit-mcp-charts`](./components/appkit-mcp-charts) | MCP server for chart and visualization generation. |
+| [`appkit-mcp-bpmn`](./components/appkit-mcp-bpmn) | MCP server for BPMN 2.0 workflow diagram generation. |
+| [`appkit-mcp-image`](./components/appkit-mcp-image) | MCP server for authenticated image generation and editing. |
 
-![Assistant](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-assistant/docs/assistant.png)
-
-**[appkit-imagecreator](./components/appkit-imagecreator)** - Multi-AI image generation
-
-- Google Gemini and OpenAI integration
-- Unified API for image generation workflows
-- Production-ready error handling and streaming
-
-![Image Creator](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-imagecreator/docs/imagecreator.jpeg)
-
-**[appkit-user](./components/appkit-user)** - Enterprise user management
-
-- OAuth2 authentication (GitHub, Azure, custom providers)
-- Role-based access control (RBAC)
-- Multi-tenant user profiles and project organization
-- Session management and security
-
-![User manager](https://raw.githubusercontent.com/jenreh/appkit/refs/heads/main/components/appkit-user/docs/user_manager.png)
-
-### Shared Infrastructure
-
-**[appkit-commons](./components/appkit-commons)** - Shared utilities and data models
-
-- Database models and ORM integration
-- Common configuration and settings
-- Logging and error handling utilities
-
-**[appkit-ui](./components/appkit-ui)** - Layout and styling components
-
-- Responsive page templates
-- Navigation components
-- Common UI patterns and utilities
-
----
-
-## ✨ Key Features
-
-- **AI-First Architecture** - Built-in support for OpenAI, Google Gemini, and MCP server integrations
-- **Enterprise Ready** - Multi-tenant support, RBAC, OAuth2 authentication, and secure credential management
-- **Type-Safe UI** - Full type annotations across 50+ Mantine components with IDE autocomplete
-- **Modular Design** - Workspace-based architecture allows independent component use
-- **Production Infrastructure** - Database migrations, logging, configuration management, and Docker support
-- **Clean Architecture** - Inheritance-based component design and clear separation of concerns
-- **Modern Stack** - Python 3.13+, Reflex 0.8.24+, React 18, SQLAlchemy 2.0, Pydantic, Alembic
-
----
-
-## 🚀 Quick Start
+## Getting Started
 
 ### Prerequisites
 
-- Python 3.13 or higher
-- PostgreSQL (for development)
+- Python 3.13 or newer
+- [uv](https://docs.astral.sh/uv/)
+- [Task](https://taskfile.dev/)
+- PostgreSQL for the full application
+- Docker, optional, for containerized runs
 
-### Installation
-
-Clone and install the development environment:
+### Run Locally
 
 ```bash
 git clone https://github.com/jenreh/appkit.git
 cd appkit
 
-# Install dependencies with uv (includes all workspace components)
-uv sync
-
-# Run migrations
-uv run alembic upgrade head
-
-# Start the development server
-uv run reflex run
+task init
+task run
 ```
 
-Access the application at `http://localhost:3000`
+The development app starts at `http://localhost:8080/` with the backend on `http://localhost:3030`.
 
-### Using Individual Components
-
-To use appkit-mantine in your own Reflex project:
+If the database is already configured and dependencies are installed, the shorter loop is:
 
 ```bash
-# Using uv
-uv add appkit-mantine
+task sync
+task db:upgrade
+task run
+```
 
-# Using pip
-pip install appkit-mantine
+> [!IMPORTANT]
+> The full app expects database and secret-backed configuration values. For local development, review `configuration/config.yaml` and `configuration/config.local.yaml`, then provide the required secret values through your configured AppKit secret provider or environment overrides.
+
+### Use `appkit-mantine` Separately
+
+```bash
+uv add appkit-mantine
 ```
 
 ```python
 import reflex as rx
 import appkit_mantine as mn
 
+
 class DemoState(rx.State):
     value: str = ""
 
+
 def index() -> rx.Component:
-    return rx.container(
+    return mn.container(
         mn.input(
+            label="Prompt",
             placeholder="Type something...",
             value=DemoState.value,
             on_change=DemoState.set_value,
         ),
     )
 
+
 app = rx.App()
 app.add_page(index)
 ```
 
----
+## Configuration
 
-## 🏗️ Project Structure
+AppKit uses profile-based YAML configuration with environment-specific overrides:
+
+| File | Purpose |
+| --- | --- |
+| [`configuration/config.yaml`](./configuration/config.yaml) | Default app, Reflex, database, authentication, assistant, image generator, and MCP settings. |
+| [`configuration/config.local.yaml`](./configuration/config.local.yaml) | Local development overrides. |
+| [`configuration/config.docker_test.yaml`](./configuration/config.docker_test.yaml) | Docker test profile. |
+| [`configuration/config.prod.yaml`](./configuration/config.prod.yaml) | Production profile. |
+| [`configuration/logging.yaml`](./configuration/logging.yaml) | Development logging configuration. |
+| [`configuration/logging.prod.yaml`](./configuration/logging.prod.yaml) | Production logging configuration. |
+
+The application registers the FastAPI backend, image API routes, MCP app routes, HTTPS middleware, AI model registry, image generator registry, and scheduled cleanup services during startup.
+
+## Development
+
+Common commands are defined in [`Taskfile.dist.yml`](./Taskfile.dist.yml):
+
+| Command | Description |
+| --- | --- |
+| `task` | Show available tasks. |
+| `task init` | Install Python, sync dependencies, install pre-commit hooks, and run migrations. |
+| `task sync` | Install workspace dependencies with uv. |
+| `task run` | Start the Reflex development app. |
+| `task run:debug` | Start the app with debug logging. |
+| `task run:prod` | Start the app in production mode on a single port. |
+| `task test` | Run pytest with coverage. |
+| `task lint` | Run Ruff checks. |
+| `task format` | Apply Ruff fixes and formatting. |
+| `task db:revision -- "message"` | Create a manual Alembic revision. |
+| `task db:upgrade` | Apply migrations. |
+| `task docker:build` | Build the Docker image locally. |
+| `task docker:test` | Run and verify the local Docker image with Compose. |
+
+> [!WARNING]
+> Do not create Alembic migrations with autogeneration for this repository. Write migrations manually and verify the current migration chain before applying them.
+
+## Project Layout
 
 ```text
 appkit/
-├── app/                          # Main Reflex application
-│   ├── pages/                    # Application pages
-│   │   ├── examples/             # Component showcase examples
-│   │   ├── assistant/            # AI assistant interface
-│   │   ├── image_creator.py      # Image generation UI
-│   │   └── users.py              # User management
-│   └── components/               # Shared UI components
-├── components/                   # Workspace modules
-│   ├── appkit-mantine/           # Mantine UI wrapper components
-│   ├── appkit-assistant/         # AI assistant integration
-│   ├── appkit-imagecreator/      # Image generation
-│   ├── appkit-user/              # User authentication & management
-│   ├── appkit-ui/                # Layout & UI utilities
-│   └── appkit-commons/           # Shared utilities & models
-├── alembic/                      # Database migrations
-├── configuration/                # Configuration files
-└── assets/                       # CSS, JavaScript, and static assets
+├── app/                       # Main Reflex application, pages, navbar, and app startup
+├── components/                # uv workspace packages
+├── configuration/             # YAML profiles and logging config
+├── alembic/                   # Database migrations
+├── assets/                    # Static assets, icons, CSS, email templates, image styles
+├── docs/images/               # README screenshots
+├── tests/                     # Root-level test helpers
+├── Dockerfile                 # Production image build
+├── docker-compose.yml         # Local container runtime
+├── pyproject.toml             # Root package and uv workspace config
+└── Taskfile.dist.yml          # Development task runner
 ```
 
----
+## Runtime Surface
 
-## 📚 Development
+- Reflex frontend: `http://localhost:8080/`
+- Backend API: `http://localhost:3030`
+- MCP servers mounted under the backend for `/user`, `/charts`, `/bpmn`, and `/image`
+- Authenticated app routes include `/assistant`, `/image-gallery`, `/profile`, `/admin/users`, `/admin/assistant`, and `/admin/image-generators`
 
-### Common Commands
+## Resources
 
-```bash
-# Install dependencies
-make install
-
-# Run the development server
-make reflex
-
-# Run with debug logging
-make reflex-debug
-
-# Run tests
-make test
-
-# Format and lint code
-make format
-make lint
-
-# Database operations
-make db-migrate          # Run migrations
-make db-migrate-history  # Show migration history
-make db-migrate-down     # Downgrade one revision
-```
-
-### Database Setup
-
-Appkit uses SQLAlchemy 2.0 with Alembic for migrations:
-
-```bash
-# Run all pending migrations
-uv run alembic upgrade head
-
-# Create new migration
-uv run alembic revision --autogenerate -m "Description of changes"
-
-# View current migration status
-uv run alembic current
-```
-
-### Configuration
-
-Environment-specific configurations are in `configuration/`:
-
-- `config.yaml` - Default configuration
-- `config.local.yaml` - Local development overrides
-- `config.docker_test.yaml` - Docker test environment
-- `logging.yaml` - Logging configuration
-
-Set `APP_ENV` to load specific configs:
-
-```bash
-export APP_ENV=local
-reflex run
-```
-
----
-
-## 🐳 Docker Support
-
-Build and run the application in Docker:
-
-```bash
-# Build the container
-docker build -t appkit .
-
-# Run with compose
-docker-compose up
-
-# The application will be available at http://localhost
-```
-
-The Docker setup includes:
-
-- Multi-stage build for optimized images
-- Caddy reverse proxy for static file serving
-- Automatic database migrations on startup
-- Production-optimized Reflex export
-
----
-
-## 🔐 Security Considerations
-
-- Credentials are managed through environment variables and never committed to source control
-- Sensitive MCP server headers are encrypted in the database
-- OAuth2 tokens use secure session management
-- Database connections use SSL/TLS in production
-- PKCE is enforced for OAuth2 flows
-
-> **Tip:** Review security considerations when deploying to production. Use a secrets management service like Azure Key Vault or AWS Secrets Manager.
-
----
-
-## 📖 Documentation
-
-- **[Mantine Components](./components/appkit-mantine/docs)** - API reference and examples for all UI components
-- **[Configuration](./configuration)** - Environment and application settings
-- **[Database Migrations](./alembic/versions)** - Schema evolution history
-
----
-
-## 🤝 Architecture Highlights
-
-### Inheritance-Based Component Design
-
-All Mantine input components inherit from `MantineInputComponentBase`, providing 40+ common properties without duplication:
-
-```python
-# Only define component-specific props
-class NumberInput(MantineInputComponentBase):
-    tag = "NumberInput"
-    min: Var[int | float] = None
-    max: Var[int | float] = None
-    decimal_scale: Var[int] = None
-    # label, placeholder, required, etc. inherited automatically
-```
-
-### MCP Server Integration
-
-Appkit includes enterprise-grade Model Context Protocol support with secure credential management:
-
-```python
-# Manage MCP servers with automatic encryption/decryption
-mcp_server = MCPServer(
-    name="my-server",
-    url="sse://localhost:3000",
-    auth_type="headers",
-    auth_config={...}  # Automatically encrypted
-)
-```
-
-### Multi-Tenant User Management
-
-Built-in support for organizations, projects, and role-based access:
-
-```python
-# OAuth2 login with automatic profile creation
-user = await authenticate_oauth(provider="github", code=code)
-# Profile automatically includes role and organization context
-```
-
----
-
-## 📋 Pre-Release Status
-
-This project is in active development (v0.13.1). While core functionality is stable and used in production, the API may evolve. Check the [GitHub releases](https://github.com/jenreh/appkit/releases) for version-specific changes.
-
-> **Note:** Component APIs in appkit-mantine are stable. Higher-level application features may change between releases.
-
----
-
-## 🙏 Acknowledgments
-
-- **[Reflex](https://reflex.dev)** - The full-stack Python framework
-- **[Mantine](https://mantine.dev)** - Beautiful React component library
-- **[FastAPI](https://fastapi.tiangolo.com)** - Modern Python web API framework
-- **OpenAI and Google** - AI model providers
-- **PostgreSQL** - Reliable database backend
+- [Reflex documentation](https://reflex.dev/docs/)
+- [Mantine documentation](https://mantine.dev/)
+- [Model Context Protocol](https://modelcontextprotocol.io/)
+- [SQLAlchemy documentation](https://docs.sqlalchemy.org/)
+- [Alembic documentation](https://alembic.sqlalchemy.org/)

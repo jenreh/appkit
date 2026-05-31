@@ -15,7 +15,10 @@ from sqlalchemy.orm import Session, sessionmaker
 class AsyncSessionManager:
     def __init__(self, host: str, engine_kwargs: dict[str, Any] | None = None):
         self._engine = create_async_engine(host, **(engine_kwargs or {}))
-        self._sessionmaker = async_sessionmaker(bind=self._engine)
+        self._sessionmaker = async_sessionmaker(
+            bind=self._engine,
+            expire_on_commit=False,
+        )
 
     async def close(self) -> None:
         if self._engine:
@@ -35,7 +38,10 @@ class AsyncSessionManager:
 class SessionManager:
     def __init__(self, host: str, engine_kwargs: dict[str, Any] | None = None):
         self._engine = create_engine(host, **(engine_kwargs or {}))
-        self._sessionmaker = sessionmaker(bind=self._engine)
+        self._sessionmaker = sessionmaker(
+            bind=self._engine,
+            expire_on_commit=False,
+        )
 
     def close(self) -> None:
         if self._engine:

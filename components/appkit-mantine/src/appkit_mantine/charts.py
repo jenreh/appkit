@@ -4,10 +4,11 @@ from typing import Any, Literal
 
 from reflex.vars.base import Var
 
-from appkit_mantine.base import MantineComponentBase
+from appkit_mantine.base import MANTINE_VERSION, MantineComponentBase
 
-MANTINE_CHARTS_LIBRARY = "@mantine/charts@9.1.1"
-RECHARTS_LIBRARY = "recharts@^3.8.1"
+MANTINE_CHARTS_LIBRARY = f"@mantine/charts@{MANTINE_VERSION}"
+RECHARTS_LIBRARY = "recharts@3.8.1"
+ES_TOOLKIT_LIBRARY = "es-toolkit@1.46.1"
 
 MantineCurveType = Literal[
     "linear",
@@ -25,7 +26,10 @@ class MantineChartComponentBase(MantineComponentBase):
     """Base class for Mantine charts components."""
 
     library = MANTINE_CHARTS_LIBRARY
-    lib_dependencies: list[str] = [RECHARTS_LIBRARY]
+    lib_dependencies: list[str] = [
+        RECHARTS_LIBRARY,
+        ES_TOOLKIT_LIBRARY,
+    ]
 
     def _get_custom_code(self) -> str:
         return """import '@mantine/core/styles.css';

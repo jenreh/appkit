@@ -3,6 +3,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from appkit_mantine.base import MANTINE_VERSION
+from appkit_mantine.charts import (
+    ES_TOOLKIT_LIBRARY,
+    MANTINE_CHARTS_LIBRARY,
+    RECHARTS_LIBRARY,
+    MantineChartComponentBase,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES_DIR = REPO_ROOT / "app" / "pages" / "examples"
 NAVBAR_FILE = REPO_ROOT / "app" / "components" / "navbar.py"
@@ -74,3 +82,16 @@ def test_example_routes_are_linked_in_navbar() -> None:
     navbar_urls = set(nav_pattern.findall(NAVBAR_FILE.read_text()))
 
     assert sorted(example_routes - navbar_urls) == []
+
+
+def test_charts_package_uses_current_mantine_version() -> None:
+    assert MANTINE_CHARTS_LIBRARY == f"@mantine/charts@{MANTINE_VERSION}"
+
+
+def test_charts_pin_vite_compatible_recharts_dependencies() -> None:
+    assert RECHARTS_LIBRARY == "recharts@3.8.1"
+    assert ES_TOOLKIT_LIBRARY == "es-toolkit@1.46.1"
+    assert MantineChartComponentBase.lib_dependencies == [
+        RECHARTS_LIBRARY,
+        ES_TOOLKIT_LIBRARY,
+    ]
