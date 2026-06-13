@@ -1,6 +1,6 @@
 [project]
 name = "appkit-commons"
-version = "1.11.3"
+version = "1.12.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
