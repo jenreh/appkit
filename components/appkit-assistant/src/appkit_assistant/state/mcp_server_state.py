@@ -34,6 +34,7 @@ class MCPServerState(rx.State):
     available_roles: list[dict[str, str]] = []
     role_labels: dict[str, str] = {}
 
+    @rx.event
     def set_search_filter(self, value: str) -> None:
         """Set the search filter."""
         self.search_filter = value
@@ -81,6 +82,7 @@ class MCPServerState(rx.State):
         self.edit_modal_open = False
         self.current_server = None
 
+    @rx.event
     def set_available_roles(
         self,
         available_roles: list[dict[str, str]],
@@ -134,6 +136,7 @@ class MCPServerState(rx.State):
         except Exception as e:
             logger.error("Failed to get MCP server %d: %s", server_id, e)
 
+    @rx.event
     async def set_current_server(self, server: MCPServer) -> None:
         """Set the current server."""
         self.current_server = server

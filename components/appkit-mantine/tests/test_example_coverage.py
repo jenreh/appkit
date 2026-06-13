@@ -5,7 +5,6 @@ from pathlib import Path
 
 from appkit_mantine.base import MANTINE_VERSION
 from appkit_mantine.charts import (
-    ES_TOOLKIT_LIBRARY,
     MANTINE_CHARTS_LIBRARY,
     RECHARTS_LIBRARY,
     MantineChartComponentBase,
@@ -90,8 +89,6 @@ def test_charts_package_uses_current_mantine_version() -> None:
 
 def test_charts_pin_vite_compatible_recharts_dependencies() -> None:
     assert RECHARTS_LIBRARY == "recharts@3.8.1"
-    assert ES_TOOLKIT_LIBRARY == "es-toolkit@1.46.1"
     assert MantineChartComponentBase.lib_dependencies == [
         RECHARTS_LIBRARY,
-        ES_TOOLKIT_LIBRARY,
     ]

@@ -26,7 +26,6 @@ config = rx.Config(
     async_db_url=database.url,
     telemetry_enabled=False,
     show_built_with_reflex=False,
-    state_auto_setters=True,
     plugins=[
         # rx.plugins.SitemapPlugin(),
         rx.plugins.TailwindV4Plugin(),

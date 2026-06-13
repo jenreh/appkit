@@ -52,6 +52,14 @@ class InputsAdvancedState(rx.State):
     def set_chip_group(self, value: str) -> None:
         self.chip_group_value = value
 
+    @rx.event
+    def set_fieldset_name(self, value: str) -> None:
+        self.fieldset_name = value
+
+    @rx.event
+    def set_fieldset_email(self, value: str) -> None:
+        self.fieldset_email = value
+
 
 @navbar_layout(
     route="/inputs-advanced",

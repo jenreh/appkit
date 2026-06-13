@@ -74,6 +74,7 @@ class ProfileState(rx.State):
     def set_name(self, name: str) -> None:
         self.name = name
 
+    @rx.event
     def set_confirm_password(self, password: str) -> None:
         self.confirm_password = password
         if self.new_password != password:
@@ -81,6 +82,7 @@ class ProfileState(rx.State):
         else:
             self.password_error = ""
 
+    @rx.event
     def set_current_password(self, password: str) -> None:
         self.current_password = password
 

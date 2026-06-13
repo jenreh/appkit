@@ -45,6 +45,7 @@ class PasswordResetRequestState(rx.State):
         "Wenn diese E-Mail-Adresse registriert ist, erhalten Sie eine Bestätigungsmail."
     )
 
+    @rx.event
     def set_email(self, value: str) -> None:
         """Set email and clear errors."""
         self.email = value.strip().lower()

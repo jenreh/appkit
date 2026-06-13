@@ -22,6 +22,7 @@ class UserState(rx.State):
     edit_modal_open: bool = False
     search_filter: str = ""
 
+    @rx.event
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
         self.search_filter = value
@@ -60,6 +61,7 @@ class UserState(rx.State):
         await self.select_user(user_id)
         self.open_edit_modal()
 
+    @rx.event
     def set_available_roles(self, roles_list: list[Role]) -> None:
         """Set roles grouped by group in original order."""
         # Normalize roles to dict structure

@@ -8,7 +8,9 @@ from appkit_mantine.base import MANTINE_VERSION, MantineComponentBase
 
 MANTINE_CHARTS_LIBRARY = f"@mantine/charts@{MANTINE_VERSION}"
 RECHARTS_LIBRARY = "recharts@3.8.1"
-ES_TOOLKIT_LIBRARY = "es-toolkit@1.46.1"
+# es-toolkit is no longer declared here: reflex>=0.9.4 pins es-toolkit@1.46.1
+# globally as a vite/recharts-compatible override, so an explicit lib_dependency
+# entry would be redundant. recharts still needs the pin above.
 
 MantineCurveType = Literal[
     "linear",
@@ -28,7 +30,6 @@ class MantineChartComponentBase(MantineComponentBase):
     library = MANTINE_CHARTS_LIBRARY
     lib_dependencies: list[str] = [
         RECHARTS_LIBRARY,
-        ES_TOOLKIT_LIBRARY,
     ]
 
     def _get_custom_code(self) -> str:

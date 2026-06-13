@@ -170,6 +170,7 @@ class SystemPromptState(State):
         finally:
             self.is_loading = False
 
+    @rx.event
     def set_current_prompt(self, value: str) -> None:
         """Update current prompt text and char count.
 
@@ -179,6 +180,7 @@ class SystemPromptState(State):
         self.current_prompt = value
         self.char_count = len(value)
 
+    @rx.event
     def set_selected_version(self, value: str | None) -> None:
         """Handle version selection and load corresponding prompt.
 

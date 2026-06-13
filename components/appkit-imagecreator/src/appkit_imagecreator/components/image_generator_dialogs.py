@@ -66,31 +66,39 @@ class ImageGeneratorValidationState(rx.State):
 
     # --- Field setters with inline validation ---
 
+    @rx.event
     def set_model_id(self, value: str) -> None:
         self.model_id = value
         self.validate_model_id()
 
+    @rx.event
     def set_model(self, value: str) -> None:
         self.model = value
 
+    @rx.event
     def set_label(self, value: str) -> None:
         self.label = value
         self.validate_label()
 
+    @rx.event
     def set_processor_type(self, value: str) -> None:
         self.processor_type = value
         self.validate_processor_type()
 
+    @rx.event
     def set_api_key(self, value: str) -> None:
         self.api_key = value
 
+    @rx.event
     def set_base_url(self, value: str) -> None:
         self.base_url = value
 
+    @rx.event
     def set_extra_config(self, value: str) -> None:
         self.extra_config = value
         self.validate_extra_config()
 
+    @rx.event
     def set_required_role(self, value: str) -> None:
         self.required_role = value
 
