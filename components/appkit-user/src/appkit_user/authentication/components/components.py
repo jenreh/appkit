@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Callable
+from typing import Any
 
 import reflex as rx
 
@@ -81,7 +82,7 @@ _SESSION_MONITOR_JS = """
 """
 
 
-def themed_logo(light: str, dark: str, **kwargs) -> rx.Component:
+def themed_logo(light: str, dark: str, **kwargs: Any) -> rx.Component:
     """Helper to render a logo that changes with color mode."""
     return rx.color_mode_cond(
         mn.image(src=light, **kwargs),
@@ -146,7 +147,7 @@ def password_rule(check: bool, message: str) -> rx.Component:
 
 
 def requires_role(
-    *children,
+    *children: Any,
     role: str,
     fallback: rx.Component | None = None,  # noqa: B008
 ) -> rx.Component:
@@ -158,7 +159,7 @@ def requires_role(
 
 
 def requires_admin(
-    *children,
+    *children: Any,
     fallback: rx.Component | None = None,  # noqa: B008
 ) -> rx.Component:
     return rx.cond(
@@ -169,7 +170,7 @@ def requires_admin(
 
 
 def requires_authenticated(
-    *children,
+    *children: Any,
     fallback: rx.Component | None = None,  # noqa: B008
 ) -> rx.Component:
     return rx.cond(

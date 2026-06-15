@@ -263,7 +263,7 @@ class ScheduledService(ABC):
         ...
 
     @abstractmethod
-    async def execute(self, *args, **kwargs) -> None:
+    async def execute(self, *args: Any, **kwargs: Any) -> None:
         """The actual job logic to execute."""
         ...
 

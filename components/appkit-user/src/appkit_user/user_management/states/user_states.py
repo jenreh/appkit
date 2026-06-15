@@ -71,15 +71,15 @@ class UserState(rx.State):
             else {
                 "name": role.name,
                 "label": role.label,
-                "description": role.description,
+                "description": role.description or "",
                 "group": role.group or "default",
             }
             for role in roles_list
         ]
 
         # Group roles by group (preserving order)
-        grouped = {}
-        group_order = []
+        grouped: dict[str, list[dict[str, str]]] = {}
+        group_order: list[str] = []
         for role in roles_dicts:
             group_name = role.get("group", "default")
             if group_name not in grouped:

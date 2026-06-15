@@ -172,7 +172,7 @@ class RichSelectNamespace(rx.ComponentNamespace):
         disabled: Callable[[Any], bool] | None = None,
         keywords: Callable[[Any], list[str] | None] | None = None,
         payload: Callable[[Any], dict[str, Any] | None] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> rx.Component:
         if renderer is None and "renderer" in kwargs:
             renderer = kwargs.pop("renderer")

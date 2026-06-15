@@ -1,7 +1,7 @@
 import os
 from enum import StrEnum
 from functools import lru_cache
-from typing import Final
+from typing import Any, Final
 
 from dotenv import load_dotenv
 
@@ -22,7 +22,7 @@ class SecretProvider(StrEnum):
 
 
 @lru_cache(maxsize=1)
-def _get_azure_client():
+def _get_azure_client() -> Any:
     try:
         from azure.identity import (  # type: ignore # noqa: PLC0415
             DefaultAzureCredential,
@@ -49,7 +49,7 @@ def _get_secret_from_azure(key: str) -> str:
     secret = client.get_secret(key.lower())
     if not secret.value:
         raise SecretNotFoundError(f"Secret '{key}' not found in Azure Key Vault")
-    return secret.value
+    return str(secret.value)
 
 
 def _get_secret_from_env(key: str) -> str:

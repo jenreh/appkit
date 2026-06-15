@@ -6,7 +6,7 @@ class ForceHTTPSMiddleware:
     def __init__(self, app: ASGIApp):
         self.app = app
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] in ("http", "websocket"):
             # Read headers to find X-Forwarded-Proto
             headers = dict(scope["headers"])

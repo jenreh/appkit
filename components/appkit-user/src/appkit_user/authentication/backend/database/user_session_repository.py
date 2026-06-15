@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
@@ -44,7 +45,7 @@ class UserSessionRepository(BaseRepository[UserSessionEntity, AsyncSession]):
         result = await session.execute(stmt)
         return result.scalars().first()
 
-    async def save(
+    async def save(  # type: ignore[override]  # domain-specific signature, not the base CRUD save
         self,
         session: AsyncSession,
         user_id: int,
@@ -90,7 +91,7 @@ class UserSessionRepository(BaseRepository[UserSessionEntity, AsyncSession]):
         """
         now = datetime.now(UTC).replace(tzinfo=None)
         stmt = delete(UserSessionEntity).where(UserSessionEntity.expires_at < now)
-        result = await session.execute(stmt)
+        result = cast("CursorResult[Any]", await session.execute(stmt))
         await session.flush()
         return result.rowcount
 
@@ -105,7 +106,7 @@ class UserSessionRepository(BaseRepository[UserSessionEntity, AsyncSession]):
             int: The number of deleted sessions.
         """
         stmt = delete(UserSessionEntity).where(UserSessionEntity.user_id == user_id)
-        result = await session.execute(stmt)
+        result = cast("CursorResult[Any]", await session.execute(stmt))
         await session.flush()
         return result.rowcount
 

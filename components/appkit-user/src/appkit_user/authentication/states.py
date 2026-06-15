@@ -15,6 +15,7 @@ from appkit_commons.registry import service_registry
 from appkit_user.authentication.backend.database import (
     OAuthStateEntity,
     UserEntity,
+    UserSessionEntity,
     oauth_state_repo,
     session_repo,
     user_repo,
@@ -105,7 +106,7 @@ class UserSession(rx.State):
 
         return None
 
-    async def _find_valid_session(self, db: AsyncSession):
+    async def _find_valid_session(self, db: AsyncSession) -> UserSessionEntity | None:
         """Find valid session by user_id+token or token alone (fallback)."""
         if self.user_id > 0:
             return await session_repo.find_by_user_and_session_id(
@@ -149,7 +150,7 @@ class UserSession(rx.State):
             return None
 
         try:
-            user = await self._execute_db_operation(_check)
+            user: User | None = await self._execute_db_operation(_check)
             if user:
                 self.user = user
                 self.user_id = user.user_id
@@ -168,7 +169,7 @@ class UserSession(rx.State):
         return user is not None
 
     @rx.event
-    async def terminate_session(self) -> None:
+    async def terminate_session(self) -> EventSpec | None:
         """Terminate the current session and clear storage.
 
         Includes retry logic to handle transient database connection errors
@@ -176,7 +177,7 @@ class UserSession(rx.State):
         """
         logger.debug("Terminating session for user_id=%s", self.user_id)
 
-        async def _terminate(session: AsyncSession):
+        async def _terminate(session: AsyncSession) -> None:
             await session_repo.delete_by_user_and_session_id(
                 session, self.user_id, self.auth_token
             )
@@ -205,7 +206,7 @@ class UserSession(rx.State):
         if self.user_id <= 0 or not self.auth_token:
             return
 
-        async def _prolong(session: AsyncSession):
+        async def _prolong(session: AsyncSession) -> None:
             user_session = await session_repo.find_by_user_and_session_id(
                 session, self.user_id, self.auth_token
             )
@@ -279,7 +280,7 @@ class LoginState(UserSession):
     async def _prepare_login(self) -> str:
         """Prepare for login: save redirect, terminate old session. Returns redirect."""
         redirect_target = self.redirect_to
-        await self.terminate_session()
+        await self.terminate_session()  # type: ignore[operator]  # rx.event handler invoked directly
         if redirect_target and redirect_target != "/":
             self.redirect_to = redirect_target
         return redirect_target
@@ -298,7 +299,7 @@ class LoginState(UserSession):
                     db, form_data["username"], form_data["password"]
                 )
 
-                if status != "success":
+                if status != "success" or user_entity is None:
                     self.error_message = self._LOGIN_ERROR_MESSAGES.get(status, "")
                     if self.error_message:
                         yield rx.toast.error(self.error_message, position="top-right")
@@ -306,7 +307,7 @@ class LoginState(UserSession):
 
                 await self._create_session(db, user_entity)
 
-            yield LoginState.redir()
+            yield LoginState.redir()  # type: ignore[operator]
 
         except Exception as e:
             logger.exception("Login failed")
@@ -328,7 +329,7 @@ class LoginState(UserSession):
 
             if not self._oauth_service.provider_supported(provider_str):
                 self.error_message = f"Unknown provider: {provider_name}"
-                return rx.toast.info(
+                return rx.toast.info(  # type: ignore[no-any-return]
                     f"Der Anbieter {provider_name} wird nicht unterstützt.",
                     position="top-right",
                 )
@@ -407,7 +408,7 @@ class LoginState(UserSession):
                 await self._create_session(db, user_entity)
                 await oauth_state_repo.delete(db, oauth_state)
 
-            yield LoginState.redir()
+            yield LoginState.redir()  # type: ignore[operator]
 
         except Exception as e:
             logger.exception("OAuth callback failed")
@@ -433,7 +434,7 @@ class LoginState(UserSession):
     @rx.event
     async def logout(self) -> EventSpec:
         """Logout user and terminate session."""
-        await self.terminate_session()
+        await self.terminate_session()  # type: ignore[operator]  # rx.event handler invoked directly
 
         return rx.redirect(LOGOUT_ROUTE)
 
@@ -441,7 +442,7 @@ class LoginState(UserSession):
     async def redir(self) -> EventSpec | None:
         """Redirect based on authentication status."""
         if not self.is_hydrated:
-            return LoginState.redir()  # type: ignore[return]
+            return LoginState.redir()  # type: ignore[operator, no-any-return]
 
         path = self.router.url.path
         is_auth = await self.is_authenticated
@@ -504,8 +505,8 @@ class LoginState(UserSession):
             else:
                 logger.debug("Session expired for user_id=%s", self.user_id)
                 self._last_auth_check = None
-                await self.terminate_session()
-                return await self.redir()
+                await self.terminate_session()  # type: ignore[operator]  # rx.event handler invoked directly
+                return await self.redir()  # type: ignore[operator, no-any-return]
 
         except Exception as e:
             logger.error("Auth check failed: %s", e)

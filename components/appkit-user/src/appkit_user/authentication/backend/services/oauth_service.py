@@ -4,7 +4,8 @@ import base64
 import hashlib
 import logging
 import secrets
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, cast
 
 from requests_oauthlib import OAuth2Session
 
@@ -71,7 +72,7 @@ class OAuthService:
 
         self._initialize_providers(config.oauth_providers)
 
-    def _initialize_providers(self, oauth_providers: list[OAuthConfig]) -> None:
+    def _initialize_providers(self, oauth_providers: Sequence[OAuthConfig]) -> None:
         """Initialize provider configurations from configured entries."""
         self.providers = {}
 
@@ -81,16 +82,16 @@ class OAuthService:
             self.providers[provider_key] = normalized_config
 
             if provider_key == OAuthProvider.GITHUB.value:
-                self.github_config = normalized_config
+                self.github_config = cast("GithubOAuthConfig", normalized_config)
                 self.github_enabled = True
             elif provider_key == OAuthProvider.AZURE.value:
-                self.azure_config = normalized_config
+                self.azure_config = cast("AzureOAuthConfig", normalized_config)
                 self.azure_enabled = True
             elif provider_key == OAuthProvider.GOOGLE.value:
-                self.google_config = normalized_config
+                self.google_config = cast("GoogleOAuthConfig", normalized_config)
                 self.google_enabled = True
             elif provider_key == OAuthProvider.APPLE.value:
-                self.apple_config = normalized_config
+                self.apple_config = cast("AppleOAuthConfig", normalized_config)
                 self.apple_enabled = True
 
     def _apply_provider_defaults(self, provider_config: OAuthConfig) -> OAuthConfig:
@@ -170,7 +171,7 @@ class OAuthService:
         user_data["email"] = user_data["email"].lower()
         return user_data
 
-    def _convert_upn_to_email(self, user_principal_name: str) -> str:
+    def _convert_upn_to_email(self, user_principal_name: str | None) -> str:
         """
         Convert Azure UPN with #EXT# format to valid email address
 
@@ -178,6 +179,9 @@ class OAuthService:
         'first.lastname_outlook.com#EXT#@tenant.onmicrosoft.com'
         -> 'first.lastname@outlook.com'
         """
+        if not user_principal_name:
+            return ""
+
         if "#EXT#" not in user_principal_name:
             return user_principal_name
 
@@ -277,10 +281,13 @@ class OAuthService:
             # Non-Azure providers keep sending client_secret (GitHub)
             token_kwargs["client_secret"] = config.client_secret
 
-        return oauth.fetch_token(
-            config.token_url,
-            include_client_id=include_client_id,
-            **token_kwargs,
+        return cast(
+            "dict[str, Any]",
+            oauth.fetch_token(
+                config.token_url,
+                include_client_id=include_client_id,
+                **token_kwargs,
+            ),
         )
 
     def get_user_info(

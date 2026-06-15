@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import reflex as rx
 
@@ -16,7 +17,7 @@ def oauth_button(
     icon_light: str,
     enabled_var: rx.Var[bool],
     icon_dark: str | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> rx.Component:
     """Helper to render an OAuth login button."""
     if icon_dark:

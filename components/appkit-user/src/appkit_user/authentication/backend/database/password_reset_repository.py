@@ -4,8 +4,9 @@ import logging
 import secrets
 import string
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
@@ -125,7 +126,7 @@ class PasswordResetTokenRepository(
         result = await session.execute(stmt)
         await session.flush()
 
-        deleted_count = result.rowcount or 0
+        deleted_count = cast("CursorResult[Any]", result).rowcount or 0
         if deleted_count > 0:
             logger.info("Deleted %d expired password reset tokens", deleted_count)
 
@@ -147,7 +148,7 @@ class PasswordResetTokenRepository(
         result = await session.execute(stmt)
         await session.flush()
 
-        deleted_count = result.rowcount or 0
+        deleted_count = cast("CursorResult[Any]", result).rowcount or 0
         if deleted_count > 0:
             logger.info(
                 "Deleted %d password reset tokens for user_id=%d",

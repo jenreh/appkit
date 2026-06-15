@@ -24,8 +24,13 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from faker import Faker
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from pydantic import SecretStr
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import StaticPool
 
 from appkit_commons.configuration.configuration import ReflexConfig
@@ -48,7 +53,9 @@ if not _registry.has(DatabaseConfig):
         DatabaseConfig(
             type="sqlite",
             name=":memory:",
-            encryption_key="x6wrrHmIwfEZacK9sOBq5wJOykTDNhYlTdI_lLmmtJw=",  # gitleaks:allow  # noqa: E501
+            encryption_key=SecretStr(
+                "x6wrrHmIwfEZacK9sOBq5wJOykTDNhYlTdI_lLmmtJw="  # gitleaks:allow
+            ),
             testing=True,
         )
     )
@@ -140,17 +147,15 @@ async def async_engine() -> AsyncGenerator[AsyncEngine, None]:
 @pytest.fixture
 def async_session_factory(
     async_engine: AsyncEngine,
-) -> sessionmaker[AsyncSession]:
+) -> async_sessionmaker[AsyncSession]:
     """Create an async session factory for the test engine.
 
     Configures explicit binds for both Base
     to ensure the session can locate the correct engine for any model.
     """
-    return sessionmaker(
+    return async_sessionmaker(
         bind=async_engine,
-        class_=AsyncSession,
         expire_on_commit=False,
-        autocommit=False,
         autoflush=False,
         binds={
             Base: async_engine,
@@ -160,7 +165,7 @@ def async_session_factory(
 
 @pytest_asyncio.fixture
 async def async_session(
-    async_session_factory: sessionmaker[AsyncSession],
+    async_session_factory: async_sessionmaker[AsyncSession],
 ) -> AsyncGenerator[AsyncSession, None]:
     """Provide an async session for each test.
 

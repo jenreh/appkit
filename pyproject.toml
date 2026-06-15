@@ -285,8 +285,35 @@ incremental = true
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
-ignore_errors = true
+ignore_errors = false
 ignore_missing_imports = false
+# Components use src-layout PEP 420 namespace packages (no __init__.py), so mypy
+# needs explicit package bases plus each src dir on the path to derive correct
+# dotted module names. Without this, files like `types.py` are mistaken for the
+# stdlib module they share a name with.
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = [
+    ".",
+    "components/appkit-assistant/src",
+    "components/appkit-commons/src",
+    "components/appkit-imagecreator/src",
+    "components/appkit-mantine/src",
+    "components/appkit-mcp-bpmn/src",
+    "components/appkit-mcp-charts/src",
+    "components/appkit-mcp-commons/src",
+    "components/appkit-mcp-image/src",
+    "components/appkit-mcp-user/src",
+    "components/appkit-ui/src",
+    "components/appkit-user/src",
+]
+files = [
+    # Incremental mypy rollout — checking these modules first, expanding later.
+    "components/appkit-commons/src",
+    "components/appkit-mantine/src",
+    "components/appkit-user/src",
+]
+follow_imports = "silent"
 exclude = [
     ".cache",
     ".venv",
@@ -305,6 +332,63 @@ exclude = [
     "scripts",
     "static",
     "uploads",
+    "/tests/",
+]
+
+# Third-party dependencies that ship no type stubs / py.typed marker. Ignoring
+# missing imports here keeps `ignore_missing_imports = false` strict everywhere
+# else so our own untyped imports still surface.
+[[tool.mypy.overrides]]
+module = [
+    "pgqueuer.*",
+    "apscheduler.*",
+    "openai.*",
+    "azure.*",
+    "requests_oauthlib.*",
+    "sqlalchemy_utils.*",
+    # Reflex lazily aliases this from the separate `reflex_components_sonner`
+    # distribution at runtime; the mapping isn't statically resolvable.
+    "reflex.components.sonner.*",
+]
+ignore_missing_imports = true
+
+# appkit_mantine is a Reflex component-wrapper library. Its component classes are
+# written in Reflex's prop DSL — `prop: Var[T] = default` declarations and
+# `EventHandler[...]` / `get_event_triggers` overrides — which mypy's strict mode
+# cannot model (it reads the defaults as type-mismatched assignments). These error
+# codes are pure framework noise here; real issues still surface under other codes.
+[[tool.mypy.overrides]]
+module = ["appkit_mantine.*"]
+disable_error_code = [
+    "assignment",
+    "type-arg",
+    "valid-type",
+    "override",
+    "operator",
+    # Reflex component factories (rx.box, rx.button, super().create) return Any.
+    "no-any-return",
+]
+
+# Reflex UI layer (component/page/template builders). These read state Vars and
+# wire event handlers, which mypy can't model: `State.user.name` on an optional
+# Var (union-attr), Var methods like `.contains()` / namespace sub-components like
+# `mn.table.tr` (attr-defined), Var boolean operators (operator), `EventHandler`
+# vs `Callable` (arg-type/call-arg/list-item), and `Any`-returning factories
+# (no-any-return). Other codes stay active so real issues here still surface.
+[[tool.mypy.overrides]]
+module = [
+    "appkit_user.*.components.*",
+    "appkit_user.*.pages",
+    "appkit_user.authentication.templates",
+]
+disable_error_code = [
+    "union-attr",
+    "attr-defined",
+    "operator",
+    "arg-type",
+    "call-arg",
+    "list-item",
+    "no-any-return",
 ]
 
 [tool.coverage.run]

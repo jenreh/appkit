@@ -68,7 +68,9 @@ tasks:
 
   lint:
     desc: Run linting with ruff
-    cmd: "{{.RUNNER}} ruff check ."
+    cmds:
+      - "{{.RUNNER}} ruff check ."
+      - "{{.RUNNER}} mypy"
 
   format:
     desc: Format code with ruff

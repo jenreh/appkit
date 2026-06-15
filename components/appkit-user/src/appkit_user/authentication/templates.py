@@ -70,7 +70,7 @@ def default_layout(
     def decorator(page_content: Callable[[], rx.Component]) -> rx.Component:
         all_meta = [*default_meta, *(meta or [])]
 
-        def templated_page():
+        def templated_page() -> rx.Component:
             return rx.center(
                 page_content(),
                 width="100%",
@@ -86,7 +86,7 @@ def default_layout(
             script_tags=script_tags,
             on_load=on_load,
         )
-        def theme_wrap():
+        def theme_wrap() -> rx.Component:
             return rx.theme(
                 templated_page(),
                 has_background=True,
@@ -177,7 +177,7 @@ def navbar_layout(
             script_tags=script_tags,
             on_load=on_load,
         )
-        def theme_wrap():
+        def theme_wrap() -> rx.Component:
             # Create navbar component if provided
             navbar_component = navbar if navbar else rx.fragment()
             default_page = theme_wrapper(templated_page(page_content, navbar_component))
@@ -242,7 +242,7 @@ def authenticated(
             script_tags=script_tags,
             on_load=handlers,
         )
-        def theme_wrap():
+        def theme_wrap() -> rx.Component:
             navbar_component = navbar if navbar else rx.fragment()
             default_page = theme_wrapper(
                 rx.fragment(

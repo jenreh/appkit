@@ -107,7 +107,7 @@ class PasswordResetRequestState(rx.State):
 
                 # Eagerly load user attributes while in session context
                 user_id = user_entity.id
-                user_name = user_entity.name or user_entity.email.split("@")[0]
+                user_name = user_entity.name or (user_entity.email or "").split("@")[0]
 
                 # 4. Generate token
                 token_entity = await password_reset_token_repo.create_token(
@@ -234,7 +234,9 @@ class PasswordResetConfirmState(rx.State):
                 user_entity = await user_repo.find_by_id(db, token_entity.user_id)
                 if user_entity:
                     self.user_email = user_entity.email or ""
-                    self.user_name = user_entity.name or user_entity.email.split("@")[0]
+                    self.user_name = (
+                        user_entity.name or (user_entity.email or "").split("@")[0]
+                    )
                     self.user_id = user_entity.id
                 else:
                     self.token_error = "Benutzer nicht gefunden."  # noqa: S105
