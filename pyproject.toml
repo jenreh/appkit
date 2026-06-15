@@ -165,7 +165,7 @@ cache-dir = ".cache/ruff"
 indent-width = 4
 line-length = 88
 target-version = "py312"
-extend-exclude = [".cache", "docs", "infra", "prompts", "scripts", "static"]
+extend-exclude = [".cache", "docs", "infra", "prompts", "scripts", "static", "*.pyi"]
 
 [tool.ruff.lint]
 extend-select = ["I"]
@@ -333,6 +333,7 @@ exclude = [
     "static",
     "uploads",
     "/tests/",
+    "\\.pyi$",
 ]
 
 # Third-party dependencies that ship no type stubs / py.typed marker. Ignoring
@@ -367,6 +368,22 @@ disable_error_code = [
     "operator",
     # Reflex component factories (rx.box, rx.button, super().create) return Any.
     "no-any-return",
+]
+
+# appkit_ui is not in the gated `files` set; it is only reached as a followed
+# import from gated packages (e.g. appkit_user). mypy resolves a followed module
+# to its generated `.pyi` stub (preferred over `.py`) — and the regex `exclude`
+# only applies to crawled directories, not followed imports. The generated stubs
+# carry Reflex's framework-noise codes (untyped `*children`/`**props`, Enum/list
+# `__hash__` conflicts, reflex internals lacking py.typed). Silence those codes so
+# the gate stays green; the `.py` sources remain the source of truth.
+[[tool.mypy.overrides]]
+module = ["appkit_ui.*"]
+disable_error_code = [
+    "no-untyped-def",
+    "import-untyped",
+    "misc",
+    "name-defined",
 ]
 
 # Reflex UI layer (component/page/template builders). These read state Vars and

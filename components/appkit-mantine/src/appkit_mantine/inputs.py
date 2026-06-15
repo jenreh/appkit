@@ -272,7 +272,8 @@ class NumberInput(MantineInputComponentBase):
     on_value_change: EventHandler[rx.event.input_event] = None
     """Called when value changes with react-number-format payload."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Override event triggers to handle NumberInput value emission.
 
         Mantine NumberInput sends the numeric value directly (or empty string),
@@ -435,7 +436,8 @@ class TagsInput(MantineInputComponentBase):
 
     # (on_remove is the Mantine prop name; keep that as primary)
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Transform events to work with Reflex state system.
 
         TagsInput sends array values directly from Mantine, so we forward them
@@ -514,7 +516,8 @@ class MaskInput(MantineInputComponentBase):
     slot_char: Var[str] = None
     """Character for the placeholder slot (default: '_')."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Transform events to work with Reflex state system."""
 
         def _on_change(value: Var) -> list[Var]:
@@ -646,7 +649,8 @@ class FileInput(MantineInputComponentBase):
     clearable: Var[bool] = None
     value_component: Var[Any] = None
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         def _on_change(value: Var) -> list[Var]:
             return [value]
 
@@ -690,7 +694,8 @@ class PinInput(MantineInputComponentBase):
 
     on_complete: EventHandler[lambda value: [value]] = None
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         def _on_change(value: Var) -> list[Var]:
             return [value]
 
@@ -836,7 +841,8 @@ class ColorInput(MantineInputComponentBase):
 
     on_change_end: EventHandler[lambda value: [value]] = None
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         def _on_change(value: Var) -> list[Var]:
             return [value]
 

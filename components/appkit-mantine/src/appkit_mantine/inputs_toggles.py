@@ -62,7 +62,8 @@ class MantineToggleComponentBase(MantineComponentBase):
 
     on_change: EventHandler[lambda e0: [e0.target.checked]] = None
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         return {
             **super().get_event_triggers(),
             "on_change": lambda e0: [e0.target.checked],

@@ -67,7 +67,8 @@ class Select(MantineSelectBase):
     # Redefine default to match original component
     max_dropdown_height: Var[str | int] = "240px"
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         # Map on_change so Reflex state receives a simple string (empty when null)
         def _on_change(value: Var) -> list[Var]:
             return [value]
@@ -125,7 +126,8 @@ class MultiSelect(MantineSelectBase):
     on_option_submit: EventHandler[input_event] = None
     """Called when option is submitted from dropdown."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Transform events to work with Reflex state system.
 
         MultiSelect sends array values directly from Mantine, so we forward them
@@ -162,7 +164,8 @@ class Autocomplete(MantineComboboxBase):
         **MantineInputComponentBase._rename_props,  # noqa: SLF001
     }
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         return {
             **super().get_event_triggers(),
             "on_change": lambda value: [value],

@@ -79,7 +79,8 @@ class MantineScheduleBase(MantineLayoutComponentBase):
             "import '@mantine/schedule/styles.css';"
         )
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         # EventHandler fields are registered via get_event_triggers() because
         # Reflex does not auto-generate event triggers for EventHandler fields
         # declared on an rx.Component subclass the same way.
