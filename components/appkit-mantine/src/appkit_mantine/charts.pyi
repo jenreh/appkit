@@ -980,8 +980,8 @@ class DonutChart(MantineChartComponentBase):
         stroke_width: Var[int] | int | None = None,
         stroke_color: Var[str] | str | None = None,
         label_color: Var[str] | str | None = None,
-        labels_type: Literal["percent", "value"]
-        | Var[Literal["percent", "value"]]
+        labels_type: Literal["name", "percent", "value"]
+        | Var[Literal["name", "percent", "value"]]
         | None = None,
         tooltip_animation_duration: Var[int] | int | None = None,
         tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None = None,
@@ -1101,8 +1101,8 @@ class PieChart(MantineChartComponentBase):
         tooltip_data_source: Literal["all", "segment"]
         | Var[Literal["all", "segment"]]
         | None = None,
-        labels_type: Literal["percent", "value"]
-        | Var[Literal["percent", "value"]]
+        labels_type: Literal["name", "percent", "value"]
+        | Var[Literal["name", "percent", "value"]]
         | None = None,
         chart_label: Var[int | str] | int | str | None = None,
         tooltip_animation_duration: Var[int] | int | None = None,

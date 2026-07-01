@@ -24,9 +24,12 @@ class Text(MantineLayoutComponentBase):
     inline: Var[bool] = None
     inherit: Var[bool] = None
     span: Var[bool] = None
+    text_wrap: Var[Literal["wrap", "nowrap", "balance", "pretty", "stable"]] = None
+    """Controls the ``text-wrap`` CSS property (Mantine 9.3)."""
 
     _rename_props = {
         "line_clamp": "lineClamp",
+        "text_wrap": "textWrap",
     }
 
 
@@ -158,6 +161,7 @@ class Blockquote(MantineLayoutComponentBase):
 
     _rename_props = {
         "icon_size": "iconSize",
+        "text_wrap": "textWrap",
     }
 
     cite: Var[Any] = None
@@ -165,6 +169,8 @@ class Blockquote(MantineLayoutComponentBase):
     icon: Var[Any] = None
     icon_size: Var[str | int] = None
     radius: Var[str | int] = None
+    text_wrap: Var[Literal["wrap", "nowrap", "balance", "pretty", "stable"]] = None
+    """Controls the ``text-wrap`` CSS property (Mantine 9.3)."""
 
 
 class Highlight(MantineLayoutComponentBase):

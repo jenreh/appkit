@@ -29,6 +29,7 @@ class Input(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -297,6 +298,7 @@ class Input(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -418,6 +420,7 @@ class InputWrapper(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -687,6 +690,7 @@ class InputWrapper(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -803,6 +807,7 @@ class InputLabel(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -1071,6 +1076,7 @@ class InputLabel(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -1186,6 +1192,7 @@ class InputDescription(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -1453,6 +1460,7 @@ class InputDescription(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -1568,6 +1576,7 @@ class InputError(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -1835,6 +1844,7 @@ class InputError(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -1950,6 +1960,7 @@ class InputPlaceholder(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -2217,6 +2228,7 @@ class InputPlaceholder(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -2332,6 +2344,7 @@ class InputClearButton(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -2599,6 +2612,7 @@ class InputClearButton(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -2720,6 +2734,7 @@ class TextInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -2989,6 +3004,7 @@ class TextInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -3134,6 +3150,7 @@ class NumberInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -3428,6 +3445,7 @@ class NumberInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -3550,6 +3568,7 @@ class PasswordInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -3822,6 +3841,7 @@ class PasswordInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -3951,10 +3971,12 @@ class TagsInput(MantineInputComponentBase):
         limit: Var[int] | int | None = None,
         max_dropdown_height: Var[int | str] | int | str | None = None,
         with_scroll_area: Var[bool] | bool | None = None,
+        floating_height: Var[int | str] | int | str | None = None,
         combobox_props: Var[dict[str, Any]] | dict[str, Any] | None = None,
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -4240,10 +4262,12 @@ class TagsInput(MantineInputComponentBase):
             limit: Maximum number of options displayed at a time.
             max_dropdown_height: Align with Mantine's common dropdown default (OptionsDropdown uses 220px mah)
             with_scroll_area: Determines whether the options should be wrapped with ScrollArea. Defaults to True.
+            floating_height: Dropdown height mode (Mantine 9.3). ``"viewport"`` fills vertical space.
             combobox_props: Props passed down to the underlying Combobox component.
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -4373,6 +4397,7 @@ class MaskInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -4645,6 +4670,7 @@ class MaskInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -4767,6 +4793,7 @@ class JsonInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -5041,6 +5068,7 @@ class JsonInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -5164,10 +5192,12 @@ class Textarea(MantineInputComponentBase):
         resize: Literal["both", "horizontal", "none", "vertical"]
         | Var[Literal["both", "horizontal", "none", "vertical"]]
         | None = None,
+        bottom_section: Any | Var[Any] | None = None,
         styles: Var[dict] | dict | None = None,
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -5439,10 +5469,12 @@ class Textarea(MantineInputComponentBase):
             min_rows: Minimum number of rows when using autosize.
             max_rows: Maximum number of rows when using autosize.
             resize: CSS resize property to control manual resizing.
+            bottom_section: Content rendered inside the input border below the textarea (Mantine 9.3).  Useful for character counters or supplementary controls.
             styles: Mantine styles object for targeting internal elements (root, wrapper, input).
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -5559,6 +5591,7 @@ class NativeSelect(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -5827,6 +5860,7 @@ class NativeSelect(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -5949,6 +5983,7 @@ class FileInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -6221,6 +6256,7 @@ class FileInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -6344,6 +6380,7 @@ class PinInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -6618,6 +6655,7 @@ class PinInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -8015,6 +8053,7 @@ class ColorInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -8294,6 +8333,7 @@ class ColorInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).

@@ -37,6 +37,9 @@ class Pagination(MantineLayoutComponentBase):
     size: Var[str | int]
     with_edges: Var[bool]
     with_controls: Var[bool]
+    layout: Var[Literal["default", "responsive"]]
+    """Layout mode (Mantine 9.3). ``"responsive"`` uses CSS container queries to
+    collapse controls on narrow containers."""
 
     on_change: EventHandler[lambda value: [value]]
 

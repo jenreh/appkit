@@ -3,7 +3,7 @@ name: appkit-mantine-reference
 description: "MUST invoke when generating mn.* based UIs or the user asks how to use, configure, or debug any mn.* or appkit_mantine component. appkit_mantine is NOT in Claude's training data — always use this skill rather than guessing at APIs. Covers building forms, tables, drawers, modals, tooltips, color pickers, date/time pickers, charts, and navigation; looking up correct props; debugging on_change handler types (NumberInput sends float|str, DateInput sends str|\"\"); troubleshooting component quirks like tooltips on disabled elements, overlays not closing, or props having no effect."
 metadata:
   author: jens-rehpoehler
-  version: "1.3"
+  version: "1.4"
   license: MIT
 ---
 
@@ -82,7 +82,7 @@ def set_date(self, value: str) -> None:
 — TextInput, NumberInput, PasswordInput, Textarea, MaskedInput, JsonInput, Form (input sub-components)
 
 **Selection inputs**: See [references/inputs-selection.md](references/inputs-selection.md)
-— Select, MultiSelect, Autocomplete, NativeSelect, TreeSelect, TagsInput, RichSelect
+— Select, MultiSelect, Autocomplete, NativeSelect, TreeSelect, TagsInput, RichSelect, ComboboxPopover
 
 **Toggle inputs**: See [references/inputs-toggle.md](references/inputs-toggle.md)
 — Checkbox/CheckboxGroup/CheckboxCard, Radio/RadioGroup/RadioCard, Switch, Chip/ChipGroup, SegmentedControl, Fieldset
@@ -94,13 +94,13 @@ def set_date(self, value: str) -> None:
 — Slider, RangeSlider, FileInput, PinInput, Rating, ColorInput, ColorPicker, HueSlider, AlphaSlider, AngleSlider
 
 **Layout**: See [references/layout.md](references/layout.md)
-— Stack, Group, Flex, Grid, SimpleGrid, Container, Center, Box, Space, Divider, Affix, FocusTrap, AppShell, AspectRatio, Collapse, Marquee, Portal, Scroller, Transition, VisuallyHidden, FloatingWindow, OverflowList
+— Stack, Group, Flex, Grid, SimpleGrid, Container, Center, Box, Space, Divider, Affix, FocusTrap, AppShell, AspectRatio, Collapse, Marquee, Portal, Scroller, Transition, VisuallyHidden, FloatingWindow, OverflowList, Splitter
 
 **Overlays**: See [references/overlays.md](references/overlays.md)
 — Modal, Drawer, AlertDialog, LoadingOverlay, Overlay, FloatingIndicator, Dialog, Popover
 
 **Data display**: See [references/data-display.md](references/data-display.md)
-— Accordion, Avatar, Badge, Card, Image, BackgroundImage, Paper, Indicator, Timeline, NumberFormatter, RollingNumber, Spoiler, ThemeIcon, ColorSwatch, Kbd, Tooltip, HoverCard, Button, ActionIcon, CloseButton, UnstyledButton
+— Accordion, Avatar, Badge, Card, Image, BackgroundImage, Paper, Indicator, Timeline, NumberFormatter, RollingNumber, Spoiler, ThemeIcon, ColorSwatch, Kbd, Tooltip, HoverCard, Button, ActionIcon, CloseButton, UnstyledButton, DataList, EmptyState
 
 **Feedback & status**: See [references/feedback.md](references/feedback.md)
 — Alert, Notification, Progress, RingProgress, SemiCircleProgress, Loader, Skeleton
@@ -109,7 +109,7 @@ def set_date(self, value: str) -> None:
 — Breadcrumbs, Pagination, Stepper, Tabs, NavLink, NavigationProgress, Anchor, Burger, TableOfContents, ScrollArea (autosize/autoscroll/stateful), RichTextEditor, MarkdownPreview
 
 **Menu**: See [references/menu.md](references/menu.md)
-— Menu with items, labels, dividers, hover/click triggers, sub-menus
+— Menu with items, labels, dividers, hover/click triggers, sub-menus, search/checkbox/radio items, context menu, Menubar
 
 **Table**: See [references/table.md](references/table.md)
 — Table with thead/tbody/tr/th/td, sticky header, striped, scroll container, vertical variant
@@ -124,7 +124,7 @@ def set_date(self, value: str) -> None:
 — AreaChart, BarChart, LineChart, CompositeChart, DonutChart, PieChart, RadarChart, RadialBarChart, ScatterChart, BubbleChart, Sparkline, FunnelChart, Heatmap, Treemap, BarsList, SankeyChart
 
 **Schedule** (calendar views): See [references/schedule.md](references/schedule.md)
-— Schedule, DayView, WeekView, MonthView, YearView, MobileMonthView
+— Schedule, DayView, WeekView, MonthView, YearView, MobileMonthView, ResourcesSchedule, ResourcesDayView, ResourcesWeekView, ResourcesMonthView, AgendaView
 
 **Extensions**: See [references/extensions.md](references/extensions.md)
 — Carousel, Dropzone, ModalsProvider
@@ -138,6 +138,7 @@ def set_date(self, value: str) -> None:
 **Need a custom input layout (label+description+error)?** → inputs-text.md (`mn.form.wrapper`, `mn.form.label`, `mn.form.error`)
 **Need a masked or JSON input?** → inputs-text.md (`mn.masked_input`, `mn.json_input`)
 **Need a dropdown / combobox?** → inputs-selection.md (`mn.select`, `mn.multi_select`, `mn.autocomplete`, `mn.native_select`)
+**Need a combobox dropdown on a plain button (no input)?** → inputs-selection.md (`mn.combobox_popover`)
 **Need a tags input?** → inputs-selection.md (`mn.tags_input`)
 **Need hierarchical selection?** → inputs-selection.md (`mn.tree_select`)
 **Need a custom-rendered select?** → inputs-selection.md (`mn.rich_select` with `mn.rich_select.map(data, renderer=...)`)
@@ -159,6 +160,7 @@ def set_date(self, value: str) -> None:
 **Need horizontal scroller with controls?** → layout.md (`mn.scroller`)
 **Need a draggable floating panel?** → layout.md (`mn.floating_window`)
 **Need to show only first N items + overflow?** → layout.md (`mn.overflow_list`)
+**Need a resizable split-pane layout?** → layout.md (`mn.splitter`, `mn.splitter.pane`)
 **Need a screen-reader-only label?** → layout.md (`mn.visually_hidden`)
 **Need a dialog?** → overlays.md (`mn.modal` centered, `mn.drawer` side panel, `mn.alert_dialog` confirmation, `mn.dialog` small floating panel)
 **Need a popover anchored to a trigger?** → overlays.md (`mn.popover`)
@@ -174,6 +176,8 @@ def set_date(self, value: str) -> None:
 **Need an X close button?** → data-display.md (`mn.close_button`)
 **Need a button with zero styling?** → data-display.md (`mn.unstyled_button`)
 **Need a div with a background image?** → data-display.md (`mn.background_image`)
+**Need to show label/value pairs (definition list)?** → data-display.md (`mn.data_list`)
+**Need a "no data" placeholder with a CTA?** → data-display.md (`mn.empty_state`)
 **Need typography?** → typography.md (`mn.text`, `mn.title`, `mn.list_`, `mn.code`)
 **Need a styled link?** → navigation.md (`mn.anchor`)
 **Need a hamburger menu toggle?** → navigation.md (`mn.burger`)
@@ -181,7 +185,9 @@ def set_date(self, value: str) -> None:
 **Need to render highlighted substrings inside text?** → typography.md (`mn.highlight`)
 **Need a `<mark>` inline highlight?** → typography.md (`mn.mark`)
 **Need a blockquote?** → typography.md (`mn.blockquote`)
-**Need a dropdown/context menu?** → menu.md (`mn.menu`)
+**Need a dropdown/context menu?** → menu.md (`mn.menu`, `mn.menu.context_menu`)
+**Need a desktop-style menu bar (File/Edit/View)?** → menu.md (`mn.menubar`)
+**Need searchable / checkbox / radio menu items?** → menu.md (`mn.menu.search`, `mn.menu.checkbox_item`, `mn.menu.radio_group`)
 **Need chat/streaming scroll?** → navigation.md (`mn.scroll_area.autoscroll`)
 **Need tabular data?** → table.md (`mn.table`)
 **Need hierarchical data?** → tree.md (`mn.tree`)
@@ -189,10 +195,39 @@ def set_date(self, value: str) -> None:
 **Need a slideshow / carousel?** → extensions.md (`mn.carousel`)
 **Need syntax-highlighted code blocks?** → extensions.md (`mn.code_highlight`)
 **Need a calendar/schedule view?** → schedule.md (`mn.schedule`, `mn.schedule.day_view`, `mn.schedule.week_view`, etc.)
+**Need a resource scheduler (rooms/people as rows)?** → schedule.md (`mn.resources_schedule`, `mn.resources_day_view`, `mn.resources_week_view`, `mn.resources_month_view`)
+**Need an agenda list of events by date?** → schedule.md (`mn.agenda_view`)
 **Need rich text?** → navigation.md (`mn.rich_text_editor` Tiptap-based)
 **Need to render HTML/Markdown with Mantine typography styles?** → typography.md (`mn.typography_styles_provider`)
 **Need to customise the theme?** → theme.md (`mn.create_theme` + `mn.mantine_provider`)
 **Rendering Mermaid diagrams?** → theme.md (`mn.mermaid_zoom_script` to enable click-to-zoom)
+
+## Recent additions (Mantine 9.3 / 9.4)
+
+New components: `mn.splitter` (+`.pane`), `mn.data_list`, `mn.empty_state`,
+`mn.combobox_popover`, `mn.menubar`, `mn.resources_schedule`,
+`mn.resources_day_view` / `week_view` / `month_view`, `mn.agenda_view`; plus
+`mn.menu.search` / `checkbox_item` / `radio_group` / `radio_item` /
+`context_menu` and `mn.popover.context_menu`.
+
+New props on existing components:
+
+| Component(s) | Prop |
+|---|---|
+| All inputs | `success` (green state + optional message, like `error`) |
+| `mn.text`, `mn.blockquote` | `text_wrap` (`"wrap"|"nowrap"|"balance"|"pretty"|"stable"`) |
+| `mn.textarea` | `bottom_section` (content inside the border) |
+| `mn.select`/`multi_select`/`autocomplete`/`tags_input` | `floating_height="viewport"` |
+| `mn.pagination` | `layout="responsive"` |
+| `mn.overflow_list` | `collapse_from` (`"start"|"end"`) |
+| `mn.pie_chart`/`donut_chart` | `labels_type="name"` |
+| `mn.menu` | `align_items_labels` |
+| `mn.time_picker` | `close_dropdown_on_preset_select` |
+| schedule day/week | `with_sub_hour_grid_lines`, `get_current_time`, `with_agenda` |
+| schedule month | `with_weekend_days`, `with_agenda` |
+
+> `prevent_position_change_when_visible` now defaults to `true` on Tooltip /
+> Popover / Menu (dropdowns stay positioned once opened).
 
 ## Critical rules
 

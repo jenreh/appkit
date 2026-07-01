@@ -336,6 +336,9 @@ class Pagination(MantineLayoutComponentBase):
         size: Var[int | str] | int | str | None = None,
         with_edges: Var[bool] | bool | None = None,
         with_controls: Var[bool] | bool | None = None,
+        layout: Literal["default", "responsive"]
+        | Var[Literal["default", "responsive"]]
+        | None = None,
         w: Literal["lg", "md", "sm", "xl", "xs"]
         | Var[Literal["lg", "md", "sm", "xl", "xs"] | int | str]
         | int
@@ -566,6 +569,7 @@ class Pagination(MantineLayoutComponentBase):
             size: no description
             with_edges: no description
             with_controls: no description
+            layout: Layout mode (Mantine 9.3). ``"responsive"`` uses CSS container queries to collapse controls on narrow containers.
             w: Width and Height
             h: no description
             miw: no description

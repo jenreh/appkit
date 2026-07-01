@@ -20,6 +20,7 @@ from appkit_mantine.combobox import (
     multi_select,
     autocomplete,
     combobox,
+    combobox_popover,
     pill,
     pills_input,
     tree_select,
@@ -35,6 +36,8 @@ from appkit_mantine.data_display import (
     badge,
     card,
     color_swatch,
+    data_list,
+    empty_state,
     image,
     indicator,
     kbd,
@@ -138,7 +141,7 @@ from appkit_mantine.markdown_zoom import mermaid_zoom_script
 from appkit_mantine.markdown_preview import (
     markdown_preview,
 )
-from appkit_mantine.menu import menu
+from appkit_mantine.menu import menu, menubar
 from appkit_mantine.modal import modal
 from appkit_mantine.navigation import (
     anchor,
@@ -161,8 +164,16 @@ from appkit_mantine.overlay import (
     floating_indicator,
 )
 from appkit_mantine.schedule import schedule
+from appkit_mantine.schedule_resources import (
+    agenda_view,
+    resources_day_view,
+    resources_month_view,
+    resources_schedule,
+    resources_week_view,
+)
 from appkit_mantine.scroll_area import scroll_area
 from appkit_mantine.slider import slider, range_slider
+from appkit_mantine.splitter import splitter
 from appkit_mantine.table import table
 from appkit_mantine.tree import tree, Tree
 from appkit_mantine.tiptap import (
@@ -228,6 +239,7 @@ __all__ = [
     "accordion",
     "action_icon",
     "affix",
+    "agenda_view",
     "alert",
     "alert_dialog",
     "alpha_slider",
@@ -261,9 +273,11 @@ __all__ = [
     "color_picker",
     "color_swatch",
     "combobox",
+    "combobox_popover",
     "composite_chart",
     "container",
     "create_theme",
+    "data_list",
     "date_input",
     "date_picker",
     "date_picker_input",
@@ -273,6 +287,7 @@ __all__ = [
     "donut_chart",
     "drawer",
     "dropzone",
+    "empty_state",
     "fieldset",
     "file_input",
     "flex",
@@ -304,6 +319,7 @@ __all__ = [
     "marquee",
     "masked_input",
     "menu",
+    "menubar",
     "mermaid_zoom_script",
     "mini_calendar",
     "modal",
@@ -334,6 +350,10 @@ __all__ = [
     "radio",
     "range_slider",
     "rating",
+    "resources_day_view",
+    "resources_month_view",
+    "resources_schedule",
+    "resources_week_view",
     "rich_select",
     "rich_text_editor",
     "ring_progress",
@@ -352,6 +372,7 @@ __all__ = [
     "slider",
     "space",
     "sparkline",
+    "splitter",
     "spoiler",
     "stack",
     "stepper",

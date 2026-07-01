@@ -15,12 +15,22 @@ class MenuExamplesState(rx.State):
 
     last_clicked: str = "—"
     menu_opened: bool = False
+    notifications_enabled: bool = True
+    selected_view: str = "list"
 
     def set_clicked(self, item: str) -> None:
         self.last_clicked = item
 
     def set_menu_opened(self, opened: bool) -> None:
         self.menu_opened = opened
+
+    @rx.event
+    def set_notifications(self, checked: bool) -> None:
+        self.notifications_enabled = checked
+
+    @rx.event
+    def set_selected_view(self, value: str) -> None:
+        self.selected_view = value
 
 
 def _section(heading: str, description: str, *content: rx.Component) -> rx.Component:
@@ -295,6 +305,80 @@ def menu_examples() -> rx.Component:
                 transition_props={"transition": "scale-y", "duration": 200},
                 shadow="md",
                 width=180,
+            ),
+        ),
+        # ── Search, checkbox & radio items (Mantine 9.3) ─────────────────────
+        _section(
+            "Search, Checkbox & Radio Items",
+            "Menu.Search filters items; Menu.CheckboxItem and Menu.RadioGroup /"
+            " Menu.RadioItem provide selectable options inside the dropdown.",
+            mn.menu(
+                mn.menu.target(mn.button("Options")),
+                mn.menu.dropdown(
+                    mn.menu.search(placeholder="Search…"),
+                    mn.menu.label("Preferences"),
+                    mn.menu.checkbox_item(
+                        "Enable notifications",
+                        checked=MenuExamplesState.notifications_enabled,
+                        on_change=MenuExamplesState.set_notifications,
+                        close_menu_on_click=False,
+                    ),
+                    mn.menu.divider(),
+                    mn.menu.label("View"),
+                    mn.menu.radio_group(
+                        mn.menu.radio_item("List", value="list"),
+                        mn.menu.radio_item("Grid", value="grid"),
+                        mn.menu.radio_item("Table", value="table"),
+                        value=MenuExamplesState.selected_view,
+                        on_change=MenuExamplesState.set_selected_view,
+                    ),
+                ),
+                shadow="md",
+                width=220,
+                close_on_item_click=False,
+            ),
+            rx.text(
+                "Notifications: ",
+                rx.text.span(
+                    rx.cond(MenuExamplesState.notifications_enabled, "on", "off"),
+                    weight="bold",
+                ),
+                " · View: ",
+                rx.text.span(MenuExamplesState.selected_view, weight="bold"),
+                size="2",
+            ),
+        ),
+        # ── Menubar (Mantine 9.4) ────────────────────────────────────────────
+        _section(
+            "Menubar",
+            "Desktop-application style horizontal menu bar. Each Menubar.Menu has"
+            " a top-level target and a dropdown of Menu.Item children.",
+            mn.menubar(
+                mn.menubar.menu(
+                    mn.menubar.target("File"),
+                    mn.menubar.dropdown(
+                        mn.menu.item("New file"),
+                        mn.menu.item("Open…"),
+                        mn.menu.divider(),
+                        mn.menu.item("Save"),
+                    ),
+                ),
+                mn.menubar.menu(
+                    mn.menubar.target("Edit"),
+                    mn.menubar.dropdown(
+                        mn.menu.item("Undo"),
+                        mn.menu.item("Redo"),
+                        mn.menu.item("Find…"),
+                    ),
+                ),
+                mn.menubar.menu(
+                    mn.menubar.target("View"),
+                    mn.menubar.dropdown(
+                        mn.menu.item("Zoom in"),
+                        mn.menu.item("Zoom out"),
+                        mn.menu.item("Reset zoom"),
+                    ),
+                ),
             ),
         ),
     )

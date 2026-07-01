@@ -456,9 +456,13 @@ class TimePicker(MantineDateInputBase):
     with_seconds: Var[bool] = None
     """Enable seconds."""
 
+    close_dropdown_on_preset_select: Var[bool] = None
+    """Close the dropdown after a preset is selected (Mantine 9.4)."""
+
     _rename_props = {
         **MantineDateInputBase._rename_props,  # noqa: SLF001
         "with_seconds": "withSeconds",
+        "close_dropdown_on_preset_select": "closeDropdownOnPresetSelect",
     }
 
 

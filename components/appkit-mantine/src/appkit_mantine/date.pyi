@@ -122,6 +122,7 @@ class MantineDateInputBase(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -398,6 +399,7 @@ class MantineDateInputBase(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -527,6 +529,7 @@ class DateInput(MantineDateInputBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -804,6 +807,7 @@ class DateInput(MantineDateInputBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -936,6 +940,7 @@ class DatePickerInput(MantineDateInputBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -1217,6 +1222,7 @@ class DatePickerInput(MantineDateInputBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -1347,6 +1353,7 @@ class DateTimePicker(MantineDateInputBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -1624,6 +1631,7 @@ class DateTimePicker(MantineDateInputBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -1753,6 +1761,7 @@ class MonthPickerInput(MantineDateInputBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -2030,6 +2039,7 @@ class MonthPickerInput(MantineDateInputBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -2159,6 +2169,7 @@ class YearPickerInput(MantineDateInputBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -2436,6 +2447,7 @@ class YearPickerInput(MantineDateInputBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -2552,6 +2564,7 @@ class TimeInput(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -2820,6 +2833,7 @@ class TimeInput(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -3337,6 +3351,7 @@ class TimePicker(MantineDateInputBase):
         cls,
         *children,
         with_seconds: Var[bool] | bool | None = None,
+        close_dropdown_on_preset_select: Var[bool] | bool | None = None,
         value_format: Var[str] | str | None = None,
         fix_on_blur: Var[bool] | bool | None = None,
         clearable: Var[bool] | bool | None = None,
@@ -3351,6 +3366,7 @@ class TimePicker(MantineDateInputBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -3616,6 +3632,7 @@ class TimePicker(MantineDateInputBase):
         Args:
             *children: The children of the component.
             with_seconds: Enable seconds.
+            close_dropdown_on_preset_select: Close the dropdown after a preset is selected (Mantine 9.4).
             value_format: no description
             fix_on_blur: no description
             clearable: no description
@@ -3628,6 +3645,7 @@ class TimePicker(MantineDateInputBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
