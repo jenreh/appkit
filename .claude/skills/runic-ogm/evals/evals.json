@@ -1,0 +1,121 @@
+{
+  "skill_name": "runic-orm",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "I'm building a blog backend on a graph database using the runic.ogm library. Define the models: a User node whose email must be unique, and a Post node with a title, an optional summary, a status that is one of draft/published/archived, a created_at timestamp, and a view counter that starts at 0. Show the model classes and a short snippet that creates a user and a post and saves them.",
+      "expected_output": "Two Node subclasses with labels=[...]. User has a unique email via Field(unique=True) and a primary key. Post uses a StrEnum for status (relying on the auto-converter, no explicit converter=), a datetime created_at (auto-converter, ideally default_factory with tz-aware now), summary: str | None = None, views: int = Field(default=0). A Session(driver) context manager with add()/add_all() then commit().",
+      "files": [],
+      "assertions": [
+        {
+          "name": "uses-node-with-labels",
+          "description": "Both models subclass Node with a labels=[...] keyword"
+        },
+        {
+          "name": "email-unique",
+          "description": "User.email is declared with Field(unique=True)"
+        },
+        {
+          "name": "status-enum-no-explicit-converter",
+          "description": "status uses an Enum/StrEnum and does NOT pass a manual converter= (relies on the auto-converter)"
+        },
+        {
+          "name": "datetime-and-default",
+          "description": "created_at is a datetime field and views uses Field(default=0) (or default_factory)"
+        },
+        {
+          "name": "session-create-commit",
+          "description": "Creates entities and persists with a Session, add/add_all, and commit()"
+        },
+        {
+          "name": "no-hallucinated-api",
+          "description": "Does not invent non-existent runic.ogm API (e.g. Column, declarative_base, sessionmaker, query.filter)"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Using runic.ogm, I have User and Project nodes. A user can be a member of many projects, and each membership stores a role (owner/member) and a joined_at date on the relationship itself. Show how to model this (including the edge), how to add a membership between an existing user and project, and how to read back the role for a given user/project pair.",
+      "expected_output": "An Edge subclass (type=\"MEMBER_OF\" or similar) with role and joined_at fields. User declares a Relation(relationship=..., direction=\"OUTGOING\", target=\"Project\", edge_model=Membership) annotated as list[Project]. Membership created via session.relate(user, User.projects, project, edge=Membership(role=..., joined_at=...)). Reading the role uses a traversal with edge_alias + all_with_edges() (or session.query / repository.cypher) — not a plain attribute read, since edge properties live on the edge.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "edge-model-defined",
+          "description": "Defines an Edge subclass with a type=... keyword holding role and joined_at"
+        },
+        {
+          "name": "relation-with-edge-model",
+          "description": "The relationship is declared with Relation(..., edge_model=...) and a direction"
+        },
+        {
+          "name": "relate-with-edge-instance",
+          "description": "Uses session.relate(source, field, target, edge=EdgeInstance) to create the membership"
+        },
+        {
+          "name": "reads-edge-via-traversal",
+          "description": "Reads the role via all_with_edges()/return_edge or a cypher query, not a bare attribute, acknowledging edge props are on the edge"
+        },
+        {
+          "name": "no-hallucinated-api",
+          "description": "Does not invent non-existent runic.ogm API for relationships"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "With runic.ogm and a User node (fields: name, city, active: bool, joined_at: datetime), write the queries for: (a) all active users whose name starts with 'Al', ordered by name; (b) the number of users in each city; (c) the 10 most recently joined users. Show the exact runic query-builder calls and how you execute each one.",
+      "expected_output": "(a) session.scalars(select(User).where((User.active == True) & (User.name.startswith('Al'))).order_by(User.name)). (b) grouped aggregation: select(User).alias('u').aggregate(count('*').as_('n'), group_by='u') with project/group on city, read via session.all_rows(). (c) select(User).order_by(User.joined_at, desc=True).limit(10) via session.scalars(). Correct execution methods: scalars() for entity lists, all_rows() for aggregation/projection, count() for a single count.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "select-and-where-operators",
+          "description": "Uses select(User) with .where() and descriptor operators (==, .startswith) for query (a)"
+        },
+        {
+          "name": "order-by-limit",
+          "description": "Query (c) uses .order_by(field, desc=True).limit(10)"
+        },
+        {
+          "name": "aggregation-grouped",
+          "description": "Query (b) uses an aggregation (count) with group_by to count users per city"
+        },
+        {
+          "name": "correct-execution-methods",
+          "description": "Executes with the right session methods: scalars() for entity lists, all_rows() for aggregation/projection results"
+        },
+        {
+          "name": "no-hallucinated-api",
+          "description": "Does not use SQLAlchemy/Django-style API (e.g. .filter(), .all() on a Model, objects.filter)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "In a runic.ogm app I have User-[FOLLOWS]->User. (a) How do I load a user together with everyone they follow in a single query (no extra round-trips)? (b) How do I find the friends-of-friends (2 hops) for a given user id? (c) Briefly explain lazy vs eager loading in runic, including what happens in an async session.",
+      "expected_output": "(a) Eager load via session.get(User, uid, fetch=[\"following\"]). (b) Query-builder traversal: select(User).alias('u').where(User.id == uid).traverse(User.following).alias('f').traverse(User.following).alias('fof').return_target('fof') executed with session.scalars. (c) Lazy (default) loads on first attribute access and needs a live session (detached access raises DetachedEntityError); eager via fetch= does it in one query. In AsyncSession lazy access raises LazyLoadError — you must use await session.get(..., fetch=[...]).",
+      "files": [],
+      "assertions": [
+        {
+          "name": "eager-fetch",
+          "description": "Eager loading uses session.get(User, id, fetch=[...])"
+        },
+        {
+          "name": "traversal-two-hops",
+          "description": "Friends-of-friends uses two .traverse() hops with aliases and return_target (or equivalent)"
+        },
+        {
+          "name": "lazy-vs-eager-explained",
+          "description": "Correctly explains lazy (load on access) vs eager (fetch=) loading"
+        },
+        {
+          "name": "async-lazyloaderror",
+          "description": "States that async sessions do NOT support lazy loading and raise LazyLoadError; must use fetch="
+        },
+        {
+          "name": "no-hallucinated-api",
+          "description": "Does not invent non-existent traversal/loading API"
+        }
+      ]
+    }
+  ]
+}
