@@ -43,7 +43,7 @@ class APScheduler(Scheduler):
     def _convert_trigger(self, trigger: Trigger) -> Any:
         """Convert internal trigger type to APScheduler trigger."""
         if isinstance(trigger, IntervalTrigger):
-            kwargs = {
+            kwargs: dict[str, Any] = {
                 "seconds": trigger._interval.total_seconds(),  # noqa: SLF001
             }
             if trigger.start_time:

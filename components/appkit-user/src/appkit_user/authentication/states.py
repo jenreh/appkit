@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 import secrets
 import string
@@ -15,6 +16,7 @@ from appkit_commons.registry import service_registry
 from appkit_user.authentication.backend.database import (
     OAuthStateEntity,
     UserEntity,
+    UserSessionEntity,
     oauth_state_repo,
     session_repo,
     user_repo,
@@ -25,14 +27,28 @@ from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)
 
-config: AuthenticationConfiguration = service_registry().get(
-    AuthenticationConfiguration
-)
 
-SESSION_TIMEOUT: Final = timedelta(minutes=config.session_timeout)
-AUTH_TOKEN_REFRESH_DELTA: Final = timedelta(minutes=config.auth_token_refresh_delta)
-SESSION_MONITOR_INTERVAL: Final = timedelta(
-    seconds=config.session_monitor_interval_seconds
+@functools.lru_cache(maxsize=1)
+def _auth_config() -> AuthenticationConfiguration:
+    """Resolve the authentication configuration lazily and cache it."""
+    return service_registry().get(AuthenticationConfiguration)
+
+
+def _session_timeout() -> timedelta:
+    """Session lifetime, resolved lazily from configuration."""
+    return timedelta(minutes=_auth_config().session_timeout)
+
+
+def _session_monitor_interval() -> timedelta:
+    """Minimum interval between auth checks, resolved lazily from config."""
+    return timedelta(seconds=_auth_config().session_monitor_interval_seconds)
+
+
+# Resolved at import time because it feeds the @rx.var(interval=...) decorators
+# below, which are evaluated at class-definition time. Access still funnels
+# through the cached _auth_config() accessor.
+AUTH_TOKEN_REFRESH_DELTA: Final = timedelta(
+    minutes=_auth_config().auth_token_refresh_delta
 )
 AUTH_TOKEN_LOCAL_STORAGE_KEY: Final = "_auth_token"  # noqa: S105
 
@@ -105,7 +121,7 @@ class UserSession(rx.State):
 
         return None
 
-    async def _find_valid_session(self, db: AsyncSession):
+    async def _find_valid_session(self, db: AsyncSession) -> UserSessionEntity | None:
         """Find valid session by user_id+token or token alone (fallback)."""
         if self.user_id > 0:
             return await session_repo.find_by_user_and_session_id(
@@ -118,7 +134,7 @@ class UserSession(rx.State):
     async def _create_session(self, db: AsyncSession, user_entity: UserEntity) -> None:
         """Create a new authenticated session for the user."""
         self.auth_token = _generate_auth_token()
-        expires_at = datetime.now(UTC) + SESSION_TIMEOUT
+        expires_at = datetime.now(UTC) + _session_timeout()
         await session_repo.save(
             db,
             user_entity.id,
@@ -149,7 +165,7 @@ class UserSession(rx.State):
             return None
 
         try:
-            user = await self._execute_db_operation(_check)
+            user: User | None = await self._execute_db_operation(_check)
             if user:
                 self.user = user
                 self.user_id = user.user_id
@@ -168,7 +184,7 @@ class UserSession(rx.State):
         return user is not None
 
     @rx.event
-    async def terminate_session(self) -> None:
+    async def terminate_session(self) -> EventSpec | None:
         """Terminate the current session and clear storage.
 
         Includes retry logic to handle transient database connection errors
@@ -176,7 +192,7 @@ class UserSession(rx.State):
         """
         logger.debug("Terminating session for user_id=%s", self.user_id)
 
-        async def _terminate(session: AsyncSession):
+        async def _terminate(session: AsyncSession) -> None:
             await session_repo.delete_by_user_and_session_id(
                 session, self.user_id, self.auth_token
             )
@@ -205,12 +221,12 @@ class UserSession(rx.State):
         if self.user_id <= 0 or not self.auth_token:
             return
 
-        async def _prolong(session: AsyncSession):
+        async def _prolong(session: AsyncSession) -> None:
             user_session = await session_repo.find_by_user_and_session_id(
                 session, self.user_id, self.auth_token
             )
             if user_session and not user_session.is_expired():
-                new_expires_at = datetime.now(UTC) + SESSION_TIMEOUT
+                new_expires_at = datetime.now(UTC) + _session_timeout()
                 # Store naive UTC to fix DB timezone mismatch on TIMESTAMP columns
                 user_session.expires_at = new_expires_at.replace(tzinfo=None)
                 await session.commit()
@@ -266,10 +282,20 @@ class LoginState(UserSession):
         """Whether GitHub OAuth is enabled."""
         return self._oauth_service.github_enabled
 
+    @rx.var
+    def enable_google_oauth(self) -> bool:
+        """Whether Google OAuth is enabled."""
+        return self._oauth_service.google_enabled
+
+    @rx.var
+    def enable_apple_oauth(self) -> bool:
+        """Whether Apple OAuth is enabled."""
+        return self._oauth_service.apple_enabled
+
     async def _prepare_login(self) -> str:
         """Prepare for login: save redirect, terminate old session. Returns redirect."""
         redirect_target = self.redirect_to
-        await self.terminate_session()
+        await self.terminate_session()  # type: ignore[operator]  # rx.event handler invoked directly
         if redirect_target and redirect_target != "/":
             self.redirect_to = redirect_target
         return redirect_target
@@ -288,7 +314,7 @@ class LoginState(UserSession):
                     db, form_data["username"], form_data["password"]
                 )
 
-                if status != "success":
+                if status != "success" or user_entity is None:
                     self.error_message = self._LOGIN_ERROR_MESSAGES.get(status, "")
                     if self.error_message:
                         yield rx.toast.error(self.error_message, position="top-right")
@@ -296,12 +322,12 @@ class LoginState(UserSession):
 
                 await self._create_session(db, user_entity)
 
-            yield LoginState.redir()
+            yield LoginState.redir()  # type: ignore[operator]
 
-        except Exception as e:
+        except Exception:
             logger.exception("Login failed")
-            self.error_message = f"Login failed: {e}"
-            yield rx.toast.error(f"Login fehlgeschlagen: {e}", position="top-right")
+            self.error_message = "Login fehlgeschlagen. Bitte versuchen Sie es erneut."
+            yield rx.toast.error(self.error_message, position="top-right")
         finally:
             self.is_loading = False
 
@@ -318,7 +344,7 @@ class LoginState(UserSession):
 
             if not self._oauth_service.provider_supported(provider_str):
                 self.error_message = f"Unknown provider: {provider_name}"
-                return rx.toast.info(
+                return rx.toast.info(  # type: ignore[no-any-return]
                     f"Der Anbieter {provider_name} wird nicht unterstützt.",
                     position="top-right",
                 )
@@ -332,9 +358,9 @@ class LoginState(UserSession):
 
             return rx.redirect(auth_url)
 
-        except Exception as e:
+        except Exception:
             logger.exception("Login with provider failed")
-            self.error_message = f"Login failed: {e}"
+            self.error_message = "Login fehlgeschlagen. Bitte versuchen Sie es erneut."
             self.is_loading = False
             return None
 
@@ -352,7 +378,7 @@ class LoginState(UserSession):
             state=state,
             provider=provider,
             code_verifier=code_verifier,
-            expires_at=datetime.now(UTC) + SESSION_TIMEOUT,
+            expires_at=datetime.now(UTC) + _session_timeout(),
         )
         await oauth_state_repo.create(db, oauth_state)
 
@@ -397,11 +423,14 @@ class LoginState(UserSession):
                 await self._create_session(db, user_entity)
                 await oauth_state_repo.delete(db, oauth_state)
 
-            yield LoginState.redir()
+            yield LoginState.redir()  # type: ignore[operator]
 
-        except Exception as e:
+        except Exception:
             logger.exception("OAuth callback failed")
-            yield rx.toast.error(f"OAuth callback failed: {e!s}")
+            yield rx.toast.error(
+                "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+                position="top-right",
+            )
         finally:
             self.is_loading = False
 
@@ -423,7 +452,7 @@ class LoginState(UserSession):
     @rx.event
     async def logout(self) -> EventSpec:
         """Logout user and terminate session."""
-        await self.terminate_session()
+        await self.terminate_session()  # type: ignore[operator]  # rx.event handler invoked directly
 
         return rx.redirect(LOGOUT_ROUTE)
 
@@ -431,7 +460,7 @@ class LoginState(UserSession):
     async def redir(self) -> EventSpec | None:
         """Redirect based on authentication status."""
         if not self.is_hydrated:
-            return LoginState.redir()  # type: ignore[return]
+            return LoginState.redir()  # type: ignore[operator, no-any-return]
 
         path = self.router.url.path
         is_auth = await self.is_authenticated
@@ -494,8 +523,8 @@ class LoginState(UserSession):
             else:
                 logger.debug("Session expired for user_id=%s", self.user_id)
                 self._last_auth_check = None
-                await self.terminate_session()
-                return await self.redir()
+                await self.terminate_session()  # type: ignore[operator]  # rx.event handler invoked directly
+                return await self.redir()  # type: ignore[operator, no-any-return]
 
         except Exception as e:
             logger.error("Auth check failed: %s", e)
@@ -509,7 +538,7 @@ class LoginState(UserSession):
             return False
 
         elapsed = datetime.now(UTC) - self._last_auth_check
-        if elapsed < SESSION_MONITOR_INTERVAL:
+        if elapsed < _session_monitor_interval():
             logger.debug("Skipping auth check, last check %s ago", elapsed)
             return True
         return False

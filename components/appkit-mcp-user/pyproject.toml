@@ -3,11 +3,11 @@ dependencies = [
     "appkit-commons",
     "appkit-mcp-commons",
     "appkit-user",
-    "openai>=2.37.0",
-    "sqlalchemy>=2.0.49",
+    "openai>=2.44.0",
+    "sqlalchemy>=2.0.51",
 ]
 name = "appkit-mcp-user"
-version = "1.11.1"
+version = "1.13.0"
 description = "MCP User Analytics Server"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]

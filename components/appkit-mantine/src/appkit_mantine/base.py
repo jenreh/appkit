@@ -49,7 +49,7 @@ from appkit_mantine.theme import get_app_theme
 public_provider_path = "$/public/" + asset(path="mantine_provider.js", shared=True)
 
 MANTINE_LIBARY: Final[str] = "@mantine/core"
-MANTINE_VERSION: Final[str] = "9.2.1"
+MANTINE_VERSION: Final[str] = "9.4.1"
 
 
 MantineSize = Literal["xs", "sm", "md", "lg", "xl"]
@@ -509,6 +509,12 @@ class MantineInputComponentBase(MantineLayoutComponentBase):
 
     error: Var[bool | str] = None
     """Error state (boolean) or error message (string) displayed below input."""
+
+    success: Var[bool | str] = None
+    """Success state (boolean) or success message (string) displayed below input.
+
+    Added in Mantine 9.4 — renders a green border and optional success message.
+    """
 
     required: Var[bool] = None
     """If true, adds asterisk to label and sets aria-required."""

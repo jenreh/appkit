@@ -221,52 +221,63 @@ class ValidationState(rx.State):
         """Check if OAuth mode is selected."""
         return self.auth_type == AUTH_TYPE_OAUTH
 
+    @rx.event
     def set_url(self, url: str) -> None:
         """Set the URL and validate it."""
         self.url = url
         self.validate_url()
 
+    @rx.event
     def set_name(self, name: str) -> None:
         """Set the name and validate it."""
         self.name = name
         self.validate_name()
 
+    @rx.event
     def set_description(self, description: str) -> None:
         """Set the description and validate it."""
         self.description = description
         self.validate_description()
 
+    @rx.event
     def set_prompt(self, prompt: str) -> None:
         """Set the prompt and validate it."""
         self.prompt = prompt
         self.validate_prompt()
 
+    @rx.event
     def set_oauth_client_id(self, client_id: str) -> None:
         """Set the OAuth client ID and validate it."""
         self.oauth_client_id = client_id
         self.validate_oauth_client_id()
 
+    @rx.event
     def set_oauth_client_secret(self, client_secret: str) -> None:
         """Set the OAuth client secret and validate it."""
         self.oauth_client_secret = client_secret
         self.validate_oauth_client_secret()
 
+    @rx.event
     def set_oauth_issuer(self, value: str) -> None:
         """Set the OAuth issuer."""
         self.oauth_issuer = value
 
+    @rx.event
     def set_oauth_authorize_url(self, value: str) -> None:
         """Set the OAuth authorization URL."""
         self.oauth_authorize_url = value
 
+    @rx.event
     def set_oauth_token_url(self, value: str) -> None:
         """Set the OAuth token URL."""
         self.oauth_token_url = value
 
+    @rx.event
     def set_oauth_scopes(self, value: str) -> None:
         """Set the OAuth scopes."""
         self.oauth_scopes = value
 
+    @rx.event
     def set_required_role(self, role: str) -> None:
         """Set the required role for accessing this MCP server."""
         self.required_role = role

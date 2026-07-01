@@ -275,4 +275,9 @@ Root props: `opened`, `default_opened`, `position`, `offset`, `width`, `shadow`,
 
 `popover.dropdown` props: standard layout/style props.
 
+`mn.popover.context_menu(...)` (Mantine 9.3) replaces `popover.target` to open
+the popover at the cursor on right-click. `arrow_position="merge"` (9.3) merges
+the arrow into the dropdown edge; the `prevent_position_change_when_visible`
+default became `true` in 9.3 (dropdowns stay put once opened).
+
 > [Mantine docs — Popover](https://mantine.dev/core/popover/)

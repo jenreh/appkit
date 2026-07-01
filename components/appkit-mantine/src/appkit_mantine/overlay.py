@@ -247,12 +247,22 @@ class PopoverDropdown(MantineLayoutComponentBase):
     tag = "Popover.Dropdown"
 
 
+class PopoverContextMenu(MantineLayoutComponentBase):
+    """Mantine Popover.ContextMenu — opens the popover at the cursor on right-click.
+
+    Right-click target replacement for Popover (Mantine 9.3).
+    """
+
+    tag = "Popover.ContextMenu"
+
+
 class PopoverNamespace(rx.ComponentNamespace):
     """Namespace for Popover components."""
 
     __call__ = staticmethod(PopoverRoot.create)
     target = staticmethod(PopoverTarget.create)
     dropdown = staticmethod(PopoverDropdown.create)
+    context_menu = staticmethod(PopoverContextMenu.create)
 
 
 class Dialog(MantineLayoutComponentBase):

@@ -73,6 +73,7 @@ class SkillAdminState(rx.State):
         yield rx.clear_selected_files("skill_zip_upload")
         self.create_modal_open = False
 
+    @rx.event
     def set_available_roles(
         self,
         available_roles: list[dict[str, str]],
@@ -118,6 +119,7 @@ class SkillAdminState(rx.State):
         if not self.selected_model_id and self.skill_models:
             self.selected_model_id = self.skill_models[0].model_id
 
+    @rx.event
     async def set_selected_model(self, model_id: str) -> AsyncGenerator[Any, Any]:
         """Change the selected model and reload skills for that model."""
         self.selected_model_id = model_id

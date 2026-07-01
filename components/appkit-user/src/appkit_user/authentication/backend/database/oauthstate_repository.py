@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
+from typing import Any, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
@@ -19,14 +20,14 @@ class OAuthStateRepository(BaseRepository[OAuthStateEntity, AsyncSession]):
         # Use naive datetime to match SQLite's storage of timezone-aware datetimes
         now = datetime.now(UTC).replace(tzinfo=None)
         stmt = delete(OAuthStateEntity).where(OAuthStateEntity.expires_at < now)
-        result = await session.execute(stmt)
+        result = cast("CursorResult[Any]", await session.execute(stmt))
         await session.flush()
         return result.rowcount
 
     async def delete_by_session_id(self, session: AsyncSession, session_id: str) -> int:
         """Clean up OAuth states for a specific session."""
         stmt = delete(OAuthStateEntity).where(OAuthStateEntity.session_id == session_id)
-        result = await session.execute(stmt)
+        result = cast("CursorResult[Any]", await session.execute(stmt))
         await session.flush()
         return result.rowcount
 

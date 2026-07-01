@@ -59,6 +59,11 @@ __pypackages__/
 /vectorstore/
 aila-storage/
 assets/external/
+# Reflex copies shared component assets to "<cwd>/assets/external" whenever a
+# component module is imported. Generating .pyi stubs (scripts/make_pyi.py) runs
+# from each package's src dir, so these copies land here; they are build-time
+# artifacts, never source.
+components/*/src/assets/
 build/
 celerybeat-schedule
 celerybeat.pid
@@ -115,3 +120,4 @@ wheels/
 .playwright-mcp/
 .claude/scheduled_tasks.lock
 trigger-eval.json
+components/**/assets/

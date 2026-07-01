@@ -13,7 +13,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import secrets
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import reflex as rx
 from reflex.constants.compiler import MemoizationDisposition, MemoizationMode
@@ -207,7 +207,7 @@ class ScrollAreaAutoscroll(ScrollArea):
     )
 
     @classmethod
-    def create(cls, *children, **props):
+    def create(cls, *children: Any, **props: Any) -> rx.Component:
         """Create an AutoScroll component.
 
         Args:
@@ -233,7 +233,7 @@ class ScrollAreaAutoscroll(ScrollArea):
         Returns:
             The imports required for the component.
         """
-        return {"react": ["useEffect", "useRef"]}
+        return cast("rx.ImportDict", {"react": ["useEffect", "useRef"]})
 
     def add_hooks(self) -> list[str | Var]:
         """Add hooks required for the component.
@@ -473,7 +473,7 @@ class ScrollAreaWithState(rx.ComponentState):
     @classmethod
     def get_component(
         cls,
-        *children,
+        *children: Any,
         # ScrollArea-Props
         autoscroll: bool = False,
         bottom_buffer: int = 0,
@@ -497,7 +497,7 @@ class ScrollAreaWithState(rx.ComponentState):
         viewport_props: dict | None = None,
         on_bottom_reached: EventHandler[rx.event.no_args_event_spec] = None,
         on_top_reached: EventHandler[rx.event.no_args_event_spec] = None,
-        **props,
+        **props: Any,
     ) -> rx.Component:
         if viewport_id is None:
             viewport_id = f"scroll-vp-{secrets.token_hex(4)}"
@@ -509,6 +509,7 @@ class ScrollAreaWithState(rx.ComponentState):
         base_component_class = ScrollAreaAutoscroll if autoscroll else ScrollArea
 
         # Prepare viewport props - autoscroll uses id directly, not in viewport_props
+        vp_props: dict[str, Any]
         if autoscroll:
             vp_props = {
                 "style": {"overscrollBehavior": "auto"},
@@ -595,7 +596,7 @@ class ScrollAreaWithState(rx.ComponentState):
         }
 
         extra = {}
-        user_style = {}
+        user_style: dict[str, Any] = {}
         user_class = ""
         if button_props:
             extra = {

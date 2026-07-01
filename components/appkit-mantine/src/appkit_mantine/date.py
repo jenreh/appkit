@@ -137,7 +137,8 @@ class DateInput(MantineDateInputBase):
     on_change: EventHandler[lambda value: [value]] = None
     """Called when value changes."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Convert null/undefined to empty string/None for Reflex."""
         return {
             **super().get_event_triggers(),
@@ -183,7 +184,8 @@ class DatePickerInput(MantineDateInputBase):
     first_day_of_week: Var[int] = None
     """First day of the week (0-6)."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         return {
             **super().get_event_triggers(),
             "on_change": _date_handler,
@@ -216,7 +218,8 @@ class DateTimePicker(MantineDateInputBase):
     on_change: EventHandler[lambda value: [value]] = None
     """Called when value changes."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         return {
             **super().get_event_triggers(),
             "on_change": _date_handler,
@@ -245,7 +248,8 @@ class MonthPickerInput(MantineDateInputBase):
     on_change: EventHandler[lambda value: [value]] = None
     """Called when value changes."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         return {
             **super().get_event_triggers(),
             "on_change": _date_handler,
@@ -269,7 +273,8 @@ class YearPickerInput(MantineDateInputBase):
     on_change: EventHandler[lambda value: [value]] = None
     """Called when value changes."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         return {
             **super().get_event_triggers(),
             "on_change": _date_handler,
@@ -363,7 +368,8 @@ class DatePicker(MantineDateComponentBase):
     weekend_days: Var[list[int]] = None
     """Indices of weekend days."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         return {
             "on_change": _date_handler,
         }
@@ -450,9 +456,13 @@ class TimePicker(MantineDateInputBase):
     with_seconds: Var[bool] = None
     """Enable seconds."""
 
+    close_dropdown_on_preset_select: Var[bool] = None
+    """Close the dropdown after a preset is selected (Mantine 9.4)."""
+
     _rename_props = {
         **MantineDateInputBase._rename_props,  # noqa: SLF001
         "with_seconds": "withSeconds",
+        "close_dropdown_on_preset_select": "closeDropdownOnPresetSelect",
     }
 
 

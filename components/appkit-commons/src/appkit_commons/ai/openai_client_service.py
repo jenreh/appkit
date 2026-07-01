@@ -1,6 +1,8 @@
 """OpenAI client service for creating and managing AsyncOpenAI clients."""
 
 import logging
+from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 import httpx
 from openai import AsyncOpenAI
@@ -8,6 +10,29 @@ from openai import AsyncOpenAI
 from appkit_commons.registry import service_registry
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AiModelCredentials:
+    """Credentials needed to build an OpenAI client for a specific model."""
+
+    api_key: str | None
+    base_url: str | None = None
+    on_azure: bool = False
+
+
+@runtime_checkable
+class AiModelResolver(Protocol):
+    """Resolves a model id to its client credentials.
+
+    Implemented by the owning higher-level package (e.g. appkit-assistant) and
+    registered in the service registry, so appkit-commons does not import it.
+    This inverts the previous appkit-commons -> appkit-assistant dependency.
+    """
+
+    async def resolve_model_credentials(
+        self, model_id: str
+    ) -> "AiModelCredentials | None": ...
 
 
 class OpenAIClientService:
@@ -123,33 +148,37 @@ class OpenAIClientService:
     async def create_client_for_model(
         ai_model: str,
     ) -> AsyncOpenAI | None:
-        """Create an AsyncOpenAI client using credentials from a DB model.
+        """Create an AsyncOpenAI client using credentials for a DB model.
 
-        Looks up the :class:`AssistantAIModel` by its ``model_id`` string
-        and builds a client with the model's own API key / base URL.
+        Resolves the model's credentials via the :class:`AiModelResolver`
+        registered in the service registry (provided by the owning package,
+        e.g. appkit-assistant) and builds a client with them.
 
         Args:
             ai_model: The ``model_id`` string (e.g. ``"gpt-4o"``).
 
         Returns:
-            Configured AsyncOpenAI client, or *None* if the model has
-            no API key or cannot be found.
+            Configured AsyncOpenAI client, or *None* if no resolver is
+            registered, the model cannot be found, or it has no API key.
         """
-        # Import here to avoid circular imports at module level
-        from appkit_assistant.backend.database.repositories import (  # noqa: PLC0415
-            ai_model_repo,
-        )
-        from appkit_commons.database.session import get_asyncdb_session  # noqa: PLC0415
+        try:
+            # AiModelResolver is a Protocol used as a registry key (runtime-safe).
+            resolver = service_registry().get(AiModelResolver)  # type: ignore[type-abstract]
+        except KeyError:
+            logger.warning(
+                "No AiModelResolver registered; cannot create client for model %s",
+                ai_model,
+            )
+            return None
 
         try:
-            async with get_asyncdb_session() as session:
-                model = await ai_model_repo.find_by_model_id(session, ai_model)
-                if not model or not model.api_key:
-                    logger.warning("No API key for model %s", ai_model)
-                    return None
-                return OpenAIClientService._build_client(
-                    model.api_key, model.base_url, model.on_azure
-                )
+            credentials = await resolver.resolve_model_credentials(ai_model)
+            if not credentials or not credentials.api_key:
+                logger.warning("No API key for model %s", ai_model)
+                return None
+            return OpenAIClientService._build_client(
+                credentials.api_key, credentials.base_url, credentials.on_azure
+            )
         except Exception as e:
             logger.error(
                 "Failed to create client for model %s: %s",

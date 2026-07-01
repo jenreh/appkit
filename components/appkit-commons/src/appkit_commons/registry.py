@@ -109,8 +109,12 @@ class ServiceRegistry:
             "Configuring application with config class: %s", app_config_class.__name__
         )
 
-        # Create the configuration instance
-        configuration = Configuration[app_config_class](_env_file=env_file)
+        # Create the configuration instance. The runtime generic parametrization
+        # (`Configuration[app_config_class]`) and pydantic-settings' `_env_file`
+        # init kwarg are both beyond what mypy/the pydantic plugin can model.
+        configuration = Configuration[app_config_class](  # type: ignore[valid-type]
+            _env_file=env_file  # type: ignore[call-arg]
+        )
 
         # Register the configuration instance
         self.register_as(Configuration, configuration)
@@ -146,8 +150,12 @@ class ServiceRegistry:
         logger.debug("Registered instance as type %s", instance_type.__name__)
 
     def get(self, instance_type: type[T]) -> T:
-        """Retrieve an instance by its class type, returning None if not found."""
-        instance: type[T] | None = self._instances.get(instance_type)
+        """Retrieve a registered instance by its class type.
+
+        Raises:
+            KeyError: If no instance is registered for ``instance_type``.
+        """
+        instance: T | None = self._instances.get(instance_type)
         if instance is None:
             logger.warning(
                 "Instance of type %s not found in registry", instance_type.__name__

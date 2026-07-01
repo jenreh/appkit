@@ -4,22 +4,24 @@ Inspired by org.springframework.data.repository.CrudRepository
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, TypeVar, cast
+from typing import Any, Protocol, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, func, literal, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class HasId(Protocol):
-    """Protocol for entities with an id attribute."""
+    """Protocol for entities exposing an ``id`` primary-key attribute.
 
-    id: int | None
+    The type is ``Any`` so the protocol matches SQLAlchemy entities regardless
+    of how they declare the column (e.g. ``id: Mapped[int]``); mypy compares the
+    declared ``Mapped[...]`` member, not the descriptor-unwrapped value.
+    """
+
+    id: Any
 
 
-T = TypeVar("T", bound=HasId)
-S = TypeVar("S")
-
-
-class BaseRepository[T, S](ABC):
+class BaseRepository[T: HasId, S: AsyncSession](ABC):
     """Generic asynchronous repository base class for CRUD operations.
 
     This abstract base class provides a set of common Create/Read/Update/Delete
@@ -123,7 +125,7 @@ class BaseRepository[T, S](ABC):
         Otherwise, creates a new entity.
         """
         # Separate entities with potentially existing IDs
-        ids_to_check = [e.id for e in entities if getattr(e, "id", None) is not None]
+        ids_to_check = [e.id for e in entities if e.id is not None]
 
         existing_map = {}
         if ids_to_check:
@@ -159,7 +161,7 @@ class BaseRepository[T, S](ABC):
         result = await session.execute(
             select(self.model_class).where(model_with_id.id == item_id)
         )
-        return result.scalars().first()
+        return cast("T | None", result.scalars().first())
 
     async def find_all(self, session: S) -> list[T]:
         """Find all instances."""
@@ -178,14 +180,16 @@ class BaseRepository[T, S](ABC):
         """Check if an instance exists by ID."""
         model_with_id = cast(Any, self.model_class)
         result = await session.execute(
-            select(self.model_class).where(model_with_id.id == item_id)
+            select(literal(True)).where(model_with_id.id == item_id).limit(1)
         )
-        return result.scalars().first() is not None
+        return result.scalar() is not None
 
     async def count(self, session: S) -> int:
         """Count all instances."""
-        result = await session.execute(select(self.model_class))
-        return len(list(result.scalars().all()))
+        result = await session.execute(
+            select(func.count()).select_from(self.model_class)
+        )
+        return int(result.scalar_one())
 
     # Delete operations
     async def delete_by_id(self, session: S, item_id: int) -> bool:
@@ -213,7 +217,7 @@ class BaseRepository[T, S](ABC):
     async def delete_all(self, session: S) -> int:
         """Delete all instances. Returns count of deleted items."""
         stmt = delete(self.model_class)
-        result = await session.execute(stmt)
+        result = cast("CursorResult[Any]", await session.execute(stmt))
         await session.flush()
         return result.rowcount
 
@@ -221,6 +225,6 @@ class BaseRepository[T, S](ABC):
         """Delete all instances by IDs. Returns count of deleted items."""
         model_with_id = cast(Any, self.model_class)
         stmt = delete(self.model_class).where(model_with_id.id.in_(ids))
-        result = await session.execute(stmt)
+        result = cast("CursorResult[Any]", await session.execute(stmt))
         await session.flush()
         return result.rowcount

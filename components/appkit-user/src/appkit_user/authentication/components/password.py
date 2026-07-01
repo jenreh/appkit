@@ -3,7 +3,10 @@ import logging
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.components.components import password_rule, themed_logo
+from appkit_user.authentication.components.components import (
+    password_rules_checklist,
+    themed_logo,
+)
 from appkit_user.authentication.password_reset_states import (
     PasswordResetConfirmState,
     PasswordResetRequestState,
@@ -215,25 +218,15 @@ def password_reset_confirm_form(
                     mn.grid_col(
                         mn.stack(
                             mn.stack(
-                                password_rule(
-                                    PasswordResetConfirmState.has_length,
-                                    f"Mindestens {MIN_PASSWORD_LENGTH} Zeichen",
-                                ),
-                                password_rule(
-                                    PasswordResetConfirmState.has_upper,
-                                    "Ein Großbuchstabe",
-                                ),
-                                password_rule(
-                                    PasswordResetConfirmState.has_lower,
-                                    "Ein Kleinbuchstabe",
-                                ),
-                                password_rule(
-                                    PasswordResetConfirmState.has_digit,
-                                    "Eine Ziffer",
-                                ),
-                                password_rule(
-                                    PasswordResetConfirmState.has_special,
-                                    "Ein Sonderzeichen",
+                                password_rules_checklist(
+                                    has_length=PasswordResetConfirmState.has_length,
+                                    has_upper=PasswordResetConfirmState.has_upper,
+                                    has_lower=PasswordResetConfirmState.has_lower,
+                                    has_digit=PasswordResetConfirmState.has_digit,
+                                    has_special=PasswordResetConfirmState.has_special,
+                                    length_label=(
+                                        f"Mindestens {MIN_PASSWORD_LENGTH} Zeichen"
+                                    ),
                                 ),
                                 gap="xs",
                             ),

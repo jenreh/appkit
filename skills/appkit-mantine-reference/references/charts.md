@@ -15,7 +15,8 @@
 - FunnelChart
 - Heatmap
 
-All charts use `@mantine/charts@9.1.1` (Recharts under the hood).
+All charts use the shared `appkit_mantine.base.MANTINE_VERSION` for
+`@mantine/charts` (Recharts under the hood).
 
 ## Common props (categorical charts)
 

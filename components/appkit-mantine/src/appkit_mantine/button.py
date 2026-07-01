@@ -134,13 +134,15 @@ class Button(MantineButtonBase):
     # Appearance
     variant: Var[
         Literal[
-            "filled",
-            "light",
-            "subtle",
-            "outline",
             "default",
+            "filled",
             "gradient",
+            "light",
             "link",
+            "outline",
+            "subtle",
+            "transparent",
+            "white",
         ]
     ] = None
 

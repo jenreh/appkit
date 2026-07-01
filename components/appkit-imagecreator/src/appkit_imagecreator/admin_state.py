@@ -37,6 +37,7 @@ class ImageGeneratorAdminState(rx.State):
     add_modal_open: bool = False
     edit_modal_open: bool = False
 
+    @rx.event
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
         self.search_filter = value
@@ -53,6 +54,7 @@ class ImageGeneratorAdminState(rx.State):
             if search in g.label.lower() or search in g.model_id.lower()
         ]
 
+    @rx.event
     def set_available_roles(
         self,
         available_roles: list[dict[str, str]],

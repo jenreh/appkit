@@ -149,6 +149,8 @@ class Menu(MantineLayoutComponentBase):
     hide_detached: Var[bool]
     floating_strategy: Var[str]
     prevent_position_change_when_visible: Var[bool]
+    align_items_labels: Var[bool]
+    """Align indicator slots of menu item labels (Mantine 9.3)."""
     z_index: Var[int | str]
 
     # Events
@@ -339,6 +341,175 @@ class MenuSubItem(MantineLayoutComponentBase):
 
 
 # ============================================================================
+# Menu.Search (Mantine 9.3)
+# ============================================================================
+
+
+class MenuSearch(MantineLayoutComponentBase):
+    """Mantine Menu.Search — search input that filters menu items."""
+
+    tag = "Menu.Search"
+
+    value: Var[str]
+    default_value: Var[str]
+    placeholder: Var[str]
+
+    on_change: EventHandler[rx.event.input_event]
+
+
+# ============================================================================
+# Menu.CheckboxItem (Mantine 9.3)
+# ============================================================================
+
+
+class MenuCheckboxItem(MantineLayoutComponentBase):
+    """Mantine Menu.CheckboxItem — checkbox option inside a menu."""
+
+    tag = "Menu.CheckboxItem"
+
+    _rename_props = {
+        "left_section": "leftSection",
+        "right_section": "rightSection",
+        "close_menu_on_click": "closeMenuOnClick",
+        "default_checked": "defaultChecked",
+    }
+
+    checked: Var[bool]
+    default_checked: Var[bool]
+    indeterminate: Var[bool]
+    disabled: Var[bool]
+    color: Var[str]
+    left_section: Var[Any]
+    right_section: Var[Any]
+    close_menu_on_click: Var[bool]
+
+    on_change: EventHandler[lambda checked: [checked]]
+
+
+# ============================================================================
+# Menu.RadioGroup / Menu.RadioItem (Mantine 9.3)
+# ============================================================================
+
+
+class MenuRadioGroup(MantineLayoutComponentBase):
+    """Mantine Menu.RadioGroup — groups Menu.RadioItem options."""
+
+    tag = "Menu.RadioGroup"
+
+    _rename_props = {
+        "default_value": "defaultValue",
+    }
+
+    value: Var[str]
+    default_value: Var[str]
+
+    on_change: EventHandler[lambda value: [value]]
+
+
+class MenuRadioItem(MantineLayoutComponentBase):
+    """Mantine Menu.RadioItem — radio option inside a Menu.RadioGroup."""
+
+    tag = "Menu.RadioItem"
+
+    _rename_props = {
+        "left_section": "leftSection",
+        "right_section": "rightSection",
+        "close_menu_on_click": "closeMenuOnClick",
+    }
+
+    value: Var[str]
+    checked: Var[bool]
+    disabled: Var[bool]
+    color: Var[str]
+    left_section: Var[Any]
+    right_section: Var[Any]
+    close_menu_on_click: Var[bool]
+
+
+# ============================================================================
+# Menu.ContextMenu (Mantine 9.3)
+# ============================================================================
+
+
+class MenuContextMenu(MantineComponentBase):
+    """Mantine Menu.ContextMenu — opens the menu at the cursor on right-click."""
+
+    tag = "Menu.ContextMenu"
+
+
+# ============================================================================
+# Menubar (Mantine 9.4)
+# ============================================================================
+
+
+class Menubar(MantineLayoutComponentBase):
+    """Mantine Menubar — desktop-style horizontal menu bar.
+
+    https://mantine.dev/core/menubar/
+    """
+
+    tag = "Menubar"
+
+    _rename_props = {
+        "default_open_index": "defaultOpenIndex",
+        "open_index": "openIndex",
+    }
+
+    default_open_index: Var[int | None]
+    open_index: Var[int | None]
+    loop: Var[bool]
+    position: Var[str]
+    trigger: Var[Literal["click", "hover"]]
+
+    on_open_change: EventHandler[lambda index: [index]]
+
+
+class MenubarMenu(MantineLayoutComponentBase):
+    """Mantine Menubar.Menu — a single menu within the menu bar."""
+
+    tag = "Menubar.Menu"
+
+
+class MenubarTarget(MantineComponentBase):
+    """Mantine Menubar.Target — top-level trigger for a Menubar.Menu."""
+
+    tag = "Menubar.Target"
+
+    ref_prop: Var[str]
+
+
+class MenubarDropdown(MantineLayoutComponentBase):
+    """Mantine Menubar.Dropdown — dropdown panel holding Menu.Item children."""
+
+    tag = "Menubar.Dropdown"
+
+
+class MenubarNamespace(rx.ComponentNamespace):
+    """Namespace for Menubar compound components.
+
+    Usage::
+
+        mn.menubar(
+            mn.menubar.menu(
+                mn.menubar.target("File"),
+                mn.menubar.dropdown(
+                    mn.menu.item("New file"),
+                    mn.menu.item("Open…"),
+                ),
+            ),
+        )
+    """
+
+    __call__ = staticmethod(Menubar.create)
+    menu = staticmethod(MenubarMenu.create)
+    target = staticmethod(MenubarTarget.create)
+    dropdown = staticmethod(MenubarDropdown.create)
+
+
+menubar = MenubarNamespace()
+
+
+# ============================================================================
 # Namespace factory
 # ============================================================================
 
@@ -376,6 +547,11 @@ class MenuNamespace(rx.ComponentNamespace):
     item = staticmethod(MenuItem.create)
     label = staticmethod(MenuLabel.create)
     divider = staticmethod(MenuDivider.create)
+    search = staticmethod(MenuSearch.create)
+    checkbox_item = staticmethod(MenuCheckboxItem.create)
+    radio_group = staticmethod(MenuRadioGroup.create)
+    radio_item = staticmethod(MenuRadioItem.create)
+    context_menu = staticmethod(MenuContextMenu.create)
     sub = MenuSubNamespace()
 
 

@@ -27,6 +27,9 @@ class MantineComboboxBase(MantineInputComponentBase):
     default_dropdown_opened: Var[bool] = None
     filter: Var[Any] = None
     clearable: Var[bool] = None
+    floating_height: Var[str | int] = None
+    """Dropdown height mode (Mantine 9.3). Use ``"viewport"`` to fill the
+    available vertical viewport space."""
 
     # Event handlers
     on_dropdown_close: EventHandler[rx.event.no_args_event_spec] = None
@@ -67,7 +70,8 @@ class Select(MantineSelectBase):
     # Redefine default to match original component
     max_dropdown_height: Var[str | int] = "240px"
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         # Map on_change so Reflex state receives a simple string (empty when null)
         def _on_change(value: Var) -> list[Var]:
             return [value]
@@ -125,7 +129,8 @@ class MultiSelect(MantineSelectBase):
     on_option_submit: EventHandler[input_event] = None
     """Called when option is submitted from dropdown."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Transform events to work with Reflex state system.
 
         MultiSelect sends array values directly from Mantine, so we forward them
@@ -162,7 +167,8 @@ class Autocomplete(MantineComboboxBase):
         **MantineInputComponentBase._rename_props,  # noqa: SLF001
     }
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         return {
             **super().get_event_triggers(),
             "on_change": lambda value: [value],
@@ -200,6 +206,8 @@ class ComboboxRoot(MantineLayoutComponentBase):
     size: Var[str | int] = None
     close_on_option_select: Var[bool] = None
     reset_selection_on_option_hover: Var[bool] = None
+    floating_height: Var[str | int] = None
+    """Dropdown height mode (Mantine 9.3). ``"viewport"`` fills vertical space."""
 
     on_open: EventHandler[rx.event.no_args_event_spec] = None
     on_close: EventHandler[rx.event.no_args_event_spec] = None
@@ -454,6 +462,65 @@ class TreeSelect(MantineLayoutComponentBase):
     on_expanded_change: EventHandler[lambda values: [values]] = None
 
 
+class ComboboxPopoverTarget(MantineLayoutComponentBase):
+    """Mantine ComboboxPopover.Target — wraps the trigger element (e.g. a Button)."""
+
+    tag = "ComboboxPopover.Target"
+
+
+class ComboboxPopover(MantineLayoutComponentBase):
+    """Mantine ComboboxPopover — combobox dropdown attachable to any button.
+
+    Adds a searchable/selectable options dropdown to a custom target element
+    (typically a Button) without rendering an input (Mantine 9.4).
+
+    https://mantine.dev/core/combobox-popover/
+    """
+
+    tag = "ComboboxPopover"
+
+    _rename_props = {
+        "search_value": "searchValue",
+        "dropdown_opened": "dropdownOpened",
+        "max_dropdown_height": "maxDropdownHeight",
+        "render_option": "renderOption",
+        "nothing_found_message": "nothingFoundMessage",
+        "with_check_icon": "withCheckIcon",
+        "check_icon_position": "checkIconPosition",
+        "allow_deselect": "allowDeselect",
+        "combobox_props": "comboboxProps",
+    }
+
+    data: Var[list[Any]] = None
+    value: Var[str | list[str] | None] = None
+    searchable: Var[bool] = None
+    search_value: Var[str] = None
+    multiple: Var[bool] = None
+    dropdown_opened: Var[bool] = None
+    max_dropdown_height: Var[str | int] = None
+    limit: Var[int] = None
+    filter: Var[Any] = None
+    render_option: Var[Any] = None
+    nothing_found_message: Var[Any] = None
+    with_check_icon: Var[bool] = None
+    check_icon_position: Var[Literal["left", "right"]] = None
+    allow_deselect: Var[bool] = None
+    name: Var[str] = None
+    combobox_props: Var[dict[str, Any]] = None
+
+    on_change: EventHandler[lambda value: [value]] = None
+    on_search_change: EventHandler[lambda value: [value]] = None
+    on_dropdown_open: EventHandler[rx.event.no_args_event_spec] = None
+    on_dropdown_close: EventHandler[rx.event.no_args_event_spec] = None
+
+
+class ComboboxPopoverNamespace(rx.ComponentNamespace):
+    """Namespace for ComboboxPopover components."""
+
+    __call__ = staticmethod(ComboboxPopover.create)
+    target = staticmethod(ComboboxPopoverTarget.create)
+
+
 class PillNamespace(rx.ComponentNamespace):
     """Namespace for Pill components."""
 
@@ -469,6 +536,7 @@ class PillsInputNamespace(rx.ComponentNamespace):
 
 
 combobox = ComboboxNamespace()
+combobox_popover = ComboboxPopoverNamespace()
 pill = PillNamespace()
 pills_input = PillsInputNamespace()
 select = Select.create

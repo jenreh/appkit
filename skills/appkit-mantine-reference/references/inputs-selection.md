@@ -225,3 +225,34 @@ mn.rich_select(
 Props: `searchable`, `clearable`, `creatable`, `search_placeholder`, `nothing_found`,
 `max_dropdown_height`, `position`, `value`, `values` (multi-select list),
 `on_change`, `on_create`, `on_search_change`, `on_clear`, `on_opened_change`.
+
+> **Mantine 9.3 note:** `mn.select`, `mn.multi_select`, `mn.autocomplete` and
+> `mn.tags_input` accept `floating_height="viewport"` to let the dropdown fill
+> the available vertical viewport space.
+
+## ComboboxPopover (Mantine 9.4)
+
+Attaches a searchable/selectable combobox dropdown to any button element —
+without rendering an input.
+
+```python
+mn.combobox_popover(
+    mn.combobox_popover.target(
+        mn.button(State.framework or "Select framework", variant="default"),
+    ),
+    data=["React", "Vue", "Angular", "Svelte"],
+    value=State.framework,
+    on_change=State.set_framework,   # receives the selected value
+    searchable=True,
+    nothing_found_message="Nothing found…",
+)
+```
+
+Props: `data`, `value`, `on_change`, `searchable`, `search_value`,
+`on_search_change`, `multiple`, `dropdown_opened`, `on_dropdown_open`,
+`on_dropdown_close`, `max_dropdown_height`, `limit`, `filter`, `render_option`,
+`nothing_found_message`, `with_check_icon`, `check_icon_position`,
+`allow_deselect`, `name`, `combobox_props`. Sub-component:
+`mn.combobox_popover.target(...)` (wraps the trigger, usually a button).
+
+> [Mantine docs — ComboboxPopover](https://mantine.dev/core/combobox-popover/)

@@ -298,7 +298,101 @@ class BackgroundImage(MantineLayoutComponentBase):
     radius: Var[str | int] = None
 
 
+class DataList(MantineLayoutComponentBase):
+    """Mantine DataList — semantic label/value pairs (``dl``/``dt``/``dd``).
+
+    https://mantine.dev/core/data-list/ (Mantine 9.4)
+    """
+
+    tag = "DataList"
+
+    gap: Var[str | int] = None
+    label_width: Var[str | int] = None
+    orientation: Var[Literal["horizontal", "vertical"]] = None
+    size: Var[str | int] = None
+    with_divider: Var[bool] = None
+
+
+class DataListItem(MantineLayoutComponentBase):
+    """Mantine DataList.Item — a single label/value pair."""
+
+    tag = "DataList.Item"
+
+
+class DataListItemLabel(MantineLayoutComponentBase):
+    """Mantine DataList.ItemLabel — the ``dt`` label element."""
+
+    tag = "DataList.ItemLabel"
+
+
+class DataListItemValue(MantineLayoutComponentBase):
+    """Mantine DataList.ItemValue — the ``dd`` value element."""
+
+    tag = "DataList.ItemValue"
+
+
+class EmptyState(MantineLayoutComponentBase):
+    """Mantine EmptyState — placeholder for "no data" situations.
+
+    https://mantine.dev/core/empty-state/ (Mantine 9.4)
+    """
+
+    tag = "EmptyState"
+
+    align: Var[Literal["center", "left", "right"]] = None
+    color: Var[str] = None
+    description: Var[Any] = None
+    icon: Var[Any] = None
+    size: Var[str | int] = None
+    title: Var[Any] = None
+    with_indicator_background: Var[bool] = None
+    variant: Var[Literal["filled", "light"]] = None
+
+
+class EmptyStateIndicator(MantineLayoutComponentBase):
+    """Mantine EmptyState.Indicator — icon/illustration wrapper."""
+
+    tag = "EmptyState.Indicator"
+
+
+class EmptyStateTitle(MantineLayoutComponentBase):
+    """Mantine EmptyState.Title — title element."""
+
+    tag = "EmptyState.Title"
+
+
+class EmptyStateDescription(MantineLayoutComponentBase):
+    """Mantine EmptyState.Description — description text wrapper."""
+
+    tag = "EmptyState.Description"
+
+
+class EmptyStateActions(MantineLayoutComponentBase):
+    """Mantine EmptyState.Actions — action buttons container."""
+
+    tag = "EmptyState.Actions"
+
+
 #### Factory functions for easier imports and usage
+
+
+class DataListNamespace(rx.ComponentNamespace):
+    """Namespace for DataList components."""
+
+    __call__ = staticmethod(DataList.create)
+    item = staticmethod(DataListItem.create)
+    item_label = staticmethod(DataListItemLabel.create)
+    item_value = staticmethod(DataListItemValue.create)
+
+
+class EmptyStateNamespace(rx.ComponentNamespace):
+    """Namespace for EmptyState components."""
+
+    __call__ = staticmethod(EmptyState.create)
+    indicator = staticmethod(EmptyStateIndicator.create)
+    title = staticmethod(EmptyStateTitle.create)
+    description = staticmethod(EmptyStateDescription.create)
+    actions = staticmethod(EmptyStateActions.create)
 
 
 class AccordionNamespace(rx.ComponentNamespace):
@@ -337,6 +431,8 @@ background_image = BackgroundImage.create
 badge = Badge.create
 card = CardNamespace()
 color_swatch = ColorSwatch.create
+data_list = DataListNamespace()
+empty_state = EmptyStateNamespace()
 image = Image.create
 indicator = Indicator.create
 kbd = Kbd.create

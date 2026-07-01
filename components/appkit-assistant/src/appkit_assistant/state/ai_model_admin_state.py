@@ -28,6 +28,7 @@ class AIModelAdminState(rx.State):
     add_modal_open: bool = False
     edit_modal_open: bool = False
 
+    @rx.event
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
         self.search_filter = value
@@ -54,6 +55,7 @@ class AIModelAdminState(rx.State):
         """Return whether any models exist."""
         return len(self.models) > 0
 
+    @rx.event
     def set_available_roles(
         self,
         available_roles: list[dict[str, str]],

@@ -272,7 +272,8 @@ class NumberInput(MantineInputComponentBase):
     on_value_change: EventHandler[rx.event.input_event] = None
     """Called when value changes with react-number-format payload."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Override event triggers to handle NumberInput value emission.
 
         Mantine NumberInput sends the numeric value directly (or empty string),
@@ -407,6 +408,9 @@ class TagsInput(MantineInputComponentBase):
     Defaults to True.
     """
 
+    floating_height: Var[str | int] = None
+    """Dropdown height mode (Mantine 9.3). ``"viewport"`` fills vertical space."""
+
     # Combobox integration
     combobox_props: Var[dict[str, Any]] = None
     """Props passed down to the underlying Combobox component."""
@@ -435,7 +439,8 @@ class TagsInput(MantineInputComponentBase):
 
     # (on_remove is the Mantine prop name; keep that as primary)
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Transform events to work with Reflex state system.
 
         TagsInput sends array values directly from Mantine, so we forward them
@@ -514,7 +519,8 @@ class MaskInput(MantineInputComponentBase):
     slot_char: Var[str] = None
     """Character for the placeholder slot (default: '_')."""
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Transform events to work with Reflex state system."""
 
         def _on_change(value: Var) -> list[Var]:
@@ -582,6 +588,11 @@ class Textarea(MantineInputComponentBase):
 
     tag = "Textarea"
 
+    _rename_props = {
+        **MantineInputComponentBase._rename_props,  # noqa: SLF001
+        "bottom_section": "bottomSection",
+    }
+
     # HTML textarea attributes
     rows: Var[int] = None
     """Number of visible text lines (when not using autosize)."""
@@ -605,6 +616,12 @@ class Textarea(MantineInputComponentBase):
     # Resize control
     resize: Var[Literal["none", "vertical", "both", "horizontal"]] = None
     """CSS resize property to control manual resizing."""
+
+    bottom_section: Var[Any] = None
+    """Content rendered inside the input border below the textarea (Mantine 9.3).
+
+    Useful for character counters or supplementary controls.
+    """
 
     # Mantine styles prop for targeting internal sub-components
     styles: Var[dict] = None
@@ -646,7 +663,8 @@ class FileInput(MantineInputComponentBase):
     clearable: Var[bool] = None
     value_component: Var[Any] = None
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         def _on_change(value: Var) -> list[Var]:
             return [value]
 
@@ -690,7 +708,8 @@ class PinInput(MantineInputComponentBase):
 
     on_complete: EventHandler[lambda value: [value]] = None
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         def _on_change(value: Var) -> list[Var]:
             return [value]
 
@@ -836,7 +855,8 @@ class ColorInput(MantineInputComponentBase):
 
     on_change_end: EventHandler[lambda value: [value]] = None
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         def _on_change(value: Var) -> list[Var]:
             return [value]
 

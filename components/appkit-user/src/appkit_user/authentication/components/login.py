@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import reflex as rx
 
@@ -10,12 +11,13 @@ from appkit_user.configuration import OAuthProvider
 logger = logging.getLogger(__name__)
 
 
-def _oauth_button(
+def oauth_button(
     provider: OAuthProvider,
     text: str,
     icon_light: str,
     enabled_var: rx.Var[bool],
     icon_dark: str | None = None,
+    **kwargs: Any,
 ) -> rx.Component:
     """Helper to render an OAuth login button."""
     if icon_dark:
@@ -29,13 +31,9 @@ def _oauth_button(
             text,
             left_section=icon,
             right_section=rx.el.span(),
-            variant="default",
-            size="md",
-            fw="300",
-            justify="space-between",
-            full_width=True,
             loading=LoginState.is_loading,
             on_click=LoginState.login_with_provider(provider),
+            **kwargs,
         ),
     )
 
@@ -140,21 +138,59 @@ def login_form(logo: str, logo_dark: str, margin_left: str = "0px") -> rx.Compon
                     class_name="w-full",
                 ),
                 rx.cond(
-                    LoginState.enable_github_oauth | LoginState.enable_azure_oauth,
+                    LoginState.enable_github_oauth
+                    | LoginState.enable_azure_oauth
+                    | LoginState.enable_google_oauth
+                    | LoginState.enable_apple_oauth,
                     mn.stack(
                         mn.divider(label="oder", label_position="center"),
-                        _oauth_button(
-                            OAuthProvider.GITHUB,
-                            "Mit Github anmelden",
-                            "/icons/GitHub_light.svg",
-                            LoginState.enable_github_oauth,
-                            icon_dark="/icons/GitHub_dark.svg",
+                        oauth_button(
+                            provider=OAuthProvider.GOOGLE,
+                            text="Mit Google anmelden",
+                            icon_light="/icons/google.svg",
+                            icon_dark="/icons/google_dark.svg",
+                            enabled_var=LoginState.enable_google_oauth,
+                            variant="default",
+                            size="md",
+                            fw="300",
+                            justify="space-between",
+                            full_width=True,
                         ),
-                        _oauth_button(
-                            OAuthProvider.AZURE,
-                            "Mit Microsoft anmelden",
-                            "/icons/microsoft.svg",
-                            LoginState.enable_azure_oauth,
+                        oauth_button(
+                            provider=OAuthProvider.APPLE,
+                            text="Mit Apple anmelden",
+                            icon_light="/icons/apple.svg",
+                            icon_dark="/icons/apple_dark.svg",
+                            enabled_var=LoginState.enable_apple_oauth,
+                            variant="default",
+                            size="md",
+                            fw="300",
+                            justify="space-between",
+                            full_width=True,
+                        ),
+                        oauth_button(
+                            provider=OAuthProvider.AZURE,
+                            text="Mit Microsoft anmelden",
+                            icon_light="/icons/microsoft.svg",
+                            icon_dark="/icons/microsoft_dark.svg",
+                            enabled_var=LoginState.enable_azure_oauth,
+                            variant="default",
+                            size="md",
+                            fw="300",
+                            justify="space-between",
+                            full_width=True,
+                        ),
+                        oauth_button(
+                            provider=OAuthProvider.GITHUB,
+                            text="Mit Github anmelden",
+                            icon_light="/icons/GitHub_light.svg",
+                            icon_dark="/icons/GitHub_dark.svg",
+                            enabled_var=LoginState.enable_github_oauth,
+                            variant="default",
+                            size="md",
+                            fw="300",
+                            justify="space-between",
+                            full_width=True,
                         ),
                         gap="xs",
                     ),

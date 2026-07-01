@@ -4,6 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from jinja2 import Environment, select_autoescape
 
@@ -41,11 +42,11 @@ class EmailProviderBase(ABC):
         base_dir = (
             config.password_reset.templates_dir
             if config.password_reset.templates_dir
-            else Path(__file__).parent.parent.parent / "templates"
+            else Path(__file__).parent.parent.parent / "email_templates"
         )
         return base_dir / filename
 
-    def _render_template(self, template_file: str, **context) -> str:
+    def _render_template(self, template_file: str, **context: Any) -> str:
         """Load and render a Jinja2 template."""
         try:
             template_path = self._get_template_path(template_file)
