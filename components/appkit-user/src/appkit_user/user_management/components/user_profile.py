@@ -4,7 +4,7 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_ui.components.header import header
-from appkit_user.authentication.components.components import password_rule
+from appkit_user.authentication.components.components import password_rules_checklist
 from appkit_user.authentication.states import UserSession
 from appkit_user.user_management.states.profile_states import (
     MIN_PASSWORD_LENGTH,
@@ -133,19 +133,17 @@ def _password_change_section() -> rx.Component:
                     c="dimmed",
                 ),
                 mn.stack(
-                    password_rule(
-                        ProfileState.has_length,
-                        f"Mindestens {MIN_PASSWORD_LENGTH} Zeichen",
-                    ),
-                    password_rule(
-                        ProfileState.has_upper, "Mindestens ein Großbuchstabe"
-                    ),
-                    password_rule(
-                        ProfileState.has_lower, "Mindestens ein Kleinbuchstabe"
-                    ),
-                    password_rule(ProfileState.has_digit, "Mindestens eine Zahl"),
-                    password_rule(
-                        ProfileState.has_special, "Mindestens ein Sonderzeichen"
+                    password_rules_checklist(
+                        has_length=ProfileState.has_length,
+                        has_upper=ProfileState.has_upper,
+                        has_lower=ProfileState.has_lower,
+                        has_digit=ProfileState.has_digit,
+                        has_special=ProfileState.has_special,
+                        length_label=f"Mindestens {MIN_PASSWORD_LENGTH} Zeichen",
+                        upper_label="Mindestens ein Großbuchstabe",
+                        lower_label="Mindestens ein Kleinbuchstabe",
+                        digit_label="Mindestens eine Zahl",
+                        special_label="Mindestens ein Sonderzeichen",
                     ),
                     gap="xs",
                     mt="md",

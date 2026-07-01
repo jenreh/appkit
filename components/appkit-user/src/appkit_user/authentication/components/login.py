@@ -138,7 +138,10 @@ def login_form(logo: str, logo_dark: str, margin_left: str = "0px") -> rx.Compon
                     class_name="w-full",
                 ),
                 rx.cond(
-                    LoginState.enable_github_oauth | LoginState.enable_azure_oauth,
+                    LoginState.enable_github_oauth
+                    | LoginState.enable_azure_oauth
+                    | LoginState.enable_google_oauth
+                    | LoginState.enable_apple_oauth,
                     mn.stack(
                         mn.divider(label="oder", label_position="center"),
                         oauth_button(

@@ -146,6 +146,33 @@ def password_rule(check: bool, message: str) -> rx.Component:
     )
 
 
+def password_rules_checklist(
+    *,
+    has_length: bool,
+    has_upper: bool,
+    has_lower: bool,
+    has_digit: bool,
+    has_special: bool,
+    length_label: str,
+    upper_label: str = "Ein Großbuchstabe",
+    lower_label: str = "Ein Kleinbuchstabe",
+    digit_label: str = "Eine Ziffer",
+    special_label: str = "Ein Sonderzeichen",
+) -> rx.Component:
+    """Render the five password-policy checklist rows.
+
+    Labels are parameterized (callers may use slightly different wording); the
+    caller owns the surrounding container/spacing.
+    """
+    return rx.fragment(
+        password_rule(has_length, length_label),
+        password_rule(has_upper, upper_label),
+        password_rule(has_lower, lower_label),
+        password_rule(has_digit, digit_label),
+        password_rule(has_special, special_label),
+    )
+
+
 def requires_role(
     *children: Any,
     role: str,

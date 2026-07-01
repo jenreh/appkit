@@ -7,7 +7,7 @@ from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.roles import Role
 from appkit_user.authentication.backend.database import user_repo
 from appkit_user.authentication.backend.models import User, UserCreate
-from appkit_user.authentication.decorators import is_authenticated
+from appkit_user.authentication.decorators import requires_admin
 
 
 class UserState(rx.State):
@@ -56,6 +56,7 @@ class UserState(rx.State):
         self.edit_modal_open = False
         self.selected_user = None
 
+    @requires_admin
     async def select_user_and_open_edit(self, user_id: int) -> None:
         """Select a user and open the edit modal."""
         await self.select_user(user_id)
@@ -107,7 +108,7 @@ class UserState(rx.State):
             )
             self.users = [User.model_validate(user) for user in user_entities]
 
-    @is_authenticated
+    @requires_admin
     async def load_users(
         self, limit: int = 200, offset: int = 0
     ) -> AsyncGenerator[Any, None]:
@@ -118,7 +119,7 @@ class UserState(rx.State):
         finally:
             self.is_loading = False
 
-    @is_authenticated
+    @requires_admin
     async def create_user(self, form_data: dict) -> AsyncGenerator[Any, None]:
         self.is_loading = True
         yield
@@ -147,7 +148,7 @@ class UserState(rx.State):
             self.is_loading = False
             yield rx.toast.error(f"Fehler: {e}", position="top-right")
 
-    @is_authenticated
+    @requires_admin
     async def update_user(self, form_data: dict) -> AsyncGenerator[Any, None]:
         self.is_loading = True
         yield
@@ -181,7 +182,7 @@ class UserState(rx.State):
             self.is_loading = False
             yield rx.toast.error(f"Fehler: {e}", position="top-right")
 
-    @is_authenticated
+    @requires_admin
     async def delete_user(self, user_id: int) -> AsyncGenerator[Any, None]:
         self.is_loading = True
         yield
@@ -212,6 +213,7 @@ class UserState(rx.State):
             self.is_loading = False
             yield rx.toast.error(f"Fehler: {e}", position="top-right")
 
+    @requires_admin
     async def select_user(self, user_id: int) -> None:
         async with get_asyncdb_session() as session:
             user_entity = await user_repo.find_by_id(session, user_id)

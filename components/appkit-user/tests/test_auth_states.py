@@ -519,7 +519,9 @@ class TestLoginWithPassword:
             ]
 
         assert state.is_loading is False
-        assert "db crash" in state.error_message
+        # Raw exception text must not leak to the user; a generic message shows.
+        assert "db crash" not in state.error_message
+        assert state.error_message != ""
 
 
 class TestLoginWithProvider:

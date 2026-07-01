@@ -19,6 +19,12 @@ class User(BaseModel):
     needs_password_reset: bool = False
     roles: list[str] = []
 
+    @field_validator("name", "avatar_url", mode="before")
+    @classmethod
+    def coerce_none_to_empty(cls, v: Any) -> Any:
+        """Tolerate NULL DB columns: nullable ``name``/``avatar_url`` -> ""."""
+        return "" if v is None else v
+
     @field_validator("roles", mode="before")
     @classmethod
     def extract_roles(cls, v: Any) -> list[str]:

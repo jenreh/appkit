@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import Any, cast
 
 from sqlalchemy import CursorResult, delete, select
@@ -9,14 +8,6 @@ from appkit_commons.database.base_repository import BaseRepository
 from appkit_user.authentication.backend.database.entities import (
     UserSessionEntity,
 )
-
-
-class DefaultUserRoles(StrEnum):
-    """Default user roles."""
-
-    USER = "user"
-    ADMIN = "admin"
-    GUEST = "guest"
 
 
 class UserSessionRepository(BaseRepository[UserSessionEntity, AsyncSession]):

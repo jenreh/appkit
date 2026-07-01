@@ -309,10 +309,10 @@ class LoginState(UserSession):
 
             yield LoginState.redir()  # type: ignore[operator]
 
-        except Exception as e:
+        except Exception:
             logger.exception("Login failed")
-            self.error_message = f"Login failed: {e}"
-            yield rx.toast.error(f"Login fehlgeschlagen: {e}", position="top-right")
+            self.error_message = "Login fehlgeschlagen. Bitte versuchen Sie es erneut."
+            yield rx.toast.error(self.error_message, position="top-right")
         finally:
             self.is_loading = False
 
@@ -343,9 +343,9 @@ class LoginState(UserSession):
 
             return rx.redirect(auth_url)
 
-        except Exception as e:
+        except Exception:
             logger.exception("Login with provider failed")
-            self.error_message = f"Login failed: {e}"
+            self.error_message = "Login fehlgeschlagen. Bitte versuchen Sie es erneut."
             self.is_loading = False
             return None
 
@@ -410,9 +410,12 @@ class LoginState(UserSession):
 
             yield LoginState.redir()  # type: ignore[operator]
 
-        except Exception as e:
+        except Exception:
             logger.exception("OAuth callback failed")
-            yield rx.toast.error(f"OAuth callback failed: {e!s}")
+            yield rx.toast.error(
+                "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+                position="top-right",
+            )
         finally:
             self.is_loading = False
 

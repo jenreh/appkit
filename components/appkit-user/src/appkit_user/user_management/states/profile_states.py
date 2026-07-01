@@ -1,26 +1,15 @@
-import re
-from typing import Final
-
 import reflex as rx
 from reflex.components.sonner.toast import Toaster
 
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_user.authentication.backend.database import user_repo
-from appkit_user.authentication.states import UserSession
-
-MIN_PASSWORD_LENGTH: Final[int] = 12
-
-# Compile a regex pattern that ensures the password has:
-# - At least MIN_PASSWORD_LENGTH characters
-# - At least one uppercase letter
-# - At least one lowercase letter
-# - At least one digit
-# - At least one special character (anything other than letters and digits)
-PASSWORD_REGEX = re.compile(
-    r"^(?=.{"
-    + str(MIN_PASSWORD_LENGTH)
-    + r",})(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).*$"
+from appkit_user.authentication.password_policy import (
+    MIN_PASSWORD_LENGTH,
+    PASSWORD_MISMATCH_MESSAGE,
+    PASSWORD_REGEX,
+    calculate_password_strength,
 )
+from appkit_user.authentication.states import UserSession
 
 
 class ProfileState(rx.State):
@@ -42,34 +31,13 @@ class ProfileState(rx.State):
     def set_new_password(self, value: str) -> None:
         """Set password and calculate strength."""
         self.new_password = value
-        self.has_length = len(value) >= MIN_PASSWORD_LENGTH
-        self.has_upper = any(c.isupper() for c in value)
-        self.has_lower = any(c.islower() for c in value)
-        self.has_digit = any(c.isdigit() for c in value)
-        self.has_special = any(not c.isalnum() for c in value)
-
-        criteria_met = sum(
-            [
-                self.has_upper,
-                self.has_lower,
-                self.has_digit,
-                self.has_special,
-                self.has_length,
-            ]
-        )
-
-        if criteria_met == 1:  # noqa: PLR2004
-            self.strength_value = 20
-        elif criteria_met == 2:  # noqa: PLR2004
-            self.strength_value = 40
-        elif criteria_met == 3:  # noqa: PLR2004
-            self.strength_value = 60
-        elif criteria_met == 4:  # noqa: PLR2004
-            self.strength_value = 80
-        elif criteria_met == 5:  # noqa: PLR2004
-            self.strength_value = 100
-        else:
-            self.strength_value = 0
+        result = calculate_password_strength(value)
+        self.has_length = result.has_length
+        self.has_upper = result.has_upper
+        self.has_lower = result.has_lower
+        self.has_digit = result.has_digit
+        self.has_special = result.has_special
+        self.strength_value = result.strength
 
     def set_name(self, name: str) -> None:
         self.name = name
@@ -78,7 +46,7 @@ class ProfileState(rx.State):
     def set_confirm_password(self, password: str) -> None:
         self.confirm_password = password
         if self.new_password != password:
-            self.password_error = "Passwörter stimmen nicht überein."  # noqa: S105 # gitleaks:allow
+            self.password_error = PASSWORD_MISMATCH_MESSAGE
         else:
             self.password_error = ""
 
@@ -86,6 +54,7 @@ class ProfileState(rx.State):
     def set_current_password(self, password: str) -> None:
         self.current_password = password
 
+    @rx.event
     async def handle_password_update(self) -> Toaster:
         if not PASSWORD_REGEX.match(self.new_password):
             return rx.toast.error(

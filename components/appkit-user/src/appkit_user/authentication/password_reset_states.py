@@ -16,22 +16,23 @@ from appkit_user.authentication.backend.database import (
     session_repo,
     user_repo,
 )
+from appkit_user.authentication.backend.database.user_repository import (
+    get_name_from_email,
+)
 from appkit_user.authentication.backend.services import get_email_service
 from appkit_user.authentication.backend.types import PasswordResetType
+from appkit_user.authentication.password_policy import (
+    MIN_PASSWORD_LENGTH,
+    PASSWORD_MISMATCH_MESSAGE,
+    PASSWORD_REGEX,
+    calculate_password_strength,
+)
 from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)
 
 # Email validation regex
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-
-# Password validation (same as profile)
-MIN_PASSWORD_LENGTH = 12
-PASSWORD_REGEX = re.compile(
-    r"^(?=.{"
-    + str(MIN_PASSWORD_LENGTH)
-    + r",})(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).*$"
-)
 
 
 class PasswordResetRequestState(rx.State):
@@ -107,10 +108,12 @@ class PasswordResetRequestState(rx.State):
 
                 # Eagerly load user attributes while in session context
                 user_id = user_entity.id
-                user_name = user_entity.name or (user_entity.email or "").split("@")[0]
+                user_name = (
+                    get_name_from_email(user_entity.email, user_entity.name) or ""
+                )
 
-                # 4. Generate token
-                token_entity = await password_reset_token_repo.create_token(
+                # 4. Generate token (only its hash is persisted)
+                _, raw_token = await password_reset_token_repo.create_token(
                     db,
                     user_id=user_id,
                     email=self.email,
@@ -122,8 +125,7 @@ class PasswordResetRequestState(rx.State):
                 email_service = get_email_service()
                 if email_service:
                     reset_url = (
-                        f"{config.server_url}/password-reset/confirm"
-                        f"?token={token_entity.token}"
+                        f"{config.server_url}/password-reset/confirm?token={raw_token}"
                     )
 
                     # If the configured email service is a MockService (e.g. in
@@ -161,8 +163,8 @@ class PasswordResetRequestState(rx.State):
             self.is_submitted = True
             yield
 
-        except Exception as e:
-            logger.exception("Error during password reset request: %s", e)
+        except Exception:
+            logger.exception("Error during password reset request")
             # Still show success message for security
             self.is_submitted = True
             yield
@@ -213,7 +215,7 @@ class PasswordResetConfirmState(rx.State):
 
                 if not token_entity:
                     self.token_error = "Ungültiger oder abgelaufener Token."  # noqa: S105
-                    logger.warning("Invalid password reset token: %s", self.token)
+                    logger.warning("Invalid password reset token presented")
                     yield rx.redirect("/password-reset")
                     return
 
@@ -235,7 +237,7 @@ class PasswordResetConfirmState(rx.State):
                 if user_entity:
                     self.user_email = user_entity.email or ""
                     self.user_name = (
-                        user_entity.name or (user_entity.email or "").split("@")[0]
+                        get_name_from_email(user_entity.email, user_entity.name) or ""
                     )
                     self.user_id = user_entity.id
                 else:
@@ -243,8 +245,8 @@ class PasswordResetConfirmState(rx.State):
                     yield rx.redirect("/password-reset")
                     return
 
-        except Exception as e:
-            logger.exception("Error validating token: %s", e)
+        except Exception:
+            logger.exception("Error validating token")
             self.token_error = "Fehler bei der Token-Validierung."  # noqa: S105
             yield rx.redirect("/password-reset")
 
@@ -256,41 +258,20 @@ class PasswordResetConfirmState(rx.State):
         self.password_history_error = ""
 
         # Calculate strength indicators
-        self.has_length = len(value) >= MIN_PASSWORD_LENGTH
-        self.has_upper = any(c.isupper() for c in value)
-        self.has_lower = any(c.islower() for c in value)
-        self.has_digit = any(c.isdigit() for c in value)
-        self.has_special = any(not c.isalnum() for c in value)
-
-        criteria_met = sum(
-            [
-                self.has_upper,
-                self.has_lower,
-                self.has_digit,
-                self.has_special,
-                self.has_length,
-            ]
-        )
-
-        if criteria_met == 1:
-            self.strength_value = 20
-        elif criteria_met == 2:  # noqa: PLR2004
-            self.strength_value = 40
-        elif criteria_met == 3:  # noqa: PLR2004
-            self.strength_value = 60
-        elif criteria_met == 4:  # noqa: PLR2004
-            self.strength_value = 80
-        elif criteria_met == 5:  # noqa: PLR2004
-            self.strength_value = 100
-        else:
-            self.strength_value = 0
+        result = calculate_password_strength(value)
+        self.has_length = result.has_length
+        self.has_upper = result.has_upper
+        self.has_lower = result.has_lower
+        self.has_digit = result.has_digit
+        self.has_special = result.has_special
+        self.strength_value = result.strength
 
     @rx.event
     def set_confirm_password(self, value: str) -> None:
         """Set confirm password and validate match."""
         self.confirm_password = value
         if self.new_password and self.new_password != value:
-            self.password_error = "Passwörter stimmen nicht überein."  # noqa: S105
+            self.password_error = PASSWORD_MISMATCH_MESSAGE
         else:
             self.password_error = ""
 
@@ -315,7 +296,7 @@ class PasswordResetConfirmState(rx.State):
 
             # 2. Verify passwords match
             if self.new_password != self.confirm_password:
-                self.password_error = "Passwörter stimmen nicht überein."  # noqa: S105
+                self.password_error = PASSWORD_MISMATCH_MESSAGE
                 yield
                 return
 
@@ -402,8 +383,8 @@ class PasswordResetConfirmState(rx.State):
             )
             yield rx.redirect("/login")
 
-        except Exception as e:
-            logger.exception("Error during password reset confirmation: %s", e)
+        except Exception:
+            logger.exception("Error during password reset confirmation")
             yield rx.toast.error(
                 "Fehler beim Zurücksetzen des Passworts.", position="top-right"
             )

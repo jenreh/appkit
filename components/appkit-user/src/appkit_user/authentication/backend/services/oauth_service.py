@@ -168,7 +168,20 @@ class OAuthService:
                 "username": user_data.get("preferred_username", ""),
             }
 
-        user_data["email"] = user_data["email"].lower()
+        if provider_key in (OAuthProvider.GOOGLE.value, OAuthProvider.APPLE.value):
+            # Google/Apple are OIDC: the subject is under "sub", not "id", and
+            # Apple frequently omits "email" on subsequent logins.
+            user_data = {
+                "id": user_data.get("id") or user_data.get("sub") or "",
+                "email": user_data.get("email") or "",
+                "name": user_data.get("name") or user_data.get("given_name") or "",
+                "avatar_url": user_data.get("picture")
+                or user_data.get("avatar_url")
+                or "",
+                "username": user_data.get("email") or "",
+            }
+
+        user_data["email"] = (user_data.get("email") or "").lower()
         return user_data
 
     def _convert_upn_to_email(self, user_principal_name: str | None) -> str:

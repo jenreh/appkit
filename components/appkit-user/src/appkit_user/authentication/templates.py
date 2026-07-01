@@ -155,7 +155,7 @@ def navbar_layout(
     if on_load is None:
         on_load = [LoadingState.set_is_loading(False)]
     elif isinstance(on_load, list):
-        on_load.append(LoadingState.set_is_loading(False))
+        on_load = [*on_load, LoadingState.set_is_loading(False)]
     elif isinstance(on_load, rx.EventHandler):
         on_load = [on_load, LoadingState.set_is_loading(False)]
 
