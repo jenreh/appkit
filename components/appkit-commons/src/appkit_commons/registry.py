@@ -150,8 +150,12 @@ class ServiceRegistry:
         logger.debug("Registered instance as type %s", instance_type.__name__)
 
     def get(self, instance_type: type[T]) -> T:
-        """Retrieve an instance by its class type, returning None if not found."""
-        instance: type[T] | None = self._instances.get(instance_type)
+        """Retrieve a registered instance by its class type.
+
+        Raises:
+            KeyError: If no instance is registered for ``instance_type``.
+        """
+        instance: T | None = self._instances.get(instance_type)
         if instance is None:
             logger.warning(
                 "Instance of type %s not found in registry", instance_type.__name__

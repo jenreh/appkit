@@ -36,7 +36,20 @@ class EncryptedString(TypeDecorator):
 
     def _cipher(self) -> Fernet:
         """Return a Fernet cipher using the key resolved at call time."""
-        return Fernet(get_cipher_key())
+        key = get_cipher_key()
+        if not key:
+            raise ValueError(
+                "Database field encryption key is not configured. Set "
+                "'app_database_encryption_key' to a 32-byte url-safe base64 "
+                "Fernet key (see cryptography.fernet.Fernet.generate_key())."
+            )
+        try:
+            return Fernet(key)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(
+                "'app_database_encryption_key' is not a valid 32-byte url-safe "
+                "base64-encoded Fernet key."
+            ) from exc
 
     def process_bind_param(self, value: Any, dialect: Dialect) -> str | None:  # noqa: ARG002
         if value is not None:

@@ -49,14 +49,6 @@ def _get_engine_kwargs() -> dict[str, Any]:
     return {}
 
 
-# if app_config.testing:
-#     _engine_kwargs["poolclass"] = NullPool  # type: ignore
-#     _engine_kwargs["echo"] = app_config.database.echo
-#     _engine_kwargs.pop("pool_size")
-#     _engine_kwargs.pop("max_overflow")
-
-
-# Create a database engine
 @lru_cache(maxsize=1)
 def get_async_session_manager() -> AsyncSessionManager:
     db_config = _get_db_config()

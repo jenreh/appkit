@@ -22,7 +22,11 @@ from appkit_assistant.backend.processors import (
 )
 from appkit_assistant.backend.processors.processor_base import ProcessorBase
 from appkit_assistant.configuration import AssistantConfig
-from appkit_commons.ai.openai_client_service import OpenAIClientService
+from appkit_commons.ai.openai_client_service import (
+    AiModelCredentials,
+    AiModelResolver,
+    OpenAIClientService,
+)
 from appkit_commons.database.session import get_asyncdb_session
 from appkit_commons.registry import service_registry
 
@@ -111,6 +115,28 @@ def _register_openai_client_service(
     )
 
 
+class DbAiModelResolver:
+    """Resolve model credentials from the assistant AI-model DB table.
+
+    Registered in the service registry so appkit-commons' ``OpenAIClientService``
+    can build per-model clients without importing appkit-assistant (dependency
+    inversion of the previous appkit-commons -> appkit-assistant coupling).
+    """
+
+    async def resolve_model_credentials(
+        self, model_id: str
+    ) -> AiModelCredentials | None:
+        async with get_asyncdb_session() as session:
+            model = await ai_model_repo.find_by_model_id(session, model_id)
+            if not model:
+                return None
+            return AiModelCredentials(
+                api_key=model.api_key,
+                base_url=model.base_url or None,
+                on_azure=model.on_azure,
+            )
+
+
 class AIModelRegistry:
     """Initialises ModelManager from database-backed AI model configuration.
 
@@ -144,6 +170,10 @@ class AIModelRegistry:
         """Load models from DB once on startup (no-op if already loaded)."""
         if self._loaded:
             return
+        # Provide appkit-commons with a resolver so it can build per-model
+        # clients without importing appkit-assistant.
+        # AiModelResolver is a Protocol used as a registry key (runtime-safe).
+        service_registry().register_as(AiModelResolver, DbAiModelResolver())  # type: ignore[type-abstract]
         await self.reload()
         self._loaded = True
 

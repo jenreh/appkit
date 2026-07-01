@@ -97,13 +97,25 @@ class IntervalTrigger(Trigger):
                 days = hours // HOURS_PER_DAY
                 return f"0 0 */{days} * *"
 
+        # total_minutes >= 60 but not a clean hour/day multiple. A single cron
+        # field cannot express this exactly, so approximate with a VALID
+        # expression (minute-of-hour + hour/day step). The cron minute field
+        # only accepts 0-59, so `*/{total_minutes}` here would be invalid.
+        minute_of_hour = total_minutes % MINUTES_PER_HOUR
+        hour_step = total_minutes // MINUTES_PER_HOUR
+        if hour_step < HOURS_PER_DAY:
+            approximation = f"{minute_of_hour} */{hour_step} * * *"
+        else:
+            day_step = hour_step // HOURS_PER_DAY
+            approximation = f"{minute_of_hour} 0 */{day_step} * *"
+
         logger.warning(
-            "Interval %d minutes cannot be perfectly represented as simple Cron. "
-            "Defaulting to */%d * * * * which might be inexact.",
+            "Interval %d minutes cannot be represented exactly as simple Cron. "
+            "Approximating as '%s' which might be inexact.",
             total_minutes,
-            total_minutes,
+            approximation,
         )
-        return f"*/{total_minutes} * * * *"
+        return approximation
 
 
 class CalendarIntervalTrigger(Trigger):

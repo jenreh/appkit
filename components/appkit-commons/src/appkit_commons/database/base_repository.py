@@ -6,7 +6,7 @@ Inspired by org.springframework.data.repository.CrudRepository
 from abc import ABC, abstractmethod
 from typing import Any, Protocol, cast
 
-from sqlalchemy import CursorResult, delete, select
+from sqlalchemy import CursorResult, delete, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -180,14 +180,16 @@ class BaseRepository[T: HasId, S: AsyncSession](ABC):
         """Check if an instance exists by ID."""
         model_with_id = cast(Any, self.model_class)
         result = await session.execute(
-            select(self.model_class).where(model_with_id.id == item_id)
+            select(literal(True)).where(model_with_id.id == item_id).limit(1)
         )
-        return result.scalars().first() is not None
+        return result.scalar() is not None
 
     async def count(self, session: S) -> int:
         """Count all instances."""
-        result = await session.execute(select(self.model_class))
-        return len(list(result.scalars().all()))
+        result = await session.execute(
+            select(func.count()).select_from(self.model_class)
+        )
+        return int(result.scalar_one())
 
     # Delete operations
     async def delete_by_id(self, session: S, item_id: int) -> bool:
