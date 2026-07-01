@@ -32,9 +32,17 @@ class ComboboxExamplesState(rx.State):
     pills: list[str] = ["React", "FastAPI"]
     pills_input_value: str = ""
 
+    # ComboboxPopover
+    combobox_popover_value: str = ""
+
     def set_value(self, field: str, value: str | list[str]) -> None:
         """Generic setter for state values."""
         setattr(self, field, value)
+
+    @rx.event
+    def set_combobox_popover(self, value: str) -> None:
+        """Set the ComboboxPopover selected value."""
+        self.combobox_popover_value = value
 
     def handle_pill_key(self, key: str) -> None:
         """Add a pill when Enter is pressed."""
@@ -391,6 +399,42 @@ def _render_tree_and_pills_section() -> rx.Component:
     )
 
 
+def _render_combobox_popover_section() -> rx.Component:
+    """ComboboxPopover — dropdown of options attached to any button (Mantine 9.4)."""
+    return mn.stack(
+        mn.title("ComboboxPopover", order=2, mt="xl"),
+        mn.text(
+            "Attaches a searchable combobox dropdown to a custom target "
+            "(here a Button) without rendering an input.",
+            size="sm",
+            c="dimmed",
+        ),
+        example_box(
+            "Searchable options on a button",
+            mn.combobox_popover(
+                mn.combobox_popover.target(
+                    mn.button(
+                        rx.cond(
+                            ComboboxExamplesState.combobox_popover_value != "",
+                            ComboboxExamplesState.combobox_popover_value,
+                            "Select a framework",
+                        ),
+                        variant="default",
+                        miw=220,
+                    ),
+                ),
+                data=["React", "Vue", "Angular", "Svelte", "Solid", "Qwik"],
+                value=ComboboxExamplesState.combobox_popover_value,
+                on_change=ComboboxExamplesState.set_combobox_popover,
+                searchable=True,
+                nothing_found_message="Nothing found…",
+            ),
+            state_value=ComboboxExamplesState.combobox_popover_value,
+        ),
+        w="100%",
+    )
+
+
 @navbar_layout(
     route="/comboboxes",
     title="Combobox Examples",
@@ -418,6 +462,7 @@ def combobox_examples() -> rx.Component:
             _render_autocomplete_section(),
             _render_rich_select_section(),
             _render_tree_and_pills_section(),
+            _render_combobox_popover_section(),
             w="100%",
             p="9px",
         ),

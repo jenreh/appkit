@@ -2,8 +2,9 @@
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
@@ -95,7 +96,7 @@ class PasswordResetRequestRepository(
         result = await session.execute(stmt)
         await session.flush()
 
-        deleted_count = result.rowcount or 0
+        deleted_count = cast("CursorResult[Any]", result).rowcount or 0
         if deleted_count > 0:
             logger.info("Cleaned up %d old password reset requests", deleted_count)
 

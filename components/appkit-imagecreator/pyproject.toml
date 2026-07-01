@@ -1,6 +1,6 @@
 [project]
 name = "appkit-imagecreator"
-version = "1.11.1"
+version = "1.13.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
@@ -23,11 +23,11 @@ classifiers = [
 dependencies = [
     "appkit-commons",
     "fastapi>=0.136.1",
-    "google-genai>=2.4.0",
+    "google-genai>=2.10.0",
     "httpx>=0.28.1",
     "openai>=2.37.0",
     "pillow>=12.2.0",
-    "reflex>=0.9.2.post1",
+    "reflex>=0.9.5",
     "pyasn1>=0.6.3",
 ]
 

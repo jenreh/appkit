@@ -1,3 +1,5 @@
+from typing import Any
+
 import reflex as rx
 
 import appkit_mantine as mn
@@ -319,7 +321,7 @@ def add_user_button(
     label: str = "Benutzer hinzufügen",
     icon: str = "plus",
     icon_size: int = 16,
-    **kwargs,
+    **kwargs: Any,
 ) -> rx.Component:
     return mn.button(
         label,
@@ -345,7 +347,7 @@ def update_user_button(
     user: User,
     icon: str = "square-pen",
     icon_size: int = 16,
-    **kwargs,
+    **kwargs: Any,
 ) -> rx.Component:
     return mn.action_icon(
         rx.icon(icon, size=icon_size),
@@ -354,7 +356,7 @@ def update_user_button(
     )
 
 
-def delete_user_button(user: User, **kwargs) -> rx.Component:
+def delete_user_button(user: User, **kwargs: Any) -> rx.Component:
     """Use the generic delete dialog component."""
     return delete_dialog(
         title="Löschen bestätigen",

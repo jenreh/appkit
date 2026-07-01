@@ -13,7 +13,7 @@ def init_logging(configuration: Configuration) -> None:
     # check if profile based logging configuration exists
     log_configuration = configuration.app.logging
     if CONFIGURATION_PATH.joinpath(log_configuration).exists():
-        logger.info(
+        logger.debug(
             "Using logging configuration: \x1b[31;1m%s\x1b[0m", log_configuration
         )
         with Path.open(
@@ -22,4 +22,4 @@ def init_logging(configuration: Configuration) -> None:
             config = yaml.safe_load(f.read())
         logging.config.dictConfig(config)
     else:
-        logger.info("Using logging configuration: \x1b[31;1mlogging.conf\x1b[0m")
+        logger.debug("Using logging configuration: \x1b[31;1mlogging.conf\x1b[0m")

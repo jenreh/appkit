@@ -56,7 +56,7 @@ class BaseConfig(BaseSettings):
         profiles: list[str] = [
             profile.strip() for profile in os.getenv("PROFILES", "").split(",")
         ]
-        logger.info("Active profiles: \x1b[31;1m%s\x1b[0m", profiles)
+        logger.debug("Active profiles: \x1b[31;1m%s\x1b[0m", profiles)
 
         return (
             init_settings,

@@ -3,10 +3,10 @@ dependencies = [
     "appkit-commons",
     "pydantic>=2.13.4",
     "starlette>=1.0.0",
-    "fastmcp>=3.3.1",
+    "fastmcp>=3.4.2",
 ]
 name = "appkit-mcp-commons"
-version = "1.11.1"
+version = "1.13.0"
 description = "Shared base classes and utilities for appkit MCP servers"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]

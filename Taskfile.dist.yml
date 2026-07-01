@@ -68,13 +68,22 @@ tasks:
 
   lint:
     desc: Run linting with ruff
-    cmd: "{{.RUNNER}} ruff check ."
+    cmds:
+      - "{{.RUNNER}} ruff check ."
+      - "{{.RUNNER}} mypy"
 
   format:
     desc: Format code with ruff
     cmds:
       - "{{.RUNNER}} ruff check --fix ."
       - "{{.RUNNER}} ruff format ."
+
+  pyi:
+    desc: |
+      Regenerate .pyi component stubs for the Reflex component packages so
+      downstream consumers get prop autocomplete and type checking. Optionally
+      pass package aliases (Usage: task pyi -- mantine ui).
+    cmd: "{{.RUNNER}} python scripts/make_pyi.py {{.CLI_ARGS}}"
 
   clean:
     desc: Clean cache and build artifacts
@@ -139,6 +148,8 @@ tasks:
     cmds:
       - uvx bump-my-version bump {{.CLI_ARGS | default "patch"}}
       - uv sync
+      - echo "🧩 Regenerating component stubs..."
+      - "{{.RUNNER}} python scripts/make_pyi.py"
       - git add -A
       - 'git diff --cached --quiet || git commit -m "chore: release v$(grep ''^version = '' pyproject.toml | cut -d ''"'' -f2)"'
       - git push

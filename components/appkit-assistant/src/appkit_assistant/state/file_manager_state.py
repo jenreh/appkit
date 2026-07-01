@@ -225,6 +225,7 @@ class FileManagerState(rx.State):
         except Exception as e:
             logger.error("Failed to load file models: %s", e)
 
+    @rx.event
     async def set_selected_file_model(self, model_id: str) -> AsyncGenerator[Any, Any]:
         """Select a model (subscription) and reload active tab."""
         self.selected_file_model_id = model_id
@@ -738,6 +739,7 @@ class FileManagerState(rx.State):
         """Close the cleanup modal."""
         self.cleanup_modal_open = False
 
+    @rx.event
     def set_cleanup_modal_open(self, is_open: bool) -> None:
         """Set the cleanup modal open state.
 

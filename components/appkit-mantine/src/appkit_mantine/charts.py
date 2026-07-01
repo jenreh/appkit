@@ -4,10 +4,13 @@ from typing import Any, Literal
 
 from reflex.vars.base import Var
 
-from appkit_mantine.base import MantineComponentBase
+from appkit_mantine.base import MANTINE_VERSION, MantineComponentBase
 
-MANTINE_CHARTS_LIBRARY = "@mantine/charts@9.1.1"
-RECHARTS_LIBRARY = "recharts@^3.8.1"
+MANTINE_CHARTS_LIBRARY = f"@mantine/charts@{MANTINE_VERSION}"
+RECHARTS_LIBRARY = "recharts@3.8.1"
+# es-toolkit is no longer declared here: reflex>=0.9.4 pins es-toolkit@1.46.1
+# globally as a vite/recharts-compatible override, so an explicit lib_dependency
+# entry would be redundant. recharts still needs the pin above.
 
 MantineCurveType = Literal[
     "linear",
@@ -25,7 +28,9 @@ class MantineChartComponentBase(MantineComponentBase):
     """Base class for Mantine charts components."""
 
     library = MANTINE_CHARTS_LIBRARY
-    lib_dependencies: list[str] = [RECHARTS_LIBRARY]
+    lib_dependencies: list[str] = [
+        RECHARTS_LIBRARY,
+    ]
 
     def _get_custom_code(self) -> str:
         return """import '@mantine/core/styles.css';
@@ -175,7 +180,7 @@ class DonutChart(MantineChartComponentBase):
     stroke_width: Var[int]
     stroke_color: Var[str]
     label_color: Var[str]
-    labels_type: Var[Literal["value", "percent"]]
+    labels_type: Var[Literal["value", "percent", "name"]]
     tooltip_animation_duration: Var[int]
     tooltip_props: Var[dict[str, Any]]
     pie_props: Var[dict[str, Any]]
@@ -210,7 +215,7 @@ class PieChart(MantineChartComponentBase):
     label_color: Var[str]
     with_tooltip: Var[bool]
     tooltip_data_source: Var[Literal["all", "segment"]]
-    labels_type: Var[Literal["value", "percent"]]
+    labels_type: Var[Literal["value", "percent", "name"]]
     chart_label: Var[str | int]
     tooltip_animation_duration: Var[int]
     tooltip_props: Var[dict[str, Any]]

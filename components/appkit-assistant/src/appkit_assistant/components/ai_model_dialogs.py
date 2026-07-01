@@ -111,20 +111,25 @@ class AIModelValidationState(rx.State):
 
     # --- Field setters with inline validation ---
 
+    @rx.event
     def set_model_id(self, value: str) -> None:
         self.model_id = value
         self.validate_model_id()
 
+    @rx.event
     def set_text(self, value: str) -> None:
         self.text = value
         self.validate_text()
 
+    @rx.event
     def set_icon(self, value: str) -> None:
         self.icon = value
 
+    @rx.event
     def set_model(self, value: str) -> None:
         self.model = value
 
+    @rx.event
     def set_processor_type(self, value: str) -> None:
         self.processor_type = value
         # Auto-set icon when it is still empty or the codesandbox default
@@ -132,34 +137,44 @@ class AIModelValidationState(rx.State):
             self.icon = PROCESSOR_DEFAULT_ICONS.get(value, "codesandbox")
         self.validate_processor_type()
 
+    @rx.event
     def set_temperature(self, value: str) -> None:
         self.temperature = value
         self.validate_temperature()
 
+    @rx.event
     def set_stream(self, value: bool) -> None:
         self.stream = value
 
+    @rx.event
     def set_supports_tools(self, value: bool) -> None:
         self.supports_tools = value
 
+    @rx.event
     def set_supports_attachments(self, value: bool) -> None:
         self.supports_attachments = value
 
+    @rx.event
     def set_supports_search(self, value: bool) -> None:
         self.supports_search = value
 
+    @rx.event
     def set_supports_skills(self, value: bool) -> None:
         self.supports_skills = value
 
+    @rx.event
     def set_requires_role(self, value: str) -> None:
         self.requires_role = value
 
+    @rx.event
     def set_api_key(self, value: str) -> None:
         self.api_key = value
 
+    @rx.event
     def set_base_url(self, value: str) -> None:
         self.base_url = value
 
+    @rx.event
     def set_on_azure(self, value: bool) -> None:
         self.on_azure = value
 

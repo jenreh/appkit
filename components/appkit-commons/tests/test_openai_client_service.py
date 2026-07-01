@@ -9,9 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from appkit_commons.ai.openai_client_service import (
+    AiModelCredentials,
+    AiModelResolver,
     OpenAIClientService,
     get_openai_client_service,
 )
+from appkit_commons.registry import service_registry
 
 # ============================================================================
 # _build_client (standalone)
@@ -87,86 +90,62 @@ class TestOpenAIClientService:
 
 
 class TestCreateClientForModel:
+    @staticmethod
+    def _register_resolver(
+        credentials: AiModelCredentials | None,
+        side_effect: Exception | None = None,
+    ) -> None:
+        """Register a mock AiModelResolver in the service registry."""
+        resolver = MagicMock()
+        if side_effect is not None:
+            resolver.resolve_model_credentials = AsyncMock(side_effect=side_effect)
+        else:
+            resolver.resolve_model_credentials = AsyncMock(return_value=credentials)
+        service_registry().register_as(AiModelResolver, resolver)
+
+    @pytest.mark.asyncio
+    async def test_no_resolver_registered_returns_none(self) -> None:
+        service_registry().unregister(AiModelResolver)
+        result = await OpenAIClientService.create_client_for_model("gpt-4o")
+        assert result is None
+
     @pytest.mark.asyncio
     async def test_no_model_found_returns_none(self) -> None:
-        mock_repo = MagicMock()
-        mock_repo.find_by_model_id = AsyncMock(return_value=None)
-        mock_session = AsyncMock()
-
-        with (
-            patch(
-                "appkit_commons.database.session.get_asyncdb_session"
-            ) as mock_session_ctx,
-            patch(
-                "appkit_assistant.backend.database.repositories.ai_model_repo",
-                mock_repo,
-            ),
-        ):
-            mock_session_ctx.return_value.__aenter__ = AsyncMock(
-                return_value=mock_session
-            )
-            mock_session_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+        self._register_resolver(None)
+        try:
             result = await OpenAIClientService.create_client_for_model("gpt-4o")
             assert result is None
+        finally:
+            service_registry().unregister(AiModelResolver)
 
     @pytest.mark.asyncio
     async def test_model_without_api_key_returns_none(self) -> None:
-        model = MagicMock()
-        model.api_key = None
-        mock_repo = MagicMock()
-        mock_repo.find_by_model_id = AsyncMock(return_value=model)
-        mock_session = AsyncMock()
-
-        with (
-            patch(
-                "appkit_commons.database.session.get_asyncdb_session"
-            ) as mock_session_ctx,
-            patch(
-                "appkit_assistant.backend.database.repositories.ai_model_repo",
-                mock_repo,
-            ),
-        ):
-            mock_session_ctx.return_value.__aenter__ = AsyncMock(
-                return_value=mock_session
-            )
-            mock_session_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+        self._register_resolver(AiModelCredentials(api_key=None))
+        try:
             result = await OpenAIClientService.create_client_for_model("gpt-4o")
             assert result is None
+        finally:
+            service_registry().unregister(AiModelResolver)
 
     @pytest.mark.asyncio
     async def test_model_with_key_returns_client(self) -> None:
-        model = MagicMock()
-        model.api_key = "sk-test"
-        model.base_url = None
-        model.on_azure = False
-        mock_repo = MagicMock()
-        mock_repo.find_by_model_id = AsyncMock(return_value=model)
-        mock_session = AsyncMock()
-
-        with (
-            patch(
-                "appkit_commons.database.session.get_asyncdb_session"
-            ) as mock_session_ctx,
-            patch(
-                "appkit_assistant.backend.database.repositories.ai_model_repo",
-                mock_repo,
-            ),
-        ):
-            mock_session_ctx.return_value.__aenter__ = AsyncMock(
-                return_value=mock_session
-            )
-            mock_session_ctx.return_value.__aexit__ = AsyncMock(return_value=False)
+        self._register_resolver(
+            AiModelCredentials(api_key="sk-test", base_url=None, on_azure=False)
+        )
+        try:
             result = await OpenAIClientService.create_client_for_model("gpt-4o")
             assert result is not None
+        finally:
+            service_registry().unregister(AiModelResolver)
 
     @pytest.mark.asyncio
     async def test_exception_returns_none(self) -> None:
-        with patch(
-            "appkit_commons.database.session.get_asyncdb_session",
-            side_effect=RuntimeError("db down"),
-        ):
+        self._register_resolver(None, side_effect=RuntimeError("db down"))
+        try:
             result = await OpenAIClientService.create_client_for_model("x")
             assert result is None
+        finally:
+            service_registry().unregister(AiModelResolver)
 
 
 # ============================================================================

@@ -73,8 +73,18 @@ export const RichTextEditorWrapper = memo(function Wrapper(props) {
   });
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+    // Only sync content that originates outside the editor. While the user is
+    // typing, `content` round-trips through Reflex state and arrives back
+    // stale; calling setContent here would rebuild the document and reset the
+    // selection to the start (the "jumping cursor" seen since the Tiptap 3
+    // upgrade in Mantine 9.2.1). Skipping the sync while the editor is focused
+    // leaves its own up-to-date content untouched. External changes (e.g. a
+    // reset button) blur the editor first, so they still sync.
+    if (!editor || editor.isDestroyed || editor.isFocused) {
+      return;
+    }
+    if (content !== editor.getHTML()) {
+      editor.commands.setContent(content, { emitUpdate: false });
     }
   }, [content, editor]);
 
@@ -133,21 +143,6 @@ export const RichTextEditorWrapper = memo(function Wrapper(props) {
 
   // Use camelCase version, fallback to snake_case if needed
   const config = toolbarConfig || toolbar_config;
-
-  // Debug logging
-  if (typeof window !== 'undefined') {
-    console.log('[RichTextEditorWrapper] Received props:', {
-      controlGroups,
-      showToolbar,
-      sticky,
-      stickyOffset,
-      editable,
-      placeholder,
-      variant,
-      styles,
-      classNames
-    });
-  }
 
   // Use destructured props with defaults
   const finalControlGroups = controlGroups || defaultControlGroups;

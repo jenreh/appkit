@@ -48,7 +48,7 @@ def _user_entity(
 class _StubUserState:
     """Plain stub for UserState."""
 
-    def __init__(self, *, authenticated: bool = True) -> None:
+    def __init__(self, *, authenticated: bool = True, is_admin: bool = True) -> None:
         self.users: list[User] = []
         self.selected_user: User | None = None
         self.is_loading: bool = False
@@ -59,10 +59,16 @@ class _StubUserState:
         self.edit_modal_open: bool = False
         self.search_filter: str = ""
         self._authenticated = authenticated
+        self._is_admin = is_admin
 
     async def get_state(self, cls: type) -> MagicMock:
         mock = MagicMock()
-        mock.is_authenticated = AsyncMock(return_value=self._authenticated)()
+        current_user = (
+            User(user_id=1, name="Admin", email="admin@x.com", is_admin=self._is_admin)
+            if self._authenticated
+            else None
+        )
+        mock.authenticated_user = AsyncMock(return_value=current_user)()
         mock.redir = AsyncMock(return_value=None)
         return mock
 
@@ -83,8 +89,8 @@ class _StubUserState:
     user_has_role = _unwrap("user_has_role")
 
 
-def _make_state(*, authenticated: bool = True) -> _StubUserState:
-    return _StubUserState(authenticated=authenticated)
+def _make_state(*, authenticated: bool = True, is_admin: bool = True) -> _StubUserState:
+    return _StubUserState(authenticated=authenticated, is_admin=is_admin)
 
 
 def _db_context():
@@ -391,3 +397,66 @@ class TestSelectUserAndOpenEdit:
             await state.select_user_and_open_edit(1)
         assert state.edit_modal_open is True
         assert state.selected_user is not None
+
+
+class TestAdminAuthorization:
+    """Server-side admin gating: non-admins must never mutate/read user data."""
+
+    @pytest.mark.asyncio
+    async def test_create_user_denied_for_non_admin(self) -> None:
+        state = _make_state(is_admin=False)
+        state.add_modal_open = True
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
+            patch(f"{_PATCH}.user_repo") as mock_repo,
+        ):
+            mock_repo.create_new_user = AsyncMock()
+            results = [
+                c
+                async for c in state.create_user(
+                    {"name": "X", "email": "x@y.com", "password": "p"}
+                )
+            ]
+        mock_repo.create_new_user.assert_not_called()
+        assert state.add_modal_open is True  # handler body never ran
+        assert len(results) == 1  # only a permission toast
+
+    @pytest.mark.asyncio
+    async def test_update_user_denied_for_non_admin(self) -> None:
+        state = _make_state(is_admin=False)
+        state.selected_user = _user()
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
+            patch(f"{_PATCH}.user_repo") as mock_repo,
+        ):
+            mock_repo.update_from_model = AsyncMock()
+            _ = [
+                c
+                async for c in state.update_user(
+                    {"name": "X", "email": "x@y.com", "password": ""}
+                )
+            ]
+        mock_repo.update_from_model.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_user_denied_for_non_admin(self) -> None:
+        state = _make_state(is_admin=False)
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
+            patch(f"{_PATCH}.user_repo") as mock_repo,
+        ):
+            mock_repo.delete_by_id = AsyncMock()
+            _ = [c async for c in state.delete_user(1)]
+        mock_repo.delete_by_id.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_select_user_denied_for_non_admin(self) -> None:
+        state = _make_state(is_admin=False)
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
+            patch(f"{_PATCH}.user_repo") as mock_repo,
+        ):
+            mock_repo.find_by_id = AsyncMock(return_value=_user_entity())
+            await state.select_user(1)
+        mock_repo.find_by_id.assert_not_called()
+        assert state.selected_user is None

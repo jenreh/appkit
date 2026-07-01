@@ -436,6 +436,36 @@ mn.overflow_list(
 ```
 
 Props: `items`, `render_item`, `render_overflow`, `gap`, `item_min_width`,
-`max_visible`, `align`.
+`max_visible`, `align`. Also `collapse_from` (`"start"|"end"`, Mantine 9.3).
 
 > Mantine extension — typically used for tag rows, breadcrumbs, action toolbars.
+
+## Splitter (Mantine 9.3)
+
+Resizable split-pane layout. Drag the resizer between panes to resize.
+
+```python
+mn.splitter(
+    mn.splitter.pane("Left", default_size="40%", min="20%"),
+    mn.splitter.pane("Right", min="20%"),
+    with_handle=True,
+    reset_on_double_click=True,   # 9.4 — double-click restores default ratio
+    h="220px",
+)
+
+# Vertical, collapsible panes
+mn.splitter(
+    mn.splitter.pane("Top", default_size="30%", collapsible=True),
+    mn.splitter.pane("Bottom", collapsible=True),
+    orientation="vertical",
+    h="320px",
+)
+```
+
+`splitter` props: `orientation` (`"horizontal"|"vertical"`), `sizes`,
+`on_size_change`, `line_size`, `with_handle`, `handle_color`, `handle_icon`,
+`redistribute` (`"nearest"|"equal"`), `reset_on_double_click`.
+`splitter.pane` props: `default_size`, `min`, `max` (number **or** CSS unit
+string), `collapsible`.
+
+> [Mantine docs — Splitter](https://mantine.dev/core/splitter/)

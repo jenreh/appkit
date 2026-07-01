@@ -9,6 +9,9 @@ from appkit_user.authentication.backend.database import (
     PasswordResetTokenEntity,
     PasswordResetTokenRepository,
 )
+from appkit_user.authentication.backend.database.password_reset_repository import (
+    _hash_token,
+)
 from appkit_user.authentication.backend.types import PasswordResetType
 
 
@@ -36,7 +39,7 @@ class TestPasswordResetTokenRepository:
 
         entity = PasswordResetTokenEntity(
             user_id=user.id,
-            token=token,
+            token=_hash_token(token),
             email=user.email,
             reset_type=PasswordResetType.USER_INITIATED,
             is_used=False,
@@ -52,7 +55,7 @@ class TestPasswordResetTokenRepository:
 
         # Assert
         assert found is not None
-        assert found.token == token
+        assert found.token == _hash_token(token)
         assert found.user_id == user.id
         assert found.email == user.email
 
@@ -83,7 +86,7 @@ class TestPasswordResetTokenRepository:
         user = await user_factory()
 
         # Act
-        entity = await password_reset_token_repository.create_token(
+        entity, raw_token = await password_reset_token_repository.create_token(
             async_session,
             user_id=user.id,
             email=user.email,
@@ -97,7 +100,8 @@ class TestPasswordResetTokenRepository:
         assert entity.email == user.email
         assert entity.reset_type == PasswordResetType.USER_INITIATED
         assert entity.is_used is False
-        assert len(entity.token) == 64  # Token should be 64 characters
+        assert len(raw_token) == 64  # Raw token should be 64 characters
+        assert entity.token == _hash_token(raw_token)  # Only the hash is stored
         assert entity.expires_at is not None
 
     @pytest.mark.asyncio
@@ -112,7 +116,7 @@ class TestPasswordResetTokenRepository:
         user = await user_factory()
 
         # Act
-        entity = await password_reset_token_repository.create_token(
+        entity, _ = await password_reset_token_repository.create_token(
             async_session,
             user_id=user.id,
             email=user.email,
@@ -136,7 +140,7 @@ class TestPasswordResetTokenRepository:
         before = datetime.now(UTC)
 
         # Act
-        entity = await password_reset_token_repository.create_token(
+        entity, _ = await password_reset_token_repository.create_token(
             async_session,
             user_id=user.id,
             email=user.email,
@@ -165,13 +169,13 @@ class TestPasswordResetTokenRepository:
         user = await user_factory()
 
         # Act
-        entity1 = await password_reset_token_repository.create_token(
+        entity1, raw1 = await password_reset_token_repository.create_token(
             async_session,
             user_id=user.id,
             email=user.email,
             reset_type=PasswordResetType.USER_INITIATED,
         )
-        entity2 = await password_reset_token_repository.create_token(
+        entity2, raw2 = await password_reset_token_repository.create_token(
             async_session,
             user_id=user.id,
             email=user.email,
@@ -179,6 +183,7 @@ class TestPasswordResetTokenRepository:
         )
 
         # Assert
+        assert raw1 != raw2
         assert entity1.token != entity2.token
 
     @pytest.mark.asyncio
@@ -236,7 +241,7 @@ class TestPasswordResetTokenRepository:
         # Create expired and non-expired tokens
         expired_entity = PasswordResetTokenEntity(
             user_id=user.id,
-            token="expired_token",
+            token=_hash_token("expired_token"),
             email=user.email,
             reset_type=PasswordResetType.USER_INITIATED,
             is_used=False,
@@ -244,7 +249,7 @@ class TestPasswordResetTokenRepository:
         )
         valid_entity = PasswordResetTokenEntity(
             user_id=user.id,
-            token="valid_token",
+            token=_hash_token("valid_token"),
             email=user.email,
             reset_type=PasswordResetType.USER_INITIATED,
             is_used=False,
@@ -329,7 +334,7 @@ class TestPasswordResetTokenRepository:
 
         user2_entity = PasswordResetTokenEntity(
             user_id=user2.id,
-            token="user2_token",
+            token=_hash_token("user2_token"),
             email=user2.email,
             reset_type=PasswordResetType.USER_INITIATED,
             is_used=False,

@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from typing import Any
 
 import reflex as rx
 
@@ -17,7 +17,7 @@ from appkit_user.authentication.templates import (
 )
 from appkit_user.user_management.components.user_profile import user_profile_view
 
-ROLES = []
+ROLES: list[str] = []
 
 
 def create_password_reset_request_page(
@@ -25,7 +25,7 @@ def create_password_reset_request_page(
     title: str = "Passwort zurücksetzen",
     logo: str = "/img/appkit_logo.svg",
     logo_dark: str = "/img/appkit_logo_dark.svg",
-) -> Callable:
+) -> rx.Component:
     """Create the password reset request page (email entry).
 
     Args:
@@ -55,7 +55,7 @@ def create_password_reset_confirm_page(
     title: str = "Passwort bestätigen",
     logo: str = "/img/appkit_logo.svg",
     logo_dark: str = "/img/appkit_logo_dark.svg",
-) -> Callable:
+) -> rx.Component:
     """Create the password reset confirmation page (new password entry).
 
     Args:
@@ -90,7 +90,7 @@ def create_login_page(
     margin_left: str = "0px",
     route: str = LOGIN_ROUTE,
     title: str = "Login",
-) -> Callable:
+) -> rx.Component:
     """Create the login page.
 
     Args:
@@ -128,8 +128,8 @@ def create_profile_page(
     navbar: rx.Component,
     route: str = "/profile",
     title: str = "Profil",
-    **kwargs,
-) -> Callable:
+    **kwargs: Any,
+) -> rx.Component:
     """Create the profile page with authentication.
 
     Args:

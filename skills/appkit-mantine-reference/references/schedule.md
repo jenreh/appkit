@@ -128,4 +128,56 @@ Renders 12 mini-months. Props: shared props plus
 Stacked agenda layout for narrow viewports. Props: shared props plus
 `first_day_of_week`, `with_outside_days`, `on_day_click`, `on_date_change`.
 
+## Resource views (Mantine 9.4)
+
+Resource-oriented views render resources (rooms, people, equipment) as **rows**
+and time as **columns**. Each resource is `{id, label}`; events reference a
+resource via `resourceId`.
+
+```python
+resources = [{"id": "tokyo", "label": "Room: Tokyo"},
+             {"id": "paris", "label": "Room: Paris"}]
+events = [{"id": "1", "title": "Standup", "start": "2026-05-21 09:00:00",
+           "end": "2026-05-21 09:30:00", "resourceId": "tokyo", "color": "blue"}]
+
+# Unified wrapper (day / week / month switching)
+mn.resources_schedule(
+    resources=resources, events=events,
+    date=State.date, on_date_change=State.set_date,
+    view=State.view, on_view_change=State.set_view,
+    day_view_props={"startTime": "08:00:00", "endTime": "18:00:00"},
+)
+
+# Individual views
+mn.resources_day_view(resources=resources, events=events, date="2026-05-21",
+                      start_time="08:00:00", end_time="18:00:00")
+mn.resources_week_view(resources=resources, events=events, date="2026-05-21")
+mn.resources_month_view(resources=resources, events=events, date="2026-05-21",
+                        with_weekend_days=False)
+```
+
+Shared props: `resources`, `events`, `date`, `on_date_change`, `groups`,
+`group_label_width`, `render_resource_label`, `mode` (`"static"` = read-only),
+`with_events_drag_and_drop`, `with_event_resize`, `on_event_click`,
+`on_event_drop`, `on_time_slot_click`. Day/Week add `start_time`, `end_time`,
+`interval_minutes`, `slot_width`, `row_height`, `with_current_time_indicator`.
+Month adds `day_width`, `with_weekend_days`, `with_header`, `on_day_click`.
+
+## AgendaView (Mantine 9.4)
+
+Vertical list of events grouped by date across a range.
+
+```python
+mn.agenda_view(
+    events=events,
+    range_start="2026-05-18",
+    range_end="2026-05-24",
+    on_event_click=State.on_event_click,
+)
+```
+
+Props: `range_start`, `range_end`, `events`, `header_format`,
+`date_header_format`, `render_event`, `on_event_click`, `locale`, `labels`,
+`mode`.
+
 > [Mantine docs — Schedule](https://mantine.dev/x/schedule/)

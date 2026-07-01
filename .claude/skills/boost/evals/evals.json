@@ -1,0 +1,104 @@
+{
+  "skill_name": "boost",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "/boost I want to add a settings page to my Reflex app",
+      "expected_output": "A structured implementation plan prompt with sections for task, context, requirements, deliverables, and success criteria. No implementation code.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "no-implementation-code",
+          "description": "Output must not contain fenced code blocks with implementation logic (python/sql/js with actual statements)",
+          "type": "manual"
+        },
+        {
+          "name": "structured-sections",
+          "description": "Output contains at least 3 markdown ## sections (e.g. Task, Requirements, Deliverables, Success criteria)",
+          "type": "manual"
+        },
+        {
+          "name": "mentions-reflex",
+          "description": "Output mentions Reflex (the framework) by name",
+          "type": "manual"
+        },
+        {
+          "name": "has-success-criteria",
+          "description": "Output contains a success criteria or verification section explaining how to confirm the task is done",
+          "type": "manual"
+        },
+        {
+          "name": "minimum-depth",
+          "description": "Output is at least 200 words",
+          "type": "manual"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "refine this prompt: add email notifications when a task is completed",
+      "expected_output": "A refined prompt specifying trigger conditions, email provider/library, template format, error handling, and success criteria. No code.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "no-implementation-code",
+          "description": "Output must not contain fenced code blocks with implementation logic",
+          "type": "manual"
+        },
+        {
+          "name": "specifies-trigger-condition",
+          "description": "Output specifies what exactly triggers the notification (e.g. which state change, which event, which status)",
+          "type": "manual"
+        },
+        {
+          "name": "mentions-email-provider-or-library",
+          "description": "Output mentions an email library or service (e.g. SMTP, SendGrid, resend, smtplib, etc.)",
+          "type": "manual"
+        },
+        {
+          "name": "mentions-error-handling",
+          "description": "Output addresses failure scenarios (e.g. delivery failure, invalid address, retry logic)",
+          "type": "manual"
+        },
+        {
+          "name": "structured-sections",
+          "description": "Output contains at least 3 markdown ## sections",
+          "type": "manual"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "help me write a prompt for migrating our SQLite database to PostgreSQL",
+      "expected_output": "A structured prompt covering migration strategy, schema mapping, data migration, rollback plan, and testing criteria. No code.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "no-implementation-code",
+          "description": "Output must not contain fenced SQL or Python migration scripts",
+          "type": "manual"
+        },
+        {
+          "name": "mentions-rollback-or-safety",
+          "description": "Output addresses rollback strategy or data safety (backup, dry run, etc.)",
+          "type": "manual"
+        },
+        {
+          "name": "mentions-data-integrity",
+          "description": "Output mentions verification of data integrity after migration",
+          "type": "manual"
+        },
+        {
+          "name": "structured-sections",
+          "description": "Output contains at least 3 markdown ## sections",
+          "type": "manual"
+        },
+        {
+          "name": "has-out-of-scope",
+          "description": "Output contains an explicit 'Out of scope' or constraint section",
+          "type": "manual"
+        }
+      ]
+    }
+  ]
+}

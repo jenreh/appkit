@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+import reflex as rx
 from reflex.constants.colors import Color
 from reflex.vars.base import Var
 
@@ -35,9 +36,6 @@ class Table(MantineComponentBase):
     with_column_borders: Var[bool] = False
     with_row_borders: Var[bool] = True
     with_table_border: Var[bool] = False
-
-
-table = Table.create
 
 
 class Thead(MantineComponentBase):
@@ -91,7 +89,7 @@ class ScrollContainer(MantineComponentBase):
     tag = "Table.ScrollContainer"
 
 
-class TableNamespace:
+class TableNamespace(rx.ComponentNamespace):
     """Namespace for Table and its subcomponents."""
 
     __call__ = staticmethod(Table.create)

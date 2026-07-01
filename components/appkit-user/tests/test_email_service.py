@@ -1071,11 +1071,11 @@ class TestEmailServiceIntegration:
                 "password_reset_user_initiated.html"
             )
 
-            # Verify path contains 'authentication/templates'
+            # Verify path resolves to the default 'email_templates' dir
             assert "authentication" in str(template_path)
-            assert "templates" in str(template_path)
+            assert "email_templates" in str(template_path)
             assert str(template_path).endswith(
-                "authentication/templates/password_reset_user_initiated.html"
+                "authentication/email_templates/password_reset_user_initiated.html"
             )
 
     def test_default_template_path_finds_actual_templates(self) -> None:

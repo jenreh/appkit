@@ -113,8 +113,8 @@ root:
             assert "console" in call_args["handlers"]
             assert call_args["root"]["level"] == "WARNING"
 
-    def test_init_logging_logs_info_message(self, tmp_path: Path, caplog) -> None:
-        """init_logging logs info message when config exists."""
+    def test_init_logging_logs_config_message(self, tmp_path: Path, caplog) -> None:
+        """init_logging logs a debug message when config exists."""
         # Arrange
         logging_config = tmp_path / "logging.yaml"
         logging_config.write_text(
@@ -134,7 +134,7 @@ root:
         # Act
         with (
             patch("appkit_commons.configuration.logging.CONFIGURATION_PATH", tmp_path),
-            caplog.at_level(logging.INFO),
+            caplog.at_level(logging.DEBUG),
         ):
             init_logging(mock_config)
 

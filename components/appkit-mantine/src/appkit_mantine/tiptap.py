@@ -9,7 +9,7 @@ Documentation: https://mantine.dev/x/tiptap/
 from __future__ import annotations
 
 import enum
-from typing import Final, Literal
+from typing import Any, Final, Literal
 
 import reflex as rx
 from pydantic import BaseModel
@@ -30,6 +30,9 @@ _TIPTAP_WRAPPER_IMPORT = f"$/public/{_TIPTAP_WRAPPER}"
 
 class ToolbarControlGroup(list, enum.Enum):
     """Predefined control groups for the toolbar."""
+
+    # Enum members are hashable; resolve the list/Enum __hash__ MRO conflict.
+    __hash__ = enum.Enum.__hash__
 
     BASIC_FORMATTING = [
         "bold",
@@ -268,7 +271,7 @@ class RichTextEditor(NoSSRComponent):
 
     @classmethod
     def create(
-        cls, toolbar_config: EditorToolbarConfig | None = None, **props
+        cls, toolbar_config: EditorToolbarConfig | None = None, **props: Any
     ) -> rx.Component:
         """Create an instance of RichTextEditor.
 

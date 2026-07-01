@@ -1,5 +1,6 @@
 import datetime
 import json
+from typing import Any, cast
 
 from cryptography.fernet import Fernet
 from sqlalchemy import (
@@ -30,19 +31,32 @@ class EncryptedString(TypeDecorator):
     impl = String
     cache_ok = True  # Added to allow caching of the custom type
 
-    def __init__(self, *args: any, **kwargs: any):
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
 
     def _cipher(self) -> Fernet:
         """Return a Fernet cipher using the key resolved at call time."""
-        return Fernet(get_cipher_key())
+        key = get_cipher_key()
+        if not key:
+            raise ValueError(
+                "Database field encryption key is not configured. Set "
+                "'app_database_encryption_key' to a 32-byte url-safe base64 "
+                "Fernet key (see cryptography.fernet.Fernet.generate_key())."
+            )
+        try:
+            return Fernet(key)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(
+                "'app_database_encryption_key' is not a valid 32-byte url-safe "
+                "base64-encoded Fernet key."
+            ) from exc
 
-    def process_bind_param(self, value: any, dialect: Dialect) -> str | None:  # noqa: ARG002
+    def process_bind_param(self, value: Any, dialect: Dialect) -> str | None:  # noqa: ARG002
         if value is not None:
             return self._cipher().encrypt(value.encode()).decode()
         return value
 
-    def process_result_value(self, value: any, dialect: Dialect) -> str | None:  # noqa: ARG002
+    def process_result_value(self, value: Any, dialect: Dialect) -> str | None:  # noqa: ARG002
         if value is not None:
             return self._cipher().decrypt(value.encode()).decode()
         return value
@@ -66,27 +80,27 @@ class ArrayType(TypeDecorator):
         """Use native ARRAY for PostgreSQL, String for others."""
         if dialect.name == "postgresql":
             return dialect.type_descriptor(ARRAY(self._item_type))
-        return dialect.type_descriptor(String)
+        return dialect.type_descriptor(String())
 
-    def process_bind_param(self, value: any, dialect: Dialect) -> str | list | None:
+    def process_bind_param(self, value: Any, dialect: Dialect) -> str | list | None:
         """Convert Python list to native ARRAY or JSON string."""
         if value is None:
             return None
         if dialect.name == "postgresql":
-            return value  # PostgreSQL ARRAY type handles it
+            return cast("list[Any]", value)  # PostgreSQL ARRAY type handles it
         if isinstance(value, list):
             return json.dumps(value)
-        return value
+        return cast("str | list[Any] | None", value)
 
-    def process_result_value(self, value: any, dialect: Dialect) -> list | None:
+    def process_result_value(self, value: Any, dialect: Dialect) -> list | None:
         """Convert stored ARRAY or JSON string back to Python list."""
         if value is None:
             return None
         if dialect.name == "postgresql":
-            return value  # PostgreSQL ARRAY returns list directly
+            return cast("list[Any]", value)  # PostgreSQL ARRAY returns list directly
         if isinstance(value, str):
-            return json.loads(value)
-        return value
+            return cast("list[Any]", json.loads(value))
+        return cast("list[Any] | None", value)
 
 
 class Base(DeclarativeBase):

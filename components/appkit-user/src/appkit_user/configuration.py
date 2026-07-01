@@ -11,6 +11,8 @@ from appkit_commons.configuration.base import BaseConfig
 class OAuthProvider(StrEnum):
     GITHUB = "github"
     AZURE = "azure"
+    GOOGLE = "google"
+    APPLE = "apple"
 
 
 class OAuthConfig(BaseConfig):
@@ -48,8 +50,27 @@ class AzureOAuthConfig(OAuthConfig):
     is_public_client: bool = False
 
 
+class GoogleOAuthConfig(OAuthConfig):
+    provider: Literal[OAuthProvider.GOOGLE] = OAuthProvider.GOOGLE
+    scopes: list[str] = ["openid", "profile", "email"]
+    auth_url: str = "https://accounts.google.com/o/oauth2/v2/auth"
+    token_url: str = "https://oauth2.googleapis.com/token"  # noqa: S105
+    user_url: str = "https://www.googleapis.com/oauth2/v3/userinfo"
+    redirect_url: str | None = None
+
+
+class AppleOAuthConfig(OAuthConfig):
+    provider: Literal[OAuthProvider.APPLE] = OAuthProvider.APPLE
+    scopes: list[str] = ["name", "email"]
+    auth_url: str = "https://appleid.apple.com/auth/authorize"
+    token_url: str = "https://appleid.apple.com/auth/token"  # noqa: S105
+    user_url: str = "https://appleid.apple.com/auth/userinfo"
+    redirect_url: str | None = None
+
+
 AnyOAuthSetting = Annotated[
-    GithubOAuthConfig | AzureOAuthConfig, Field(discriminator="provider")
+    GithubOAuthConfig | AzureOAuthConfig | GoogleOAuthConfig | AppleOAuthConfig,
+    Field(discriminator="provider"),
 ]
 
 

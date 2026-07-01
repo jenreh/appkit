@@ -1,11 +1,13 @@
 """Repository for password reset token management."""
 
+import hashlib
 import logging
 import secrets
 import string
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.base_repository import BaseRepository
@@ -24,6 +26,15 @@ def _generate_reset_token() -> str:
     return "".join(secrets.choice(TOKEN_CHARS) for _ in range(64))
 
 
+def _hash_token(token: str) -> str:
+    """Return the SHA-256 hex digest of a reset token.
+
+    Only the hash is persisted, so a leaked DB row cannot be used to complete a
+    reset. The SHA-256 hex digest is 64 chars, matching the ``token`` column.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 class PasswordResetTokenRepository(
     BaseRepository[PasswordResetTokenEntity, AsyncSession]
 ):
@@ -36,17 +47,20 @@ class PasswordResetTokenRepository(
     async def find_by_token(
         self, session: AsyncSession, token: str
     ) -> PasswordResetTokenEntity | None:
-        """Find a password reset token by its token value.
+        """Find a password reset token by its raw token value.
+
+        The raw token (from the emailed link) is hashed and matched against the
+        stored hash — the plaintext token is never persisted.
 
         Args:
             session: Database session
-            token: The reset token string
+            token: The raw reset token string (as it appears in the reset link)
 
         Returns:
             PasswordResetTokenEntity if found, None otherwise
         """
         stmt = select(PasswordResetTokenEntity).where(
-            PasswordResetTokenEntity.token == token
+            PasswordResetTokenEntity.token == _hash_token(token)
         )
         result = await session.execute(stmt)
         return result.scalars().first()
@@ -58,8 +72,12 @@ class PasswordResetTokenRepository(
         email: str,
         reset_type: PasswordResetType = PasswordResetType.USER_INITIATED,
         expiry_minutes: int = 60,
-    ) -> PasswordResetTokenEntity:
+    ) -> tuple[PasswordResetTokenEntity, str]:
         """Create a new password reset token.
+
+        Only the token's SHA-256 hash is stored; the raw token is returned to
+        the caller for inclusion in the emailed reset link and is never
+        persisted.
 
         Args:
             session: Database session
@@ -69,14 +87,15 @@ class PasswordResetTokenRepository(
             expiry_minutes: Token expiration time in minutes (default 60)
 
         Returns:
-            Created PasswordResetTokenEntity
+            Tuple of (created PasswordResetTokenEntity storing the hash,
+            raw token for the reset link)
         """
-        token = _generate_reset_token()
+        raw_token = _generate_reset_token()
         expires_at = datetime.now(UTC) + timedelta(minutes=expiry_minutes)
 
         entity = PasswordResetTokenEntity(
             user_id=user_id,
-            token=token,
+            token=_hash_token(raw_token),
             email=email,
             reset_type=reset_type,
             is_used=False,
@@ -89,7 +108,7 @@ class PasswordResetTokenRepository(
         logger.info(
             "Created password reset token for user_id=%d, type=%s", user_id, reset_type
         )
-        return entity
+        return entity, raw_token
 
     async def mark_as_used(self, session: AsyncSession, token_id: int) -> None:
         """Mark a token as used.
@@ -125,7 +144,7 @@ class PasswordResetTokenRepository(
         result = await session.execute(stmt)
         await session.flush()
 
-        deleted_count = result.rowcount or 0
+        deleted_count = cast("CursorResult[Any]", result).rowcount or 0
         if deleted_count > 0:
             logger.info("Deleted %d expired password reset tokens", deleted_count)
 
@@ -147,7 +166,7 @@ class PasswordResetTokenRepository(
         result = await session.execute(stmt)
         await session.flush()
 
-        deleted_count = result.rowcount or 0
+        deleted_count = cast("CursorResult[Any]", result).rowcount or 0
         if deleted_count > 0:
             logger.info(
                 "Deleted %d password reset tokens for user_id=%d",

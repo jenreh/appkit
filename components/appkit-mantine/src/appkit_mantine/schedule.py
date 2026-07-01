@@ -79,7 +79,8 @@ class MantineScheduleBase(MantineLayoutComponentBase):
             "import '@mantine/schedule/styles.css';"
         )
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         # EventHandler fields are registered via get_event_triggers() because
         # Reflex does not auto-generate event triggers for EventHandler fields
         # declared on an rx.Component subclass the same way.
@@ -142,6 +143,9 @@ _VIEW_TIME_RENAME: dict[str, str] = {
     "with_current_time_indicator": "withCurrentTimeIndicator",
     "with_current_time_bubble": "withCurrentTimeBubble",
     "with_all_day_slot": "withAllDaySlot",
+    "with_sub_hour_grid_lines": "withSubHourGridLines",
+    "with_agenda": "withAgenda",
+    "get_current_time": "getCurrentTime",
     "on_date_change": "onDateChange",
     "on_view_change": "onViewChange",
 }
@@ -162,6 +166,8 @@ _VIEW_MONTH_RENAME: dict[str, str] = {
     "first_day_of_week": "firstDayOfWeek",
     "with_week_numbers": "withWeekNumbers",
     "with_week_days": "withWeekDays",
+    "with_weekend_days": "withWeekendDays",
+    "with_agenda": "withAgenda",
     "consistent_weeks": "consistentWeeks",
     "highlight_today": "highlightToday",
     "with_outside_days": "withOutsideDays",
@@ -252,6 +258,16 @@ class DayView(MantineScheduleBase):
     with_all_day_slot: Var[bool] = None
     """Show the all-day slot row."""
 
+    with_sub_hour_grid_lines: Var[bool] = None
+    """Show grid lines for sub-hour intervals (Mantine 9.4)."""
+
+    with_agenda: Var[bool] = None
+    """Show the agenda view toggle button (Mantine 9.4)."""
+
+    get_current_time: Var[Any] = None
+    """Function returning the current time for a timezone-aware indicator
+    (Mantine 9.3)."""
+
     with_drag_slot_select: Var[bool] = None
     """Allow creating events by dragging over empty slots."""
 
@@ -312,6 +328,9 @@ class WeekView(MantineScheduleBase):
     with_current_time_indicator: Var[bool] = None
     with_current_time_bubble: Var[bool] = None
     with_all_day_slot: Var[bool] = None
+    with_sub_hour_grid_lines: Var[bool] = None
+    with_agenda: Var[bool] = None
+    get_current_time: Var[Any] = None
     with_drag_slot_select: Var[bool] = None
     on_slot_drag_end: EventHandler[lambda start, end: [start, end]] = None
     on_time_slot_click: EventHandler[lambda data: [data]] = None
@@ -396,6 +415,12 @@ class MonthView(MantineScheduleBase):
 
     weekday_format: Var[Any] = None
     weekend_days: Var[list] = None
+    with_weekend_days: Var[bool] = None
+    """Show/hide weekend day columns (Mantine 9.4)."""
+
+    with_agenda: Var[bool] = None
+    """Show the agenda view toggle button (Mantine 9.4)."""
+
     with_header: Var[bool] = None
     with_drag_slot_select: Var[bool] = None
     on_slot_drag_end: EventHandler[lambda start, end: [start, end]] = None
@@ -558,6 +583,7 @@ _SCHEDULE_MAIN_RENAME: dict[str, str] = {
     "on_date_change": "onDateChange",
     "default_view": "defaultView",
     "on_view_change": "onViewChange",
+    "with_agenda": "withAgenda",
     "day_view_props": "dayViewProps",
     "week_view_props": "weekViewProps",
     "month_view_props": "monthViewProps",
@@ -601,6 +627,9 @@ class Schedule(MantineScheduleBase):
     """Uncontrolled initial view level."""
 
     on_view_change: EventHandler[lambda view: [view]] = None
+
+    with_agenda: Var[bool] = None
+    """Show the agenda view toggle button (Mantine 9.4)."""
 
     layout: Var[str] = None
     """``"default"`` or ``"responsive"``.

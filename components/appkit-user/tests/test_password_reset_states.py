@@ -11,6 +11,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_user.authentication.backend.services import (
+    ConfirmResetOutcome,
+    ConfirmResetResult,
+    RequestResetOutcome,
+)
 from appkit_user.authentication.password_reset_states import (
     EMAIL_REGEX,
     MIN_PASSWORD_LENGTH,
@@ -95,201 +100,37 @@ class TestSetEmail:
         assert state.email_error == ""
 
 
+def _service_mock(request_outcome=None, confirm_result=None):
+    """Build a mock PasswordResetService with the given canned results."""
+    svc = MagicMock()
+    if request_outcome is not None:
+        svc.request_reset = AsyncMock(return_value=request_outcome)
+    if confirm_result is not None:
+        svc.confirm_reset = AsyncMock(return_value=confirm_result)
+    return svc
+
+
 class TestRequestPasswordReset:
     @pytest.mark.asyncio
     async def test_invalid_email(self) -> None:
         state = _StubRequestState()
         state.email = "not-valid"
-        _ = [c async for c in state.request_password_reset()]
+        svc = _service_mock(request_outcome=RequestResetOutcome.INVALID_EMAIL)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
+            _ = [c async for c in state.request_password_reset()]
         assert state.email_error != ""
         assert state.is_submitted is False
 
     @pytest.mark.asyncio
-    async def test_rate_limited(self) -> None:
+    async def test_accepted_shows_success(self) -> None:
         state = _StubRequestState()
         state.email = "user@example.com"
-        with (
-            patch(f"{_PATCH}.service_registry") as mock_reg,
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
-            patch(f"{_PATCH}.password_reset_request_repo") as mock_req_repo,
-        ):
-            mock_reg.return_value.get.return_value = _mock_config(max_requests=3)
-            mock_req_repo.count_recent_requests = AsyncMock(return_value=3)
-            _ = [c async for c in state.request_password_reset()]
-        assert state.is_submitted is True
-
-    @pytest.mark.asyncio
-    async def test_user_not_found(self) -> None:
-        state = _StubRequestState()
-        state.email = "user@example.com"
-        db = AsyncMock()
-        db.commit = AsyncMock()
-        with (
-            patch(f"{_PATCH}.service_registry") as mock_reg,
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context(db)),
-            patch(f"{_PATCH}.password_reset_request_repo") as mock_req_repo,
-            patch(f"{_PATCH}.user_repo") as mock_user_repo,
-        ):
-            mock_reg.return_value.get.return_value = _mock_config()
-            mock_req_repo.count_recent_requests = AsyncMock(return_value=0)
-            mock_req_repo.log_request = AsyncMock()
-            mock_user_repo.find_by_email = AsyncMock(return_value=None)
-            _ = [c async for c in state.request_password_reset()]
-        assert state.is_submitted is True
-
-    @pytest.mark.asyncio
-    async def test_success_sends_email(self) -> None:
-        state = _StubRequestState()
-        state.email = "user@example.com"
-        db = AsyncMock()
-        db.commit = AsyncMock()
-
-        user_entity = MagicMock()
-        user_entity.id = 42
-        user_entity.name = "TestUser"
-        user_entity.email = "user@example.com"
-
-        token_entity = MagicMock()
-        token_entity.token = "abc123"
-
-        email_svc = AsyncMock()
-        email_svc.send_password_reset_email = AsyncMock(return_value=True)
-        email_svc.__class__.__name__ = "RealProvider"
-
-        with (
-            patch(f"{_PATCH}.service_registry") as mock_reg,
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context(db)),
-            patch(f"{_PATCH}.password_reset_request_repo") as mock_req_repo,
-            patch(f"{_PATCH}.user_repo") as mock_user_repo,
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_token_repo,
-            patch(f"{_PATCH}.get_email_service", return_value=email_svc),
-        ):
-            mock_reg.return_value.get.return_value = _mock_config()
-            mock_req_repo.count_recent_requests = AsyncMock(return_value=0)
-            mock_req_repo.log_request = AsyncMock()
-            mock_user_repo.find_by_email = AsyncMock(return_value=user_entity)
-            mock_token_repo.create_token = AsyncMock(return_value=token_entity)
-            _ = [c async for c in state.request_password_reset()]
-
-        assert state.is_submitted is True
-        assert state.is_loading is False
-
-    @pytest.mark.asyncio
-    async def test_email_send_failure(self) -> None:
-        state = _StubRequestState()
-        state.email = "user@example.com"
-        db = AsyncMock()
-        db.commit = AsyncMock()
-
-        user_entity = MagicMock()
-        user_entity.id = 42
-        user_entity.name = "TestUser"
-        user_entity.email = "user@example.com"
-
-        token_entity = MagicMock()
-        token_entity.token = "abc123"
-
-        email_svc = AsyncMock()
-        email_svc.send_password_reset_email = AsyncMock(return_value=False)
-        email_svc.__class__.__name__ = "RealProvider"
-
-        with (
-            patch(f"{_PATCH}.service_registry") as mock_reg,
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context(db)),
-            patch(f"{_PATCH}.password_reset_request_repo") as mock_req_repo,
-            patch(f"{_PATCH}.user_repo") as mock_user_repo,
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_token_repo,
-            patch(f"{_PATCH}.get_email_service", return_value=email_svc),
-        ):
-            mock_reg.return_value.get.return_value = _mock_config()
-            mock_req_repo.count_recent_requests = AsyncMock(return_value=0)
-            mock_req_repo.log_request = AsyncMock()
-            mock_user_repo.find_by_email = AsyncMock(return_value=user_entity)
-            mock_token_repo.create_token = AsyncMock(return_value=token_entity)
-            _ = [c async for c in state.request_password_reset()]
-
-        assert state.is_submitted is True
-
-    @pytest.mark.asyncio
-    async def test_no_email_service(self) -> None:
-        state = _StubRequestState()
-        state.email = "user@example.com"
-        db = AsyncMock()
-        db.commit = AsyncMock()
-
-        user_entity = MagicMock()
-        user_entity.id = 42
-        user_entity.name = None
-        user_entity.email = "user@example.com"
-
-        token_entity = MagicMock()
-        token_entity.token = "abc123"
-
-        with (
-            patch(f"{_PATCH}.service_registry") as mock_reg,
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context(db)),
-            patch(f"{_PATCH}.password_reset_request_repo") as mock_req_repo,
-            patch(f"{_PATCH}.user_repo") as mock_user_repo,
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_token_repo,
-            patch(f"{_PATCH}.get_email_service", return_value=None),
-        ):
-            mock_reg.return_value.get.return_value = _mock_config()
-            mock_req_repo.count_recent_requests = AsyncMock(return_value=0)
-            mock_req_repo.log_request = AsyncMock()
-            mock_user_repo.find_by_email = AsyncMock(return_value=user_entity)
-            mock_token_repo.create_token = AsyncMock(return_value=token_entity)
-            _ = [c async for c in state.request_password_reset()]
-
-        assert state.is_submitted is True
-
-    @pytest.mark.asyncio
-    async def test_mock_email_provider_logs_url(self) -> None:
-        """When provider class is MockEmailProvider, reset URL is logged."""
-        state = _StubRequestState()
-        state.email = "user@example.com"
-        db = AsyncMock()
-        db.commit = AsyncMock()
-
-        user_entity = MagicMock()
-        user_entity.id = 42
-        user_entity.name = "X"
-        user_entity.email = "user@example.com"
-
-        token_entity = MagicMock()
-        token_entity.token = "tok"
-
-        email_svc = AsyncMock()
-        email_svc.send_password_reset_email = AsyncMock(return_value=True)
-        email_svc.__class__.__name__ = "MockEmailProvider"
-
-        with (
-            patch(f"{_PATCH}.service_registry") as mock_reg,
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context(db)),
-            patch(f"{_PATCH}.password_reset_request_repo") as mock_req_repo,
-            patch(f"{_PATCH}.user_repo") as mock_user_repo,
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_token_repo,
-            patch(f"{_PATCH}.get_email_service", return_value=email_svc),
-        ):
-            mock_reg.return_value.get.return_value = _mock_config()
-            mock_req_repo.count_recent_requests = AsyncMock(return_value=0)
-            mock_req_repo.log_request = AsyncMock()
-            mock_user_repo.find_by_email = AsyncMock(return_value=user_entity)
-            mock_token_repo.create_token = AsyncMock(return_value=token_entity)
-            _ = [c async for c in state.request_password_reset()]
-
-        assert state.is_submitted is True
-
-    @pytest.mark.asyncio
-    async def test_exception_still_shows_success(self) -> None:
-        state = _StubRequestState()
-        state.email = "user@example.com"
-        with (
-            patch(f"{_PATCH}.service_registry", side_effect=RuntimeError("boom")),
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
-        ):
+        svc = _service_mock(request_outcome=RequestResetOutcome.ACCEPTED)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.request_password_reset()]
         assert state.is_submitted is True
         assert state.is_loading is False
+        svc.request_reset.assert_awaited_once_with("user@example.com")
 
 
 # ============================================================================
@@ -490,21 +331,32 @@ class TestValidateToken:
         assert state.token_error != ""
 
 
+def _confirm_service(outcome: ConfirmResetOutcome):
+    svc = MagicMock()
+    svc.confirm_reset = AsyncMock(return_value=ConfirmResetResult(outcome))
+    return svc
+
+
 class TestConfirmPasswordReset:
     @pytest.mark.asyncio
     async def test_invalid_password(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "weak"
-        state.confirm_password = "weak"
-        _ = [c async for c in state.confirm_password_reset()]
+        state.new_password = "StrongPass1!xx"
+        state.confirm_password = "StrongPass1!xx"
+        svc = _confirm_service(ConfirmResetOutcome.INVALID_PASSWORD)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
+            _ = [c async for c in state.confirm_password_reset()]
         assert state.password_error != ""
+        assert state.is_loading is False
 
     @pytest.mark.asyncio
     async def test_passwords_dont_match(self) -> None:
         state = _StubConfirmState()
         state.new_password = "StrongPass1!xx"
         state.confirm_password = "Different1!xx"
-        _ = [c async for c in state.confirm_password_reset()]
+        svc = _confirm_service(ConfirmResetOutcome.PASSWORD_MISMATCH)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
+            _ = [c async for c in state.confirm_password_reset()]
         assert state.password_error != ""
 
     @pytest.mark.asyncio
@@ -513,13 +365,10 @@ class TestConfirmPasswordReset:
         state.new_password = "StrongPass1!xx"
         state.confirm_password = "StrongPass1!xx"
         state.token = "tok"
-        with (
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_repo,
-        ):
-            mock_repo.find_by_token = AsyncMock(return_value=None)
+        svc = _confirm_service(ConfirmResetOutcome.INVALID_TOKEN)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.confirm_password_reset()]
-        # yields expected toasts  # redirect + toast
+        assert state.is_loading is False
 
     @pytest.mark.asyncio
     async def test_password_reuse(self) -> None:
@@ -527,20 +376,8 @@ class TestConfirmPasswordReset:
         state.new_password = "StrongPass1!xx"
         state.confirm_password = "StrongPass1!xx"
         state.token = "tok"
-
-        token = MagicMock()
-        token.is_valid.return_value = True
-        token.id = 1
-        token.user_id = 42
-        token.reset_type = "user_initiated"
-
-        with (
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_token_repo,
-            patch(f"{_PATCH}.password_history_repo") as mock_history_repo,
-        ):
-            mock_token_repo.find_by_token = AsyncMock(return_value=token)
-            mock_history_repo.check_password_reuse = AsyncMock(return_value=True)
+        svc = _confirm_service(ConfirmResetOutcome.PASSWORD_REUSED)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.confirm_password_reset()]
         assert state.password_history_error != ""
 
@@ -550,78 +387,13 @@ class TestConfirmPasswordReset:
         state.new_password = "StrongPass1!xx"
         state.confirm_password = "StrongPass1!xx"
         state.token = "tok"
-
-        token = MagicMock()
-        token.is_valid.return_value = True
-        token.id = 1
-        token.user_id = 42
-        token.reset_type = "user_initiated"
-
-        user = MagicMock()
-        user._password = "old_hash"
-        user.needs_password_reset = False
-
-        db = AsyncMock()
-        db.commit = AsyncMock()
-
-        with (
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context(db)),
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_token_repo,
-            patch(f"{_PATCH}.password_history_repo") as mock_history_repo,
-            patch(f"{_PATCH}.user_repo") as mock_user_repo,
-            patch(f"{_PATCH}.session_repo") as mock_session_repo,
-            patch(f"{_PATCH}.generate_password_hash", return_value="new_hash"),
-        ):
-            mock_token_repo.find_by_token = AsyncMock(return_value=token)
-            mock_token_repo.mark_as_used = AsyncMock()
-            mock_history_repo.check_password_reuse = AsyncMock(return_value=False)
-            mock_history_repo.save_password_to_history = AsyncMock()
-            mock_user_repo.find_by_id = AsyncMock(return_value=user)
-            mock_session_repo.delete_all_by_user_id = AsyncMock()
+        svc = _confirm_service(ConfirmResetOutcome.SUCCESS)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.confirm_password_reset()]
-
         assert state.is_loading is False
-        # yields expected toasts  # redirect + toast
-
-    @pytest.mark.asyncio
-    async def test_admin_forced_clears_flag(self) -> None:
-        state = _StubConfirmState()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "StrongPass1!xx"
-        state.token = "tok"
-
-        token = MagicMock()
-        token.is_valid.return_value = True
-        token.id = 1
-        token.user_id = 42
-        token.reset_type = "admin_forced"
-
-        user = MagicMock()
-        user._password = "old_hash"
-        user.needs_password_reset = True
-
-        db = AsyncMock()
-        db.commit = AsyncMock()
-
-        with (
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context(db)),
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_token_repo,
-            patch(f"{_PATCH}.password_history_repo") as mock_history_repo,
-            patch(f"{_PATCH}.user_repo") as mock_user_repo,
-            patch(f"{_PATCH}.session_repo") as mock_session_repo,
-            patch(f"{_PATCH}.generate_password_hash", return_value="new_hash"),
-            patch(f"{_PATCH}.PasswordResetType") as mock_type,
-        ):
-            mock_type.ADMIN_FORCED = "admin_forced"
-            mock_token_repo.find_by_token = AsyncMock(return_value=token)
-            mock_token_repo.mark_as_used = AsyncMock()
-            mock_history_repo.check_password_reuse = AsyncMock(return_value=False)
-            mock_history_repo.save_password_to_history = AsyncMock()
-            mock_user_repo.find_by_id = AsyncMock(return_value=user)
-            mock_session_repo.delete_all_by_user_id = AsyncMock()
-            _ = [c async for c in state.confirm_password_reset()]
-
-        assert user.needs_password_reset is False
+        svc.confirm_reset.assert_awaited_once_with(
+            "tok", "StrongPass1!xx", "StrongPass1!xx"
+        )
 
     @pytest.mark.asyncio
     async def test_user_not_found_on_confirm(self) -> None:
@@ -629,36 +401,18 @@ class TestConfirmPasswordReset:
         state.new_password = "StrongPass1!xx"
         state.confirm_password = "StrongPass1!xx"
         state.token = "tok"
-
-        token = MagicMock()
-        token.is_valid.return_value = True
-        token.id = 1
-        token.user_id = 42
-        token.reset_type = "user_initiated"
-
-        with (
-            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
-            patch(f"{_PATCH}.password_reset_token_repo") as mock_token_repo,
-            patch(f"{_PATCH}.password_history_repo") as mock_history_repo,
-            patch(f"{_PATCH}.user_repo") as mock_user_repo,
-        ):
-            mock_token_repo.find_by_token = AsyncMock(return_value=token)
-            mock_history_repo.check_password_reuse = AsyncMock(return_value=False)
-            mock_user_repo.find_by_id = AsyncMock(return_value=None)
+        svc = _confirm_service(ConfirmResetOutcome.USER_NOT_FOUND)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.confirm_password_reset()]
-        # yields expected toasts  # toast error
+        assert state.is_loading is False
 
     @pytest.mark.asyncio
-    async def test_exception_on_confirm(self) -> None:
+    async def test_error_outcome_on_confirm(self) -> None:
         state = _StubConfirmState()
         state.new_password = "StrongPass1!xx"
         state.confirm_password = "StrongPass1!xx"
         state.token = "tok"
-        with (
-            patch(
-                f"{_PATCH}.get_asyncdb_session",
-                side_effect=RuntimeError("boom"),
-            ),
-        ):
+        svc = _confirm_service(ConfirmResetOutcome.ERROR)
+        with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.confirm_password_reset()]
         assert state.is_loading is False

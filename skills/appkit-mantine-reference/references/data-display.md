@@ -440,3 +440,59 @@ Sub-components: `mn.hover_card.target(child)`, `mn.hover_card.dropdown(*content)
 Props: `width`, `shadow`, `open_delay`, `close_delay`, `position`, `disabled`.
 
 > [Mantine docs — HoverCard](https://mantine.dev/core/hover-card/)
+
+## DataList (Mantine 9.4)
+
+Semantic label/value pairs rendered as `dl`/`dt`/`dd`.
+
+```python
+mn.data_list(
+    mn.data_list.item(
+        mn.data_list.item_label("Name"),
+        mn.data_list.item_value("Jane Doe"),
+    ),
+    mn.data_list.item(
+        mn.data_list.item_label("Email"),
+        mn.data_list.item_value("jane@example.com"),
+    ),
+    orientation="horizontal",   # or "vertical"
+    with_divider=True,
+    label_width=120,
+)
+```
+
+Props: `gap`, `label_width`, `orientation` (`"horizontal"|"vertical"`), `size`,
+`with_divider`. Sub-components: `mn.data_list.item`, `mn.data_list.item_label`
+(`dt`), `mn.data_list.item_value` (`dd`).
+
+> [Mantine docs — DataList](https://mantine.dev/core/data-list/)
+
+## EmptyState (Mantine 9.4)
+
+Placeholder for "no data" situations, with optional call-to-action.
+
+```python
+# Shorthand props
+mn.empty_state(
+    icon=rx.icon("search-x", size=32),
+    title="No results found",
+    description="Try adjusting your filters.",
+    with_indicator_background=True,
+    variant="light",
+    align="center",
+)
+
+# Compound sub-components (for an action button)
+mn.empty_state(
+    mn.empty_state.indicator(rx.icon("inbox", size=32)),
+    mn.empty_state.title("Inbox empty"),
+    mn.empty_state.description("New messages appear here."),
+    mn.empty_state.actions(mn.button("Refresh", variant="light")),
+)
+```
+
+Props: `align` (`"center"|"left"|"right"`), `color`, `description`, `icon`,
+`size`, `title`, `with_indicator_background`, `variant` (`"filled"|"light"`).
+Sub-components: `indicator`, `title`, `description`, `actions`.
+
+> [Mantine docs — EmptyState](https://mantine.dev/core/empty-state/)

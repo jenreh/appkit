@@ -68,7 +68,8 @@ class UserRepository(BaseRepository[UserEntity, AsyncSession]):
             select(OAuthAccountEntity)
             .where(
                 OAuthAccountEntity.provider == provider,
-                OAuthAccountEntity.account_id == str(user_info["id"]),
+                OAuthAccountEntity.account_id
+                == str(user_info.get("id") or user_info.get("sub") or ""),
             )
             .options(selectinload(OAuthAccountEntity.user))
         )
@@ -176,7 +177,7 @@ class UserRepository(BaseRepository[UserEntity, AsyncSession]):
         new_oauth_account = OAuthAccountEntity(
             user_id=target_user.id,
             provider=provider,
-            account_id=str(user_info["id"]),
+            account_id=str(user_info.get("id") or user_info.get("sub") or ""),
             account_email=email_from_provider,
             access_token=token.get("access_token", ""),
             refresh_token=token.get("refresh_token"),

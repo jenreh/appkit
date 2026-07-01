@@ -121,6 +121,7 @@ class UserPromptState(State):
             return str(self.modal_selected_version_id)
         return ""
 
+    @rx.event
     def set_modal_selected_version_id(self, value: str | None) -> None:
         """Handle modal version selection change."""
         if not value:
@@ -346,6 +347,7 @@ class UserPromptState(State):
         """Set modal description."""
         self.modal_description = value
 
+    @rx.event
     def set_modal_description_and_validate(self, value: str) -> None:
         """Set modal description on blur and validate."""
         self.modal_description = value
@@ -357,6 +359,7 @@ class UserPromptState(State):
         self.modal_prompt = value
         self.modal_char_count = len(value)
 
+    @rx.event
     def set_modal_prompt_and_validate(self, value: str) -> None:
         """Set modal prompt on blur and validate."""
         self.modal_prompt = value

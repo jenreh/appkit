@@ -519,7 +519,9 @@ class TestLoginWithPassword:
             ]
 
         assert state.is_loading is False
-        assert "db crash" in state.error_message
+        # Raw exception text must not leak to the user; a generic message shows.
+        assert "db crash" not in state.error_message
+        assert state.error_message != ""
 
 
 class TestLoginWithProvider:
@@ -616,7 +618,7 @@ class TestHandleOAuthCallback:
             "state": "state123",
         }
         entity = _user_entity(1, "alice")
-        oauth_state_obj = MagicMock(code_verifier="cv")
+        oauth_state_obj = MagicMock(code_verifier="cv", session_id="test-token")
 
         with (
             patch(f"{_PATCH}.get_asyncdb_session") as mock_session,

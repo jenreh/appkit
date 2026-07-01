@@ -129,7 +129,8 @@ class RichSelect(MantineInputComponentBase):
     # forwarding of nested props (combobox, input_base, search, nothing_found).
     extra_props: Var[dict[str, Any] | None] = None
 
-    def get_event_triggers(self) -> dict[str, Any]:
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
         """Transform events to work with Reflex state system."""
 
         def _on_change(value: Var) -> list[Var]:
@@ -172,7 +173,7 @@ class RichSelectNamespace(rx.ComponentNamespace):
         disabled: Callable[[Any], bool] | None = None,
         keywords: Callable[[Any], list[str] | None] | None = None,
         payload: Callable[[Any], dict[str, Any] | None] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> rx.Component:
         if renderer is None and "renderer" in kwargs:
             renderer = kwargs.pop("renderer")
