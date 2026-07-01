@@ -15,6 +15,7 @@ EXAMPLES_DIR = REPO_ROOT / "app" / "pages" / "examples"
 NAVBAR_FILE = REPO_ROOT / "app" / "components" / "navbar.py"
 
 REQUIRED_COMPONENT_EXAMPLES = (
+    "agenda_view",
     "anchor",
     "background_image",
     "bars_list",
@@ -22,8 +23,12 @@ REQUIRED_COMPONENT_EXAMPLES = (
     "close_button",
     "color_swatch",
     "collapse",
+    "combobox_popover",
+    "data_list",
     "dialog",
     "day_view",
+    "empty_state",
+    "menubar",
     "floating_indicator",
     "floating_window",
     "inline_date_time_picker",
@@ -38,10 +43,15 @@ REQUIRED_COMPONENT_EXAMPLES = (
     "pills_input",
     "popover",
     "radial_bar_chart",
+    "resources_day_view",
+    "resources_month_view",
+    "resources_schedule",
+    "resources_week_view",
     "rolling_number",
     "sankey_chart",
     "schedule",
     "scroller",
+    "splitter",
     "spoiler",
     "table_of_contents",
     "theme_icon",
@@ -60,10 +70,12 @@ def _read_example_sources() -> str:
 def test_required_components_have_examples() -> None:
     example_sources = _read_example_sources()
 
+    # Accept both top-level (``mn.day_view(``) and namespaced
+    # (``mn.schedule.day_view(``) factory usage.
     missing_components = [
         component
         for component in REQUIRED_COMPONENT_EXAMPLES
-        if f"mn.{component}(" not in example_sources
+        if f".{component}(" not in example_sources
     ]
 
     assert missing_components == []

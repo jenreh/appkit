@@ -404,6 +404,7 @@ class RadioGroup(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -671,6 +672,7 @@ class RadioGroup(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -1162,6 +1164,7 @@ class CheckboxGroup(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -1430,6 +1433,7 @@ class CheckboxGroup(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).
@@ -1947,6 +1951,7 @@ class SegmentedControl(MantineInputComponentBase):
         label: Var[str] | str | None = None,
         description: Var[str] | str | None = None,
         error: Var[bool | str] | bool | str | None = None,
+        success: Var[bool | str] | bool | str | None = None,
         required: Var[bool] | bool | None = None,
         with_asterisk: Var[bool] | bool | None = None,
         variant: Literal["default", "filled", "unstyled"]
@@ -2222,6 +2227,7 @@ class SegmentedControl(MantineInputComponentBase):
             label: Label text displayed above the input.
             description: Description text displayed below the label.
             error: Error state (boolean) or error message (string) displayed below input.
+            success: Success state (boolean) or success message (string) displayed below input.  Added in Mantine 9.4 — renders a green border and optional success message.
             required: If true, adds asterisk to label and sets aria-required.
             with_asterisk: If true, adds asterisk to label without setting required attribute.
             variant: Input visual variant: default (bordered), filled (background), unstyled (no styles).

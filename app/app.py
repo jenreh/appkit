@@ -55,7 +55,9 @@ from app.pages.examples.combobox_examples import combobox_examples  # noqa: F401
 from app.pages.examples.data_display_examples import (
     data_display_examples,  # noqa: F401
 )
+from app.pages.examples.data_list_examples import data_list_examples  # noqa: F401
 from app.pages.examples.date_examples import date_examples_page  # noqa: F401
+from app.pages.examples.empty_state_examples import empty_state_examples  # noqa: F401
 from app.pages.examples.extensions_examples import extensions_examples  # noqa: F401
 from app.pages.examples.feedback_examples import feedback_examples  # noqa: F401
 from app.pages.examples.input_examples import input_examples_page  # noqa: F401
@@ -81,8 +83,12 @@ from app.pages.examples.page_template_examples import (  # noqa: F401
     page_template_aside_example,
     page_template_header_example,
 )
+from app.pages.examples.resources_schedule_examples import (
+    resources_schedule_examples,  # noqa: F401
+)
 from app.pages.examples.schedule_examples import schedule_examples  # noqa: F401
 from app.pages.examples.scroll_area_examples import scroll_area_examples  # noqa: F401
+from app.pages.examples.splitter_examples import splitter_examples  # noqa: F401
 from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.theme_examples import theme_examples  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401

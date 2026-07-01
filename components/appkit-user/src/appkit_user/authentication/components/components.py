@@ -1,3 +1,4 @@
+import functools
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -12,12 +13,22 @@ from appkit_user.configuration import AuthenticationConfiguration
 logger = logging.getLogger(__name__)
 ComponentCallable = Callable[[], rx.Component]
 
-# Get session monitor interval from configuration
-_auth_config: AuthenticationConfiguration = service_registry().get(
-    AuthenticationConfiguration
-)
-SESSION_MONITOR_INTERVAL_MS = _auth_config.session_monitor_interval_seconds * 1000
-PROLONG_INTERVAL_MS = int(_auth_config.auth_token_refresh_delta * 60 * 1000)
+
+@functools.lru_cache(maxsize=1)
+def _auth_config() -> AuthenticationConfiguration:
+    """Resolve the authentication configuration lazily and cache it."""
+    return service_registry().get(AuthenticationConfiguration)
+
+
+def _session_monitor_interval_ms() -> int:
+    """Session monitor poll interval in milliseconds, resolved lazily."""
+    return _auth_config().session_monitor_interval_seconds * 1000
+
+
+def _prolong_interval_ms() -> int:
+    """Session prolong interval in milliseconds, resolved lazily."""
+    return int(_auth_config().auth_token_refresh_delta * 60 * 1000)
+
 
 ### components ###
 
@@ -127,8 +138,8 @@ def session_monitor() -> rx.Component:
         ),
         rx.script(
             _SESSION_MONITOR_JS.format(
-                monitor_interval_ms=SESSION_MONITOR_INTERVAL_MS,
-                prolong_interval_ms=PROLONG_INTERVAL_MS,
+                monitor_interval_ms=_session_monitor_interval_ms(),
+                prolong_interval_ms=_prolong_interval_ms(),
             )
         ),
     )

@@ -408,6 +408,9 @@ class TagsInput(MantineInputComponentBase):
     Defaults to True.
     """
 
+    floating_height: Var[str | int] = None
+    """Dropdown height mode (Mantine 9.3). ``"viewport"`` fills vertical space."""
+
     # Combobox integration
     combobox_props: Var[dict[str, Any]] = None
     """Props passed down to the underlying Combobox component."""
@@ -585,6 +588,11 @@ class Textarea(MantineInputComponentBase):
 
     tag = "Textarea"
 
+    _rename_props = {
+        **MantineInputComponentBase._rename_props,  # noqa: SLF001
+        "bottom_section": "bottomSection",
+    }
+
     # HTML textarea attributes
     rows: Var[int] = None
     """Number of visible text lines (when not using autosize)."""
@@ -608,6 +616,12 @@ class Textarea(MantineInputComponentBase):
     # Resize control
     resize: Var[Literal["none", "vertical", "both", "horizontal"]] = None
     """CSS resize property to control manual resizing."""
+
+    bottom_section: Var[Any] = None
+    """Content rendered inside the input border below the textarea (Mantine 9.3).
+
+    Useful for character counters or supplementary controls.
+    """
 
     # Mantine styles prop for targeting internal sub-components
     styles: Var[dict] = None

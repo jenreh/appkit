@@ -7505,6 +7505,9 @@ class OverflowList(MantineLayoutComponentBase):
         max_visible_items: Var[int] | int | None = None,
         render_item: Any | Var[Any] | None = None,
         render_overflow: Any | Var[Any] | None = None,
+        collapse_from: Literal["end", "start"]
+        | Var[Literal["end", "start"]]
+        | None = None,
         w: Literal["lg", "md", "sm", "xl", "xs"]
         | Var[Literal["lg", "md", "sm", "xl", "xs"] | int | str]
         | int
@@ -7730,6 +7733,7 @@ class OverflowList(MantineLayoutComponentBase):
             max_visible_items: no description
             render_item: no description
             render_overflow: no description
+            collapse_from: no description
             w: Width and Height
             h: no description
             miw: no description

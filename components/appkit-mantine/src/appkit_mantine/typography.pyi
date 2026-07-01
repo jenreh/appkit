@@ -38,6 +38,9 @@ class Text(MantineLayoutComponentBase):
         inline: Var[bool] | bool | None = None,
         inherit: Var[bool] | bool | None = None,
         span: Var[bool] | bool | None = None,
+        text_wrap: Literal["balance", "nowrap", "pretty", "stable", "wrap"]
+        | Var[Literal["balance", "nowrap", "pretty", "stable", "wrap"]]
+        | None = None,
         w: Literal["lg", "md", "sm", "xl", "xs"]
         | Var[Literal["lg", "md", "sm", "xl", "xs"] | int | str]
         | int
@@ -265,6 +268,7 @@ class Text(MantineLayoutComponentBase):
             inline: no description
             inherit: no description
             span: no description
+            text_wrap: no description
             w: Width and Height
             h: no description
             miw: no description
@@ -2206,6 +2210,9 @@ class Blockquote(MantineLayoutComponentBase):
         icon: Any | Var[Any] | None = None,
         icon_size: Var[int | str] | int | str | None = None,
         radius: Var[int | str] | int | str | None = None,
+        text_wrap: Literal["balance", "nowrap", "pretty", "stable", "wrap"]
+        | Var[Literal["balance", "nowrap", "pretty", "stable", "wrap"]]
+        | None = None,
         w: Literal["lg", "md", "sm", "xl", "xs"]
         | Var[Literal["lg", "md", "sm", "xl", "xs"] | int | str]
         | int
@@ -2430,6 +2437,7 @@ class Blockquote(MantineLayoutComponentBase):
             icon: no description
             icon_size: no description
             radius: no description
+            text_wrap: no description
             w: Width and Height
             h: no description
             miw: no description

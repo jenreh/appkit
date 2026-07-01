@@ -377,6 +377,8 @@ class OverflowList(MantineLayoutComponentBase):
     max_visible_items: Var[int] = None
     render_item: Var[Any] = None
     render_overflow: Var[Any] = None
+    collapse_from: Var[Literal["start", "end"]] = None
+    """Direction from which items collapse when overflowing (Mantine 9.3)."""
 
 
 class Portal(MantineComponentBase):

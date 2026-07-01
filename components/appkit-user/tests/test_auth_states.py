@@ -618,7 +618,7 @@ class TestHandleOAuthCallback:
             "state": "state123",
         }
         entity = _user_entity(1, "alice")
-        oauth_state_obj = MagicMock(code_verifier="cv")
+        oauth_state_obj = MagicMock(code_verifier="cv", session_id="test-token")
 
         with (
             patch(f"{_PATCH}.get_asyncdb_session") as mock_session,

@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 import secrets
 import string
@@ -26,14 +27,28 @@ from appkit_user.configuration import AuthenticationConfiguration
 
 logger = logging.getLogger(__name__)
 
-config: AuthenticationConfiguration = service_registry().get(
-    AuthenticationConfiguration
-)
 
-SESSION_TIMEOUT: Final = timedelta(minutes=config.session_timeout)
-AUTH_TOKEN_REFRESH_DELTA: Final = timedelta(minutes=config.auth_token_refresh_delta)
-SESSION_MONITOR_INTERVAL: Final = timedelta(
-    seconds=config.session_monitor_interval_seconds
+@functools.lru_cache(maxsize=1)
+def _auth_config() -> AuthenticationConfiguration:
+    """Resolve the authentication configuration lazily and cache it."""
+    return service_registry().get(AuthenticationConfiguration)
+
+
+def _session_timeout() -> timedelta:
+    """Session lifetime, resolved lazily from configuration."""
+    return timedelta(minutes=_auth_config().session_timeout)
+
+
+def _session_monitor_interval() -> timedelta:
+    """Minimum interval between auth checks, resolved lazily from config."""
+    return timedelta(seconds=_auth_config().session_monitor_interval_seconds)
+
+
+# Resolved at import time because it feeds the @rx.var(interval=...) decorators
+# below, which are evaluated at class-definition time. Access still funnels
+# through the cached _auth_config() accessor.
+AUTH_TOKEN_REFRESH_DELTA: Final = timedelta(
+    minutes=_auth_config().auth_token_refresh_delta
 )
 AUTH_TOKEN_LOCAL_STORAGE_KEY: Final = "_auth_token"  # noqa: S105
 
@@ -119,7 +134,7 @@ class UserSession(rx.State):
     async def _create_session(self, db: AsyncSession, user_entity: UserEntity) -> None:
         """Create a new authenticated session for the user."""
         self.auth_token = _generate_auth_token()
-        expires_at = datetime.now(UTC) + SESSION_TIMEOUT
+        expires_at = datetime.now(UTC) + _session_timeout()
         await session_repo.save(
             db,
             user_entity.id,
@@ -211,7 +226,7 @@ class UserSession(rx.State):
                 session, self.user_id, self.auth_token
             )
             if user_session and not user_session.is_expired():
-                new_expires_at = datetime.now(UTC) + SESSION_TIMEOUT
+                new_expires_at = datetime.now(UTC) + _session_timeout()
                 # Store naive UTC to fix DB timezone mismatch on TIMESTAMP columns
                 user_session.expires_at = new_expires_at.replace(tzinfo=None)
                 await session.commit()
@@ -363,7 +378,7 @@ class LoginState(UserSession):
             state=state,
             provider=provider,
             code_verifier=code_verifier,
-            expires_at=datetime.now(UTC) + SESSION_TIMEOUT,
+            expires_at=datetime.now(UTC) + _session_timeout(),
         )
         await oauth_state_repo.create(db, oauth_state)
 
@@ -523,7 +538,7 @@ class LoginState(UserSession):
             return False
 
         elapsed = datetime.now(UTC) - self._last_auth_check
-        if elapsed < SESSION_MONITOR_INTERVAL:
+        if elapsed < _session_monitor_interval():
             logger.debug("Skipping auth check, last check %s ago", elapsed)
             return True
         return False

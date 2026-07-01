@@ -104,7 +104,7 @@ wheels = [
 
 [[package]]
 name = "appkit"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -177,7 +177,7 @@ dev = [
 
 [[package]]
 name = "appkit-assistant"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-assistant" }
 dependencies = [
     { name = "anthropic" },
@@ -208,7 +208,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-commons"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-commons" }
 dependencies = [
     { name = "colorlog" },
@@ -250,7 +250,7 @@ provides-extras = ["apscheduler", "pgqueuer", "azure"]
 
 [[package]]
 name = "appkit-imagecreator"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-imagecreator" }
 dependencies = [
     { name = "appkit-commons" },
@@ -277,7 +277,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mantine"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-mantine" }
 dependencies = [
     { name = "reflex" },
@@ -288,7 +288,7 @@ requires-dist = [{ name = "reflex", specifier = ">=0.9.6.post1" }]
 
 [[package]]
 name = "appkit-mcp-bpmn"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-mcp-bpmn" }
 dependencies = [
     { name = "appkit-commons" },
@@ -307,7 +307,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mcp-charts"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-mcp-charts" }
 dependencies = [
     { name = "appkit-commons" },
@@ -324,7 +324,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mcp-commons"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-mcp-commons" }
 dependencies = [
     { name = "appkit-commons" },
@@ -343,7 +343,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mcp-image"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-mcp-image" }
 dependencies = [
     { name = "appkit-commons" },
@@ -372,7 +372,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-mcp-user"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-mcp-user" }
 dependencies = [
     { name = "appkit-commons" },
@@ -393,7 +393,7 @@ requires-dist = [
 
 [[package]]
 name = "appkit-ui"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-ui" }
 dependencies = [
     { name = "appkit-mantine" },
@@ -404,7 +404,7 @@ requires-dist = [{ name = "appkit-mantine", editable = "components/appkit-mantin
 
 [[package]]
 name = "appkit-user"
-version = "1.12.2"
+version = "1.13.0"
 source = { editable = "components/appkit-user" }
 dependencies = [
     { name = "appkit-commons" },

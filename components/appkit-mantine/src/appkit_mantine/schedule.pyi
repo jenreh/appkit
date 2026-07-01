@@ -368,6 +368,9 @@ class DayView(MantineScheduleBase):
         with_current_time_indicator: Var[bool] | bool | None = None,
         with_current_time_bubble: Var[bool] | bool | None = None,
         with_all_day_slot: Var[bool] | bool | None = None,
+        with_sub_hour_grid_lines: Var[bool] | bool | None = None,
+        with_agenda: Var[bool] | bool | None = None,
+        get_current_time: Any | Var[Any] | None = None,
         with_drag_slot_select: Var[bool] | bool | None = None,
         scroll_area_props: Var[dict] | dict | None = None,
         get_time_slot_props: Any | Var[Any] | None = None,
@@ -625,6 +628,9 @@ class DayView(MantineScheduleBase):
             with_current_time_indicator: Show a line at the current time.
             with_current_time_bubble: Show a bubble at the current-time indicator.
             with_all_day_slot: Show the all-day slot row.
+            with_sub_hour_grid_lines: Show grid lines for sub-hour intervals (Mantine 9.4).
+            with_agenda: Show the agenda view toggle button (Mantine 9.4).
+            get_current_time: Function returning the current time for a timezone-aware indicator (Mantine 9.3).
             with_drag_slot_select: Allow creating events by dragging over empty slots.
             scroll_area_props: Props forwarded to the inner Mantine ScrollArea.
             get_time_slot_props: Function returning extra props for individual time-slot elements.
@@ -742,6 +748,9 @@ class WeekView(MantineScheduleBase):
         with_current_time_indicator: Var[bool] | bool | None = None,
         with_current_time_bubble: Var[bool] | bool | None = None,
         with_all_day_slot: Var[bool] | bool | None = None,
+        with_sub_hour_grid_lines: Var[bool] | bool | None = None,
+        with_agenda: Var[bool] | bool | None = None,
+        get_current_time: Any | Var[Any] | None = None,
         with_drag_slot_select: Var[bool] | bool | None = None,
         scroll_area_props: Var[dict] | dict | None = None,
         get_time_slot_props: Any | Var[Any] | None = None,
@@ -1008,6 +1017,9 @@ class WeekView(MantineScheduleBase):
             with_current_time_indicator: no description
             with_current_time_bubble: no description
             with_all_day_slot: no description
+            with_sub_hour_grid_lines: no description
+            with_agenda: no description
+            get_current_time: no description
             with_drag_slot_select: no description
             scroll_area_props: no description
             get_time_slot_props: no description
@@ -1129,6 +1141,8 @@ class MonthView(MantineScheduleBase):
         max_events_per_day: Var[int] | int | None = None,
         weekday_format: Any | Var[Any] | None = None,
         weekend_days: Var[list] | list | None = None,
+        with_weekend_days: Var[bool] | bool | None = None,
+        with_agenda: Var[bool] | bool | None = None,
         with_header: Var[bool] | bool | None = None,
         with_drag_slot_select: Var[bool] | bool | None = None,
         scroll_area_props: Var[dict] | dict | None = None,
@@ -1384,6 +1398,8 @@ class MonthView(MantineScheduleBase):
             max_events_per_day: Maximum visible events per day cell before "+N more" is shown.
             weekday_format: no description
             weekend_days: no description
+            with_weekend_days: Show/hide weekend day columns (Mantine 9.4).
+            with_agenda: Show the agenda view toggle button (Mantine 9.4).
             with_header: no description
             with_drag_slot_select: no description
             scroll_area_props: no description
@@ -2223,6 +2239,7 @@ class Schedule(MantineScheduleBase):
         default_date: Var[str] | str | None = None,
         view: Var[str] | str | None = None,
         default_view: Var[str] | str | None = None,
+        with_agenda: Var[bool] | bool | None = None,
         layout: Var[str] | str | None = None,
         day_view_props: Var[dict] | dict | None = None,
         week_view_props: Var[dict] | dict | None = None,
@@ -2475,6 +2492,7 @@ class Schedule(MantineScheduleBase):
             default_date: Uncontrolled initial date.
             view: Controlled view level: ``"day"`` | ``"week"`` | ``"month"`` | ``"year"``.
             default_view: Uncontrolled initial view level.
+            with_agenda: Show the agenda view toggle button (Mantine 9.4).
             layout: ``"default"`` or ``"responsive"``.  Switches to the mobile layout below a breakpoint.
             day_view_props: no description
             week_view_props: no description
@@ -2592,6 +2610,7 @@ class ScheduleNamespace(rx.ComponentNamespace):
         default_date: Var[str] | str | None = None,
         view: Var[str] | str | None = None,
         default_view: Var[str] | str | None = None,
+        with_agenda: Var[bool] | bool | None = None,
         layout: Var[str] | str | None = None,
         day_view_props: Var[dict] | dict | None = None,
         week_view_props: Var[dict] | dict | None = None,
@@ -2844,6 +2863,7 @@ class ScheduleNamespace(rx.ComponentNamespace):
             default_date: Uncontrolled initial date.
             view: Controlled view level: ``"day"`` | ``"week"`` | ``"month"`` | ``"year"``.
             default_view: Uncontrolled initial view level.
+            with_agenda: Show the agenda view toggle button (Mantine 9.4).
             layout: ``"default"`` or ``"responsive"``.  Switches to the mobile layout below a breakpoint.
             day_view_props: no description
             week_view_props: no description
