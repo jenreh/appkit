@@ -3,7 +3,7 @@ dependencies = [
     "appkit-commons",
     "pydantic>=2.13.4",
     "starlette>=1.0.0",
-    "fastmcp>=3.4.2",
+    "fastmcp>=3.4.3",
 ]
 name = "appkit-mcp-commons"
 version = "1.13.0"
