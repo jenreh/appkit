@@ -129,6 +129,9 @@ def set_date(self, value: str) -> None:
 **Extensions**: See [references/extensions.md](references/extensions.md)
 — Carousel, Dropzone, ModalsProvider
 
+**Maps**: See [references/maps.md](references/maps.md)
+— Map, MapControls, MapMarker (+content/popup/tooltip/label), MapPopup, MapRoute, MapArc, MapGeoJSON, MapClusterLayer, MapNavigation, MapDirectionsPanel
+
 **Theme**: See [references/theme.md](references/theme.md)
 — create_theme, mantine_provider (scoped theme override), mermaid_zoom_script
 
@@ -148,6 +151,7 @@ def set_date(self, value: str) -> None:
 **Need a range / numeric slider?** → inputs-specialized.md (`mn.slider`, `mn.range_slider`)
 **Need a color picker?** → inputs-specialized.md (`mn.color_input` with text input, `mn.color_picker` standalone, `mn.hue_slider`, `mn.alpha_slider`)
 **Need file upload?** → inputs-specialized.md (`mn.file_input` button-style) or extensions.md (`mn.dropzone` drag-and-drop)
+**Need an interactive map (markers, routes, GeoJSON, clustering, turn-by-turn directions)?** → maps.md (`mn.map`, `mn.map.marker`, `mn.map.route`, `mn.map.geojson`, `mn.map.cluster`, `mn.map.navigation`)
 **Need a PIN / OTP code entry?** → inputs-specialized.md (`mn.pin_input`)
 **Need a star rating?** → inputs-specialized.md (`mn.rating`)
 **Need an angle / direction picker?** → inputs-specialized.md (`mn.angle_slider`)
