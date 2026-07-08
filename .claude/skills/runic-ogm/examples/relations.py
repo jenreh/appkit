@@ -14,7 +14,6 @@ import logging
 from datetime import UTC, datetime
 
 from redislite import FalkorDB
-
 from runic.ogm import Edge, Field, Node, Relation, Session, select
 from runic.ogm.driver.falkordb import FalkorDBDriver
 
@@ -33,7 +32,7 @@ class Article(Node, labels=["Article"]):
     id: str = Field(primary_key=True)
     title: str
     # INCOMING mirror of User.articles — same AUTHORED edges, seen from Article.
-    authors: list["User"] = Relation(
+    authors: list[User] = Relation(
         relationship="AUTHORED", direction="INCOMING", target="User"
     )
 
@@ -43,7 +42,7 @@ class User(Node, labels=["User"]):
     name: str
 
     # Single related node (annotate Target | None).
-    manager: "User | None" = Relation(
+    manager: User | None = Relation(
         relationship="REPORTS_TO", direction="OUTGOING", target="User"
     )
     # Collection with edge properties (annotate list[Target]).
@@ -54,7 +53,7 @@ class User(Node, labels=["User"]):
         edge_model=Authored,
     )
     # Undirected / symmetric relationship.
-    contacts: list["User"] = Relation(
+    contacts: list[User] = Relation(
         relationship="KNOWS", direction="BOTH", target="User"
     )
 

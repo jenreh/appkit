@@ -17,7 +17,6 @@ import logging
 import os
 
 from falkordb.asyncio import FalkorDB
-
 from runic.ogm import AsyncSession, Field, Node, Relation, select
 from runic.ogm.driver.falkordb import AsyncFalkorDBDriver
 from runic.ogm.exceptions import LazyLoadError

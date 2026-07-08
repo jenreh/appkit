@@ -103,6 +103,7 @@ def navbar_items() -> rx.Component:
             sidebar_sub_item(label="Extension Components", url="/extensions"),
             sidebar_sub_item(label="Schedule", url="/schedule"),
             sidebar_sub_item(label="Resources Schedule", url="/resources-schedule"),
+            sidebar_sub_item(label="Maps", url="/maps"),
             sidebar_sub_item(label="Inputs", url="/inputs"),
             sidebar_sub_item(label="Advanced Inputs", url="/inputs-advanced"),
             sidebar_sub_item(label="Menu", url="/menu"),

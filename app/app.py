@@ -65,6 +65,7 @@ from app.pages.examples.inputs_advanced_examples import (
     inputs_advanced_examples,  # noqa: F401
 )
 from app.pages.examples.layout_examples import layout_examples  # noqa: F401
+from app.pages.examples.map_examples import map_examples  # noqa: F401
 from app.pages.examples.markdown_preview_examples import (
     markdown_preview_examples,  # noqa: F401
 )

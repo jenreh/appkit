@@ -26,6 +26,18 @@ from appkit_mantine.combobox import (
     tree_select,
 )
 from appkit_mantine.dropzone import dropzone
+from appkit_mantine.maps import Map, MapControls, map  # noqa: A004
+from appkit_mantine.maps_layers import MapArc, MapClusterLayer, MapGeoJSON, MapRoute
+from appkit_mantine.maps_markers import (
+    MapMarker,
+    MarkerContent,
+    MarkerLabel,
+    MarkerPopup,
+    MarkerTooltip,
+    marker,
+)
+from appkit_mantine.maps_navigation import MapDirectionsPanel, MapNavigation
+from appkit_mantine.maps_popups import MapPopup
 from appkit_mantine.modals import modals_provider
 from appkit_mantine.rich_select import rich_select
 
@@ -224,6 +236,20 @@ __all__ = [
     "MantineComponentBase",
     "MantineInputComponentBase",
     "MantineProvider",
+    "Map",
+    "MapArc",
+    "MapClusterLayer",
+    "MapControls",
+    "MapDirectionsPanel",
+    "MapGeoJSON",
+    "MapMarker",
+    "MapNavigation",
+    "MapPopup",
+    "MapRoute",
+    "MarkerContent",
+    "MarkerLabel",
+    "MarkerPopup",
+    "MarkerTooltip",
     "MemoizedMantineProvider",
     "MiniCalendar",
     "MonthPicker",
@@ -314,8 +340,10 @@ __all__ = [
     "loader",
     "loading_overlay",
     "mantine_provider",
+    "map",
     "mark",
     "markdown_preview",
+    "marker",
     "marquee",
     "masked_input",
     "menu",

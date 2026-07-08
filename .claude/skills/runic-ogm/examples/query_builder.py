@@ -13,7 +13,6 @@ from __future__ import annotations
 import logging
 
 from redislite import FalkorDB
-
 from runic.ogm import (
     Edge,
     Field,

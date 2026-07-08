@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 
 from redislite import FalkorDB
-
 from runic.ogm import Node, Repository, Session, select
 from runic.ogm.driver.falkordb import FalkorDBDriver
 

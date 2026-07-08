@@ -14,7 +14,6 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from redislite import FalkorDB
-
 from runic.ogm import Edge, Field, Node, Session
 from runic.ogm.driver.falkordb import FalkorDBDriver
 
