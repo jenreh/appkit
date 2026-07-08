@@ -313,6 +313,7 @@ const Map = forwardRef(function Map(
   const currentStyleRef = useRef(null);
   const styleTimeoutRef = useRef(null);
   const internalUpdateRef = useRef(false);
+  const [hasBeenVisible, setHasBeenVisible] = useState(false);
   const resolvedTheme = useResolvedTheme(themeProp);
 
   const isControlled = viewport !== undefined && onViewportChange !== undefined;
@@ -342,9 +343,33 @@ const Map = forwardRef(function Map(
     }
   }, []);
 
+  // Set up IntersectionObserver to lazy load the map when it is scrolled into view.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setHasBeenVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasBeenVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Initialize the map.
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !hasBeenVisible) return;
 
     const initialStyle = resolvedTheme === "dark" ? mapStyles.dark : mapStyles.light;
     currentStyleRef.current = initialStyle;
@@ -395,7 +420,7 @@ const Map = forwardRef(function Map(
       setMapInstance(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasBeenVisible]);
 
   // Keep MapLibre's internal transform (width/height) in sync with the
   // container's actual on-screen size. `new MapLibreGL.Map({container})`
