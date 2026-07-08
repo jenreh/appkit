@@ -165,7 +165,8 @@ cache-dir = ".cache/ruff"
 indent-width = 4
 line-length = 88
 target-version = "py312"
-extend-exclude = [".cache", "docs", "infra", "prompts", "scripts", "static", "*.pyi"]
+force-exclude = true
+extend-exclude = [".agents", ".claude", ".cache", "docs", "infra", "prompts", "scripts", "static", "*.pyi"]
 
 [tool.ruff.lint]
 extend-select = ["I"]
@@ -235,7 +236,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = true
 docstring-code-line-length = "dynamic"
-exclude = ["*.pyi"]
+exclude = ["*.pyi", ".agents", ".claude", ".cache", "docs", "reflex.lock"]
 
 [tool.ruff.lint.isort]
 known-local-folder = ["app", "alembic"]

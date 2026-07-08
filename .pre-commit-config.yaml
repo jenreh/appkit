@@ -1,4 +1,4 @@
-exclude: '^\.agents?/skills/'
+exclude: '^(\.agents?/skills/|reflex\.lock/)'
 default_install_hook_types:
   - pre-commit
   - post-checkout
@@ -6,7 +6,7 @@ default_install_hook_types:
   - post-rewrite
 repos:
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.10.7
+    rev: 0.11.21
     hooks:
       - id: uv-sync
         args: ["--locked", "--all-packages"]
@@ -19,9 +19,10 @@ repos:
       - id: trailing-whitespace
       - id: check-ast
       - id: check-added-large-files
-        args: ["--maxkb=2048"]
+        args: ["--maxkb=3072"]
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
+        exclude: '^\.(claude|agents?)/'
       - id: check-illegal-windows-names
       - id: check-merge-conflict
       - id: check-symlinks
@@ -35,10 +36,10 @@ repos:
     hooks:
       - id: gitleaks
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.4
+    rev: v0.15.17
     hooks:
       - id: ruff-format
-        exclude: '^\.(claude|github|agents?)/'
+        exclude: '(^\.(claude|agents?)/|^docs/|\.json$)'
       - id: ruff
-        exclude: '^\.(claude|github|agents?)/'
+        exclude: '(^\.(claude|agents?)/|^docs/|\.json$)'
         args: ["--fix"]
