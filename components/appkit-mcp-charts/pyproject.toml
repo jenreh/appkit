@@ -5,7 +5,7 @@ dependencies = [
     "plotly==6.8.0",
 ]
 name = "appkit-mcp-charts"
-version = "1.13.1"
+version = "1.13.2"
 description = "MCP Charts & Visualization Server"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
