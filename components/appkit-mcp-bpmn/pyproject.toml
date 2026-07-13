@@ -3,7 +3,7 @@ dependencies = [
     "appkit-commons",
     "appkit-mcp-commons",
     "lxml>=6.1.1",
-    "openai>=2.37.0",
+    "openai>=2.45.0",
 ]
 name = "appkit-mcp-bpmn"
 version = "1.13.3"

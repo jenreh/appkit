@@ -35,7 +35,7 @@ apscheduler = [
     "apscheduler[psycopg]>=4.0.0a6",
 ]
 pgqueuer = [
-    "pgqueuer>=1.1.0",
+    "pgqueuer>=1.1.1",
 ]
 azure = [
     "azure-identity>=1.25.3",
