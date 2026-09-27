@@ -137,7 +137,7 @@ class MCPServerState(rx.State):
             logger.error("Failed to get MCP server %d: %s", server_id, e)
 
     @rx.event
-    async def set_current_server(self, server: MCPServer) -> None:
+    async def set_current_server(self, server: MCPServerConfigModel) -> None:
         """Set the current server."""
         self.current_server = server
 

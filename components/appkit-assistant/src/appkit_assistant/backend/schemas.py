@@ -270,3 +270,4 @@ class AssistantAIModelConfigModel(BaseModel):
     requires_role: str | None = None
     api_key: str | None = None
     base_url: str | None = None
+    on_azure: bool = False

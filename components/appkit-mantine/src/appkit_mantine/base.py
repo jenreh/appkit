@@ -40,7 +40,7 @@ from __future__ import annotations
 from typing import Any, Final, Literal
 
 import reflex as rx
-from reflex.components.tags import Tag
+from reflex.components.tags import CommonTag
 from reflex.event import EventHandler
 from reflex.style import resolved_color_mode
 from reflex.vars.base import Var
@@ -180,7 +180,7 @@ if (typeof document !== 'undefined') {
   }
 }"""
 
-    def _render(self, props: dict[str, Any] | None = None) -> Tag:
+    def _render(self, props: dict[str, Any] | None = None) -> CommonTag:
         """Render the tag, restoring hyphenated DOM attribute names.
 
         Declared props such as ``aria_label`` are camelCased by
