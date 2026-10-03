@@ -209,8 +209,11 @@ Display and manage users:
 
 ```python
 from appkit_user.user_management.components import users_table
+from appkit_user.user_management.states.user_states import UserState
 
 
+# users_table does not fetch on its own; load users via the page's on_load.
+@rx.page(route="/admin/users", on_load=UserState.load_users)
 def user_management_page():
     return rx.vstack(rx.heading("User Management"), users_table(), spacing="4")
 ```

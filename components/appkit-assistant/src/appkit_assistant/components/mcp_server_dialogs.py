@@ -10,6 +10,7 @@ from reflex.vars.base import RETURN, CustomVarOperationReturn
 
 import appkit_mantine as mn
 from appkit_assistant.backend.database.models import MCPAuthType, MCPServer
+from appkit_assistant.backend.schemas import MCPServerConfigModel
 from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
 from appkit_assistant.roles import ASSISTANT_USER_ROLE
 from appkit_assistant.state.mcp_server_state import MCPServerState
@@ -68,7 +69,7 @@ class ValidationState(rx.State):
     oauth_client_secret_error: str = ""
 
     @rx.event
-    def initialize(self, server: MCPServer | None = None) -> None:
+    def initialize(self, server: MCPServerConfigModel | None = None) -> None:
         """Reset validation state with optional server data."""
         logger.debug("Initializing ValidationState")
         self._reset_errors()
@@ -103,7 +104,7 @@ class ValidationState(rx.State):
         self.oauth_token_url = ""
         self.oauth_scopes = ""
 
-    def _load_server_data(self, server: MCPServer) -> None:
+    def _load_server_data(self, server: MCPServerConfigModel) -> None:
         """Load data from an existing server."""
         self.url = server.url
         self.name = server.name

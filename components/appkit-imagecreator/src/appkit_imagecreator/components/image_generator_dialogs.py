@@ -7,7 +7,10 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_imagecreator.admin_state import ImageGeneratorAdminState
-from appkit_imagecreator.backend.models import ImageGeneratorModel
+from appkit_imagecreator.backend.models import (
+    ImageGeneratorConfigModel,
+    ImageGeneratorModel,
+)
 from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.components.form_inputs import form_field
 
@@ -33,7 +36,7 @@ class ImageGeneratorValidationState(rx.State):
     extra_config_error: str = ""
 
     @rx.event
-    def initialize(self, generator: ImageGeneratorModel | None = None) -> None:
+    def initialize(self, generator: ImageGeneratorConfigModel | None = None) -> None:
         """Reset validation state for add or edit mode."""
         if generator is None:
             self.model_id = ""
