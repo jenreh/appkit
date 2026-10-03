@@ -3,7 +3,7 @@ dependencies = [
     "appkit-commons",
     "appkit-mcp-commons",
     "appkit-user",
-    "openai>=2.44.0",
+    "openai>=3.24.0",
     "sqlalchemy>=2.0.52",
 ]
 name = "appkit-mcp-user"
