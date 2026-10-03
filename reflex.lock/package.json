@@ -35,7 +35,7 @@
     "embla-carousel-react": "^8.3.0",
     "isbot": "5.2.2",
     "katex": "0.18.4",
-    "lucide-react": "1.8.0",
+    "lucide-react": "1.26.0",
     "maplibre-gl": "^6.6.0",
     "mergician": "v2.0.2",
     "mermaid": "^11.0.0",
@@ -51,7 +51,7 @@
     "rehype-rewrite": "^4.0.0",
     "rehype-sanitize": "^6.0.0",
     "socket.io-client": "4.8.3",
-    "sonner": "2.0.7",
+    "sonner": "2.0.8",
     "universal-cookie": "8.1.2"
   },
   "devDependencies": {
