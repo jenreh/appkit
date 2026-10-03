@@ -6,6 +6,7 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_assistant.backend.database.models import AssistantAIModel
+from appkit_assistant.backend.schemas import AssistantAIModelConfigModel
 from appkit_assistant.state.ai_model_admin_state import AIModelAdminState
 from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.components.form_inputs import form_field
@@ -69,7 +70,7 @@ class AIModelValidationState(rx.State):
     temperature_error: str = ""
 
     @rx.event
-    def initialize(self, record: AssistantAIModel | None = None) -> None:
+    def initialize(self, record: AssistantAIModelConfigModel | None = None) -> None:
         """Reset validation state for add or edit mode."""
         if record is None:
             self.model_id = ""

@@ -491,7 +491,6 @@ def user_table_view(additional_components: list | None = None) -> rx.Component:
             dark="dark.8",
         ),
         w="100%",
-        on_mount=UserState.load_users,
     )
 
 
