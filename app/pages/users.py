@@ -33,7 +33,7 @@ def users_view(**kwargs) -> rx.Component:
     title="Users",
     navbar=app_navbar(),
     admin_only=True,
-    on_load=[UserState.set_available_roles(ALL_ROLES)],
+    on_load=[UserState.set_available_roles(ALL_ROLES), UserState.load_users],
 )
 def users_page() -> rx.Component:
     additional_components = []
@@ -71,6 +71,7 @@ def create_users_page(
         route=route,
         title=title,
         navbar=navbar,
+        on_load=UserState.load_users,
     )
     def _users_page() -> rx.Component:
         """The users page.

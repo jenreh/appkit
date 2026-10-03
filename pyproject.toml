@@ -1,6 +1,6 @@
 [project]
 name = "appkit"
-version = "1.14.0"
+version = "1.15.0"
 description = "Production-ready Mantine UI components for Reflex - Demo Application"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -18,7 +18,7 @@ dependencies = [
     "appkit-user[azure,resend]",
     "psycopg==3.3.4",
     "psycopg-binary==3.3.4",
-    "reflex[db]>=0.9.8.post1",
+    "reflex[db]>=0.9.12",
 ]
 
 [dependency-groups]
@@ -93,7 +93,7 @@ appkit-user = { workspace = true }
 
 [tool.bumpversion]
 commit = false
-current_version = "1.14.0"
+current_version = "1.15.0"
 tag = false
 allow-dirty = false
 

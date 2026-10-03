@@ -11,7 +11,7 @@ from reflex_base.vars.base import Var
 import reflex
 from typing import Any, Final, Literal
 import reflex as rx
-from reflex.components.tags import Tag
+from reflex.components.tags import CommonTag
 from reflex.style import resolved_color_mode
 from appkit_mantine.theme import get_app_theme
 MANTINE_LIBARY: Final[str]
