@@ -1,6 +1,7 @@
 """Tests for OAuthService."""
 
 from unittest.mock import MagicMock, Mock, patch
+from urllib.parse import urlparse
 
 import pytest
 
@@ -273,7 +274,7 @@ class TestOAuthService:
 
         auth_url, state, code_verifier = oauth_service.get_auth_url(OAuthProvider.AZURE)
 
-        assert "https://login.microsoftonline.com" in auth_url
+        assert urlparse(auth_url).hostname == "login.microsoftonline.com"
         assert isinstance(state, str)
         assert code_verifier == "verifier123"
 

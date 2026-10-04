@@ -129,7 +129,7 @@ class TestGenerateImageImpl:
         assert enhanced_prompt == "Refined cat prompt"
 
     @pytest.mark.asyncio
-    async def test_url_carries_public_prefix(
+    async def test_url_ignores_frontend_path(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         set_public_path_prefix(monkeypatch, "/knai")
@@ -158,7 +158,7 @@ class TestGenerateImageImpl:
                 GenerationInput(prompt="a cat"), generator, user_id=5
             )
 
-        assert image_url == "https://x/knai/api/images/99"
+        assert image_url == "https://x/api/images/99"
 
     @pytest.mark.asyncio
     async def test_failure_raises_value_error(self) -> None:

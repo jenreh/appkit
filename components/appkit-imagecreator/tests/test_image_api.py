@@ -109,6 +109,31 @@ class TestGetImage:
         assert "not found" in resp.json()["detail"].lower()
 
     @pytest.mark.asyncio
+    async def test_scopes_lookup_to_session_user(self) -> None:
+        """The lookup is restricted to the authenticated user's images."""
+        with (
+            patch(
+                f"{_PATCH}.get_asyncdb_session",
+                return_value=_db_context(),
+            ),
+            patch(f"{_PATCH}.image_repo") as repo,
+        ):
+            repo.find_image_data = AsyncMock(return_value=None)
+
+            transport = ASGITransport(app=_app)
+            async with AsyncClient(
+                transport=transport,
+                base_url="http://test",
+            ) as client:
+                resp = await client.get("/api/images/7")
+
+        assert resp.status_code == 404
+        repo.find_image_data.assert_awaited_once()
+        args, kwargs = repo.find_image_data.call_args
+        assert args[1] == 7
+        assert kwargs["user_id"] == 1
+
+    @pytest.mark.asyncio
     async def test_content_disposition(self) -> None:
         """Response includes inline content-disposition."""
         with (

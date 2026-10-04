@@ -155,7 +155,7 @@ class TestGeneratedImageRepository:
         )
 
         # Act
-        result = await image_repo.find_image_data(async_session, image.id)
+        result = await image_repo.find_image_data(async_session, image.id, user_id=1)
 
         # Assert
         assert result is not None
@@ -169,9 +169,33 @@ class TestGeneratedImageRepository:
     ) -> None:
         """find_image_data returns None for nonexistent image."""
         # Act
-        result = await image_repo.find_image_data(async_session, image_id=99999)
+        result = await image_repo.find_image_data(
+            async_session, image_id=99999, user_id=1
+        )
 
         # Assert
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_find_image_data_other_user_returns_none(
+        self, async_session: AsyncSession, generated_image_factory, image_repo
+    ) -> None:
+        """find_image_data does not return another user's image."""
+        image = await generated_image_factory(user_id=1)
+
+        result = await image_repo.find_image_data(async_session, image.id, user_id=2)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_find_image_data_deleted_returns_none(
+        self, async_session: AsyncSession, generated_image_factory, image_repo
+    ) -> None:
+        """find_image_data does not return a deleted image."""
+        image = await generated_image_factory(user_id=1, is_deleted=True)
+
+        result = await image_repo.find_image_data(async_session, image.id, user_id=1)
+
         assert result is None
 
     @pytest.mark.asyncio

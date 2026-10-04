@@ -260,6 +260,28 @@ async def test_valid_cookie_passes_through(
     assert validator.calls == ["tok-123"]
 
 
+# Session tokens contain characters like ``;``, ``%`` and ``#``; the frontend
+# cookie library percent-encodes them and Starlette does not decode cookies.
+_RAW_TOKEN = "a;b%c#d!e"
+_ENCODED_TOKEN = "a%3Bb%25c%23d!e"
+
+
+@pytest.mark.asyncio
+async def test_percent_encoded_cookie_is_decoded(
+    guard: http_guard.SessionGuardMiddleware,
+    inner: _StubApp,
+    validator: _StubValidator,
+) -> None:
+    validator.result = _valid_result()
+
+    sent = await _drive(
+        guard, _http_scope(_PAGE_PATH, cookie=f"{_COOKIE}={_ENCODED_TOKEN}")
+    )
+
+    assert _start(sent)["status"] == 200
+    assert validator.calls == [_RAW_TOKEN]
+
+
 # ---------------------------------------------------------------------------
 # SessionGuardMiddleware — denial
 # ---------------------------------------------------------------------------
@@ -427,6 +449,18 @@ async def test_require_session_returns_the_user(validator: _StubValidator) -> No
     assert user.user_id == 7
     assert user.email == "ada@example.com"
     assert validator.calls == ["tok"]
+
+
+@pytest.mark.asyncio
+async def test_require_session_decodes_percent_encoded_cookie(
+    validator: _StubValidator,
+) -> None:
+    validator.result = _valid_result()
+    request = Request(_http_scope("/api/me", cookie=f"{_COOKIE}={_ENCODED_TOKEN}"))
+
+    await http_guard.require_session(request)
+
+    assert validator.calls == [_RAW_TOKEN]
 
 
 @pytest.mark.asyncio

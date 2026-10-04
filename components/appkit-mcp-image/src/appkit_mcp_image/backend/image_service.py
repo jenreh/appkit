@@ -8,7 +8,6 @@ and returns image URLs via the existing image API.
 import logging
 
 from appkit_commons.database.session import get_asyncdb_session
-from appkit_commons.public_path import public_url
 from appkit_imagecreator.backend.models import (
     GeneratedImage,
     GeneratedImageData,
@@ -89,7 +88,7 @@ async def _save_image(
         saved = await image_repo.create(session, new_image)
         saved_id = saved.id
 
-    return public_url(get_image_api_base_url(), f"/api/images/{saved_id}")
+    return f"{get_image_api_base_url().rstrip('/')}/api/images/{saved_id}"
 
 
 async def generate_image_impl(

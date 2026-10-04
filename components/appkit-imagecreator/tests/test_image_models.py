@@ -248,11 +248,13 @@ class TestGeneratedImageModel:
     @pytest.mark.parametrize(
         ("base", "expected"),
         [
-            ("https://x", "https://x/knai/api/images/42"),
+            # Reflex serves backend routes at the backend root, not under
+            # frontend_path; a proxy prefix belongs in the configured URL.
+            ("https://x", "https://x/api/images/42"),
             ("https://x/knai", "https://x/knai/api/images/42"),
         ],
     )
-    def test_image_url_carries_public_prefix(
+    def test_image_url_ignores_frontend_path(
         self, monkeypatch: pytest.MonkeyPatch, base: str, expected: str
     ) -> None:
         set_public_path_prefix(monkeypatch, "/knai")

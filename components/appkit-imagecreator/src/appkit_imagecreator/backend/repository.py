@@ -60,10 +60,14 @@ class GeneratedImageRepository(BaseRepository[GeneratedImage, AsyncSession]):
         return list(result.scalars().all())
 
     async def find_image_data(
-        self, session: AsyncSession, image_id: int
+        self, session: AsyncSession, image_id: int, *, user_id: int
     ) -> tuple[bytes, str] | None:
-        """Retrieve only the image data and content type for an image."""
-        stmt = select(GeneratedImage).where(GeneratedImage.id == image_id)
+        """Retrieve the data and content type of a user's non-deleted image."""
+        stmt = select(GeneratedImage).where(
+            GeneratedImage.id == image_id,
+            GeneratedImage.user_id == user_id,
+            ~GeneratedImage.is_deleted,
+        )
         result = await session.execute(stmt)
         image = result.scalars().first()
         if image:

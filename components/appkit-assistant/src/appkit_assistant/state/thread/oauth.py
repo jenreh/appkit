@@ -118,7 +118,7 @@ class OAuthMixin:
                 yield event
 
         except json.JSONDecodeError:
-            logger.warning("Failed to parse OAuth result: %s", self.oauth_result)
+            logger.warning("Failed to parse OAuth result")
             self.oauth_result = ""
 
     @rx.event

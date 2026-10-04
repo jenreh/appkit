@@ -25,6 +25,7 @@ implementation on this side.
 import logging
 from pathlib import PurePosixPath
 from typing import Annotated, Final
+from urllib.parse import unquote
 
 from fastapi import Depends, HTTPException, status
 from reflex.config import get_config
@@ -142,8 +143,7 @@ class SessionGuardMiddleware:
             await self.app(scope, receive, send)
             return
 
-        session_id = Request(scope).cookies.get(session_cookie_name(), "")
-        result = await _VALIDATOR.validate(session_id)
+        result = await _VALIDATOR.validate(_session_id(Request(scope)))
         if result.is_valid:
             await self.app(scope, receive, send)
             return
@@ -159,6 +159,15 @@ class SessionGuardMiddleware:
             headers={"cache-control": "no-store"},
         )
         await response(scope, receive, send)
+
+
+def _session_id(request: Request) -> str:
+    """The session token from the cookie, percent-decoded.
+
+    The frontend cookie library percent-encodes the value (tokens contain
+    ``;``, ``%`` and the like) and Starlette does not decode cookies.
+    """
+    return unquote(request.cookies.get(session_cookie_name(), ""))
 
 
 def add_session_guard(asgi_app: ASGIApp) -> ASGIApp:
@@ -179,7 +188,7 @@ async def require_session(request: Request) -> User:
         HTTPException: 401 when the session is missing, expired or
             unverifiable. Cookie auth, so no ``WWW-Authenticate`` challenge.
     """
-    result = await _VALIDATOR.validate(request.cookies.get(session_cookie_name(), ""))
+    result = await _VALIDATOR.validate(_session_id(request))
     if result.is_valid and result.user is not None:
         return result.user
 
