@@ -21,8 +21,8 @@ from appkit_mantine.base import MemoizedMantineProvider
 MARKDOWN_PREVIEW_VERSION: str = "^5.1.5"
 REHYPE_SANITIZE_VERSION: str = "^6.0.0"
 REHYPE_REWRITE_VERSION: str = "^4.0.0"
-MERMAID_VERSION: str = "^11.0.0"
-KATEX_VERSION: str = "0.18.4"
+MERMAID_VERSION: str = "^12.1.0"
+KATEX_VERSION: str = "0.19.0"
 _MARKDOWN_WRAPPER_ASSET = asset(path="markdown_preview_wrapper.js", shared=True)
 # importable_path omits the ?v= content hash, which Vite would treat as an
 # optimized-dep URL and cache immutably, pinning a stale React instance.

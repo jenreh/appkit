@@ -3,7 +3,9 @@
     "allow": [
       "WebFetch(domain:mantine.dev)",
       "Bash(uv run *)",
-      "Bash(grep -E \"\\(^[^/]*$|components|root\\)\")"
+      "Bash(grep -E \"\\(^[^/]*$|components|root\\)\")",
+      "Bash(cd /Users/jens/Workspace/projekte; ls -d */ | grep -i knowledge; grep -ril \"pgqueuer\" --include=*.py appkit -l | grep -v \"/.venv\" | head -30; grep -ril \"slot\" --include=*.py */alembic*/versions 2>/dev/null | head)",
+      "Read(//Users/jens/Workspace/projekte/**)"
     ]
   }
 }

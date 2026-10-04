@@ -18,6 +18,7 @@ from sqlalchemy_utils.types.encrypted.encrypted_type import FernetEngine
 
 from appkit_commons.configuration.configuration import ReflexConfig
 from appkit_commons.database.entities import Base, get_cipher_key
+from appkit_commons.public_path import public_url
 from appkit_commons.registry import service_registry
 
 logger = logging.getLogger(__name__)
@@ -133,8 +134,7 @@ class GeneratedImageModel(BaseModel):
     @property
     def image_url(self) -> str:
         """Generate the API URL to download the image."""
-        base_url = get_image_api_base_url()
-        return f"{base_url}/api/images/{self.id}"
+        return public_url(get_image_api_base_url(), f"/api/images/{self.id}")
 
 
 class ImageResponseState(StrEnum):

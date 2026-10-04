@@ -22,6 +22,9 @@ config = rx.Config(
     frontend_port=reflex.frontend_port if reflex else 8080,
     backend_port=reflex.backend_port if reflex else 3030,
     gunicorn_workers=reflex.workers if reflex else 1,
+    # One setting: Reflex serves the app below it, and appkit derives links,
+    # redirects, route checks, cookie name and storage keys from it.
+    frontend_path=reflex.frontend_path if reflex else "",
     db_url=database.url,
     async_db_url=database.url,
     telemetry_enabled=False,

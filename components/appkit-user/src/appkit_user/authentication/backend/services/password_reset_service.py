@@ -179,13 +179,10 @@ class PasswordResetService:
             logger.error("Email service not configured")
             return
 
-        # Must carry the port: on any non-default port a bare server_url yields
-        # a dead link (the OAuth redirect URLs and the email logo_url are built
-        # the same way).
-        base_url = config.server_url
-        if config.server_port:
-            base_url = f"{config.server_url}:{config.server_port}"
-        reset_url = f"{base_url}/password-reset/confirm?token={raw_token}"
+        # public_base_url carries a non-default port and the app path prefix;
+        # without them the link is dead (the OAuth redirect URLs and the email
+        # logo_url are built the same way).
+        reset_url = f"{config.public_base_url}/password-reset/confirm?token={raw_token}"
 
         # If the configured email service is a MockService (e.g. in tests/dev),
         # log the reset URL for debugging purposes.

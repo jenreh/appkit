@@ -12,6 +12,7 @@ from reflex.event import EventSpec
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_commons.public_path import strip_public_prefix
 from appkit_commons.registry import service_registry
 from appkit_user.authentication.backend.database import (
     OAuthStateEntity,
@@ -58,13 +59,27 @@ AUTH_TOKEN_REFRESH_DELTA: Final = timedelta(
     minutes=_auth_config().auth_token_refresh_delta
 )
 # Same reason: rx.Cookie() is evaluated at class-definition time.
-SESSION_COOKIE_NAME: Final = _auth_config().session_cookie_name
+SESSION_COOKIE_NAME: Final = _auth_config().effective_session_cookie_name
 SESSION_COOKIE_SECURE: Final = _auth_config().session_cookie_secure
-AUTH_TOKEN_LOCAL_STORAGE_KEY: Final = "_auth_token"  # noqa: S105
+
+
+def storage_key(name: str, prefix: str) -> str:
+    """Local storage key of ``name`` for the app with ``prefix``."""
+    return f"{prefix}{name}"
+
+
+# Same reason as SESSION_COOKIE_NAME: rx.LocalStorage() is evaluated at
+# class-definition time, so the export bakes these names into the frontend.
+# Apps sharing one origin share one local storage and need distinct prefixes.
+_STORAGE_KEY_PREFIX: Final = _auth_config().effective_storage_key_prefix
+AUTH_TOKEN_LOCAL_STORAGE_KEY: Final = storage_key("_auth_token", _STORAGE_KEY_PREFIX)
 # The OAuth ``state`` is mirrored into the browser so the callback can prove the
 # flow was started by *this* user agent. The router's ``client_token`` is not
 # usable for that: it is regenerated across the provider redirect.
-OAUTH_STATE_LOCAL_STORAGE_KEY: Final = "_oauth_state"  # noqa: S105
+OAUTH_STATE_LOCAL_STORAGE_KEY: Final = storage_key("_oauth_state", _STORAGE_KEY_PREFIX)
+LOGIN_REDIRECT_LOCAL_STORAGE_KEY: Final = storage_key(
+    "login_redirect_to", _STORAGE_KEY_PREFIX
+)
 
 TOKEN_LENGTH: Final = 64
 TOKEN_CHARS: Final = string.ascii_letters + string.digits + "!@#$%^&*()-=_+[]{}|;:,.<>?"
@@ -327,7 +342,7 @@ class UserSession(rx.State):
 class LoginState(UserSession):
     """Simple authentication state."""
 
-    redirect_to: str = rx.LocalStorage(name="login_redirect_to")
+    redirect_to: str = rx.LocalStorage(name=LOGIN_REDIRECT_LOCAL_STORAGE_KEY)
     oauth_state: str = rx.LocalStorage(name=OAUTH_STATE_LOCAL_STORAGE_KEY)
     homepage: str = "/"
     login_route: str = LOGIN_ROUTE
@@ -576,7 +591,7 @@ class LoginState(UserSession):
         if not self.is_hydrated:
             return LoginState.redir()  # type: ignore[operator, no-any-return]
 
-        path = self.router.url.path
+        path = strip_public_prefix(self.router.url.path)
         is_auth = await self.is_authenticated
 
         logger.debug("Redir check: auth=%s, path=%s", is_auth, path)

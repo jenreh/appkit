@@ -13,10 +13,12 @@ from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI, HTTPException
+from reflex.config import get_config
 from starlette.requests import Request
 from starlette.testclient import TestClient
 from starlette.types import Receive, Scope, Send
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_user.authentication import http_guard
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.session_validation import (
@@ -313,6 +315,94 @@ async def test_head_request_is_guarded(
 # ---------------------------------------------------------------------------
 # add_session_guard
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# SessionGuardMiddleware — mount mode (backend_path) and public prefix
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def knai_mount(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(get_config(), "backend_path", "/knai")
+
+
+@pytest.mark.usefixtures("knai_mount")
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/knai/ping",
+        "/knai/_health",
+        "/knai/_event/x",
+        "/knai/api/x",
+        "/knai/assets/a.js",
+        "/knai/login",
+    ],
+)
+@pytest.mark.asyncio
+async def test_mounted_framework_paths_pass_through(
+    path: str,
+    guard: http_guard.SessionGuardMiddleware,
+    inner: _StubApp,
+    validator: _StubValidator,
+) -> None:
+    sent = await _drive(guard, _http_scope(path))
+
+    assert inner.called == 1
+    assert _start(sent)["status"] == 200
+    assert validator.calls == []
+
+
+@pytest.mark.usefixtures("knai_mount")
+@pytest.mark.parametrize("path", ["/knai/admin", "/knai", "/knaix/ping"])
+@pytest.mark.asyncio
+async def test_mounted_page_is_guarded(
+    path: str,
+    guard: http_guard.SessionGuardMiddleware,
+    inner: _StubApp,
+    validator: _StubValidator,
+) -> None:
+    sent = await _drive(guard, _http_scope(path))
+
+    assert _start(sent)["status"] == 302
+    assert inner.called == 0
+
+
+@pytest.mark.parametrize(
+    ("path", "guarded"), [("/knai/login", False), ("/knai/profile", True)]
+)
+@pytest.mark.asyncio
+async def test_prefixed_page_paths_single_port(
+    path: str,
+    guarded: bool,
+    monkeypatch: pytest.MonkeyPatch,
+    guard: http_guard.SessionGuardMiddleware,
+    inner: _StubApp,
+    validator: _StubValidator,
+) -> None:
+    """Single-port prod with frontend_path serves pages under the prefix."""
+    set_public_path_prefix(monkeypatch, "/knai")
+
+    sent = await _drive(guard, _http_scope(path))
+
+    assert (_start(sent)["status"] == 302) is guarded
+    assert inner.called == (0 if guarded else 1)
+
+
+@pytest.mark.asyncio
+async def test_redirect_carries_public_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+    guard: http_guard.SessionGuardMiddleware,
+    inner: _StubApp,
+    validator: _StubValidator,
+) -> None:
+    set_public_path_prefix(monkeypatch, "/knai")
+
+    sent = await _drive(guard, _http_scope("/admin"))
+
+    assert _start(sent)["status"] == 302
+    assert _headers(sent)["location"] == "/knai/login"
+    assert inner.called == 0
 
 
 def test_add_session_guard_wraps_the_app(inner: _StubApp) -> None:

@@ -107,7 +107,7 @@ def safe_redirect_path(path: str) -> str:
 
 def session_cookie_name() -> str:
     """Name of the cookie mirroring the auth token."""
-    return _auth_config().session_cookie_name
+    return _auth_config().effective_session_cookie_name
 
 
 def is_session_filter_enabled() -> bool:

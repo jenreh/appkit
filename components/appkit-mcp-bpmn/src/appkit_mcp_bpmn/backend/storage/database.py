@@ -3,6 +3,7 @@
 import logging
 
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_commons.public_path import public_path
 from appkit_mcp_bpmn.backend.repository import bpmn_diagram_repo
 from appkit_mcp_bpmn.backend.storage.base import DiagramInfo, StorageBackend
 
@@ -44,8 +45,8 @@ class DatabaseStorageBackend(StorageBackend):
         logger.info("DatabaseStorageBackend.save committed: %s", diagram_id)
         return DiagramInfo(
             id=diagram_id,
-            download_url=_DOWNLOAD_URL_TEMPLATE.format(id=diagram_id),
-            view_url=_VIEW_URL_TEMPLATE.format(id=diagram_id),
+            download_url=public_path(_DOWNLOAD_URL_TEMPLATE.format(id=diagram_id)),
+            view_url=public_path(_VIEW_URL_TEMPLATE.format(id=diagram_id)),
         )
 
     async def load(self, diagram_id: str, user_id: int) -> str | None:

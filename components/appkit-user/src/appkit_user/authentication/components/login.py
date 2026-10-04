@@ -2,9 +2,9 @@ import logging
 from typing import Any
 
 import reflex as rx
-from reflex.config import get_config
 
 import appkit_mantine as mn
+from appkit_commons.public_path import public_path
 from appkit_user.authentication.components.components import themed_logo
 from appkit_user.authentication.states import LoginState
 from appkit_user.configuration import OAuthProvider
@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 def _icon_src(name: str) -> str:
-    """Icon URL honoring frontend_path, so it resolves below the site root."""
-    return get_config().prepend_frontend_path(f"/icons/{name}")
+    """Icon URL with the app path prefix, so it resolves below the site root."""
+    return public_path(f"/icons/{name}")
 
 
 def oauth_button(
@@ -55,8 +55,8 @@ def oauth_login_splash(
         mn.card(
             mn.stack(
                 themed_logo(
-                    light=logo,
-                    dark=logo_dark,
+                    light=public_path(logo),
+                    dark=public_path(logo_dark),
                     w="180px",
                     style={"margin_left": "0px", "object_fit": "contain"},
                 ),
