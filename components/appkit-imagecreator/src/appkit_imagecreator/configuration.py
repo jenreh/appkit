@@ -1,4 +1,5 @@
 from appkit_commons.configuration.base import BaseConfig
+from appkit_commons.public_path import public_path
 
 
 class ImageGeneratorConfig(BaseConfig):
@@ -44,3 +45,11 @@ styles_preset = {
         "prompt": "## Style hints: low-poly isometric 3D render; clean geometric forms; flat shading; minimal polygon count; real-time engine quality; simple white background",  # noqa: E501
     },
 }
+
+
+def prefixed_styles(presets: dict[str, dict[str, str]]) -> dict[str, dict[str, str]]:
+    """Copy of ``presets`` whose preview paths carry the app path prefix."""
+    return {
+        name: {**info, "path": public_path(info["path"])} if "path" in info else info
+        for name, info in presets.items()
+    }

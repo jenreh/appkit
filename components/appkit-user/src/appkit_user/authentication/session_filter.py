@@ -57,6 +57,7 @@ from reflex.state import (
 )
 from reflex_base.event import Event
 
+from appkit_commons.public_path import strip_public_prefix
 from appkit_user.authentication.session_validation import (
     LOGIN_ROUTE,
     SessionStatus,
@@ -192,7 +193,7 @@ class SessionFilter(Middleware):
         # while the visitor is still unauthenticated. NOTE this path comes from
         # the client's own `asPath` and is therefore spoofable — see the THREAT
         # MODEL section of the module docstring.
-        path = state.router.url.path
+        path = strip_public_prefix(state.router.url.path)
         if is_public_route(path):
             return None
 

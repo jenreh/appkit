@@ -23,6 +23,7 @@ import reflex as rx
 from PIL import Image
 
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_commons.public_path import public_path
 from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.models import (
     GeneratedImage,
@@ -33,7 +34,7 @@ from appkit_imagecreator.backend.models import (
     ImageResponseState,
 )
 from appkit_imagecreator.backend.repository import image_repo
-from appkit_imagecreator.configuration import styles_preset
+from appkit_imagecreator.configuration import prefixed_styles, styles_preset
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
@@ -110,7 +111,7 @@ class ImageGalleryState(rx.State):
     # Style selection
     selected_style: str = ""
     style_popup_open: bool = False
-    styles_preset: dict[str, dict[str, str]] = styles_preset
+    styles_preset: dict[str, dict[str, str]] = prefixed_styles(styles_preset)
 
     # Config popup state
     config_popup_open: bool = False
@@ -476,8 +477,8 @@ class ImageGalleryState(rx.State):
         style_data = self.styles_preset.get(self.selected_style, {})
         path = style_data.get("path", "")
         if path and not path.startswith(("http", "/")):
-            return f"/{path}"
-        return path
+            path = f"/{path}"
+        return public_path(path)
 
     @rx.event
     def set_selected_size(self, size_label: str) -> None:

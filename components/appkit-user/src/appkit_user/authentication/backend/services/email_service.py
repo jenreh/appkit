@@ -77,9 +77,7 @@ class EmailProviderBase(ABC):
             config: AuthenticationConfiguration = service_registry().get(
                 AuthenticationConfiguration
             )
-            logo_url = config.server_url
-            if config.server_port and config.server_port != 0:
-                logo_url = f"{config.server_url}:{config.server_port}"
+            logo_url = config.public_base_url
             html_body = self._render_template(
                 template_file,
                 reset_url=reset_link,

@@ -148,6 +148,7 @@ Each package has its own `conftest.py` with specialized fixtures:
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 @pytest.mark.asyncio
 async def test_create_user(async_session: AsyncSession, user_factory):
     # Arrange
@@ -166,6 +167,7 @@ async def test_create_user(async_session: AsyncSession, user_factory):
 ```python
 import pytest
 
+
 @pytest.mark.asyncio
 async def test_get_nonexistent_user_raises(user_repository, async_session):
     # Act & Assert
@@ -178,6 +180,7 @@ async def test_get_nonexistent_user_raises(user_repository, async_session):
 ```python
 import responses
 
+
 @responses.activate
 def test_oauth_fetch_user():
     # Arrange
@@ -185,7 +188,7 @@ def test_oauth_fetch_user():
         responses.GET,
         "https://api.github.com/user",
         json={"id": 123, "email": "user@example.com"},
-        status=200
+        status=200,
     )
 
     # Act
@@ -199,6 +202,7 @@ def test_oauth_fetch_user():
 
 ```python
 from faker import Faker
+
 
 def test_with_fake_data(faker_instance: Faker):
     # Arrange
@@ -231,6 +235,7 @@ async def test_session_context_manager(async_session_factory):
 
 ```python
 import logging
+
 
 def test_with_logs(captured_logs):
     # Arrange
@@ -270,6 +275,7 @@ test_user_repository.py
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 class TestUserRepository:
     """Test suite for UserRepository CRUD operations."""
 
@@ -280,7 +286,9 @@ class TestUserRepository:
         pass
 
     @pytest.mark.asyncio
-    async def test_create_user_duplicate_email_raises(self, async_session: AsyncSession):
+    async def test_create_user_duplicate_email_raises(
+        self, async_session: AsyncSession
+    ):
         """Creating a user with duplicate email raises IntegrityError."""
         # Test implementation
         pass
@@ -320,7 +328,9 @@ pytest -x
 
 ```python
 def test_debug_example():
-    import pdb; pdb.set_trace()  # Breakpoint
+    import pdb
+
+    pdb.set_trace()  # Breakpoint
     # Or use pytest's breakpoint()
     breakpoint()
 ```
@@ -331,6 +341,7 @@ def test_debug_example():
 @pytest.mark.asyncio
 async def test_async_debug():
     import asyncio
+
     # Use logging instead of print for async
     logger.debug("Current state: %s", some_variable)
 ```

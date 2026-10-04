@@ -3,6 +3,8 @@ import logging
 from pydantic import BaseModel, Field
 from starlette.requests import Request
 
+from appkit_commons.public_path import default_session_cookie_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -19,17 +21,19 @@ def get_user_context_default() -> UserContext:
     return UserContext(user_id=-1, is_admin=False, roles=[])
 
 
-def extract_session_id(request: Request) -> str | None:
-    """Extract reflex_session cookie from the HTTP request.
+def extract_session_id(request: Request, cookie_name: str = "") -> str | None:
+    """Extract the session cookie from the HTTP request.
 
     Args:
         request: Starlette request injected via ``CurrentRequest()``.
+        cookie_name: The session cookie name; "" uses the name derived from
+            the app path prefix, like appkit-user's default.
 
     Returns:
         Session ID string or None.
     """
     if hasattr(request, "cookies"):
-        return request.cookies.get("reflex_session")
+        return request.cookies.get(cookie_name or default_session_cookie_name())
 
     return None
 

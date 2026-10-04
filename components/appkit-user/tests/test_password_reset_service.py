@@ -14,12 +14,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_user.authentication.backend.services.password_reset_service import (
     ConfirmResetOutcome,
     PasswordResetService,
     RequestResetOutcome,
     get_password_reset_service,
 )
+from appkit_user.configuration import AuthenticationConfiguration
 
 _PATCH = "appkit_user.authentication.backend.services.password_reset_service"
 
@@ -39,6 +41,7 @@ def _mock_config(
     cfg.password_reset.max_requests_per_hour = max_requests
     cfg.password_reset.token_expiry_minutes = token_expiry
     cfg.server_url = server_url
+    cfg.public_base_url = server_url
     return cfg
 
 
@@ -144,6 +147,33 @@ class TestRequestReset:
         assert "RAW-TOKEN-123" in kwargs["reset_link"]
         assert kwargs["user_name"] == "TestUser"
         db.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_reset_link_drops_default_port(self) -> None:
+        config = AuthenticationConfiguration(server_url="https://x", server_port=443)
+        email_svc = AsyncMock()
+        email_svc.send_password_reset_email = AsyncMock(return_value=True)
+        with patch(f"{_PATCH}.get_email_service", return_value=email_svc):
+            await PasswordResetService()._send_reset_email(  # noqa: SLF001
+                config, "user@example.com", "T", "Name", 1
+            )
+        _, kwargs = email_svc.send_password_reset_email.call_args
+        assert kwargs["reset_link"] == "https://x/password-reset/confirm?token=T"
+
+    @pytest.mark.asyncio
+    async def test_reset_link_carries_public_prefix(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        set_public_path_prefix(monkeypatch, "/knai")
+        config = AuthenticationConfiguration(server_url="https://x", server_port=443)
+        email_svc = AsyncMock()
+        email_svc.send_password_reset_email = AsyncMock(return_value=True)
+        with patch(f"{_PATCH}.get_email_service", return_value=email_svc):
+            await PasswordResetService()._send_reset_email(  # noqa: SLF001
+                config, "user@example.com", "T", "Name", 1
+            )
+        _, kwargs = email_svc.send_password_reset_email.call_args
+        assert kwargs["reset_link"] == "https://x/knai/password-reset/confirm?token=T"
 
     @pytest.mark.asyncio
     async def test_success_when_email_send_fails(self) -> None:

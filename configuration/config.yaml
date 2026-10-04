@@ -35,7 +35,6 @@ app:
     session_monitor_interval_seconds: 60 # seconds
 
     session_filter_enabled: true # guard WS events, page loads and REST routes
-    session_cookie_name: reflex_session
     session_cookie_secure: false # dev serves plain http on a non-localhost host
     # fnmatch glob allowlist of routes reachable without a session.
     # Everything not listed here is default-deny.
@@ -51,7 +50,7 @@ app:
       - provider: "github"
         client_id: secret:mn-oauth-github-client-id
         client_secret: secret:mn-oauth-github-client-secret
-        redirect_url: http://localhost:8080/oauth/github/callback
+        # redirect_url: defaults to <public_base_url>/oauth/github/callback,
 
     # Email provider for password reset (mock for local development)
     email_provider:

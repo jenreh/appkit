@@ -5,6 +5,7 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_assistant.roles import ASSISTANT_ADMIN_ROLE
 from appkit_commons.configuration.configuration import Environment
+from appkit_commons.public_path import public_path
 from appkit_commons.registry import service_registry
 from appkit_imagecreator.roles import IMAGE_GEN_ADMIN_ROLE
 from appkit_user.authentication.components.components import requires_role
@@ -41,12 +42,12 @@ def navbar_header() -> rx.Component:
     return mn.stack(
         rx.color_mode_cond(
             rx.image(
-                "/img/appkit_logo.svg",
+                public_path("/img/appkit_logo.svg"),
                 class_name="h-[60px]",
                 margin="1em 0 1em -9px",
             ),
             rx.image(
-                "/img/appkit_logo_dark.svg",
+                public_path("/img/appkit_logo_dark.svg"),
                 class_name="h-[60px]",
                 margin="1em 0 1em -9px",
             ),

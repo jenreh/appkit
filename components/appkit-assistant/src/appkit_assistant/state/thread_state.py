@@ -62,7 +62,10 @@ from appkit_assistant.state.thread.message_processing import (
 from appkit_assistant.state.thread.model_selection import (
     ModelSelectionMixin,
 )
-from appkit_assistant.state.thread.oauth import OAuthMixin
+from appkit_assistant.state.thread.oauth import (
+    MCP_OAUTH_RESULT_STORAGE_KEY,
+    OAuthMixin,
+)
 from appkit_assistant.state.thread.skills import SkillsMixin
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_commons.registry import service_registry
@@ -145,7 +148,7 @@ class ThreadState(
     pending_auth_url: str = ""
     show_auth_card: bool = False
     pending_oauth_message: str = ""
-    oauth_result: str = rx.LocalStorage(name="mcp-oauth-result", sync=True)
+    oauth_result: str = rx.LocalStorage(name=MCP_OAUTH_RESULT_STORAGE_KEY, sync=True)
 
     # Command palette state
     show_command_palette: bool = False
@@ -321,13 +324,13 @@ class ThreadState(
         Only initializes once per user session. Resets when user
         changes.
         """
-        logger.warning("ThreadState.initialize() called!")
+        logger.debug("Initializing thread state")
         user_session: UserSession = await self.get_state(UserSession)
         user = await user_session.authenticated_user
         current_user_id = str(user.user_id) if user else ""
 
         self._setup_models(user)
-        logger.warning("Models setup complete. Has models: %d", len(self.ai_models))
+        logger.debug("Models setup complete. Has models: %d", len(self.ai_models))
 
         if self._initialized and self._current_user_id == current_user_id:
             logger.debug(

@@ -34,11 +34,11 @@
     "dayjs": "1.11.19",
     "embla-carousel-react": "^8.3.0",
     "isbot": "5.2.2",
-    "katex": "0.18.4",
+    "katex": "0.19.0",
     "lucide-react": "1.26.0",
     "maplibre-gl": "^6.6.0",
     "mergician": "v2.0.2",
-    "mermaid": "^11.0.0",
+    "mermaid": "^12.1.0",
     "react": "19.2.8",
     "react-debounce-input": "3.3.0",
     "react-dom": "19.2.8",
@@ -67,6 +67,7 @@
     "vite": "8.2.2"
   },
   "overrides": {
-    "postcss": "8.5.23"
+    "postcss": "8.5.23",
+    "react-dropzone": "20.1.2"
   }
 }

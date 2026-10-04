@@ -21,6 +21,7 @@ from _auth_state_stubs import (
     _user_entity,
 )
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_user.authentication.session_validation import (
     SessionStatus,
     SessionValidationResult,
@@ -463,6 +464,26 @@ class TestRedir:
 
         assert state.redirect_to == "/dashboard"
         assert result is not None  # redirect to login
+
+    @pytest.mark.asyncio
+    async def test_not_authenticated_under_prefix(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        set_public_path_prefix(monkeypatch, "/knai")
+
+        async def _not_auth():
+            return False
+
+        at_login = _StubLoginState()
+        at_login.router.url.path = "/knai/login"
+        at_login.is_authenticated = _not_auth()
+        assert await at_login.redir() is None
+
+        elsewhere = _StubLoginState()
+        elsewhere.router.url.path = "/knai/dashboard"
+        elsewhere.is_authenticated = _not_auth()
+        assert await elsewhere.redir() is not None
+        assert elsewhere.redirect_to == "/dashboard"
 
     @pytest.mark.asyncio
     async def test_not_authenticated_at_login_route(self) -> None:

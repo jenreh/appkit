@@ -79,7 +79,7 @@ generate_image(
     prompt="A serene mountain landscape at sunset with golden light reflecting off a lake",
     size="1536x1024",
     output_format="png",
-    enhance_prompt=True
+    enhance_prompt=True,
 )
 ```
 
@@ -105,7 +105,7 @@ edit_image(
     prompt="Add a vibrant rainbow across the sky",
     image_paths=["https://example.com/landscape.jpg"],
     mask_path="https://example.com/sky_mask.png",
-    output_format="png"
+    output_format="png",
 )
 ```
 

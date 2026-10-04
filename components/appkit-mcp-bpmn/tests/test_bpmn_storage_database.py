@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_mcp_bpmn.backend.storage.base import DiagramInfo
 from appkit_mcp_bpmn.backend.storage.database import DatabaseStorageBackend
 
@@ -77,3 +78,22 @@ async def test_database_delete_older_than_days(
 
     assert count == 5
     mock_repo.soft_delete_older_than_days.assert_awaited_once_with(mock_session_ctx, 90)
+
+
+@pytest.mark.asyncio
+@patch("appkit_mcp_bpmn.backend.storage.database.bpmn_diagram_repo")
+@patch("appkit_mcp_bpmn.backend.storage.database.get_asyncdb_session")
+async def test_database_save_urls_carry_public_prefix(
+    mock_session,
+    mock_repo,
+    db_backend: DatabaseStorageBackend,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    set_public_path_prefix(monkeypatch, "/knai")
+    mock_session.return_value.__aenter__.return_value = AsyncMock()
+    mock_repo.save_diagram = AsyncMock()
+
+    info = await db_backend.save(SAMPLE_XML, "prompt", USER_ID, DIAGRAM_ID)
+
+    assert info.download_url == f"/knai/api/bpmn/diagrams/{DIAGRAM_ID}/xml"
+    assert info.view_url == f"/knai/api/bpmn/diagrams/{DIAGRAM_ID}/view"

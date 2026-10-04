@@ -491,7 +491,7 @@ mn.data_list(
         mn.data_list.item_label("Email"),
         mn.data_list.item_value("jane@example.com"),
     ),
-    orientation="horizontal",   # or "vertical"
+    orientation="horizontal",  # or "vertical"
     with_divider=True,
     label_width=120,
 )

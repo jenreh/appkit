@@ -78,6 +78,7 @@ class OAuthService:
 
         self.server_url = config.server_url
         self.server_port = config.server_port
+        self.public_base_url = config.public_base_url
         self.github_config = None  # type: ignore[assignment]
         self.azure_config = None  # type: ignore[assignment]
         self.google_config = None  # type: ignore[assignment]
@@ -113,7 +114,7 @@ class OAuthService:
 
         if provider_config.redirect_url is None:
             provider_config.redirect_url = (
-                f"{self.server_url}:{self.server_port}/oauth/{provider_key}/callback"
+                f"{self.public_base_url}/oauth/{provider_key}/callback"
             )
 
         if provider_key == OAuthProvider.AZURE.value and isinstance(
@@ -272,7 +273,7 @@ class OAuthService:
         )
         return (
             config.redirect_url
-            or f"{self.server_url}:{self.server_port}/oauth/{provider_value}/callback"
+            or f"{self.public_base_url}/oauth/{provider_value}/callback"
         )
 
     def exchange_code_for_token(
