@@ -35,12 +35,14 @@ async def get_image(
 
     Raises:
         HTTPException: 401 without a valid session, 404 if the image
-            is not found.
+            is not found or not owned by the user.
     """
     logger.debug("Serving image %d to user %d", image_id, user.user_id)
 
     async with get_asyncdb_session() as session:
-        result = await image_repo.find_image_data(session, image_id)
+        result = await image_repo.find_image_data(
+            session, image_id, user_id=user.user_id
+        )
 
     if result is None:
         logger.warning("Image not found: %d", image_id)

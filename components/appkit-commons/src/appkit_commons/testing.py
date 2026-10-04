@@ -83,6 +83,14 @@ try:
 except ImportError:
     pass
 
+
+def set_public_path_prefix(monkeypatch: pytest.MonkeyPatch, prefix: str) -> None:
+    """Serve the app below ``prefix`` for one test ("" for the site root)."""
+    from reflex.config import get_config  # noqa: PLC0415
+
+    monkeypatch.setattr(get_config(), "frontend_path", prefix)
+
+
 # ============================================================================
 # Pytest Configuration
 # ============================================================================

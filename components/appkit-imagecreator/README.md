@@ -72,7 +72,7 @@ config = ImageGeneratorConfig(
     google_api_key="secret:google_api_key",
     openai_api_key="secret:openai_api_key",
     blackforestlabs_api_key="secret:blackforestlabs_api_key",
-    tmp_dir="./generated_images"  # Optional: custom temp directory
+    tmp_dir="./generated_images",  # Optional: custom temp directory
 )
 ```
 
@@ -94,7 +94,7 @@ input_data = GenerationInput(
     height=1024,
     negative_prompt="blurry, low quality",
     steps=4,
-    enhance_prompt=True
+    enhance_prompt=True,
 )
 
 # Generate image
@@ -153,13 +153,13 @@ from appkit_imagecreator.backend.models import GenerationInput
 
 input_data = GenerationInput(
     prompt="A cyberpunk city at night with neon lights",
-    width=1024,      # Image width
-    height=1024,     # Image height
+    width=1024,  # Image width
+    height=1024,  # Image height
     negative_prompt="blurry, distorted, ugly",  # What to avoid
-    steps=4,         # Generation steps (higher = better quality)
-    n=1,            # Number of images to generate
-    seed=42,        # Random seed for reproducible results
-    enhance_prompt=True  # Use AI to improve the prompt
+    steps=4,  # Generation steps (higher = better quality)
+    n=1,  # Number of images to generate
+    seed=42,  # Random seed for reproducible results
+    enhance_prompt=True,  # Use AI to improve the prompt
 )
 ```
 
@@ -168,7 +168,13 @@ input_data = GenerationInput(
 Implement your own image generator:
 
 ```python
-from appkit_imagecreator.backend.models import ImageGenerator, GenerationInput, ImageGeneratorResponse, ImageResponseState
+from appkit_imagecreator.backend.models import (
+    ImageGenerator,
+    GenerationInput,
+    ImageGeneratorResponse,
+    ImageResponseState,
+)
+
 
 class CustomGenerator(ImageGenerator):
     def __init__(self, api_key: str, backend_server: str):
@@ -177,19 +183,21 @@ class CustomGenerator(ImageGenerator):
             label="Custom Generator",
             model="custom-model",
             api_key=api_key,
-            backend_server=backend_server
+            backend_server=backend_server,
         )
 
-    async def _perform_generation(self, input_data: GenerationInput) -> ImageGeneratorResponse:
+    async def _perform_generation(
+        self, input_data: GenerationInput
+    ) -> ImageGeneratorResponse:
         # Your generation logic here
         # Save image to temp and return URL
         image_url = await self._save_image_to_tmp_and_get_url(
             image_bytes, "custom", "png"
         )
         return ImageGeneratorResponse(
-            state=ImageResponseState.SUCCEEDED,
-            images=[image_url]
+            state=ImageResponseState.SUCCEEDED, images=[image_url]
         )
+
 
 # Register your generator
 generator_registry.register(CustomGenerator(api_key, backend_server))
@@ -217,10 +225,11 @@ from appkit_imagecreator.components.images import image_grid
 from appkit_imagecreator.components.prompt import prompt_input_bar
 from appkit_imagecreator.components.history import history_drawer
 
+
 def custom_layout():
     return rx.box(
-        image_grid(),      # Image display grid
-        prompt_input_bar(), # Floating generation controls
+        image_grid(),  # Image display grid
+        prompt_input_bar(),  # Floating generation controls
         history_drawer(),  # Sidebar history
     )
 ```
@@ -237,11 +246,11 @@ Configure API keys and settings:
 from appkit_imagecreator.configuration import ImageGeneratorConfig
 
 config = ImageGeneratorConfig(
-    google_api_key="secret:google_gemini_key", # For Nano Banana (Gemini) models
-    openai_api_key="secret:openai_key", # For Azure GPT-Image models
-    blackforestlabs_api_key="secret:bfl_key", # For Azure Flux models
+    google_api_key="secret:google_gemini_key",  # For Nano Banana (Gemini) models
+    openai_api_key="secret:openai_key",  # For Azure GPT-Image models
+    blackforestlabs_api_key="secret:bfl_key",  # For Azure Flux models
     openai_base_url="https://api.openai.com/v1",  # Optional custom endpoint
-    tmp_dir="./tmp/images"  # Temp directory for generated images
+    tmp_dir="./tmp/images",  # Temp directory for generated images
 )
 ```
 
@@ -339,6 +348,7 @@ Restrict image generation to authenticated users:
 from appkit_user import authenticated, requires_role
 from appkit_imagecreator.pages import image_generator_page
 
+
 @authenticated()
 @requires_role("image_generator")
 def protected_image_page():
@@ -355,7 +365,9 @@ class CustomGenerator(OpenAIImageGenerator):
         # Your custom enhancement logic
         enhanced = await self.client.chat.completions.create(
             model="gpt-4",
-            messages=[{"role": "user", "content": f"Enhance this image prompt: {prompt}"}]
+            messages=[
+                {"role": "user", "content": f"Enhance this image prompt: {prompt}"}
+            ],
         )
         return enhanced.choices[0].message.content
 ```

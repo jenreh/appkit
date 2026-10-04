@@ -446,9 +446,9 @@ mn.floating_window(
         "minHeight": 220,
         "maxHeight": 400,
     },
-    on_size_change=State.handle_size,      # payload: {"width": .., "height": ..}
+    on_size_change=State.handle_size,  # payload: {"width": .., "height": ..}
     on_resize_start=State.resize_started,  # no payload
-    on_resize_end=State.resize_ended,      # no payload
+    on_resize_end=State.resize_ended,  # no payload
 )
 ```
 
@@ -494,7 +494,7 @@ mn.splitter(
     mn.splitter.pane("Left", default_size="40%", min="20%"),
     mn.splitter.pane("Right", min="20%"),
     with_handle=True,
-    reset_on_double_click=True,   # 9.4 — double-click restores default ratio
+    reset_on_double_click=True,  # 9.4 — double-click restores default ratio
     h="220px",
 )
 

@@ -1,9 +1,11 @@
 """Tests for OAuthService."""
 
 from unittest.mock import MagicMock, Mock, patch
+from urllib.parse import urlparse
 
 import pytest
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_user.authentication.backend.services import (
     OAuthService,
     generate_pkce_pair,
@@ -89,6 +91,7 @@ class TestOAuthService:
 
     def test_oauth_service_initialization(self, oauth_service: OAuthService) -> None:
         """OAuthService initializes correctly with config and providers."""
+        assert oauth_service.public_base_url == "http://localhost:3000"
         assert oauth_service.server_url == "http://localhost"
         assert oauth_service.server_port == 3000
         assert oauth_service.github_enabled is True
@@ -271,7 +274,7 @@ class TestOAuthService:
 
         auth_url, state, code_verifier = oauth_service.get_auth_url(OAuthProvider.AZURE)
 
-        assert "https://login.microsoftonline.com" in auth_url
+        assert urlparse(auth_url).hostname == "login.microsoftonline.com"
         assert isinstance(state, str)
         assert code_verifier == "verifier123"
 
@@ -295,6 +298,37 @@ class TestOAuthService:
     ) -> None:
         """get_redirect_url returns correct redirect URL."""
         assert oauth_service.get_redirect_url(provider) == expected_url
+
+    def test_derived_redirect_url_drops_default_port(self) -> None:
+        config = AuthenticationConfiguration(
+            server_url="https://x",
+            server_port=443,
+            oauth_providers=[
+                GithubOAuthConfig(client_id="id", client_secret="secret")  # noqa: S106
+            ],
+        )
+        service = OAuthService(config=config)
+        expected = "https://x/oauth/github/callback"
+        assert service.github_config.redirect_url == expected
+        service.github_config.redirect_url = None
+        assert service.get_redirect_url(OAuthProvider.GITHUB) == expected
+
+    def test_derived_redirect_url_carries_public_prefix(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        set_public_path_prefix(monkeypatch, "/alloq")
+        config = AuthenticationConfiguration(
+            server_url="https://x",
+            server_port=443,
+            oauth_providers=[
+                GithubOAuthConfig(client_id="id", client_secret="secret")  # noqa: S106
+            ],
+        )
+        service = OAuthService(config=config)
+        expected = "https://x/alloq/oauth/github/callback"
+        assert service.github_config.redirect_url == expected
+        service.github_config.redirect_url = None
+        assert service.get_redirect_url(OAuthProvider.GITHUB) == expected
 
     @patch("appkit_user.authentication.backend.services.oauth_service.OAuth2Session")
     def test_exchange_code_for_token_github(

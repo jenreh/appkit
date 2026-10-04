@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_imagecreator.backend.models import (
     GeneratedImageData,
     ImageGeneratorResponse,
@@ -126,6 +127,38 @@ class TestGenerateImageImpl:
 
         assert image_url == "http://localhost:3031/api/images/99"
         assert enhanced_prompt == "Refined cat prompt"
+
+    @pytest.mark.asyncio
+    async def test_url_ignores_frontend_path(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        set_public_path_prefix(monkeypatch, "/knai")
+        generator = _mock_generator()
+        generator.generate.return_value = ImageGeneratorResponse(
+            state=ImageResponseState.SUCCEEDED,
+            generated_images=[
+                GeneratedImageData(image_bytes=b"x", content_type="image/png")
+            ],
+        )
+        mock_session, mock_create = _mock_session_context(saved_id=99)
+
+        with (
+            patch(
+                "appkit_mcp_image.backend.image_service.get_asyncdb_session",
+                return_value=mock_session,
+            ),
+            patch("appkit_mcp_image.backend.image_service.image_repo") as mock_repo,
+            patch(
+                "appkit_mcp_image.backend.image_service.get_image_api_base_url",
+                return_value="https://x",
+            ),
+        ):
+            mock_repo.create = AsyncMock(side_effect=mock_create)
+            image_url, _ = await generate_image_impl(
+                GenerationInput(prompt="a cat"), generator, user_id=5
+            )
+
+        assert image_url == "https://x/api/images/99"
 
     @pytest.mark.asyncio
     async def test_failure_raises_value_error(self) -> None:

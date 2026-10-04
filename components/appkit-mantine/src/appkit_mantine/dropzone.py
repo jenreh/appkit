@@ -7,7 +7,7 @@ from reflex.vars.base import Var
 from appkit_mantine.base import MANTINE_VERSION, MantineLayoutComponentBase
 
 DROPZONE_LIBRARY = f"@mantine/dropzone@{MANTINE_VERSION}"
-REACT_DROPZONE_LIBRARY = "react-dropzone@^20.1.1"
+REACT_DROPZONE_LIBRARY = "react-dropzone@15.0.0"
 
 
 class MantineDropzoneBase(MantineLayoutComponentBase):

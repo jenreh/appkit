@@ -52,6 +52,10 @@ class ReflexConfig(BaseConfig):
     default_timeout: int = 300  # seconds
     backend_timeout: int = 180  # seconds
     single_port: bool = False
+    # Path below which the app is served on a shared origin, e.g. "/knai";
+    # "" serves it at the site root. rxconfig.py passes it to Reflex, and
+    # appkit derives its links, cookie name and storage keys from it.
+    frontend_path: str = ""
 
 
 class ApplicationConfig(BaseConfig):

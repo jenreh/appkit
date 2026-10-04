@@ -14,8 +14,12 @@ from appkit_assistant.backend.schemas import MessageType
 from appkit_assistant.backend.services.response_accumulator import (
     ResponseAccumulator,
 )
+from appkit_user.authentication.states import app_storage_key
 
 logger = logging.getLogger(__name__)
+
+# The callback popup writes the result here; ThreadState.oauth_result syncs it.
+MCP_OAUTH_RESULT_STORAGE_KEY = app_storage_key("mcp-oauth-result")
 
 
 class OAuthMixin:
@@ -33,8 +37,7 @@ class OAuthMixin:
         if not self.pending_auth_url:
             return rx.toast.error("Keine Authentifizierungs-URL verfügbar")
 
-        auth_url = self.pending_auth_url
-        auth_url_js = json.dumps(auth_url)
+        auth_url_js = json.dumps(self.pending_auth_url)
         return rx.call_script(
             f"window.open({auth_url_js}, 'mcp_oauth', 'width=600,height=700')"
         )
@@ -115,7 +118,7 @@ class OAuthMixin:
                 yield event
 
         except json.JSONDecodeError:
-            logger.warning("Failed to parse OAuth result: %s", self.oauth_result)
+            logger.warning("Failed to parse OAuth result")
             self.oauth_result = ""
 
     @rx.event

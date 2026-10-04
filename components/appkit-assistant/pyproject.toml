@@ -1,18 +1,18 @@
 [project]
 dependencies = [
-    "anthropic>=1.2.0",
+    "anthropic>=1.11.0",
     "appkit-commons",
     "appkit-mantine",
     "appkit-ui",
     "appkit-user",
-    "google-genai>=2.19.0",
-    "mcp>=1.29.0",
-    "openai>=2.37.0",
-    "reflex>=0.9.5",
+    "google-genai>=2.25.0",
+    "mcp>=2.3.0",
+    "openai>=3.24.0",
+    "reflex>=0.9.12",
     "python-multipart>=0.0.27",
 ]
 name = "appkit-assistant"
-version = "1.14.0"
+version = "1.16.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]

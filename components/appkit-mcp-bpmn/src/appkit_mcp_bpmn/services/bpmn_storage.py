@@ -4,6 +4,8 @@ import logging
 import uuid
 from pathlib import Path
 
+from appkit_commons.public_path import public_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,8 +45,8 @@ def save_diagram(
 
     return {
         "id": diagram_id,
-        "download_url": f"/api/bpmn/diagrams/{diagram_id}/xml",
-        "view_url": f"/api/bpmn/diagrams/{diagram_id}/view",
+        "download_url": public_path(f"/api/bpmn/diagrams/{diagram_id}/xml"),
+        "view_url": public_path(f"/api/bpmn/diagrams/{diagram_id}/view"),
     }
 
 

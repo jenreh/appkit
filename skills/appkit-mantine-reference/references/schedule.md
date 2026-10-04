@@ -150,25 +150,44 @@ and time as **columns**. Each resource is `{id, label}`; events reference a
 resource via `resourceId`.
 
 ```python
-resources = [{"id": "tokyo", "label": "Room: Tokyo"},
-             {"id": "paris", "label": "Room: Paris"}]
-events = [{"id": "1", "title": "Standup", "start": "2026-05-21 09:00:00",
-           "end": "2026-05-21 09:30:00", "resourceId": "tokyo", "color": "blue"}]
+resources = [
+    {"id": "tokyo", "label": "Room: Tokyo"},
+    {"id": "paris", "label": "Room: Paris"},
+]
+events = [
+    {
+        "id": "1",
+        "title": "Standup",
+        "start": "2026-05-21 09:00:00",
+        "end": "2026-05-21 09:30:00",
+        "resourceId": "tokyo",
+        "color": "blue",
+    }
+]
 
 # Unified wrapper (day / week / month switching)
 mn.resources_schedule(
-    resources=resources, events=events,
-    date=State.date, on_date_change=State.set_date,
-    view=State.view, on_view_change=State.set_view,
+    resources=resources,
+    events=events,
+    date=State.date,
+    on_date_change=State.set_date,
+    view=State.view,
+    on_view_change=State.set_view,
     day_view_props={"startTime": "08:00:00", "endTime": "18:00:00"},
 )
 
 # Individual views
-mn.resources_day_view(resources=resources, events=events, date="2026-05-21",
-                      start_time="08:00:00", end_time="18:00:00")
+mn.resources_day_view(
+    resources=resources,
+    events=events,
+    date="2026-05-21",
+    start_time="08:00:00",
+    end_time="18:00:00",
+)
 mn.resources_week_view(resources=resources, events=events, date="2026-05-21")
-mn.resources_month_view(resources=resources, events=events, date="2026-05-21",
-                        with_weekend_days=False)
+mn.resources_month_view(
+    resources=resources, events=events, date="2026-05-21", with_weekend_days=False
+)
 ```
 
 Shared props: `resources`, `events`, `date`, `on_date_change`, `groups`,

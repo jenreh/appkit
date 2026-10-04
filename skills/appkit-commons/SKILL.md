@@ -3,8 +3,10 @@ name: appkit-commons
 description: >
   appkit-commons usage patterns: configuration (YAML profiles, env overrides, secrets),
   service registry, repository pattern, database entities, custom column types
-  (EncryptedString, ArrayType), and scheduler (APScheduler, PGQueuer). Apply automatically
-  when adding new features, services, repositories, scheduled tasks, or configuring
+  (EncryptedString, ArrayType), scheduler (APScheduler, PGQueuer), and serving apps
+  below a shared-origin path prefix (frontend_path, public_path, cookie and storage
+  key prefixes, OAuth redirect URLs). Apply automatically when adding new features,
+  services, repositories, scheduled tasks, links, browser storage, or configuring
   the application stack.
 metadata:
   author: jens-rehpoehler
@@ -57,7 +59,9 @@ from dotenv import load_dotenv
 from myapp.config import configure
 from appkit_commons.configuration.logging import init_logging
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 load_dotenv(override=True)
 configuration = configure()
@@ -138,13 +142,80 @@ port: int = 5432
 name: str = "postgres"
 username: str = "postgres"
 password: SecretStr = SecretStr("postgres")
-encryption_key: SecretStr = SecretStr("")   # required for EncryptedString columns
+encryption_key: SecretStr = SecretStr("")  # required for EncryptedString columns
 pool_size: int = 10
 max_overflow: int = 30
 echo: bool = False
 ssl_mode: str = "disable"
-url_override: str | None = None             # override full URL
+url_override: str | None = None  # override full URL
 ```
+
+### Serving below a path prefix (shared origin)
+
+Several apps can share one origin (e.g. `https://x/knai`, `https://x/alloq`).
+One setting drives it: `reflex.frontend_path`. `rxconfig.py` passes it to
+`rx.Config(frontend_path=...)`. Export and backend must use the same value.
+
+```yaml
+# config.local.yaml
+reflex:
+  frontend_path: /knai   # leave out for the site root
+```
+
+Derived from it automatically:
+
+| What | Site root | Below `/knai` | Override |
+| --- | --- | --- | --- |
+| Session cookie | `reflex_session` | `knai_session` | `authentication.session_cookie_name` |
+| Local storage prefix | `""` | `knai_` | `authentication.storage_key_prefix` |
+| `AuthenticationConfiguration.public_base_url` | `https://x` | `https://x/knai` | `server_url` already ending in `/knai` |
+| OAuth `redirect_url` | `<public_base_url>/oauth/<provider>/callback` | same, carries `/knai` | `oauth_providers[].redirect_url` |
+
+Helpers in `appkit_commons.public_path` (no Reflex import needed by callers):
+
+```python
+from appkit_commons.public_path import (
+    public_path,  # "/img/logo.svg" -> "/knai/img/logo.svg"; URLs unchanged
+    public_url,  # public_url(base, "/api/x") -> "<base>/knai/api/x"
+    strip_public_prefix,  # "/knai/login" -> "/login" (router.url.path carries it)
+    public_prefix,  # "/knai" or ""
+    app_slug,  # "knai" or ""
+)
+from appkit_user.authentication.states import app_storage_key  # "knai_<name>"
+
+rx.image(src=public_path("/img/logo.svg"))
+download_url = public_path(f"/api/bpmn/diagrams/{diagram_id}/xml")
+if strip_public_prefix(self.router.url.path) == "/login":
+    ...
+token: str = rx.LocalStorage(name=app_storage_key("my-key"), sync=True)
+
+rx.link("Login", href="/login")  # app relative: React Router adds the basename
+return rx.redirect("/login")  # same
+```
+
+Rules:
+
+- Page routes in `rx.link(href=...)`, `rx.redirect(...)` and `@rx.page(route=...)`
+  stay app relative. React Router adds the prefix; `public_path()` there doubles it.
+- Everything the browser or server resolves without React Router gets the prefix:
+  asset `src`, raw HTML `href`, HTTP redirects in ASGI middleware, REST/API URLs,
+  URLs handed to JS or external services. Use `public_path()` (path) or
+  `public_url()` (absolute URL).
+- Route checks on `router.url.path` go through `strip_public_prefix()`.
+- Every `rx.LocalStorage` / `rx.SessionStorage` name, every key written from
+  `rx.call_script` JS and every `persist_key` uses `app_storage_key()`. Writer
+  and reader must share one constant.
+- Do not set OAuth `redirect_url` in YAML unless you must; an explicit value is
+  used verbatim and skips the prefix. The provider's registered callback URL
+  must include the prefix (GitHub accepts a subpath of the registered URL, so
+  registering the origin root covers every prefix).
+- Cookie and storage names are fixed at import time and baked into the export.
+  Re-export after changing `frontend_path`. Test them in a fresh interpreter
+  (`subprocess`), not in-process.
+- In-process tests: `appkit_commons.testing.set_public_path_prefix(monkeypatch, "/knai")`.
+- Not prefixable (owned by Reflex / React Router): sessionStorage `token`,
+  localStorage `theme`, `last_compiled_theme`, `react-router-scroll-positions`.
+  Apps sharing one Redis also need distinct `app_name`s or Redis DBs.
 
 ---
 
@@ -158,15 +229,15 @@ from appkit_commons import service_registry
 # Register (in app startup / _initialize_services, in dependency order)
 registry = service_registry()
 registry.register(MyService())
-registry.register_as(MyProtocol, my_impl)   # register under a different type
+registry.register_as(MyProtocol, my_impl)  # register under a different type
 
 # Retrieve (anywhere)
 svc = service_registry().get(MyService)
 config = service_registry().get(MyFeatureConfig)
 
 # Introspect
-registry.has(MyService)           # bool
-registry.list_registered()        # list[type]
+registry.has(MyService)  # bool
+registry.list_registered()  # list[type]
 registry.unregister(MyService)
 ```
 
@@ -179,8 +250,7 @@ class MyService:
     def __init__(self) -> None:
         self._config = service_registry().get(MyFeatureConfig)
 
-    async def do_work(self) -> str:
-        ...
+    async def do_work(self) -> str: ...
 ```
 
 ---
@@ -198,17 +268,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class MyEntityRepository(BaseRepository[MyEntity]):
-
     @property
     def model_class(self) -> type[MyEntity]:
         return MyEntity
 
-    async def find_by_name(
-        self, session: AsyncSession, name: str
-    ) -> MyEntity | None:
-        result = await session.execute(
-            select(MyEntity).where(MyEntity.name == name)
-        )
+    async def find_by_name(self, session: AsyncSession, name: str) -> MyEntity | None:
+        result = await session.execute(select(MyEntity).where(MyEntity.name == name))
         return result.scalar_one_or_none()
 
 
@@ -225,11 +290,11 @@ async with get_asyncdb_session() as session:
     entity = await my_entity_repo.create(session, MyEntity(name="foo"))
 
     # Read
-    item  = await my_entity_repo.find_by_id(session, item_id)
+    item = await my_entity_repo.find_by_id(session, item_id)
     items = await my_entity_repo.find_all(session)
     batch = await my_entity_repo.find_all_by_ids(session, [1, 2, 3])
     exists = await my_entity_repo.exists_by_id(session, item_id)
-    total  = await my_entity_repo.count(session)
+    total = await my_entity_repo.count(session)
 
     # Update
     entity.name = "bar"
@@ -237,7 +302,7 @@ async with get_asyncdb_session() as session:
 
     # Save (create or update based on id)
     entity = await my_entity_repo.save(session, entity)
-    saved  = await my_entity_repo.save_all(session, [e1, e2])
+    saved = await my_entity_repo.save_all(session, [e1, e2])
 
     # Delete
     await my_entity_repo.delete_by_id(session, item_id)
@@ -283,11 +348,14 @@ class MyEntity(Entity, Base):
 ```python
 from appkit_commons.database.entities import EncryptedString, ArrayType
 
+
 class MyEntity(Entity, Base):
     __tablename__ = "my_items"
 
-    secret_field: Mapped[str] = mapped_column(EncryptedString)   # Fernet-encrypted at rest
-    tags: Mapped[list] = mapped_column(ArrayType)                 # native ARRAY (PG) / JSON (SQLite)
+    secret_field: Mapped[str] = mapped_column(
+        EncryptedString
+    )  # Fernet-encrypted at rest
+    tags: Mapped[list] = mapped_column(ArrayType)  # native ARRAY (PG) / JSON (SQLite)
 ```
 
 `EncryptedString` reads cipher key from `DatabaseConfig.encryption_key` at runtime via service registry.
@@ -300,10 +368,12 @@ Never store SQLAlchemy entities in Reflex state — lazy-loaded relationships fa
 ```python
 from pydantic import BaseModel
 
+
 class MyModel(BaseModel):
     id: int
     name: str
     is_active: bool = True
+
 
 # In event handler:
 self.items = [MyModel(**e.to_dict()) for e in entities]
@@ -358,17 +428,18 @@ class NightlyCleanupService(ScheduledService):
 
 ```python
 # Cron — standard cron fields, all optional (default *)
-CronTrigger(hour=2, minute=30)               # daily at 02:30
-CronTrigger(day_of_week="mon", hour=9)       # every Monday 09:00
-CronTrigger(minute="*/15")                   # every 15 minutes
+CronTrigger(hour=2, minute=30)  # daily at 02:30
+CronTrigger(day_of_week="mon", hour=9)  # every Monday 09:00
+CronTrigger(minute="*/15")  # every 15 minutes
 
 # Fixed interval
-IntervalTrigger(minutes=5)                   # every 5 minutes
-IntervalTrigger(hours=1, minutes=30)         # every 90 minutes
+IntervalTrigger(minutes=5)  # every 5 minutes
+IntervalTrigger(hours=1, minutes=30)  # every 90 minutes
 
 # Calendar interval (month/year-aware)
 from appkit_commons.scheduler import CalendarIntervalTrigger
-CalendarIntervalTrigger(months=1, day=1)     # 1st of each month
+
+CalendarIntervalTrigger(months=1, day=1)  # 1st of each month
 ```
 
 ### Register and start
@@ -401,4 +472,9 @@ await scheduler.shutdown()
 | Duplicating CRUD in repos | Use `BaseRepository` built-ins; add only custom query methods |
 | `--autogenerate` for Alembic | Write migrations manually |
 | Hardcoded credentials in YAML | Use `secret:` prefix, resolve via `get_secret()` |
+| Bare `/img/...` asset `src`, API URLs, ASGI redirects | `public_path()` / `public_url()` |
+| `rx.redirect(public_path("/x"))` / `rx.link(href=public_path("/x"))` | App relative `"/x"`; React Router adds the prefix |
+| Literal `rx.LocalStorage(name="...")` or `localStorage.setItem("...")` | `app_storage_key("...")`, one shared constant |
+| Hardcoded OAuth `redirect_url` in `config.yaml` | Leave unset; derived from `public_base_url` |
+| `router.url.path == "/login"` | `strip_public_prefix(router.url.path) == "/login"` |
 | `session.commit()` inside `get_asyncdb_session()` block | Session auto-commits on context exit |

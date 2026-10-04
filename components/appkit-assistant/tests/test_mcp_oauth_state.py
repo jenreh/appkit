@@ -8,6 +8,11 @@ _get_current_user_id, _build_redirect_uri.
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
+import sys
+import textwrap
+from collections.abc import AsyncGenerator, Callable
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -17,15 +22,13 @@ from appkit_assistant.state.mcp_oauth_state import MCPOAuthState
 
 _PATCH = "appkit_assistant.state.mcp_oauth_state"
 
-_CV = MCPOAuthState.__dict__
 
-
-def _unwrap(name: str):
+def _unwrap(name: str) -> Callable[..., Any]:
     entry = MCPOAuthState.__dict__[name]
     return entry.fn if hasattr(entry, "fn") else entry
 
 
-def _sync_ctx(session: MagicMock | None = None):
+def _sync_ctx(session: MagicMock | None = None) -> MagicMock:
     """Return a context-manager mock for sync sessions."""
     s = session or MagicMock()
     cm = MagicMock()
@@ -84,7 +87,7 @@ class TestBuildRedirectUri:
 # ============================================================================
 
 
-def _user_session(user_id: int | None):
+def _user_session(user_id: int | None) -> MagicMock:
     """Create a user session mock with awaitable property."""
     future: asyncio.Future[None] = asyncio.Future()
     future.set_result(None)
@@ -213,12 +216,10 @@ class TestHandleMcpOauthCallback:
 
         state._mock_user_session = _user_session(1)
 
-        async def fake_exchange(*_a, **_kw):
+        async def fake_exchange(*_a: Any, **_kw: Any) -> AsyncGenerator[None, None]:
             state.status = "success"
             yield
 
-        result2 = MagicMock()
-        result2.scalars.return_value.first.return_value = server
         sess.scalars.return_value.first.return_value = server
 
         with (
@@ -341,3 +342,33 @@ class TestDoTokenExchange:
         assert state.status == "error"
         assert "net error" in state.message
         auth_service.close.assert_called_once()
+
+
+def test_oauth_result_storage_key_uses_app_prefix() -> None:
+    """The key is fixed at import time, so check a fresh interpreter."""
+    script = textwrap.dedent(
+        """
+        from appkit_commons.registry import service_registry
+        from appkit_user.configuration import AuthenticationConfiguration
+
+        service_registry().register(
+            AuthenticationConfiguration(
+                server_url="http://x", server_port=0, storage_key_prefix="knai_"
+            )
+        )
+        from appkit_assistant.state.thread.oauth import MCP_OAUTH_RESULT_STORAGE_KEY
+        from appkit_assistant.state.thread_state import ThreadState
+
+        field = ThreadState.get_fields()["oauth_result"]
+        assert MCP_OAUTH_RESULT_STORAGE_KEY == "knai_mcp-oauth-result"
+        assert field.default.name == "knai_mcp-oauth-result"
+        """
+    )
+    subprocess.run(  # noqa: S603
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "PYTHONWARNINGS": "ignore"},
+        timeout=120,
+    )

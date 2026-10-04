@@ -133,8 +133,7 @@ class GeneratedImageModel(BaseModel):
     @property
     def image_url(self) -> str:
         """Generate the API URL to download the image."""
-        base_url = get_image_api_base_url()
-        return f"{base_url}/api/images/{self.id}"
+        return f"{get_image_api_base_url().rstrip('/')}/api/images/{self.id}"
 
 
 class ImageResponseState(StrEnum):

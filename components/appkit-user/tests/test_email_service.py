@@ -25,6 +25,13 @@ from appkit_user.configuration import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _no_public_prefix():
+    """Keep logo_url independent of the Reflex config; covered elsewhere."""
+    with patch("appkit_commons.public_path.public_prefix", return_value=""):
+        yield
+
+
 class TestPasswordResetType:
     """Test PasswordResetType enum."""
 

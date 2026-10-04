@@ -17,6 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 import pytest
 from reflex.state import State, StateUpdate, UpdateVarsInternalState
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.session_filter import (
     SessionFilter,
@@ -538,3 +539,28 @@ class TestRedirectTargetSanitisation:
 
         _assert_denied(await _run(_validator(), state, _event()))
         assert state.login_state.redirect_to == "/reports/42"
+
+
+class TestUnderPathPrefix:
+    """With frontend_path set, router.url.path carries the app prefix."""
+
+    @pytest.fixture(autouse=True)
+    def _prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        set_public_path_prefix(monkeypatch, "/knai")
+
+    @pytest.mark.asyncio
+    async def test_prefixed_login_page_passes(self) -> None:
+        state = _StubRootState(path="/knai/login")
+
+        assert await _run(_validator(), state, _event()) is None
+
+    @pytest.mark.asyncio
+    async def test_remembered_path_has_no_prefix(self) -> None:
+        validator = _validator(SessionValidationResult(SessionStatus.EXPIRED))
+        session = _StubUserSession(session_cookie="tok-123", user_id=7)
+        state = _StubRootState(path=f"/knai{PROTECTED_PATH}", user_session=session)
+
+        _assert_denied(await _run(validator, state, _event()))
+        # navigate() adds the basename again, so a prefixed target would
+        # end up at /knai/knai/dashboard.
+        assert state.login_state.redirect_to == PROTECTED_PATH

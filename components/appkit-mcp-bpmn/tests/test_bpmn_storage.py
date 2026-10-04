@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_mcp_bpmn.services.bpmn_storage import (
     diagram_exists,
     get_diagram_path,
@@ -105,3 +106,13 @@ def test_save_diagram_urls_contain_id(tmp_storage: str) -> None:
 
     assert diagram_id in result["download_url"]
     assert diagram_id in result["view_url"]
+
+
+def test_save_diagram_urls_carry_public_prefix(
+    tmp_storage: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    set_public_path_prefix(monkeypatch, "/knai")
+    result = save_diagram(SAMPLE_XML, storage_dir=tmp_storage, diagram_id="d1")
+
+    assert result["download_url"] == "/knai/api/bpmn/diagrams/d1/xml"
+    assert result["view_url"] == "/knai/api/bpmn/diagrams/d1/view"

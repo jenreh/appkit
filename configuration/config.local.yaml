@@ -4,6 +4,9 @@ reflex:
   deploy_url: http://localhost
   workers: 1
   single_port: false
+  # Serve the app below a path, as on a shared origin (e.g. /knai). Leave
+  # it out for the site root. Cookie name and storage keys follow it.
+  frontend_path: /appkit
 
 app:
   environment: local

@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 from starlette.requests import Request
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_mcp_commons.context import (
     extract_session_id,
     extract_user_id,
@@ -36,6 +37,22 @@ def test_extract_session_id_no_cookie() -> None:
     req.cookies = {"other": "value"}
 
     assert extract_session_id(req) is None
+
+
+def test_extract_session_id_follows_app_prefix(monkeypatch) -> None:  # noqa: ANN001
+    """Under /knai the derived cookie name is knai_session."""
+    set_public_path_prefix(monkeypatch, "/knai")
+    req = Mock(spec=Request)
+    req.cookies = {"reflex_session": "other", "knai_session": "sess_knai"}
+
+    assert extract_session_id(req) == "sess_knai"
+
+
+def test_extract_session_id_explicit_name() -> None:
+    req = Mock(spec=Request)
+    req.cookies = {"sid": "sess_sid"}
+
+    assert extract_session_id(req, cookie_name="sid") == "sess_sid"
 
 
 def test_extract_session_id_no_cookies_attr() -> None:

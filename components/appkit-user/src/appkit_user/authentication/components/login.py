@@ -4,11 +4,17 @@ from typing import Any
 import reflex as rx
 
 import appkit_mantine as mn
+from appkit_commons.public_path import public_path
 from appkit_user.authentication.components.components import themed_logo
 from appkit_user.authentication.states import LoginState
 from appkit_user.configuration import OAuthProvider
 
 logger = logging.getLogger(__name__)
+
+
+def _icon_src(name: str) -> str:
+    """Icon URL with the app path prefix, so it resolves below the site root."""
+    return public_path(f"/icons/{name}")
 
 
 def oauth_button(
@@ -49,8 +55,8 @@ def oauth_login_splash(
         mn.card(
             mn.stack(
                 themed_logo(
-                    light=logo,
-                    dark=logo_dark,
+                    light=public_path(logo),
+                    dark=public_path(logo_dark),
                     w="180px",
                     style={"margin_left": "0px", "object_fit": "contain"},
                 ),
@@ -147,8 +153,8 @@ def login_form(logo: str, logo_dark: str, margin_left: str = "0px") -> rx.Compon
                         oauth_button(
                             provider=OAuthProvider.GOOGLE,
                             text="Mit Google anmelden",
-                            icon_light="/icons/google.svg",
-                            icon_dark="/icons/google_dark.svg",
+                            icon_light=_icon_src("google.svg"),
+                            icon_dark=_icon_src("google_dark.svg"),
                             enabled_var=LoginState.enable_google_oauth,
                             variant="default",
                             size="md",
@@ -159,8 +165,8 @@ def login_form(logo: str, logo_dark: str, margin_left: str = "0px") -> rx.Compon
                         oauth_button(
                             provider=OAuthProvider.APPLE,
                             text="Mit Apple anmelden",
-                            icon_light="/icons/apple.svg",
-                            icon_dark="/icons/apple_dark.svg",
+                            icon_light=_icon_src("apple.svg"),
+                            icon_dark=_icon_src("apple_dark.svg"),
                             enabled_var=LoginState.enable_apple_oauth,
                             variant="default",
                             size="md",
@@ -171,8 +177,8 @@ def login_form(logo: str, logo_dark: str, margin_left: str = "0px") -> rx.Compon
                         oauth_button(
                             provider=OAuthProvider.AZURE,
                             text="Mit Microsoft anmelden",
-                            icon_light="/icons/microsoft.svg",
-                            icon_dark="/icons/microsoft_dark.svg",
+                            icon_light=_icon_src("microsoft.svg"),
+                            icon_dark=_icon_src("microsoft_dark.svg"),
                             enabled_var=LoginState.enable_azure_oauth,
                             variant="default",
                             size="md",
@@ -183,8 +189,8 @@ def login_form(logo: str, logo_dark: str, margin_left: str = "0px") -> rx.Compon
                         oauth_button(
                             provider=OAuthProvider.GITHUB,
                             text="Mit Github anmelden",
-                            icon_light="/icons/GitHub_light.svg",
-                            icon_dark="/icons/GitHub_dark.svg",
+                            icon_light=_icon_src("GitHub_light.svg"),
+                            icon_dark=_icon_src("GitHub_dark.svg"),
                             enabled_var=LoginState.enable_github_oauth,
                             variant="default",
                             size="md",

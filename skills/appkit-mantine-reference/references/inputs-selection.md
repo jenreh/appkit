@@ -242,7 +242,12 @@ Use when `mn.select` or `mn.multi_select` don't offer enough flexibility.
 ```python
 data = [
     {"value": "react", "label": "React", "description": "UI library", "emoji": "⚛️"},
-    {"value": "vue", "label": "Vue", "description": "Progressive framework", "emoji": "💚"},
+    {
+        "value": "vue",
+        "label": "Vue",
+        "description": "Progressive framework",
+        "emoji": "💚",
+    },
 ]
 
 
@@ -305,7 +310,7 @@ mn.combobox_popover(
     ),
     data=["React", "Vue", "Angular", "Svelte"],
     value=State.framework,
-    on_change=State.set_framework,   # receives the selected value
+    on_change=State.set_framework,  # receives the selected value
     searchable=True,
     nothing_found_message="Nothing found…",
 )

@@ -2,6 +2,7 @@ from typing import Any
 
 import reflex as rx
 
+from appkit_commons.public_path import public_path
 from appkit_user.authentication.components import (
     login_form,
     password_reset_confirm_form,
@@ -45,7 +46,9 @@ def create_password_reset_request_page(
         Returns:
             The UI for the password reset request page.
         """
-        return password_reset_request_form(logo=logo, logo_dark=logo_dark)
+        return password_reset_request_form(
+            logo=public_path(logo), logo_dark=public_path(logo_dark)
+        )
 
     return _password_reset_request_page
 
@@ -79,7 +82,9 @@ def create_password_reset_confirm_page(
         Returns:
             The UI for the password reset confirmation page.
         """
-        return password_reset_confirm_form(logo=logo, logo_dark=logo_dark)
+        return password_reset_confirm_form(
+            logo=public_path(logo), logo_dark=public_path(logo_dark)
+        )
 
     return _password_reset_confirm_page
 
@@ -116,8 +121,8 @@ def create_login_page(
             The UI for the login page.
         """
         return login_form(
-            logo=logo,
-            logo_dark=logo_dark,
+            logo=public_path(logo),
+            logo_dark=public_path(logo_dark),
             margin_left=margin_left,
         )
 

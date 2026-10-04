@@ -1,11 +1,17 @@
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings
 
 from appkit_commons.configuration.base import BaseConfig
+from appkit_commons.public_path import (
+    app_slug,
+    default_session_cookie_name,
+    public_url,
+)
 
 
 class OAuthProvider(StrEnum):
@@ -127,6 +133,9 @@ class PasswordResetConfig(BaseConfig):
     templates_dir: Path | None = None
 
 
+_DEFAULT_PORTS: Final = {"http": 80, "https": 443}
+
+
 class AuthenticationConfiguration(BaseSettings):
     """Configuration for OAuth providers."""
 
@@ -137,7 +146,11 @@ class AuthenticationConfiguration(BaseSettings):
     server_port: int
 
     # Session filter (servlet-filter style guard) settings
-    session_cookie_name: str = "reflex_session"  # mirrors the auth token
+    # Apps on one origin need distinct cookie names and storage keys. ""
+    # derives both from the app path prefix: "knai_session" and "knai_" under
+    # /knai, "reflex_session" and no prefix at the site root.
+    session_cookie_name: str = ""  # mirrors the auth token
+    storage_key_prefix: str = Field(default="", pattern=r"^[A-Za-z0-9_]*$")
     # Secure by default: the cookie carries the session token, so it must not
     # be transmittable (or settable) over plaintext HTTP. Browsers exempt
     # localhost, so local HTTP dev still works; set False only for a non-TLS
@@ -159,3 +172,37 @@ class AuthenticationConfiguration(BaseSettings):
 
     # Password reset configuration
     password_reset: PasswordResetConfig = PasswordResetConfig()
+
+    @property
+    def public_origin(self) -> str:
+        """server_url with server_port, without a port that is 0 or the default.
+
+        A port already in server_url wins over server_port.
+        """
+        url = self.server_url.rstrip("/")
+        parts = urlsplit(url)
+        port = self.server_port
+        if not port or parts.port or _DEFAULT_PORTS.get(parts.scheme) == port:
+            return url
+        return urlunsplit(parts._replace(netloc=f"{parts.netloc}:{port}"))
+
+    @property
+    def effective_session_cookie_name(self) -> str:
+        """session_cookie_name, or the one derived from the app path prefix."""
+        return self.session_cookie_name or default_session_cookie_name()
+
+    @property
+    def effective_storage_key_prefix(self) -> str:
+        """storage_key_prefix, or the one derived from the app path prefix."""
+        if self.storage_key_prefix:
+            return self.storage_key_prefix
+        slug = app_slug()
+        return f"{slug}_" if slug else ""
+
+    @property
+    def public_base_url(self) -> str:
+        """public_origin plus the app path prefix, e.g. ``https://x/knai``.
+
+        Not added twice when server_url already ends with the prefix.
+        """
+        return public_url(self.public_origin)

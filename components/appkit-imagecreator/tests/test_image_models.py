@@ -1,9 +1,11 @@
 """Tests for image creator models."""
 
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
 
+from appkit_commons.testing import set_public_path_prefix
 from appkit_imagecreator.backend.models import (
     GeneratedImage,
     GeneratedImageData,
@@ -242,6 +244,28 @@ class TestGeneratedImageModel:
         # Assert
         assert url.endswith("/api/images/42")
         assert "images/42" in url
+
+    @pytest.mark.parametrize(
+        ("base", "expected"),
+        [
+            # Reflex serves backend routes at the backend root, not under
+            # frontend_path; a proxy prefix belongs in the configured URL.
+            ("https://x", "https://x/api/images/42"),
+            ("https://x/knai", "https://x/knai/api/images/42"),
+        ],
+    )
+    def test_image_url_ignores_frontend_path(
+        self, monkeypatch: pytest.MonkeyPatch, base: str, expected: str
+    ) -> None:
+        set_public_path_prefix(monkeypatch, "/knai")
+        model = GeneratedImageModel(
+            id=42, user_id=1, prompt="Test", model="m", width=1, height=1
+        )
+        with patch(
+            "appkit_imagecreator.backend.models.get_image_api_base_url",
+            return_value=base,
+        ):
+            assert model.image_url == expected
 
 
 class TestImageModel:

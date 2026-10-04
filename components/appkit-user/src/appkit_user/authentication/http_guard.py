@@ -25,12 +25,15 @@ implementation on this side.
 import logging
 from pathlib import PurePosixPath
 from typing import Annotated, Final
+from urllib.parse import unquote
 
 from fastapi import Depends, HTTPException, status
+from reflex.config import get_config
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from appkit_commons.public_path import public_path, strip_public_prefix
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.session_validation import (
     LOGIN_ROUTE,
@@ -98,6 +101,18 @@ def _is_asset_path(path: str) -> bool:
     return PurePosixPath(path).suffix.lower() in _ASSET_SUFFIXES
 
 
+def _app_relative_path(path: str) -> str:
+    """Request path without the mount prefix and the app's frontend prefix.
+
+    ``backend_path`` covers mount mode; the public prefix covers single-port
+    deployments, where page requests carry ``frontend_path``.
+    """
+    backend_path = get_config().backend_path.rstrip("/")
+    if backend_path and (path == backend_path or path.startswith(f"{backend_path}/")):
+        return path[len(backend_path) :] or "/"
+    return strip_public_prefix(path)
+
+
 def _is_guarded_path(path: str) -> bool:
     """Whether a path addresses a page that requires a valid session."""
     if _has_passthrough_prefix(path) or _is_asset_path(path):
@@ -121,28 +136,38 @@ class SessionGuardMiddleware:
             return False
         if scope.get("method", "").upper() not in _GUARDED_METHODS:
             return False
-        return _is_guarded_path(scope.get("path", "/"))
+        return _is_guarded_path(_app_relative_path(scope.get("path", "/")))
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if not self._is_guarded(scope):
             await self.app(scope, receive, send)
             return
 
-        session_id = Request(scope).cookies.get(session_cookie_name(), "")
-        result = await _VALIDATOR.validate(session_id)
+        result = await _VALIDATOR.validate(_session_id(Request(scope)))
         if result.is_valid:
             await self.app(scope, receive, send)
             return
 
         logger.warning(
-            "Page load denied: path=%s status=%s", scope.get("path", ""), result.status
+            "Page load denied: path=%s status=%s",
+            _app_relative_path(scope.get("path", "/")),
+            result.status,
         )
         response = RedirectResponse(
-            LOGIN_ROUTE,
+            public_path(LOGIN_ROUTE),
             status_code=status.HTTP_302_FOUND,
             headers={"cache-control": "no-store"},
         )
         await response(scope, receive, send)
+
+
+def _session_id(request: Request) -> str:
+    """The session token from the cookie, percent-decoded.
+
+    The frontend cookie library percent-encodes the value (tokens contain
+    ``;``, ``%`` and the like) and Starlette does not decode cookies.
+    """
+    return unquote(request.cookies.get(session_cookie_name(), ""))
 
 
 def add_session_guard(asgi_app: ASGIApp) -> ASGIApp:
@@ -163,7 +188,7 @@ async def require_session(request: Request) -> User:
         HTTPException: 401 when the session is missing, expired or
             unverifiable. Cookie auth, so no ``WWW-Authenticate`` challenge.
     """
-    result = await _VALIDATOR.validate(request.cookies.get(session_cookie_name(), ""))
+    result = await _VALIDATOR.validate(_session_id(request))
     if result.is_valid and result.user is not None:
         return result.user
 

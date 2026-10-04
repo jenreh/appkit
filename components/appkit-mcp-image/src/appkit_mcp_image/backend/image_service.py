@@ -88,8 +88,7 @@ async def _save_image(
         saved = await image_repo.create(session, new_image)
         saved_id = saved.id
 
-    base_url = get_image_api_base_url()
-    return f"{base_url}/api/images/{saved_id}"
+    return f"{get_image_api_base_url().rstrip('/')}/api/images/{saved_id}"
 
 
 async def generate_image_impl(
