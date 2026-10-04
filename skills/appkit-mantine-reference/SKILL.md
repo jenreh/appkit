@@ -272,6 +272,7 @@ works with Chrome autocomplete; Tooltip no longer sets `NaN` positions.
 3. **Use `rx.cond` and `rx.foreach`** — never bare Python `if` or `for` in components
 4. **Use `&` and `|`** in `rx.cond`, not `and`/`or`
 5. **Controlled vs uncontrolled** — use `value` + `on_change` (controlled) or `default_value` (uncontrolled), not both
+6. **Path prefix** — apps served below `frontend_path` (e.g. `/knai`): wrap absolute asset `src` (images, files; not page links) in `public_path("/img/x.png")` (`appkit_commons.public_path`) and every `persist_key` in `app_storage_key("x")` (`appkit_user.authentication.states`). Examples below use bare paths for brevity.
 
 ## Namespace components (compound pattern)
 
@@ -312,12 +313,12 @@ All layout/input components support Mantine's style system props directly:
 ```python
 mn.text_input(
     label="Email",
-    w="100%",       # width
-    maw=400,        # max-width
-    mt="md",        # margin-top
-    p="sm",         # padding
-    bg="gray.0",    # background
-    c="dark.9",     # color
+    w="100%",  # width
+    maw=400,  # max-width
+    mt="md",  # margin-top
+    p="sm",  # padding
+    bg="gray.0",  # background
+    c="dark.9",  # color
 )
 ```
 
@@ -369,7 +370,7 @@ See [references/navigation.md](references/navigation.md) for full ScrollArea doc
 | `mn.scroll_area.autosize(...)` | **Preferred for lists** — grows to `mah`, then scrolls |
 | `mn.scroll_area.autoscroll(...)` | Chat/streaming — auto-scrolls to bottom on new content |
 | `mn.scroll_area(...)` | Fixed-height scroll container |
-| `mn.scroll_area.stateful(...)` | Navbar with `persist_key` |
+| `mn.scroll_area.stateful(...)` | Navbar with `persist_key=app_storage_key("navbar_scroll_area")` |
 
 ```python
 mn.scroll_area.autosize(
@@ -388,7 +389,9 @@ mn.scroll_area.autosize(
 ```python
 from alloq_commons.components.formatters import de_number
 
-de_number(emp.hours_per_week, suffix="h/W", size="xs", c="var(--alloq-text-muted)", fw="400")
+de_number(
+    emp.hours_per_week, suffix="h/W", size="xs", c="var(--alloq-text-muted)", fw="400"
+)
 # Renders with German separators: 1.234,5 h/W
 # Props: suffix, prefix, size, c, fw, decimal_scale
 ```
@@ -398,7 +401,7 @@ de_number(emp.hours_per_week, suffix="h/W", size="xs", c="var(--alloq-text-muted
 ```python
 from alloq_commons.components.formatters import format_date_de, format_date_de_named
 
-format_date_de(date_var)        # → DD.MM.YYYY
+format_date_de(date_var)  # → DD.MM.YYYY
 format_date_de_named(date_var)  # → DD. Mon YYYY
 ```
 
@@ -408,8 +411,9 @@ format_date_de_named(date_var)  # → DD. Mon YYYY
 mn.date_picker_input(
     value=State.selected_date,
     on_change=State.set_date,
-    value_format="DD.MM.YYYY",   # Mantine submits in this format too
+    value_format="DD.MM.YYYY",  # Mantine submits in this format too
 )
+
 
 # Parse in state — handles both DD.MM.YYYY and ISO YYYY-MM-DD:
 def _parse_date(value: str) -> date | None:

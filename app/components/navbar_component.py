@@ -1,4 +1,4 @@
-import logging
+from typing import Any
 
 import reflex as rx
 
@@ -8,14 +8,11 @@ from appkit_commons.public_path import public_path
 from appkit_ui.components.header import SIDEBAR_WIDTH
 from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.components.components import requires_admin
-from appkit_user.authentication.states import LoginState
-
-logger = logging.getLogger(__name__)
+from appkit_user.authentication.states import LoginState, app_storage_key
 
 accent_bg_color = rx.color("accent", 3)
 gray_bg_color = rx.color("gray", 3)
 
-accent_color = rx.color("accent", 3)
 text_color = rx.color("gray", 11)
 accent_text_color = rx.color("accent", 9)
 
@@ -354,7 +351,6 @@ def navbar_default_footer(version: str) -> rx.Component:
             w="100%",
             ml="3px",
             c="gray",
-            # color=rx.color("gray", 7),
         ),
         justify="start",
         align="start",
@@ -369,7 +365,7 @@ def navbar(
     navbar_admin_items: rx.Component,
     navbar_header: rx.Component | None = None,
     navbar_footer: rx.Component | None = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> rx.Component:
     if navbar_header is None:
         navbar_header = navbar_default_header()
@@ -408,7 +404,7 @@ def navbar(
                 scrollbars="y",
                 scrollbar_size="6px",
                 show_controls=False,
-                persist_key="navbar_scroll_area",
+                persist_key=app_storage_key("navbar_scroll_area"),
                 flex="1",
                 min_height="0",
                 height="100%",

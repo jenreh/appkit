@@ -52,15 +52,9 @@ def _session_monitor_interval() -> timedelta:
     return timedelta(seconds=_auth_config().session_monitor_interval_seconds)
 
 
-# Resolved at import time because it feeds the @rx.var(interval=...) decorators
-# below, which are evaluated at class-definition time. Access still funnels
-# through the cached _auth_config() accessor.
-AUTH_TOKEN_REFRESH_DELTA: Final = timedelta(
-    minutes=_auth_config().auth_token_refresh_delta
-)
-# Same reason: rx.Cookie() is evaluated at class-definition time.
-SESSION_COOKIE_NAME: Final = _auth_config().effective_session_cookie_name
-SESSION_COOKIE_SECURE: Final = _auth_config().session_cookie_secure
+def _generate_auth_token() -> str:
+    """Generate a secure auth token."""
+    return "".join(secrets.choice(TOKEN_CHARS) for _ in range(TOKEN_LENGTH))
 
 
 def storage_key(name: str, prefix: str) -> str:
@@ -68,31 +62,29 @@ def storage_key(name: str, prefix: str) -> str:
     return f"{prefix}{name}"
 
 
-# Same reason as SESSION_COOKIE_NAME: rx.LocalStorage() is evaluated at
-# class-definition time, so the export bakes these names into the frontend.
-# Apps sharing one origin share one local storage and need distinct prefixes.
+def app_storage_key(name: str) -> str:
+    """Local storage key of ``name`` with this app's prefix."""
+    return storage_key(name, _STORAGE_KEY_PREFIX)
+
+
 _STORAGE_KEY_PREFIX: Final = _auth_config().effective_storage_key_prefix
-AUTH_TOKEN_LOCAL_STORAGE_KEY: Final = storage_key("_auth_token", _STORAGE_KEY_PREFIX)
-# The OAuth ``state`` is mirrored into the browser so the callback can prove the
-# flow was started by *this* user agent. The router's ``client_token`` is not
-# usable for that: it is regenerated across the provider redirect.
-OAUTH_STATE_LOCAL_STORAGE_KEY: Final = storage_key("_oauth_state", _STORAGE_KEY_PREFIX)
-LOGIN_REDIRECT_LOCAL_STORAGE_KEY: Final = storage_key(
-    "login_redirect_to", _STORAGE_KEY_PREFIX
+_SESSION_VALIDATOR: Final = SessionValidator()
+
+AUTH_TOKEN_REFRESH_DELTA: Final = timedelta(
+    minutes=_auth_config().auth_token_refresh_delta
 )
+
+SESSION_COOKIE_NAME: Final = _auth_config().effective_session_cookie_name
+SESSION_COOKIE_SECURE: Final = _auth_config().session_cookie_secure
+
+AUTH_TOKEN_LOCAL_STORAGE_KEY: Final = app_storage_key("_auth_token")
+OAUTH_STATE_LOCAL_STORAGE_KEY: Final = app_storage_key("_oauth_state")
+LOGIN_REDIRECT_LOCAL_STORAGE_KEY: Final = app_storage_key("login_redirect_to")
 
 TOKEN_LENGTH: Final = 64
 TOKEN_CHARS: Final = string.ascii_letters + string.digits + "!@#$%^&*()-=_+[]{}|;:,.<>?"
 
 LOGOUT_ROUTE: Final = "/login"
-
-# Stateless; shared by check_auth and the session filter.
-_SESSION_VALIDATOR: Final = SessionValidator()
-
-
-def _generate_auth_token() -> str:
-    """Generate a secure auth token."""
-    return "".join(secrets.choice(TOKEN_CHARS) for _ in range(TOKEN_LENGTH))
 
 
 class UserSession(rx.State):
@@ -397,7 +389,9 @@ class LoginState(UserSession):
         return redirect_target
 
     @rx.event
-    async def login_with_password(self, form_data: dict) -> AsyncGenerator:
+    async def login_with_password(
+        self, form_data: dict
+    ) -> AsyncGenerator[EventSpec, None]:
         """Login with username and password."""
         self.is_loading = True
         self.error_message = ""
@@ -483,7 +477,9 @@ class LoginState(UserSession):
         await oauth_state_repo.create(db, oauth_state)
 
     @rx.event
-    async def handle_oauth_callback(self, provider: str) -> AsyncGenerator:
+    async def handle_oauth_callback(
+        self, provider: str
+    ) -> AsyncGenerator[EventSpec, None]:
         """Generic OAuth callback handler."""
         try:
             params = self.router.url.query_parameters

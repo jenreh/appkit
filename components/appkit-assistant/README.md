@@ -70,7 +70,7 @@ assistant_config = AssistantConfig(
     openai_api_key="your-openai-key",
     perplexity_api_key="your-perplexity-key",
     # Optional: custom OpenAI base URL
-    openai_base_url="https://api.openai.com/v1"
+    openai_base_url="https://api.openai.com/v1",
 )
 ```
 
@@ -78,7 +78,9 @@ assistant_config = AssistantConfig(
 
 ```python
 from appkit_assistant.backend.model_manager import ModelManager
-from appkit_assistant.backend.processors.openai_chat_completion_processor import OpenAIChatCompletionProcessor
+from appkit_assistant.backend.processors.openai_chat_completion_processor import (
+    OpenAIChatCompletionProcessor,
+)
 from appkit_assistant.backend.processors.perplexity_processor import PerplexityProcessor
 
 manager = ModelManager()
@@ -92,11 +94,9 @@ manager.register_processor("perplexity", PerplexityProcessor(assistant_config))
 import reflex as rx
 from appkit_assistant.components import Assistant
 
+
 def assistant_page():
-    return rx.container(
-        Assistant(),
-        height="100vh"
-    )
+    return rx.container(Assistant(), height="100vh")
 ```
 
 ---
@@ -129,9 +129,7 @@ Process conversations using the registered processors:
 ```python
 from appkit_assistant.backend.models import Message, MessageType
 
-messages = [
-    Message(role="user", content="Hello, how are you?", type=MessageType.TEXT)
-]
+messages = [Message(role="user", content="Hello, how are you?", type=MessageType.TEXT)]
 
 async for chunk in manager.get_processor_for_model("gpt-4").process(messages, "gpt-4"):
     print(f"Received: {chunk.content}")
@@ -148,7 +146,7 @@ mcp_server = MCPServer(
     name="my-server",
     command="python",
     args=["-m", "my_mcp_server"],
-    headers={"Authorization": "Bearer token"}
+    headers={"Authorization": "Bearer token"},
 )
 
 # Use in processing
@@ -166,6 +164,7 @@ The main `Assistant` component provides a complete chat interface:
 ```python
 from appkit_assistant.components import Assistant
 
+
 def chat_page():
     return Assistant()
 ```
@@ -178,12 +177,9 @@ Use individual components for custom layouts:
 import reflex as rx
 from appkit_assistant.components import ThreadList, composer
 
+
 def custom_assistant():
-    return mn.stack(
-        ThreadList(),
-        composer(),
-        spacing="4"
-    )
+    return mn.stack(ThreadList(), composer(), spacing="4")
 ```
 
 #### MCP Server Management UI
@@ -192,6 +188,7 @@ Display and manage MCP servers:
 
 ```python
 from appkit_assistant.components import mcp_servers_table
+
 
 def servers_page():
     return mcp_servers_table()
@@ -203,6 +200,7 @@ Admin interface for managing versioned system prompts:
 
 ```python
 from appkit_assistant.components.system_prompt_editor import system_prompt_editor
+
 
 def prompt_editor_page():
     return system_prompt_editor()
@@ -223,7 +221,7 @@ config = AssistantConfig(
     openai_api_key="sk-...",
     openai_base_url="https://custom.openai.endpoint/v1",
     perplexity_api_key="pplx-...",
-    google_api_key="AIza..."  # For future Google integrations
+    google_api_key="AIza...",  # For future Google integrations
 )
 ```
 
@@ -235,7 +233,7 @@ Register processors based on available credentials:
 from appkit_assistant.backend.processors import (
     OpenAIChatCompletionProcessor,
     PerplexityProcessor,
-    LoremIpsumProcessor
+    LoremIpsumProcessor,
 )
 
 manager = ModelManager()
@@ -298,6 +296,7 @@ Combine with appkit-user for authenticated assistants:
 ```python
 from appkit_user import authenticated, requires_role
 
+
 @authenticated()
 @requires_role("assistant_user")
 def protected_assistant_page():
@@ -312,13 +311,12 @@ Implement your own AI processor:
 from appkit_assistant.backend.processor import Processor
 from appkit_assistant.backend.models import AIModel, Chunk, Message
 
+
 class CustomProcessor(Processor):
     def get_supported_models(self):
         return {
             "custom-model": AIModel(
-                id="custom-model",
-                text="Custom AI Model",
-                icon="🤖"
+                id="custom-model", text="Custom AI Model", icon="🤖"
             )
         }
 

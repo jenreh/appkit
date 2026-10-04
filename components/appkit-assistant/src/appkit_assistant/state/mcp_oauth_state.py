@@ -4,6 +4,7 @@ Handles OAuth redirects from MCP server identity providers.
 """
 
 import contextlib
+import json
 import logging
 from collections.abc import AsyncGenerator
 
@@ -14,11 +15,38 @@ from sqlalchemy.orm import Session
 from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.backend.processors.processor_base import mcp_oauth_redirect_uri
 from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
+from appkit_assistant.state.thread.oauth import MCP_OAUTH_RESULT_STORAGE_KEY
 from appkit_commons.database.session import get_session_manager
 from appkit_user.authentication.backend.database import OAuthStateEntity
 from appkit_user.authentication.states import UserSession
 
 logger = logging.getLogger(__name__)
+
+
+def _oauth_success_script(server_id: str, server_name: str, user_id: int) -> str:
+    """Notify the originating window and close the OAuth popup."""
+    return f"""
+                console.log('[OAuth] Setting localStorage for cross-window sync');
+                var data = JSON.stringify({{
+                    type: 'mcp-oauth-success',
+                    serverId: '{server_id}',
+                    serverName: '{server_name}',
+                    userId: '{user_id}',
+                    timestamp: Date.now()
+                }});
+                localStorage.setItem({json.dumps(MCP_OAUTH_RESULT_STORAGE_KEY)}, data);
+                console.log('[OAuth] localStorage set:', data);
+                // Also try postMessage for same-origin popups
+                if (window.opener) {{
+                    window.opener.postMessage({{
+                        type: 'mcp-oauth-success',
+                        serverId: '{server_id}',
+                        serverName: '{server_name}',
+                        userId: '{user_id}'
+                    }}, '*');
+                }}
+                setTimeout(function() {{ window.close(); }}, 500);
+            """
 
 
 class MCPOAuthState(rx.State):
@@ -35,9 +63,10 @@ class MCPOAuthState(rx.State):
     _server_id: int | None = None
 
     @rx.event
-    async def handle_mcp_oauth_callback(self) -> AsyncGenerator:
+    async def handle_mcp_oauth_callback(
+        self,
+    ) -> AsyncGenerator[rx.event.EventSpec | None, None]:
         """Handle the OAuth callback from an MCP server's identity provider."""
-        # Get query params from router (using new router.url API)
         params = self.router.url.query_parameters
         code = params.get("code", "")
         state = params.get("state", "")
@@ -97,8 +126,6 @@ class MCPOAuthState(rx.State):
         self._state = state
         self._server_id = server_id
 
-        # Get the server configuration
-
         with get_session_manager().session() as session:
             server = session.scalars(
                 select(MCPServer).where(MCPServer.id == server_id)
@@ -120,7 +147,6 @@ class MCPOAuthState(rx.State):
                 yield
                 return
 
-            # Exchange code for tokens - inline the logic to avoid yield from
             async for result in self._do_token_exchange(
                 session, server, user_id, code, self._state
             ):
@@ -133,7 +159,7 @@ class MCPOAuthState(rx.State):
         user_id: int,
         code: str,
         state: str,
-    ) -> AsyncGenerator:
+    ) -> AsyncGenerator[rx.event.EventSpec | None, None]:
         """Exchange the authorization code for tokens."""
         redirect_uri = self._build_redirect_uri()
         auth_service = MCPAuthService(redirect_uri=redirect_uri)
@@ -173,29 +199,9 @@ class MCPOAuthState(rx.State):
                 server.name,
                 user_id,
             )
-            script = f"""
-                console.log('[OAuth] Setting localStorage for cross-window sync');
-                var data = JSON.stringify({{
-                    type: 'mcp-oauth-success',
-                    serverId: '{server_id_str}',
-                    serverName: '{server.name}',
-                    userId: '{user_id}',
-                    timestamp: Date.now()
-                }});
-                localStorage.setItem('mcp-oauth-result', data);
-                console.log('[OAuth] localStorage set:', data);
-                // Also try postMessage for same-origin popups
-                if (window.opener) {{
-                    window.opener.postMessage({{
-                        type: 'mcp-oauth-success',
-                        serverId: '{server_id_str}',
-                        serverName: '{server.name}',
-                        userId: '{user_id}'
-                    }}, '*');
-                }}
-                setTimeout(function() {{ window.close(); }}, 500);
-            """
-            yield rx.call_script(script)
+            yield rx.call_script(
+                _oauth_success_script(server_id_str, server.name, user_id)
+            )
 
         except Exception as e:
             logger.exception("Token exchange failed")

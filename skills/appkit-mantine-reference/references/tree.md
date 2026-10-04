@@ -57,6 +57,7 @@ class TreeState(rx.State):
     def on_select(self, values: list[str]):
         self.selected = values
 
+
 mn.tree(
     data=State.tree_data,
     select_on_click=True,
@@ -70,6 +71,7 @@ mn.tree(
 ```python
 class TreeState(rx.State):
     search: str = ""
+
 
 mn.stack(
     mn.text_input(

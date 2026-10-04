@@ -169,7 +169,7 @@ for RTL apps; available on all variants including `autosize` and `stateful`).
 | `mn.scroll_area(...)` | Basic; requires fixed `h`. |
 | `mn.scroll_area.autosize(...)` | **Preferred for lists.** Use `mah` for max-height. |
 | `mn.scroll_area.autoscroll(...)` | Auto-scrolls to bottom as content is added; ideal for chat/streaming. |
-| `mn.scroll_area.stateful(...)` | Stateful with `persist_key`; used in navbars. |
+| `mn.scroll_area.stateful(...)` | Stateful with `persist_key` (a localStorage key; use `app_storage_key("...")` so apps on one origin don't share it); used in navbars. |
 
 ```python
 # Preferred for most lists — scrollable up to 400px
