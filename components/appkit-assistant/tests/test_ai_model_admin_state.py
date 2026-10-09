@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_assistant.backend.database.models import AssistantAIModel
 from appkit_assistant.backend.schemas import AssistantAIModelConfigModel
 from appkit_assistant.state.ai_model_admin_state import AIModelAdminState
 
@@ -327,6 +328,34 @@ class TestAddModel:
             _ = [c async for c in state.add_model(form)]
         assert state.add_modal_open is False
         assert state.loading is False
+
+    @pytest.mark.asyncio
+    async def test_saves_orm_entity(self) -> None:
+        state = _make_state()
+        form = {
+            "model_id": " gpt-4 ",
+            "text": "GPT-4",
+            "processor_type": "openai",
+        }
+        saved = MagicMock()
+        saved.text = "GPT-4"
+        with (
+            patch(
+                f"{_PATCH}.get_asyncdb_session",
+                return_value=_db_context(),
+            ),
+            patch(f"{_PATCH}.ai_model_repo") as repo,
+            patch(f"{_PATCH}.ai_model_registry") as reg,
+        ):
+            repo.save = AsyncMock(return_value=saved)
+            repo.find_all_ordered_by_text = AsyncMock(return_value=[])
+            reg.reload = AsyncMock()
+            _ = [c async for c in state.add_model(form)]
+        entity = repo.save.await_args.args[1]
+        assert isinstance(entity, AssistantAIModel)
+        assert entity.model_id == "gpt-4"
+        assert entity.model == "gpt-4"
+        assert entity.active is True
 
     @pytest.mark.asyncio
     async def test_value_error(self) -> None:

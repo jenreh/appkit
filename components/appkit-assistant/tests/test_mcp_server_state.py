@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_assistant.backend.database.models import MCPServer
 from appkit_assistant.state.mcp_server_state import MCPServerState
 
 _PATCH = "appkit_assistant.state.mcp_server_state"
@@ -378,6 +379,30 @@ class TestAddServer:
             ]
         assert state.add_modal_open is False
         assert state.loading is False
+
+    @pytest.mark.asyncio
+    async def test_saves_orm_entity(self) -> None:
+        state = _StubMCPServerState()
+        saved = _server()
+        with (
+            patch(
+                f"{_PATCH}.get_asyncdb_session",
+                return_value=_db_context(),
+            ),
+            patch(f"{_PATCH}.mcp_server_repo") as repo,
+        ):
+            repo.save = AsyncMock(return_value=saved)
+            repo.find_all_ordered_by_name = AsyncMock(return_value=[saved])
+            [
+                r
+                async for r in state.add_server(
+                    {"name": "New", "url": "https://new.test"}
+                )
+            ]
+        entity = repo.save.await_args.args[1]
+        assert isinstance(entity, MCPServer)
+        assert entity.name == "New"
+        assert entity.url == "https://new.test"
 
     @pytest.mark.asyncio
     async def test_value_error(self) -> None:

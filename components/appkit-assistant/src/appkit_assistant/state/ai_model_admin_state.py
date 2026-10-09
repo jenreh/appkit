@@ -7,6 +7,7 @@ from typing import Any
 import reflex as rx
 
 from appkit_assistant.backend.ai_model_registry import ai_model_registry
+from appkit_assistant.backend.database.models import AssistantAIModel
 from appkit_assistant.backend.database.repositories import ai_model_repo
 from appkit_assistant.backend.schemas import AssistantAIModelConfigModel
 from appkit_commons.database.session import get_asyncdb_session
@@ -125,7 +126,7 @@ class AIModelAdminState(rx.State):
         self.loading = True
         yield
         try:
-            entity = AssistantAIModelConfigModel(
+            entity = AssistantAIModel(
                 model_id=form_data["model_id"].strip(),
                 text=form_data["text"].strip(),
                 icon=(form_data.get("icon") or "codesandbox").strip() or "codesandbox",

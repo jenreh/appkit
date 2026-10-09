@@ -149,7 +149,7 @@ class MCPServerState(rx.State):
             headers = self._parse_headers_from_form(form_data)
             auth_type = form_data.get("auth_type", MCPAuthType.API_KEY)
 
-            server_entity = MCPServerConfigModel(
+            server_entity = MCPServer(
                 name=form_data["name"],
                 url=form_data["url"],
                 headers=headers,

@@ -18,7 +18,7 @@ dependencies = [
     "appkit-user[azure,resend]",
     "psycopg==3.3.6",
     "psycopg-binary==3.3.6",
-    "reflex[db]>=0.9.12",
+    "reflex[db]>=0.10.0",
 ]
 
 [dependency-groups]

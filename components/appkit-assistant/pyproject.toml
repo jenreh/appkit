@@ -8,7 +8,7 @@ dependencies = [
     "google-genai>=2.25.0",
     "mcp>=2.3.0",
     "openai>=3.24.0",
-    "reflex>=0.9.12",
+    "reflex>=0.10.0",
     "python-multipart>=0.0.27",
 ]
 name = "appkit-assistant"
