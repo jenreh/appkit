@@ -140,6 +140,8 @@ class _StubUserSession:
         self.user_id: int = 0
         self.user: User | None = None
         self._session_expires_at: datetime | None = None
+        # No loaded substates, so terminate_session keeps no browser storage.
+        self.substates: dict[str, object] = {}
 
     _execute_db_operation = _unwrap(UserSession, "_execute_db_operation")
     _find_valid_session = _unwrap(UserSession, "_find_valid_session")
@@ -148,6 +150,7 @@ class _StubUserSession:
     _cache_session = _unwrap(UserSession, "_cache_session")
     _trust_session_until = _unwrap(UserSession, "_trust_session_until")
     terminate_session = _unwrap(UserSession, "terminate_session")
+    _reset_keeping_browser_prefs = _unwrap(UserSession, "_reset_keeping_browser_prefs")
     prolong_session = _unwrap(UserSession, "prolong_session")
 
     def reset(self) -> None:
@@ -182,6 +185,8 @@ class _StubLoginState:
         self.user_id: int = 0
         self.user: User | None = None
         self._session_expires_at: datetime | None = None
+        # No loaded substates, so terminate_session keeps no browser storage.
+        self.substates: dict[str, object] = {}
         self.redirect_to: str = ""
         self.homepage: str = "/"
         self.login_route: str = "/login"
@@ -208,6 +213,7 @@ class _StubLoginState:
     _cache_session = _unwrap(UserSession, "_cache_session")
     _trust_session_until = _unwrap(UserSession, "_trust_session_until")
     terminate_session = _unwrap(UserSession, "terminate_session")
+    _reset_keeping_browser_prefs = _unwrap(UserSession, "_reset_keeping_browser_prefs")
     prolong_session = _unwrap(UserSession, "prolong_session")
     _prepare_login = _unwrap(LoginState, "_prepare_login")
     login_with_password = _unwrap(LoginState, "login_with_password")
