@@ -55,6 +55,7 @@ from reflex.state import (
     StateUpdate,
     UpdateVarsInternalState,
 )
+from reflex_base.constants import CompileVars
 from reflex_base.event import Event
 
 from appkit_commons.public_path import strip_public_prefix
@@ -95,6 +96,8 @@ def _bootstrap_events() -> frozenset[str]:
     Client-side storage — including the session cookie — reaches the backend
     *inside* the hydrate event. Blocking these would make the session
     unknowable and brick the app, so they are allowed unconditionally.
+    Reflex >= 0.10 sends ``hydrate_and_load`` on every websocket (re)connect;
+    ``hydrate`` stays for clients that still send it.
     """
     # FrontendEventExceptionState carries exactly one handler besides the
     # generic setter; read it off the class instead of hardcoding its name.
@@ -102,7 +105,12 @@ def _bootstrap_events() -> frozenset[str]:
         name for name in FrontendEventExceptionState.event_handlers if name != _SETVAR
     )
     return frozenset(
-        _event_names(State, "hydrate", "set_is_hydrated")
+        _event_names(
+            State,
+            CompileVars.HYDRATE,
+            CompileVars.HYDRATE_AND_LOAD,
+            "set_is_hydrated",
+        )
         | _event_names(UpdateVarsInternalState, "update_vars_internal")
         | _event_names(FrontendEventExceptionState, *exception_handlers)
     )

@@ -532,3 +532,52 @@ class TestLogoutInvalidatesInheritedSession:
         assert session.auth_token == ""
         assert session.session_cookie == ""
         assert session._session_expires_at is None
+
+
+class _PrefsState(UserSession):
+    """A consumer page state keeping a UI preference in the browser."""
+
+    view: str = rx.LocalStorage("table", name="test_prefs_view")
+    selected_id: int = 0
+
+
+class TestTerminateKeepsConsumerBrowserStorage:
+    """Ending a session must not overwrite the substates' browser storage.
+
+    Consumer pages hang their ``rx.LocalStorage`` UI preferences below
+    ``UserSession``. A plain ``reset()`` writes their defaults into the browser
+    with the next delta, so every login, logout and session-filter denial wiped
+    them. The login flow's own browser values in ``LoginState`` are cleared.
+    """
+
+    @pytest.mark.asyncio
+    async def test_logout_keeps_consumer_local_storage(self) -> None:
+        session, login = await _real_states()
+        prefs = await session.get_state(_PrefsState)
+
+        with _live_session_repo():
+            await login._create_session(AsyncMock(), _user_entity(1, "alice"))
+            prefs.view = "cards"
+            prefs.selected_id = 5
+            login.redirect_to = "/projects"
+            login.oauth_state = "stale"
+
+            await login.logout()
+
+        assert prefs.view == "cards"
+        assert prefs.selected_id == 0
+        assert login.redirect_to == ""
+        assert login.oauth_state == ""
+        assert session.auth_token == ""
+        assert session.session_cookie == ""
+
+    @pytest.mark.asyncio
+    async def test_prepare_login_keeps_consumer_local_storage(self) -> None:
+        session, login = await _real_states()
+        prefs = await session.get_state(_PrefsState)
+        prefs.view = "cards"
+
+        with _live_session_repo():
+            await login._prepare_login()
+
+        assert prefs.view == "cards"

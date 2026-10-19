@@ -3,12 +3,13 @@ import functools
 import logging
 import secrets
 import string
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 import reflex as rx
 from reflex.event import EventSpec
+from reflex.state import BaseState
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.database.session import get_asyncdb_session
@@ -85,6 +86,13 @@ TOKEN_LENGTH: Final = 64
 TOKEN_CHARS: Final = string.ascii_letters + string.digits + "!@#$%^&*()-=_+[]{}|;:,.<>?"
 
 LOGOUT_ROUTE: Final = "/login"
+
+
+def _substates_below(state: BaseState) -> Iterator[BaseState]:
+    """Every loaded substate below ``state``, depth first."""
+    for substate in state.substates.values():
+        yield substate
+        yield from _substates_below(substate)
 
 
 class UserSession(rx.State):
@@ -286,8 +294,28 @@ class UserSession(rx.State):
         self.session_cookie = ""
         self._session_expires_at = None
 
-        self.reset()
+        self._reset_keeping_browser_prefs()
         return rx.clear_session_storage()
+
+    def _reset_keeping_browser_prefs(self) -> None:
+        """``reset()``, but keep the browser storage of consumer substates.
+
+        ``reset()`` walks every substate, and consumer pages keep their
+        ``rx.LocalStorage`` UI preferences below ``UserSession``. Their defaults
+        would reach the browser with the next delta and overwrite what the user
+        chose. Those are per-browser settings, not credentials, so they
+        survive; the login flow's own values in ``LoginState`` do not.
+        """
+        kept = [
+            (state, name, getattr(state, name))
+            for state in _substates_below(self)
+            if not isinstance(state, LoginState)
+            for name in state.base_vars
+            if state._is_client_storage(name)  # noqa: SLF001 - Reflex has no public check
+        ]
+        self.reset()
+        for state, name, value in kept:
+            setattr(state, name, value)
 
     @rx.event
     async def prolong_session(self) -> None:
