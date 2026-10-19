@@ -3,10 +3,10 @@ dependencies = [
     "appkit-commons",
     "appkit-mcp-commons",
     "lxml>=6.1.3",
-    "openai>=3.24.0",
+    "openai>=3.31.0",
 ]
 name = "appkit-mcp-bpmn"
-version = "1.16.1"
+version = "1.16.2"
 description = "MCP BPMN 2.0 Diagram Server"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]

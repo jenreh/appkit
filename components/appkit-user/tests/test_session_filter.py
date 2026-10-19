@@ -41,6 +41,8 @@ _VALIDATION_PATCH = "appkit_user.authentication.session_validation"
 # Hardcoding the strings would not catch a Reflex rename — which is precisely
 # the regression that bricks the app.
 HYDRATE = f"{State.get_full_name()}.hydrate"
+# Reflex >= 0.10 hydrates with this one event on every websocket (re)connect.
+HYDRATE_AND_LOAD = f"{State.get_full_name()}.hydrate_and_load"
 SET_IS_HYDRATED = f"{State.get_full_name()}.set_is_hydrated"
 UPDATE_VARS_INTERNAL = f"{UpdateVarsInternalState.get_full_name()}.update_vars_internal"
 
@@ -189,7 +191,8 @@ class TestBootstrapEvents:
     client's loading cursor."""
 
     @pytest.mark.parametrize(
-        "event_name", [HYDRATE, SET_IS_HYDRATED, UPDATE_VARS_INTERNAL]
+        "event_name",
+        [HYDRATE, HYDRATE_AND_LOAD, SET_IS_HYDRATED, UPDATE_VARS_INTERNAL],
     )
     @pytest.mark.asyncio
     async def test_passes_without_any_session(self, event_name: str) -> None:
@@ -201,6 +204,11 @@ class TestBootstrapEvents:
         assert result is None
         validator.validate.assert_not_awaited()
         state.get_state.assert_not_awaited()
+
+    def test_frontend_hydrate_event_exists_on_state(self) -> None:
+        # The name only helps while Reflex still sends it; a rename must fail
+        # here instead of logging every user out on reload.
+        assert "hydrate_and_load" in State.event_handlers
 
     @pytest.mark.asyncio
     async def test_ordinary_event_on_same_path_is_denied(self) -> None:
