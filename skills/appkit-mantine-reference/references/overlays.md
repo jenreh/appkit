@@ -268,9 +268,11 @@ Root props: `opened`, `default_opened`, `position`, `offset`, `width`, `shadow`,
 `radius`, `with_arrow`, `arrow_size`, `arrow_radius`, `arrow_offset`, `arrow_position`,
 `with_overlay`, `trap_focus`, `close_on_click_outside`, `close_on_escape`,
 `return_focus`, `keep_mounted`, `within_portal`, `disabled`, `z_index`,
-`on_change`, `on_open`, `on_close`, `on_dismiss`. `transition_props`,
-`portal_props`, `middlewares` and `clickout_events` are not declared; pass them
-via `custom_attrs={"transitionProps": {"transition": "pop", "duration": 150}}`.
+`transition_props` (e.g. `{"transition": "pop", "duration": 150}`), `portal_props`,
+`middlewares` (e.g. `{"flip": True, "shift": True, "inline": False}`),
+`click_outside_events` (e.g. `["mouseup", "touchend"]`),
+`prevent_position_change_when_visible`, `on_change`, `on_open`, `on_close`,
+`on_dismiss`.
 
 `popover.target` props: forwarded to the trigger; usually a button or component.
 

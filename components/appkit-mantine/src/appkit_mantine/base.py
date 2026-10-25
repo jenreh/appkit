@@ -370,6 +370,8 @@ class MantineLayoutComponentBase(MantineComponentBase):
     flex: Var[str | int] = None
     hidden_from: Var[MantineSize] = None
     visible_from: Var[MantineSize] = None
+    light_hidden: Var[bool] = None
+    dark_hidden: Var[bool] = None
 
 
 class MantineOverlayComponentBase(MantineLayoutComponentBase):

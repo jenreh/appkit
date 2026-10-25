@@ -194,9 +194,11 @@ keystroke.
 Mask tokens: `9` digit, `a` letter, `A` uppercase letter, `*` letter or digit,
 `#` digit or `+`/`-`. Everything else is a literal. Props: `mask` (string or list of
 literals and regexes), `tokens` (extra/overridden `{char: regex}`), `slot_char`
-(placeholder slot, `"_"` default), `modify` and `transform` (JS functions).
-Mantine's `alwaysShowMask`, `showMaskOnFocus`, `autoClear`, `separate` and
-`onComplete` are not declared; pass them with `custom_attrs`.
+(placeholder slot, `"_"` default), `modify` and `transform` (JS functions),
+`always_show_mask`, `show_mask_on_focus` (default `True`), `auto_clear` (clear on
+blur when incomplete), `separate` (decouple raw and display values).
+`on_complete` fires once every required slot is filled and receives the masked
+string.
 
 ## JsonInput
 

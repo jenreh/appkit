@@ -38,6 +38,10 @@ class HoverCard(MantineLayoutComponentBase):
 
     tag = "HoverCard"
 
+    position: Var[str]
+    offset: Var[int | dict]
+    with_arrow: Var[bool]
+    transition_props: Var[dict]
     width: Var[str | int]
     shadow: Var[str]
     open_delay: Var[int]
@@ -228,6 +232,11 @@ class PopoverRoot(MantineLayoutComponentBase):
     close_on_escape: Var[bool] = None
     within_portal: Var[bool] = None
     disabled: Var[bool] = None
+    transition_props: Var[dict] = None
+    portal_props: Var[dict] = None
+    middlewares: Var[dict] = None
+    click_outside_events: Var[list[str]] = None
+    prevent_position_change_when_visible: Var[bool] = None
 
     on_open: EventHandler[rx.event.no_args_event_spec] = None
     on_close: EventHandler[rx.event.no_args_event_spec] = None

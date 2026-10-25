@@ -164,12 +164,11 @@ scheme is reflected as `data-mantine-color-scheme` on the `<html>` element.
 
 ### Conditional rendering by scheme
 
-Mantine's `lightHidden` / `darkHidden` props are not declared on the wrappers
-(as keywords they would silently become CSS). Use the classes they set instead:
+Every layout-capable component takes Mantine's `light_hidden` / `dark_hidden`:
 
 ```python
-mn.text("Only in light mode", class_name="mantine-dark-hidden")
-mn.text("Only in dark mode", class_name="mantine-light-hidden")
+mn.text("Only in light mode", dark_hidden=True)
+mn.text("Only in dark mode", light_hidden=True)
 ```
 
 ---

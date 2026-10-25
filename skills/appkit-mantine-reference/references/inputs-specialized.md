@@ -224,7 +224,7 @@ mn.angle_slider(
 
 Props: `value`, `default_value`, `size`, `thumb_size`, `step`, `marks`, `with_label`,
 `restrict_to_marks`, `disabled`, `aria_label`, `name`, `on_change`, `on_change_end`,
-`on_scrub_start`, `on_scrub_end`. Mantine's `formatLabel` is not declared; pass
-`custom_attrs={"formatLabel": rx.Var("(v) => `${v}°`")}`.
+`on_scrub_start`, `on_scrub_end`, `format_label` (JS function, e.g.
+`rx.Var("(v) => `${v}°`")`).
 
 > [Mantine docs — AngleSlider](https://mantine.dev/core/angle-slider/)

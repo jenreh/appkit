@@ -59,12 +59,10 @@ mn.date_picker_input(
     clearable=True,
     number_of_columns=2,  # show two months side by side
     on_change=State.set_range,
-    custom_attrs={
-        "presets": [
-            {"label": "Last 7 days", "value": ["2025-05-14", "2025-05-21"]},
-            {"label": "This month", "value": ["2025-05-01", "2025-05-31"]},
-        ]
-    },
+    presets=[
+        {"label": "Last 7 days", "value": ["2025-05-14", "2025-05-21"]},
+        {"label": "This month", "value": ["2025-05-01", "2025-05-31"]},
+    ],
 )
 
 # Multiple independent dates
@@ -79,8 +77,9 @@ Props: `type` (`"default"` | `"range"` | `"multiple"`), `number_of_columns`,
 `hide_outside_dates`, `first_day_of_week`, `weekend_days`, `value_format`,
 `dropdown_type` (`"popover"` | `"modal"`), `popover_props`, `modal_props`,
 `clearable`, `min_date`, `max_date`, `locale`, `with_native_level_select` (see
-below). `presets` and `value_formatter` are not declared: pass them through
-`custom_attrs` as above (a plain keyword would silently become CSS).
+below), `presets` (`[{"label": ..., "value": ...}]`, value shaped like the picker
+`type`), `value_formatter` (JS function
+`({ type, date, locale, format, labelSeparator }) => string`).
 
 > [Mantine docs — DatePickerInput](https://mantine.dev/dates/date-picker-input/)
 
@@ -152,9 +151,9 @@ mn.time_picker(
 ```
 
 Props: `with_seconds`, `type` (`"duration"` enables durations > 24h),
+`presets` (`["09:00", "12:00", "17:00"]` or groups
+`[{"label": "Morning", "values": ["08:00", "09:00"]}]`),
 `close_dropdown_on_preset_select`, plus all `MantineInputComponentBase` props.
-The wrapper does not declare Mantine's `presets`; pass them with
-`custom_attrs={"presets": ["09:00", "12:00", "17:00"]}`.
 
 > [Mantine docs — TimePicker](https://mantine.dev/dates/time-picker/)
 
@@ -163,13 +162,21 @@ The wrapper does not declare Mantine's `presets`; pass them with
 Inline slot picker — displays a grid of selectable time slots.
 
 ```python
-mn.time_grid(data=["09:00", "10:00", "11:00", "12:00", "14:00"])
+mn.time_grid(
+    data=["09:00", "10:00", "11:00", "12:00", "14:00"],
+    value=State.slot,
+    on_change=State.set_slot,  # receives "HH:MM", or "" when deselected
+    allow_deselect=True,
+    min_time="10:00",
+    disable_time=["12:00"],
+    simple_grid_props={"cols": 5, "spacing": "xs"},
+)
 ```
 
-The wrapper declares only `data`. It has no `value` and no `on_change` trigger
-(passing `on_change` raises `ValueError`), so it cannot report a selection to
-state yet. For a bound slot picker use `mn.segmented_control` or
-`mn.chip.group` over the same list.
+Props: `data`, `value`, `default_value`, `on_change`, `allow_deselect`, `format`
+(`"24h"` | `"12h"`), `with_seconds`, `am_pm_labels`, `simple_grid_props`,
+`get_control_props` (JS function), `min_time`, `max_time`, `disable_time` (list or
+JS predicate), `disabled`, `radius`, `size`.
 
 > [Mantine docs — TimeGrid](https://mantine.dev/dates/time-grid/)
 

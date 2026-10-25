@@ -46,18 +46,47 @@ mn.tree(
 | `with_drag_handle` | `bool` | `False` | Show drag handles on nodes |
 | `keep_mounted` | `bool` | `True` | Keep collapsed children in DOM |
 | `search` | `str` | — | Filter nodes by label (appkit extension) |
-| `with_checkbox` | `bool` | `False` | Show checkboxes on nodes (appkit extension) |
+| `with_checkbox` | `bool` | `False` | Render a checkbox per node (appkit extension) |
+| `initial_selected_state` | `list[str]` | `[]` | Values selected on mount |
+| `initial_checked_state` | `list[str]` | `[]` | Values checked on mount |
+| `initial_expanded_state` | `dict[str, bool]` | `{}` | Expanded nodes on mount, e.g. `{"src": True}` |
+| `check_strictly` | `bool` | `False` | Check nodes independently (no parent/child cascade) |
 | `with_custom_node` | `bool` | `False` | Use the appkit node renderer (icons per node) |
 | `allow_range_selection`, `check_on_space`, `expand_on_space`, `clear_selection_on_outside_click` | `bool` | — | Keyboard / selection behavior |
 | `render_node` | JS function | — | Custom node renderer (`rx.Var("(payload) => ...")`) |
 
-## Reading the selection
+## Events
 
-`mn.tree` declares no event triggers: there is no `on_select` / `on_check` /
-`on_change`, and passing one raises `ValueError`. Selection and check state live in
-the browser. When state must know the choice, put an `on_click` on content you
-render yourself (e.g. a `mn.nav_link` list), or use `mn.tree_select`
-(inputs-selection.md), which sends the selected values to `on_change`.
+| Event | Payload | When |
+|-------|---------|------|
+| `on_select` | `list[str]` | Selected node values change |
+| `on_check` | `list[str]` | Checked node values change (also once on mount) |
+| `on_expand` | `str` | A node is expanded |
+| `on_collapse` | `str` | A node is collapsed |
+
+```python
+class TreeState(rx.State):
+    selected: list[str] = []
+    checked: list[str] = []
+
+    @rx.event
+    def set_selected(self, values: list[str]) -> None:
+        self.selected = values
+
+    @rx.event
+    def set_checked(self, values: list[str]) -> None:
+        self.checked = values
+
+
+mn.tree(
+    data=data,
+    select_on_click=True,
+    on_select=TreeState.set_selected,
+)
+```
+
+The initial state props are read once on mount; the tree is not controlled from
+state.
 
 ## With search filter
 
@@ -87,7 +116,8 @@ mn.stack(
 mn.tree(
     data=file_tree_data,
     with_checkbox=True,
-    expand_on_click=False,  # checkbox clicks handle selection
+    initial_checked_state=["src/main.py"],
+    on_check=TreeState.set_checked,  # list[str] of checked values
     level_offset=20,
 )
 ```

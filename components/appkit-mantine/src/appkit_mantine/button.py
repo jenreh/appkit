@@ -152,6 +152,7 @@ class CloseButton(MantineButtonBase):
     icon_size: Var[str | int] = None
     radius: Var[str | int] = None
     size: Var[str | int] = None
+    variant: Var[Literal["subtle", "transparent"]] = None
 
 
 class UnstyledButton(MantineButtonBase):

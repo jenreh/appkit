@@ -170,6 +170,12 @@ class DatePickerInput(MantineDateInputBase):
     """Replace the calendar header level button with native select elements
     (Mantine 9.5)."""
 
+    presets: Var[list[dict[str, Any]]] = None
+    """Presets shown next to the calendar: ``[{"value": ..., "label": ...}]``."""
+
+    value_formatter: Var[Any] = None
+    """JS function ``({ type, date, locale, format, labelSeparator }) => string``."""
+
     @classmethod
     def get_event_triggers(cls) -> dict[str, Any]:
         return {
@@ -402,6 +408,10 @@ class TimePicker(MantineDateInputBase):
     with_seconds: Var[bool] = None
     """Enable seconds."""
 
+    presets: Var[list[str] | list[dict[str, Any]]] = None
+    """Time presets: ``["09:00", ...]`` or groups
+    ``[{"label": ..., "values": [...]}]``."""
+
     close_dropdown_on_preset_select: Var[bool] = None
     """Close the dropdown after a preset is selected (Mantine 9.4)."""
 
@@ -415,6 +425,47 @@ class TimeGrid(MantineComponentBase):
 
     data: Var[list[str]] = None
     """Array of time values."""
+
+    value: Var[str | None] = None
+    """Controlled selected time."""
+
+    default_value: Var[str | None] = None
+    """Uncontrolled initial time."""
+
+    allow_deselect: Var[bool] = None
+    """Allow deselecting the active time by clicking it again."""
+
+    format: Var[Literal["12h", "24h"]] = None
+    """Time format displayed in the grid."""
+
+    with_seconds: Var[bool] = None
+    """Display the seconds part."""
+
+    am_pm_labels: Var[dict[str, str]] = None
+    """Labels for am/pm values, e.g. ``{"am": "AM", "pm": "PM"}``."""
+
+    simple_grid_props: Var[dict[str, Any]] = None
+    """Props for the underlying SimpleGrid, e.g. ``{"cols": 3, "spacing": "xs"}``."""
+
+    get_control_props: Var[Any] = None
+    """JS function ``(time) => props`` for each control."""
+
+    radius: Var[str | int] = None
+    size: Var[str] = None
+
+    min_time: Var[str] = None
+    """Controls before this time are disabled."""
+
+    max_time: Var[str] = None
+    """Controls after this time are disabled."""
+
+    disable_time: Var[list[str] | Any] = None
+    """Times to disable, or a JS predicate ``(time) => boolean``."""
+
+    disabled: Var[bool] = None
+
+    on_change: EventHandler[_date_handler] = None
+    """Called with the selected time string (``""`` when deselected)."""
 
     def _get_custom_code(self) -> str:
         return "import '@mantine/dates/styles.css';"

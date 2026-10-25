@@ -259,8 +259,8 @@ class, which matters for the state and tests behind `mn.*` UIs:
 ## Critical rules
 
 1. **Use only props the references list.** Reflex 0.10 raises no error for an
-   undeclared keyword: it silently turns it into CSS (`mn.table(variant="vertical")`
-   renders `css: {variant: "vertical"}`), which is the usual cause of "this prop has
+   undeclared keyword: it silently turns it into CSS (`mn.text(foo="bar")` renders
+   `css: {foo: "bar"}`), which is the usual cause of "this prop has
    no effect". For a Mantine prop the wrapper does not declare, pass it as
    `custom_attrs={"camelCaseName": value}`. Undeclared *event* props do fail loudly
    (`ValueError: ... does not take in an on_change event trigger`).
@@ -319,7 +319,7 @@ mn.text_input(
 )
 ```
 
-Available: `w`, `h`, `miw`, `maw`, `mih`, `mah`, `m`, `my`, `mx`, `mt`, `mb`, `ml`, `mr`, `p`, `py`, `px`, `pt`, `pb`, `pl`, `pr`, `bg`, `c`, `display`, `pos`, `flex`, `opacity`, `fz`, `fw`, `ta`, `td`, `bd`, `hidden_from`, `visible_from`.
+Available: `w`, `h`, `miw`, `maw`, `mih`, `mah`, `m`, `my`, `mx`, `mt`, `mb`, `ml`, `mr`, `p`, `py`, `px`, `pt`, `pb`, `pl`, `pr`, `bg`, `c`, `display`, `pos`, `flex`, `opacity`, `fz`, `fw`, `ta`, `td`, `bd`, `hidden_from`, `visible_from`, `light_hidden`, `dark_hidden`.
 
 ## Colors
 

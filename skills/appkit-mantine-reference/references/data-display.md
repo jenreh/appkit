@@ -402,8 +402,8 @@ mn.close_button(
 ```
 
 Props: `size`, `radius`, `icon`, `icon_size`, `color`, `gradient`, `auto_contrast`,
-`disabled`, `data_disabled`, `loading`, `aria_label`, `on_click`. The wrapper does
-not declare `variant`; pass `custom_attrs={"variant": "transparent"}` if needed.
+`disabled`, `data_disabled`, `loading`, `aria_label`, `on_click`, `variant`
+(`"subtle"` | `"transparent"`).
 
 > [Mantine docs — CloseButton](https://mantine.dev/core/close-button/)
 
@@ -486,10 +486,10 @@ Opens on hover and on keyboard focus, closes on Escape or an outside press, and
 does not open on tap. To open on tap instead of focus:
 `events={"focus": False, "touch": True}, close_on_escape=False`.
 
-Props: `width`, `shadow`, `open_delay`, `close_delay`, `initially_opened`,
-`keep_mounted`, `disabled`, `events`, `interactive`, `role`, `return_focus`,
-`close_on_escape`, `on_open`, `on_close`, `on_dismiss`. The wrapper does not
-declare `position`; use `custom_attrs={"position": "top"}`.
+Props: `position`, `offset`, `with_arrow`, `transition_props`, `width`, `shadow`,
+`open_delay`, `close_delay`, `initially_opened`, `keep_mounted`, `disabled`,
+`events`, `interactive`, `role`, `return_focus`, `close_on_escape`, `on_open`,
+`on_close`, `on_dismiss`.
 
 > [Mantine docs — HoverCard](https://mantine.dev/core/hover-card/)
 
