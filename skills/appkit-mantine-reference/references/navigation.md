@@ -45,7 +45,9 @@ mn.pagination(
 **on_change receives page number** (int) directly.
 
 Props: `total`, `value`, `default_value`, `siblings`, `boundaries`, `color`,
-`radius`, `size`, `with_edges`, `with_controls`, `on_change`.
+`radius`, `size`, `with_edges`, `with_controls`, `layout`, `on_change`.
+`layout="responsive"` uses container queries to drop controls when the parent is
+narrow.
 
 > [Mantine docs — Pagination](https://mantine.dev/core/pagination/)
 
@@ -66,7 +68,7 @@ mn.stepper(
 
 Stepper props: `active`, `orientation`, `icon_size`, `size`, `color`,
 `allow_next_steps_select`, `icon_position`, `label_position` (`"bottom"`
-puts label/description under the icon, 9.6), `on_step_click`.
+puts label/description under the icon), `on_step_click`.
 
 Step props: `label`, `description`, `icon`, `completed_icon`, `loading`,
 `allow_step_select`.
@@ -115,8 +117,9 @@ mn.nav_link(
 ```
 
 Props: `label`, `description`, `left_section`, `right_section`, `active`, `disabled`,
-`variant` (`"filled"` | `"light"` | `"subtle"` | `"transparent"`), `color`,
-`children_offset`, `default_opened`, `opened`, `on_click`.
+`variant` (`"filled"` | `"light"` | `"subtle"` | `"transparent"`), `color`, `radius`,
+`chevron_position`, `default_opened`, `opened`, `transition_duration`, `on_click`.
+Nest `mn.nav_link` children for a collapsible group.
 
 > [Mantine docs — NavLink](https://mantine.dev/core/nav-link/)
 
@@ -138,7 +141,7 @@ class State(rx.State):
         return rx.call_script("window.nprogress.complete()")
 ```
 
-Props: `color`, `size`, `initial_progress`, `step_interval`, `with_spinner`,
+Props: `color`, `size`, `initial_progress`, `step_interval`, `with_transition`,
 `z_index`.
 
 API: `window.nprogress.start()`, `.stop()`, `.complete()`, `.increment()`,
@@ -159,7 +162,7 @@ mn.scroll_area(
 
 Props: `type` (`"auto"`, `"always"`, `"scroll"`, `"hover"`, `"never"`),
 `scrollbar_size`, `offset_scrollbars`,
-`vertical_scrollbar_position` (Mantine 9.5 — `"left"` | `"right"`, pins the
+`vertical_scrollbar_position` (`"left"` | `"right"`, pins the
 vertical scrollbar to a physical side regardless of text direction; useful
 for RTL apps; available on all variants including `autosize` and `stateful`).
 
@@ -201,43 +204,58 @@ The scroll snaps back to the bottom on new content only when the user is near th
 ## RichTextEditor (Tiptap)
 
 ```python
-from appkit_mantine import rich_text_editor, EditorToolbarConfig, ToolbarControlGroup
-
 mn.rich_text_editor(
     content=State.editor_content,
-    on_change=State.set_editor_content,
-    toolbar=EditorToolbarConfig(
+    on_update=State.set_editor_content,  # receives the HTML string
+    toolbar_config=mn.EditorToolbarConfig(
         control_groups=[
-            ToolbarControlGroup.BASIC_FORMATTING,
-            ToolbarControlGroup.HEADINGS,
-            ToolbarControlGroup.LISTS_AND_BLOCKS,
-            ToolbarControlGroup.LINKS,
-        ]
+            mn.ToolbarControlGroup.BASIC_FORMATTING.value,
+            mn.ToolbarControlGroup.HEADINGS.value,
+            ["link", "unlink"],  # or a custom list of control names
+        ],
+        sticky=True,
     ),
     placeholder="Start writing...",
     editable=True,
+    styles={"content": {"minHeight": "300px"}},
 )
 ```
+
+The change event is `on_update`, not `on_change`, and the toolbar goes in
+`toolbar_config` (an `EditorToolbarConfig`, not a state Var). Pass group
+members with `.value`. Other props: `variant` (`default|subtle`),
+`with_typography_styles`, `labels`, `show_toolbar`, `sticky_offset`,
+`class_names`, and image upload (`image_upload_url`, `image_upload_field`,
+`image_upload_headers`, `on_image_upload_error`). While the editor has focus
+it ignores incoming `content` updates, so typing does not reset the cursor.
 
 Control groups: `BASIC_FORMATTING`, `HEADINGS`, `LISTS_AND_BLOCKS`, `LINKS`,
 `ALIGNMENT`, `COLORS`, `HISTORY`, `MEDIA`, `UPLOAD`, `TABLE`, `DETAILS`,
 `INVISIBLE_CHARACTERS`, `ALL`. Table controls (`tableInsert`,
 `tableColumnBefore`, `tableRowAfter`, `tableMergeCells`, ...) are disabled
 outside a table; `details` wraps the block in a collapsible section;
-`invisibleCharacters` toggles formatting marks (Mantine 9.6).
+`invisibleCharacters` toggles formatting marks.
 
 ## MarkdownPreview
 
+Renders Markdown with `@uiw/react-markdown-preview` (not a Mantine component);
+follows the Reflex color mode.
+
 ```python
 mn.markdown_preview(
-    content=State.markdown_text,
-    code_highlight_theme="github-dark",
+    source=State.markdown_text,
+    enable_mermaid=State.done_streaming,  # render ```mermaid fences as diagrams
+    enable_katex=State.done_streaming,  # render $...$ math
+    security_level="standard",  # "strict" | "standard" | "none"
 )
 ```
 
-Props: `content`, `code_highlight_theme`.
-
-> [Mantine docs — RichTextEditor](https://mantine.dev/x/tiptap/)
+Props: `source`, `security_level` (`"strict"` sanitizes all HTML, `"none"`
+renders raw HTML), `enable_mermaid`, `enable_katex`, `disable_copy`,
+`remark_plugins`, `rehype_plugins`, `rehype_rewrite`, `components`,
+`wrapper_element`, `prefix_cls`, `class_name`. Turn Mermaid/KaTeX on only after
+streaming finishes, so half-written blocks are not parsed. For click-to-zoom on
+diagrams add `mn.mermaid_zoom_script()` (theme.md).
 
 ## Anchor
 
@@ -310,7 +328,7 @@ Props: `color`, `size`, `radius`, `auto_contrast`, `depth_offset`, `min_depth_to
 
 > [Mantine docs — TableOfContents](https://mantine.dev/core/table-of-contents/)
 
-## Toggle and Toolbar (9.7)
+## Toggle and Toolbar
 
 `mn.toggle` is a button with an active state: `active` / `default_active`,
 `on_active_change(bool)`, `auto_width`, `auto_contrast`, `variant`, `color`.
@@ -338,7 +356,7 @@ handler receives `None` when the active item is clicked again, so type it
 `str | None`). `mn.toolbar.toggle(active=...)` is the stateless variant;
 `mn.toolbar.group` groups without selection state.
 
-### RichTextEditor image upload (9.7)
+### RichTextEditor image upload
 
 Add the `imageUpload` control (`ToolbarControlGroup.UPLOAD`) and optionally
 `image_upload_url="/upload"` (multipart POST, field `image_upload_field`,

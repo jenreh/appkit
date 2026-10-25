@@ -23,15 +23,18 @@ mn.tags_input(
     default_value=["Python"],  # pre-selected tags
     placeholder="Add a skill",
     max_tags=5,
-    allow_new=False,  # only allow values from data list
     on_change=State.set_tags,
 )
 ```
 
-**on_change receives `list[str]`** directly.
+**on_change receives `list[str]`** directly. TagsInput always accepts free text;
+`data` only feeds suggestions. To restrict values to a list, use `mn.multi_select`.
 
-Props: `data`, `accept_value_on_blur`, `allow_duplicates`, `allow_new`,
-`max_tags`, `split_chars`, `clearable`, `on_search_change`, `on_duplicate`, `on_remove`.
+Props: `data`, `accept_value_on_blur`, `allow_duplicates`, `max_tags`,
+`split_chars`, `clearable`, `search_value`, `filter`, `limit`, `render_option`,
+`render_pill`, `max_dropdown_height`, `with_scroll_area`, `floating_height`,
+`combobox_props`, `on_search_change`, `on_duplicate`, `on_remove`, `on_clear`,
+`on_option_submit`, `on_dropdown_open`, `on_dropdown_close`.
 
 > [Mantine docs — TagsInput](https://mantine.dev/core/tags-input/)
 
@@ -63,7 +66,8 @@ data = [
 ```
 
 Props: `allow_deselect`, `auto_select_on_blur`, `render_option`,
-`select_first_option_on_change`, `with_check_icon`, `check_icon_position`.
+`select_first_option_on_change`, `check_icon_position`, `searchable`,
+`clearable`, `nothing_found_message`, `limit`, `filter`, `combobox_props`.
 
 > [Mantine docs — Select](https://mantine.dev/core/select/)
 
@@ -167,12 +171,14 @@ Props: `data`, `value`, `default_value`, `mode` (e.g. `"multiple"`), `searchable
 `search_value`, `clearable`, `disabled`, `required`, `label`, `description`, `error`,
 `radius`, `size`, `max_dropdown_height`, `max_values`, `nothing_found_message`,
 `allow_deselect`, `expand_on_click`, `with_lines`, `expanded_values`,
-`default_expanded_values`, `default_expand_all`, `on_change`, `on_clear`,
-`on_search_change`, `on_dropdown_open`, `on_dropdown_close`, `on_expanded_change`.
+`default_expanded_values`, `default_expand_all`, `render_pill` (JS render function
+for pills in `multiple`/`checkbox` mode; receives `{node, value, onRemove}`), `on_change`,
+`on_clear`, `on_search_change`, `on_dropdown_open`, `on_dropdown_close`,
+`on_expanded_change`.
 
 > [Mantine docs — TreeSelect](https://mantine.dev/core/tree-select/)
 
-## Cascader (Mantine 9.5)
+## Cascader
 
 Select a value from hierarchical data by drilling down through cascading columns.
 
@@ -294,11 +300,10 @@ Props: `searchable`, `clearable`, `creatable`, `search_placeholder`, `nothing_fo
 `max_dropdown_height`, `position`, `value`, `values` (multi-select list),
 `on_change`, `on_create`, `on_search_change`, `on_clear`, `on_opened_change`.
 
-> **Mantine 9.3 note:** `mn.select`, `mn.multi_select`, `mn.autocomplete` and
-> `mn.tags_input` accept `floating_height="viewport"` to let the dropdown fill
+> `mn.select`, `mn.multi_select`, `mn.autocomplete` and `mn.tags_input` accept `floating_height="viewport"` to let the dropdown fill
 > the available vertical viewport space.
 
-## ComboboxPopover (Mantine 9.4)
+## ComboboxPopover
 
 Attaches a searchable/selectable combobox dropdown to any button element —
 without rendering an input.

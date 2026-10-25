@@ -59,10 +59,12 @@ mn.date_picker_input(
     clearable=True,
     number_of_columns=2,  # show two months side by side
     on_change=State.set_range,
-    presets=[
-        {"label": "Last 7 days", "value": ["2025-05-14", "2025-05-21"]},
-        {"label": "This month", "value": ["2025-05-01", "2025-05-31"]},
-    ],
+    custom_attrs={
+        "presets": [
+            {"label": "Last 7 days", "value": ["2025-05-14", "2025-05-21"]},
+            {"label": "This month", "value": ["2025-05-01", "2025-05-31"]},
+        ]
+    },
 )
 
 # Multiple independent dates
@@ -74,8 +76,11 @@ mn.date_picker_input(
 ```
 
 Props: `type` (`"default"` | `"range"` | `"multiple"`), `number_of_columns`,
-`hide_outside_dates`, `first_day_of_week`, `weekend_days`, `presets`, `value_formatter`,
-`with_native_level_select` (Mantine 9.5, see below).
+`hide_outside_dates`, `first_day_of_week`, `weekend_days`, `value_format`,
+`dropdown_type` (`"popover"` | `"modal"`), `popover_props`, `modal_props`,
+`clearable`, `min_date`, `max_date`, `locale`, `with_native_level_select` (see
+below). `presets` and `value_formatter` are not declared: pass them through
+`custom_attrs` as above (a plain keyword would silently become CSS).
 
 > [Mantine docs — DatePickerInput](https://mantine.dev/dates/date-picker-input/)
 
@@ -146,8 +151,10 @@ mn.time_picker(
 )
 ```
 
-Props: `with_seconds`, `type` (`"duration"` enables durations > 24h), plus all
-`MantineInputComponentBase` props.
+Props: `with_seconds`, `type` (`"duration"` enables durations > 24h),
+`close_dropdown_on_preset_select`, plus all `MantineInputComponentBase` props.
+The wrapper does not declare Mantine's `presets`; pass them with
+`custom_attrs={"presets": ["09:00", "12:00", "17:00"]}`.
 
 > [Mantine docs — TimePicker](https://mantine.dev/dates/time-picker/)
 
@@ -156,11 +163,13 @@ Props: `with_seconds`, `type` (`"duration"` enables durations > 24h), plus all
 Inline slot picker — displays a grid of selectable time slots.
 
 ```python
-mn.time_grid(
-    data=["09:00", "10:00", "11:00", "12:00", "14:00"],
-    on_change=State.set_slot,
-)
+mn.time_grid(data=["09:00", "10:00", "11:00", "12:00", "14:00"])
 ```
+
+The wrapper declares only `data`. It has no `value` and no `on_change` trigger
+(passing `on_change` raises `ValueError`), so it cannot report a selection to
+state yet. For a bound slot picker use `mn.segmented_control` or
+`mn.chip.group` over the same list.
 
 > [Mantine docs — TimeGrid](https://mantine.dev/dates/time-grid/)
 
@@ -179,16 +188,15 @@ mn.inline_date_time_picker(
     first_day_of_week=1,  # 0 Sun, 1 Mon
     highlight_today=True,
     number_of_columns=1,
-    submit_button_props={"children": "Apply"},
 )
 ```
 
 Props: `type`, `value`, `default_value`, `size`, `full_width`, `number_of_columns`,
 `max_date`, `min_date`, `allow_deselect`, `allow_single_date_in_range`,
 `hide_outside_dates`, `hide_weekdays`, `highlight_today`, `with_cell_spacing`,
-`with_week_numbers`, `with_seconds`, `first_day_of_week`, `time_picker_props`,
-`end_time_picker_props`, `submit_button_props`, `default_time_value`,
-`on_change`, `on_submit`, `on_level_change`, `on_date_change`.
+`with_week_numbers`, `with_seconds`, `first_day_of_week`, `level`,
+`default_level`, `max_level`, `on_change`, `on_submit`, `on_level_change`,
+`on_date_change`.
 
 > [Mantine docs — InlineDateTimePicker](https://mantine.dev/dates/inline-date-time-picker/)
 
@@ -209,7 +217,7 @@ mn.center(
 Available inline components: `mn.calendar()`, `mn.date_picker()`, `mn.month_picker()`,
 `mn.year_picker()`, `mn.mini_calendar()`, `mn.time_grid()`.
 
-## Native level select (Mantine 9.5)
+## Native level select
 
 Set `with_native_level_select=True` on `mn.date_picker`, `mn.date_picker_input`,
 `mn.month_picker`, `mn.year_picker`, or `mn.date_time_picker` to replace the

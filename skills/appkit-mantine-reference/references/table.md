@@ -47,7 +47,7 @@ mn.table(
 | `caption_side` | `str` | `"bottom"` | `"top"` or `"bottom"` |
 | `tabular_nums` | `bool` | `False` | Use tabular-nums font feature |
 | `layout` | `str` | — | CSS table-layout; `"fixed"` for equal column widths |
-| `variant` | `str` | — | `"vertical"` for key-value layout |
+| `variant` | — | — | Not declared: pass `custom_attrs={"variant": "vertical"}` |
 
 ## Sub-components
 
@@ -129,7 +129,7 @@ mn.table(
         mn.table.tr(mn.table.th("Role"), mn.table.td("Admin")),
         mn.table.tr(mn.table.th("Email"), mn.table.td("alice@example.com")),
     ),
-    variant="vertical",
+    custom_attrs={"variant": "vertical"},  # `variant=` alone would become CSS
     layout="fixed",
     with_table_border=True,
 )

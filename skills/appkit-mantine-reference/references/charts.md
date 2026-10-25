@@ -61,7 +61,7 @@ Common props: `data`, `data_key`, `series`, `with_legend`, `legend_props`,
 `x_axis_props`, `x_axis_label`, `with_y_axis`, `y_axis_props`, `y_axis_label`,
 `unit`, `with_right_y_axis`, `accessibility_layer`, `h`, `w`, `m*`, `p*`.
 
-### Mantine 9.5+ additions
+### Accessibility layer and brush
 
 - `accessibility_layer` (bool, `True` by default) — keyboard navigation via
   the Recharts accessibility layer. Available on all Recharts-based charts
@@ -225,7 +225,7 @@ mn.scatter_chart(
 )
 ```
 
-Second y axis (Mantine 9.5+): set `with_right_y_axis=True` (plus optional
+Second y axis: set `with_right_y_axis=True` (plus optional
 `right_y_axis_label` / `right_y_axis_props`) and bind a series to it with
 `"yAxisId": "right"` inside the `data` object — series without `yAxisId`
 stay on the left axis.
@@ -295,7 +295,7 @@ mn.heatmap(
 
 Props: `data`, `start_date`, `end_date`, `min`, `max`, `color_scale`,
 `value_label`, `enable_labels`, `with_legend`, `legend_labels`,
-`month_labels_position` (`"top"` default, `"bottom"`; Mantine 9.5+).
+`month_labels_position` (`"top"` default, `"bottom"`).
 
 ## Treemap
 
@@ -355,8 +355,7 @@ mn.radial_bar_chart(
 
 Props: `data`, `data_key`, `bar_size`, `start_angle`, `end_angle`,
 `empty_background_color`, `with_background`, `with_labels`, `with_legend`,
-`with_tooltip`, `legend_props`, `tooltip_props`, `radial_bar_props`,
-`radial_bar_chart_props`, `h`, `w`.
+`with_tooltip`, `legend_props`, `tooltip_props`, `accessibility_layer`, `h`, `w`.
 
 > [Mantine docs — RadialBarChart](https://mantine.dev/charts/radial-bar-chart/)
 
@@ -420,8 +419,8 @@ Props: `data` (`{nodes: [{name}], links: [{source, target, value}]}`), `height`,
 
 ## SunburstChart
 
-Hierarchical data as concentric rings — a treemap in polar coordinates
-(Mantine 9.5+). Same data shape as Treemap: leaf nodes carry `value`,
+Hierarchical data as concentric rings — a treemap in polar coordinates.
+Same data shape as Treemap: leaf nodes carry `value`,
 parents carry `children`.
 
 ```python
@@ -457,7 +456,7 @@ Props: `data`, `data_key`, `size`, `gap`, `inner_radius`, `start_angle`,
 ## BulletChart
 
 Compact KPI chart — a value bar against a target marker and qualitative
-range bands (Mantine 9.5+). Required props: `value`, `ranges`.
+range bands. Required props: `value`, `ranges`.
 
 ```python
 mn.bullet_chart(
@@ -483,7 +482,7 @@ Props: `value`, `ranges` (`[{value, color, label?}]`, rendered back-to-front),
 
 ## ChartBrush
 
-Themed Recharts `Brush` (Mantine 9.5+). Render as a child of AreaChart,
+Themed Recharts `Brush`. Render as a child of AreaChart,
 BarChart, LineChart, or CompositeChart for full control over the brush —
 use instead of `with_brush`, not together with it.
 
@@ -504,7 +503,7 @@ Props: `data_key`, `start_index`, `end_index`, `height`. Accepts recharts
 
 ## GaugeChart
 
-Radial gauge for a single KPI (Mantine 9.6+). Required prop: `value`.
+Radial gauge for a single KPI. Required prop: `value`.
 
 ```python
 mn.gauge_chart(
@@ -531,7 +530,7 @@ Props: `value`, `min`, `max`, `target`, `sections` (`[{value, color}]`),
 
 ## WaffleChart
 
-Part-to-whole grid of colored cells (Mantine 9.6+).
+Part-to-whole grid of colored cells.
 
 ```python
 mn.waffle_chart(
@@ -554,7 +553,7 @@ Props: `data` (`[{name, value, color}]`), `rows`, `columns`, `total`, `gap`,
 
 ## MatrixChart
 
-Heatmap with categorical x/y axes (Mantine 9.6+). Cells are
+Heatmap with categorical x/y axes. Cells are
 `{x, y, value}`; `value` may be `None`.
 
 ```python
@@ -579,7 +578,7 @@ Props: `data`, `x_labels`, `y_labels`, `domain`, `colors`, `cell_size`,
 
 ## CandlestickChart
 
-Financial OHLC chart (Mantine 9.6+). Rows need `open`, `high`, `low`,
+Financial OHLC chart. Rows need `open`, `high`, `low`,
 `close` keys (rename with `data_keys`).
 
 ```python
@@ -601,7 +600,7 @@ categorical charts, `reference_lines`, `reference_areas`, `reference_dots`.
 ## Reference areas & dots
 
 AreaChart, BarChart, LineChart, CompositeChart and ScatterChart accept
-`reference_lines`, `reference_areas` and `reference_dots` (Mantine 9.6+).
+`reference_lines`, `reference_areas` and `reference_dots`.
 
 ```python
 mn.area_chart(

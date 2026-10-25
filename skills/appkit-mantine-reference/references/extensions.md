@@ -43,8 +43,8 @@ mn.carousel(
 Root props: `height`, `initial_slide`, `orientation`, `slide_size`, `slide_gap`,
 `with_controls`, `with_indicators`, `with_keyboard_events`, `control_size`,
 `controls_offset`, `include_gap_in_size`, `embla_options` (Embla config dict),
-`next_control_icon`, `previous_control_icon`, `next_control_props`,
-`previous_control_props`, `on_slide_change`, `on_next_slide`, `on_previous_slide`.
+`next_control_icon`, `previous_control_icon`, `on_slide_change`, `on_next_slide`,
+`on_previous_slide`.
 
 `carousel.slide` has no special props — just layout/style props.
 
@@ -113,7 +113,7 @@ Props: `modal_props` (default props applied to every imperative modal), `labels`
 
 > [Mantine docs — Modals manager](https://mantine.dev/x/modals/)
 
-## Notifications (`@mantine/notifications`, 9.7)
+## Notifications (`@mantine/notifications`)
 
 Mount the provider once (page or layout), then return the imperative helpers
 from event handlers. They run `notifications.*` in the browser.
@@ -145,9 +145,9 @@ Loading flow: `show(..., id="job", loading=True, auto_close=False)`, later
 static dicts.
 
 `render_notification` on the provider takes a JS function Var
-(`(notification) => ReactNode`) that replaces every notification body (9.6).
+(`(notification) => ReactNode`) that replaces every notification body.
 
-## Lightbox (`@mantine/lightbox`, 9.6)
+## Lightbox (`@mantine/lightbox`)
 
 Controlled, or mount `mn.lightbox.provider()` once and open it from handlers.
 
@@ -176,7 +176,7 @@ Slides: images `{src, alt, caption, thumbSrc}` or videos
 `labels`, `transition_props`, `z_index`, `zoom_max_scale`. Helpers:
 `mn.lightbox_api.open/close/next/prev/set_index`.
 
-## ActionBar (core, 9.6)
+## ActionBar
 
 ```python
 mn.action_bar(
@@ -193,7 +193,7 @@ mn.action_bar(
 Props: `opened`, `close_on_escape`, `keep_mounted`, `position`, `radius`,
 `shadow`, `with_border`, `within_portal`, `transition_props`, `z_index`.
 
-## Code highlight / JsonViewer (`@mantine/code-highlight`, 9.7)
+## JsonViewer (`@mantine/code-highlight`)
 
 ```python
 mn.json_viewer(

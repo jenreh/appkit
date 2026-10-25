@@ -47,24 +47,17 @@ mn.tree(
 | `keep_mounted` | `bool` | `True` | Keep collapsed children in DOM |
 | `search` | `str` | — | Filter nodes by label (appkit extension) |
 | `with_checkbox` | `bool` | `False` | Show checkboxes on nodes (appkit extension) |
+| `with_custom_node` | `bool` | `False` | Use the appkit node renderer (icons per node) |
+| `allow_range_selection`, `check_on_space`, `expand_on_space`, `clear_selection_on_outside_click` | `bool` | — | Keyboard / selection behavior |
+| `render_node` | JS function | — | Custom node renderer (`rx.Var("(payload) => ...")`) |
 
-## Controlled selection via State
+## Reading the selection
 
-```python
-class TreeState(rx.State):
-    selected: list[str] = []
-
-    def on_select(self, values: list[str]):
-        self.selected = values
-
-
-mn.tree(
-    data=State.tree_data,
-    select_on_click=True,
-    multiple=True,
-    on_select=TreeState.on_select,
-)
-```
+`mn.tree` declares no event triggers: there is no `on_select` / `on_check` /
+`on_change`, and passing one raises `ValueError`. Selection and check state live in
+the browser. When state must know the choice, put an `on_click` on content you
+render yourself (e.g. a `mn.nav_link` list), or use `mn.tree_select`
+(inputs-selection.md), which sends the selected values to `on_change`.
 
 ## With search filter
 
@@ -77,7 +70,7 @@ mn.stack(
     mn.text_input(
         placeholder="Search...",
         value=TreeState.search,
-        on_change=TreeState.set_search,
+        on_change=TreeState.set_search,  # explicit @rx.event setter
     ),
     mn.tree(
         data=tree_data,

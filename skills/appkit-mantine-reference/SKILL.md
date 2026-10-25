@@ -1,9 +1,9 @@
 ---
 name: appkit-mantine-reference
-description: "MUST invoke when generating mn.* based UIs or the user asks how to use, configure, or debug any mn.* or appkit_mantine component. appkit_mantine is NOT in Claude's training data — always use this skill rather than guessing at APIs. Covers building forms, tables, drawers, modals, tooltips, color pickers, date/time pickers, charts, and navigation; looking up correct props; debugging on_change handler types (NumberInput sends float|str, DateInput sends str|\"\"); troubleshooting component quirks like tooltips on disabled elements, overlays not closing, or props having no effect."
+description: "MUST invoke when generating mn.* based UIs or the user asks how to use, configure, or debug any mn.* or appkit_mantine component. appkit_mantine is NOT in Claude's training data — always use this skill rather than guessing at APIs. Covers building forms, tables, drawers, modals, tooltips, color pickers, date/time pickers, charts, and navigation; looking up correct props; debugging on_change handler types (NumberInput sends float|str, DateInput sends str|\"\"); troubleshooting component quirks like tooltips on disabled elements, overlays not closing, or props having no effect. Targets Mantine 9.7.3 on Reflex 0.10."
 metadata:
   author: jens-rehpoehler
-  version: "1.6"
+  version: "1.7"
   license: MIT
 ---
 
@@ -13,6 +13,8 @@ metadata:
 
 **Import**: `import appkit_mantine as mn`
 **All components use lowercase factory functions**: `mn.button()`, `mn.text_input()`, `mn.modal()`
+**Versions**: Mantine **9.7.3** (`appkit_mantine.base.MANTINE_VERSION`) on Reflex **0.10**.
+The references describe exactly this API; every prop they list exists.
 
 ## Inheritance hierarchy
 
@@ -21,7 +23,7 @@ MantineComponentBase          → library, CSS import, MantineProvider injection
   ↓
 MantineLayoutComponentBase    → w, h, m*, p*, bg, c, display, pos, flex, etc.
   ↓
-MantineInputComponentBase     → label, description, error, value, on_change, sections, etc.
+MantineInputComponentBase     → label, description, error, success, value, on_change, sections, etc.
   ↓
 Specific components           → only component-unique props
 ```
@@ -42,6 +44,10 @@ mn.stack(mn.text("Hello"), mn.text("World"), gap="md")
 
 ## Event handler patterns
 
+Reflex 0.10 creates no automatic `set_*` setters, so every `State.set_x` used in
+these docs is an explicit `@rx.event` method you write, typed to match the payload
+below.
+
 Default `on_change` uses `rx.event.input_event` (event.target.value). Some components override this:
 
 | Component | on_change receives | Pattern |
@@ -61,6 +67,7 @@ Default `on_change` uses `rx.event.input_event` (event.target.value). Some compo
 ### NumberInput handler example
 
 ```python
+@rx.event
 def set_price(self, val: float | str) -> None:
     if val == "":
         self.price = 0.0
@@ -72,9 +79,26 @@ def set_price(self, val: float | str) -> None:
 ### DateInput handler example
 
 ```python
+@rx.event
 def set_date(self, value: str) -> None:
     self.selected_date = value  # "" when cleared, ISO string otherwise
 ```
+
+### JavaScript function props
+
+Render props, predicates and formatters (`render_option`, `render_pill`,
+`render_event`, `can_drop_event`, `value_formatter`, `render_notification`, ...)
+run in the browser. Pass a JS function, never a Python lambda:
+
+```python
+mn.tree_select(
+    data=State.tree, render_pill=rx.Var("({ node }) => node.label.toUpperCase()")
+)
+```
+
+Dict props (`*_props`, `styles`, `class_names`, chart `series`) reach React
+unchanged: Reflex camelCases keyword props, not dict keys, so write keys as
+Mantine names them (`{"startTime": "08:00:00"}`, `styles={"content": {"minHeight": 300}}`).
 
 ## Component categories
 
@@ -82,7 +106,7 @@ def set_date(self, value: str) -> None:
 — TextInput, NumberInput, PasswordInput, Textarea, MaskedInput, JsonInput, Form (input sub-components)
 
 **Selection inputs**: See [references/inputs-selection.md](references/inputs-selection.md)
-— Select, MultiSelect, Autocomplete, NativeSelect, TreeSelect, TagsInput, RichSelect, ComboboxPopover
+— Select, MultiSelect, Autocomplete, NativeSelect, TreeSelect, Cascader, TagsInput, RichSelect, ComboboxPopover
 
 **Toggle inputs**: See [references/inputs-toggle.md](references/inputs-toggle.md)
 — Checkbox/CheckboxGroup/CheckboxCard, Radio/RadioGroup/RadioCard, Switch, Chip/ChipGroup, SegmentedControl, Fieldset
@@ -94,10 +118,10 @@ def set_date(self, value: str) -> None:
 — Slider, RangeSlider, FileInput, PinInput, Rating, ColorInput, ColorPicker, HueSlider, AlphaSlider, AngleSlider
 
 **Layout**: See [references/layout.md](references/layout.md)
-— Stack, Group, Flex, Grid, SimpleGrid, Container, Center, Box, Space, Divider, Affix, FocusTrap, AppShell, AspectRatio, Collapse, Marquee, Portal, Scroller, Transition, VisuallyHidden, FloatingWindow, OverflowList, Splitter
+— Stack, Group, Flex, Grid, SimpleGrid, Container, Center, Box, Space, Divider, Affix, FocusTrap, AppShell (+ resizable), AspectRatio, Collapse, Marquee, Portal, Scroller, Transition, VisuallyHidden, FloatingWindow, OverflowList, Splitter
 
 **Overlays**: See [references/overlays.md](references/overlays.md)
-— Modal, Drawer, AlertDialog, LoadingOverlay, Overlay, FloatingIndicator, Dialog, Popover
+— Modal, Drawer, AlertDialog, LoadingOverlay, Overlay, FloatingIndicator, Dialog, Popover, Tour
 
 **Data display**: See [references/data-display.md](references/data-display.md)
 — Accordion, Avatar, Badge, Card, Image, BackgroundImage, Paper, Indicator, Timeline, NumberFormatter, RollingNumber, Spoiler, ThemeIcon, ColorSwatch, Kbd, Tooltip, HoverCard, Button, ActionIcon, CloseButton, UnstyledButton, DataList, EmptyState
@@ -106,7 +130,7 @@ def set_date(self, value: str) -> None:
 — Alert, Notification, Progress, RingProgress, SemiCircleProgress, Loader, Skeleton
 
 **Navigation**: See [references/navigation.md](references/navigation.md)
-— Breadcrumbs, Pagination, Stepper, Tabs, NavLink, NavigationProgress, Anchor, Burger, TableOfContents, ScrollArea (autosize/autoscroll/stateful), RichTextEditor, MarkdownPreview
+— Breadcrumbs, Pagination, Stepper, Tabs, NavLink, NavigationProgress, Anchor, Burger, TableOfContents, ScrollArea (autosize/autoscroll/stateful), RichTextEditor, MarkdownPreview, Toggle, Toolbar
 
 **Menu**: See [references/menu.md](references/menu.md)
 — Menu with items, labels, dividers, hover/click triggers, sub-menus, search/checkbox/radio items, context menu, Menubar
@@ -121,13 +145,13 @@ def set_date(self, value: str) -> None:
 — Text, Title, Code, List, Blockquote, Highlight, Mark, TypographyStylesProvider
 
 **Charts**: See [references/charts.md](references/charts.md)
-— AreaChart, BarChart, LineChart, CompositeChart, DonutChart, PieChart, RadarChart, RadialBarChart, ScatterChart, BubbleChart, Sparkline, FunnelChart, Heatmap, Treemap, BarsList, SankeyChart
+— AreaChart, BarChart, LineChart, CompositeChart, DonutChart, PieChart, RadarChart, RadialBarChart, ScatterChart, BubbleChart, Sparkline, FunnelChart, Heatmap, Treemap, BarsList, SankeyChart, SunburstChart, BulletChart, ChartBrush, GaugeChart, WaffleChart, MatrixChart, CandlestickChart, reference areas/dots
 
 **Schedule** (calendar views): See [references/schedule.md](references/schedule.md)
 — Schedule, DayView, WeekView, MonthView, YearView, MobileMonthView, ResourcesSchedule, ResourcesDayView, ResourcesWeekView, ResourcesMonthView, AgendaView
 
 **Extensions**: See [references/extensions.md](references/extensions.md)
-— Carousel, Dropzone, ModalsProvider
+— Carousel, Dropzone, ModalsProvider, Notifications, Lightbox, ActionBar, JsonViewer
 
 **Maps**: See [references/maps.md](references/maps.md)
 — Map, MapControls, MapMarker (+content/popup/tooltip/label), MapPopup, MapRoute, MapArc, MapGeoJSON, MapClusterLayer, MapNavigation, MapDirectionsPanel
@@ -143,7 +167,7 @@ def set_date(self, value: str) -> None:
 **Need a dropdown / combobox?** → inputs-selection.md (`mn.select`, `mn.multi_select`, `mn.autocomplete`, `mn.native_select`)
 **Need a combobox dropdown on a plain button (no input)?** → inputs-selection.md (`mn.combobox_popover`)
 **Need a tags input?** → inputs-selection.md (`mn.tags_input`)
-**Need hierarchical selection?** → inputs-selection.md (`mn.tree_select`)
+**Need hierarchical selection?** → inputs-selection.md (`mn.tree_select`, or `mn.cascader` for drill-down columns)
 **Need a custom-rendered select?** → inputs-selection.md (`mn.rich_select` with `mn.rich_select.map(data, renderer=...)`)
 **Need a toggle/selector?** → inputs-toggle.md (`mn.segmented_control`, `mn.radio.group`, `mn.checkbox.group`, `mn.chip.group`, `mn.switch`)
 **Need to group related inputs with a legend?** → inputs-toggle.md (`mn.fieldset`)
@@ -165,12 +189,17 @@ def set_date(self, value: str) -> None:
 **Need a draggable floating panel?** → layout.md (`mn.floating_window`)
 **Need to show only first N items + overflow?** → layout.md (`mn.overflow_list`)
 **Need a resizable split-pane layout?** → layout.md (`mn.splitter`, `mn.splitter.pane`)
+**Need a user-resizable navbar/aside in the app shell?** → layout.md (`mn.app_shell.resizable`)
 **Need a screen-reader-only label?** → layout.md (`mn.visually_hidden`)
 **Need a dialog?** → overlays.md (`mn.modal` centered, `mn.drawer` side panel, `mn.alert_dialog` confirmation, `mn.dialog` small floating panel)
 **Need a popover anchored to a trigger?** → overlays.md (`mn.popover`)
+**Need a guided onboarding tour?** → overlays.md (`mn.tour`, `mn.tour.step`)
+**Need a bottom bar for bulk actions on selected rows?** → extensions.md (`mn.action_bar`)
+**Need a full-screen image/video gallery viewer?** → extensions.md (`mn.lightbox`, `mn.lightbox_api`)
 **Need programmatic modal/confirm management?** → extensions.md (`mn.modals_provider`)
 **Need a loading state?** → overlays.md (`mn.loading_overlay`) or feedback.md (`mn.skeleton`, `mn.loader`)
 **Need feedback / status messages?** → feedback.md (`mn.alert`, `mn.notification`, `mn.progress`, `mn.ring_progress`, `mn.semi_circle_progress`, `mn.skeleton`)
+**Need toast notifications triggered from event handlers?** → extensions.md (`mn.notifications_provider` + `mn.notifications.show`)
 **Need a status label?** → data-display.md (`mn.badge`)
 **Need an animated rolling counter?** → data-display.md (`mn.rolling_number`)
 **Need expandable/spoiler content?** → data-display.md (`mn.spoiler`)
@@ -185,6 +214,7 @@ def set_date(self, value: str) -> None:
 **Need typography?** → typography.md (`mn.text`, `mn.title`, `mn.list_`, `mn.code`)
 **Need a styled link?** → navigation.md (`mn.anchor`)
 **Need a hamburger menu toggle?** → navigation.md (`mn.burger`)
+**Need a toggle button or a formatting toolbar?** → navigation.md (`mn.toggle`, `mn.toolbar`)
 **Need a page-section navigator?** → navigation.md (`mn.table_of_contents`)
 **Need to render highlighted substrings inside text?** → typography.md (`mn.highlight`)
 **Need a `<mark>` inline highlight?** → typography.md (`mn.mark`)
@@ -196,8 +226,10 @@ def set_date(self, value: str) -> None:
 **Need tabular data?** → table.md (`mn.table`)
 **Need hierarchical data?** → tree.md (`mn.tree`)
 **Need charts?** → charts.md (`mn.line_chart`, `mn.bar_chart`, `mn.area_chart`, `mn.radial_bar_chart`, `mn.sankey_chart`, `mn.bars_list`, etc.)
+**Need a KPI chart?** → charts.md (`mn.gauge_chart`, `mn.bullet_chart`, `mn.waffle_chart`)
+**Need a financial or categorical heatmap chart?** → charts.md (`mn.candlestick_chart`, `mn.matrix_chart`)
 **Need a slideshow / carousel?** → extensions.md (`mn.carousel`)
-**Need syntax-highlighted code blocks?** → extensions.md (`mn.code_highlight`)
+**Need a collapsible JSON tree?** → extensions.md (`mn.json_viewer`)
 **Need a calendar/schedule view?** → schedule.md (`mn.schedule`, `mn.schedule.day_view`, `mn.schedule.week_view`, etc.)
 **Need a resource scheduler (rooms/people as rows)?** → schedule.md (`mn.resources_schedule`, `mn.resources_day_view`, `mn.resources_week_view`, `mn.resources_month_view`)
 **Need an agenda list of events by date?** → schedule.md (`mn.agenda_view`)
@@ -206,121 +238,12 @@ def set_date(self, value: str) -> None:
 **Need to customise the theme?** → theme.md (`mn.create_theme` + `mn.mantine_provider`)
 **Rendering Mermaid diagrams?** → theme.md (`mn.mermaid_zoom_script` to enable click-to-zoom)
 
-## Recent additions (Mantine 9.3 / 9.4)
-
-New components: `mn.splitter` (+`.pane`), `mn.data_list`, `mn.empty_state`,
-`mn.combobox_popover`, `mn.menubar`, `mn.resources_schedule`,
-`mn.resources_day_view` / `week_view` / `month_view`, `mn.agenda_view`; plus
-`mn.menu.search` / `checkbox_item` / `radio_group` / `radio_item` /
-`context_menu` and `mn.popover.context_menu`.
-
-New props on existing components:
-
-| Component(s) | Prop |
-|---|---|
-| All inputs | `success` (green state + optional message, like `error`) |
-| `mn.text`, `mn.blockquote` | `text_wrap` (`"wrap"|"nowrap"|"balance"|"pretty"|"stable"`) |
-| `mn.textarea` | `bottom_section` (content inside the border) |
-| `mn.select`/`multi_select`/`autocomplete`/`tags_input` | `floating_height="viewport"` |
-| `mn.pagination` | `layout="responsive"` |
-| `mn.overflow_list` | `collapse_from` (`"start"|"end"`) |
-| `mn.pie_chart`/`donut_chart` | `labels_type="name"` |
-| `mn.menu` | `align_items_labels` |
-| `mn.time_picker` | `close_dropdown_on_preset_select` |
-| schedule day/week | `with_sub_hour_grid_lines`, `get_current_time`, `with_agenda` |
-| schedule month | `with_weekend_days`, `with_agenda` |
-
-> `prevent_position_change_when_visible` now defaults to `true` on Tooltip /
-> Popover / Menu (dropdowns stay positioned once opened).
-
-## Recent additions (Mantine 9.5)
-
-New components: `mn.cascader` (hierarchical drill-down select, combobox
-module), `mn.sunburst_chart`, `mn.bullet_chart`, `mn.chart_brush` (charts
-module); plus `mn.floating_window.resize_handle` (resizable floating
-windows, layout module).
-
-New props on existing components:
-
-| Component(s) | Prop |
-|---|---|
-| `mn.tooltip` | `interactive` (stays open while pointer moves into it) |
-| `mn.accordion` | `disable_collapse` (single mode: open item cannot collapse) |
-| `mn.timeline.item` | `opposite`, `alternate` (centered timeline layout) |
-| `mn.scroll_area` | `vertical_scrollbar_position` (`"left"|"right"`, RTL) |
-| `mn.heatmap` | `month_labels_position` (`"top"|"bottom"`) |
-| date pickers | `with_native_level_select` (native selects in calendar header) |
-| recharts-based charts | `accessibility_layer` (keyboard navigation, on by default) |
-| `mn.area_chart`/`bar_chart`/`line_chart`/`composite_chart` | `with_brush`, `brush_props` |
-| `mn.floating_window` | `dimensions`, `on_size_change`, `on_resize_start` |
-| `mn.color_input` | `full_width` |
-
-9.5.1 also adds (see module reference docs for the wrapper prop names): a
-PasswordInput option controlling whether the visibility toggle is focusable,
-a second Y axis on ScatterChart, YearView custom day rendering and weekend
-hiding, and ResourcesMonthView event resizing.
-
-Fixed in 9.5.x: Tiptap controls no longer start disabled and the source-code
-control no longer wraps content in an extra `<p>` tag; Schedule recurring
-events respect timezones; WeekView event positioning is faster; Combobox
-works with Chrome autocomplete; Tooltip no longer sets `NaN` positions.
-
-## Recent additions (Mantine 9.6)
-
-New components: `mn.gauge_chart`, `mn.waffle_chart`, `mn.matrix_chart`,
-`mn.candlestick_chart` (charts module); `mn.action_bar` (+ `.divider`,
-`.close_button`) in `action_bar.py`; `mn.lightbox` (+ `.provider`) and the
-store helpers `mn.lightbox_api.open/close/next/prev/set_index` in
-`lightbox.py` (new `@mantine/lightbox` dep).
-
-| Component(s) | Prop |
-|---|---|
-| `mn.area_chart`/`bar_chart`/`line_chart`/`composite_chart`/`scatter_chart` | `reference_lines`, `reference_areas`, `reference_dots` |
-| `mn.area_chart` | `chart_type="stream"` (streamgraph) |
-| `mn.stepper` | `label_position` (`"right"|"bottom"`), `icon_position` |
-| schedule day/week, resources day/week | `event_drag_interval`, `event_resize_interval` (snap minutes) |
-| schedule day/week/month, `mn.schedule`, resources day/week | `with_interactive_background_events` |
-| `mn.notifications_provider` | `render_notification` (JS function Var), `layout="stacked"` |
-| `mn.rich_text_editor` | control groups `TABLE`, `DETAILS`, `INVISIBLE_CHARACTERS` (extensions always registered) |
-
-`mn.dropzone` now uses react-dropzone 20: `max_files` accepts files up to the
-limit and rejects only the rest.
-
-## Recent additions (Mantine 9.7)
-
-New components: `mn.toggle` and `mn.toolbar` (+ `.toggle`, `.toggle_group`,
-`.toggle_item`, `.group`, `.divider`) in `toolbar.py`; `mn.tour` (+ `.step`,
-direct children only, targets are CSS selectors) in `tour.py`;
-`mn.json_viewer` in `code_highlight.py` (new `@mantine/code-highlight` dep).
-
-| Component(s) | Prop |
-|---|---|
-| `mn.checkbox`, `mn.radio` | `variant="light"` |
-| `mn.tooltip` | `hide_detached` (default on) |
-| `mn.hover_card` | `events`, `interactive`, `role`, `return_focus`, `close_on_escape`, `on_dismiss` (opens on focus, no longer on tap) |
-| `mn.tree_select` | `render_pill` |
-| schedule day/week views | `event_overlap_mode` (`columns`/`cascade`), `event_overlap_raise_delay` |
-| schedule views | `prevent_event_overlap`, `can_drop_event`, `can_resize_event_to`, `can_drop_external_event`, `on_event_placement_rejected` |
-
-Also in 9.7:
-
-- `mn.notifications_provider(position=..., with_auto_close_progress=...)`
-  mounts the stack once; handlers return `mn.notifications.show(...)`,
-  `.update(id, ...)`, `.hide(id)`, `.clean()`, `.clean_queue()` or
-  `.promise("<js promise expr>", loading=..., success=..., error=...)`
-  (they run `notifications.*` in the browser via `rx.call_script`).
-- `mn.app_shell.resizable(..., resize_options={"navbar": {"min", "max",
-  "collapseThreshold"}}, initial_sizes=..., on_resize_end=..., on_collapse_change=...)`
-  wraps `useAppShellResize` (JS wrapper); sections need a `width`/`height`.
-- `mn.rich_text_editor(image_upload_url=..., image_upload_field=...,
-  on_image_upload_error=...)` plus the `imageUpload` control
-  (`ToolbarControlGroup.UPLOAD`); without a URL images are inlined as data URLs.
-
 ## Reflex 0.10 notes
 
 appkit requires `reflex>=0.10.0`. State vars are descriptors on the declaring
 class, which matters for the state and tests behind `mn.*` UIs:
 
+- No auto setters: write each `set_*` handler yourself (see above).
 - Do not pass `State._backend_var` as a prop or child (it is a `Field` now);
   use `.default_value()` or a regular var.
 - Do not assign `State.var = x` or `monkeypatch.setattr` state vars in tests;
@@ -335,12 +258,18 @@ class, which matters for the state and tests behind `mn.*` UIs:
 
 ## Critical rules
 
-1. **Never redeclare inherited props** — base classes provide ~40 common props
-2. **MantineProvider is auto-injected** — no manual wrapping needed
-3. **Use `rx.cond` and `rx.foreach`** — never bare Python `if` or `for` in components
-4. **Use `&` and `|`** in `rx.cond`, not `and`/`or`
-5. **Controlled vs uncontrolled** — use `value` + `on_change` (controlled) or `default_value` (uncontrolled), not both
-6. **Path prefix** — apps served below `frontend_path` (e.g. `/knai`): wrap absolute asset `src` (images, files; not page links) in `public_path("/img/x.png")` (`appkit_commons.public_path`) and every `persist_key` in `app_storage_key("x")` (`appkit_user.authentication.states`). Examples below use bare paths for brevity.
+1. **Use only props the references list.** Reflex 0.10 raises no error for an
+   undeclared keyword: it silently turns it into CSS (`mn.table(variant="vertical")`
+   renders `css: {variant: "vertical"}`), which is the usual cause of "this prop has
+   no effect". For a Mantine prop the wrapper does not declare, pass it as
+   `custom_attrs={"camelCaseName": value}`. Undeclared *event* props do fail loudly
+   (`ValueError: ... does not take in an on_change event trigger`).
+2. **Never redeclare inherited props** — base classes provide ~40 common props
+3. **MantineProvider is auto-injected** — no manual wrapping needed
+4. **Use `rx.cond` and `rx.foreach`** — never bare Python `if` or `for` in components
+5. **Use `&` and `|`** in `rx.cond`, not `and`/`or`
+6. **Controlled vs uncontrolled** — use `value` + `on_change` (controlled) or `default_value` (uncontrolled), not both
+7. **Path prefix** — apps served below `frontend_path` (e.g. `/knai`): wrap absolute asset `src` (images, files; not page links) in `public_path("/img/x.png")` (`appkit_commons.public_path`) and every `persist_key` in `app_storage_key("x")` (`appkit_user.authentication.states`). Examples below use bare paths for brevity.
 
 ## Namespace components (compound pattern)
 
@@ -394,18 +323,21 @@ Available: `w`, `h`, `miw`, `maw`, `mih`, `mah`, `m`, `my`, `mx`, `mt`, `mb`, `m
 
 ## Colors
 
-Use the Radix color scale: `<name>.<shade>` where shade is 1–12. Higher shade = darker in light mode:
+Mantine colors are `<name>.<shade>` with shade **0–9** (0 lightest, 9 darkest); a bare
+name uses the theme's `primary_shade` (6 by default):
 
 ```python
-c="blue.6"           # text color
-bg="gray.1"          # background color
-bd="red.3"           # border color
-"color": "teal.5"    # in chart series dict
-rx.color("blue", 4)  # programmatic color (e.g. for rx.cond results)
+c="blue.6"  # text color
+bg="gray.0"  # background color
+bd="1px solid red.3"  # border
+"color": "teal.5"  # in chart series dict
+c=rx.cond(State.ok, "teal.6", "red.6")  # conditional color: just switch the strings
+"var(--mantine-color-blue-4)"  # same color as a CSS value (style dicts, light-dark())
 ```
 
 Common color names: `blue`, `gray`, `red`, `green`, `teal`, `orange`, `violet`, `yellow`, `pink`, `dark`.
-Use `c="dimmed"` for secondary text.
+Use `c="dimmed"` for secondary text. Do not mix in `rx.color("blue", 4)`: that is the
+Radix 1–12 scale and does not follow the Mantine theme.
 
 ## Anti-Patterns
 
@@ -427,7 +359,7 @@ Use `c="dimmed"` for secondary text.
 | Bare Python `if` in component functions | `rx.cond(condition, true_comp, false_comp)` |
 | Bare Python `for` in component functions | `rx.foreach(State.items, render_fn)` |
 | Custom background on `mn.card` via `background_color`/`--card-bg` | `mn.card` ignores these; wrap in `rx.box` with desired `style` |
-| `.to_string()` for number display | Use `de_number(value, ...)` from `alloq_commons.components.formatters` |
+| `.to_string()` for user-facing numbers in alloq apps | `de_number(value, ...)` from `alloq_commons.components.formatters` |
 
 ## ScrollArea variants
 
@@ -448,9 +380,11 @@ mn.scroll_area.autosize(
 )
 ```
 
-## German number and date formatting
+## German number and date formatting (alloq apps)
 
-**Always use these helpers — never raw values or `.to_string()`.**
+Apps that depend on `alloq_commons` must use these helpers instead of raw
+values or `.to_string()`. Plain appkit apps do not have `alloq_commons`; use
+`mn.number_formatter` there.
 
 ### Numbers
 

@@ -10,7 +10,7 @@ description: >
   the application stack.
 metadata:
   author: jens-rehpoehler
-  version: "2.0"
+  version: "2.1"
   license: MIT
 ---
 
@@ -224,7 +224,7 @@ Rules:
 Single IoC container. All services registered as singletons by type.
 
 ```python
-from appkit_commons import service_registry
+from appkit_commons.registry import service_registry
 
 # Register (in app startup / _initialize_services, in dependency order)
 registry = service_registry()
@@ -239,6 +239,10 @@ config = service_registry().get(MyFeatureConfig)
 registry.has(MyService)  # bool
 registry.list_registered()  # list[type]
 registry.unregister(MyService)
+
+# Tests: save and restore the registry around a test
+saved = registry.snapshot()
+registry.restore(saved)
 ```
 
 Call `service_registry()` inside functions/methods — never at module level.

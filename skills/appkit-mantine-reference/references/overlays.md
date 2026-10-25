@@ -144,10 +144,11 @@ mn.alert_dialog.root(
 **`AlertDialog.cancel` props:** `variant`, `on_cancel`.
 
 **`AlertDialog.footer` shorthand** (renders cancel + action buttons):
-`cancel_label`, `action_label`, `action_loading`, `on_cancel`, `on_action`.
+`cancel_label` (default `"Abbrechen"`), `action_label` (default `"OK"`),
+`action_loading`, `cancel_props`, `action_props`, `on_cancel`, `on_action`.
 
-Sub-components: `mn.alert_dialog.root`, `mn.alert_dialog.content`,
-`mn.alert_dialog.cancel`, `mn.alert_dialog.action`, `mn.alert_dialog.footer`.
+Sub-components: `mn.alert_dialog.root`, `.trigger`, `.content`, `.title`,
+`.description`, `.cancel`, `.action`, `.footer`.
 
 ## LoadingOverlay
 
@@ -233,7 +234,7 @@ mn.dialog(
 
 Props: `opened`, `on_close`, `position` (dict of `top`/`bottom`/`left`/`right`),
 `size`, `radius`, `shadow`, `with_close_button`, `with_border`, `keep_mounted`,
-`transition_props`, `close_button_props`, `z_index`.
+`transition_props`, `within_portal`, `portal_props`, `z_index`.
 
 > [Mantine docs — Dialog](https://mantine.dev/core/dialog/)
 
@@ -259,30 +260,31 @@ mn.popover(
     shadow="md",
     width="target",  # "target" | number | "auto"
     radius="md",
-    transition_props={"transition": "pop", "duration": 150},
     within_portal=True,
 )
 ```
 
 Root props: `opened`, `default_opened`, `position`, `offset`, `width`, `shadow`,
 `radius`, `with_arrow`, `arrow_size`, `arrow_radius`, `arrow_offset`, `arrow_position`,
-`trap_focus`, `close_on_click_outside`, `close_on_escape`, `clickout_events`,
-`return_focus`, `keep_mounted`, `with_roles`, `within_portal`, `portal_props`,
-`z_index`, `middlewares`, `transition_props`, `on_change`, `on_open`, `on_close`,
-`on_dismiss`, `on_position_change`.
+`with_overlay`, `trap_focus`, `close_on_click_outside`, `close_on_escape`,
+`return_focus`, `keep_mounted`, `within_portal`, `disabled`, `z_index`,
+`on_change`, `on_open`, `on_close`, `on_dismiss`. `transition_props`,
+`portal_props`, `middlewares` and `clickout_events` are not declared; pass them
+via `custom_attrs={"transitionProps": {"transition": "pop", "duration": 150}}`.
 
 `popover.target` props: forwarded to the trigger; usually a button or component.
 
 `popover.dropdown` props: standard layout/style props.
 
-`mn.popover.context_menu(...)` (Mantine 9.3) replaces `popover.target` to open
-the popover at the cursor on right-click. `arrow_position="merge"` (9.3) merges
-the arrow into the dropdown edge; the `prevent_position_change_when_visible`
-default became `true` in 9.3 (dropdowns stay put once opened).
+`mn.popover.context_menu(...)` replaces `popover.target` to open
+the popover at the cursor on right-click. `arrow_position="merge"` merges
+the arrow into the dropdown edge. An open dropdown keeps its position instead
+of flipping while visible (Mantine default; `mn.menu` exposes
+`prevent_position_change_when_visible` to turn it off).
 
 > [Mantine docs — Popover](https://mantine.dev/core/popover/)
 
-## Tour (9.7)
+## Tour
 
 Spotlight onboarding. `mn.tour.step` elements must be direct children and
 point at elements with CSS selectors; a step without `target` is centered.
@@ -302,12 +304,3 @@ mn.tour(
 props: `with_overlay`, `with_overlay_interaction`, `close_on_overlay_click`,
 `with_keyboard_navigation`, `spotlight_padding`, `labels`, `z_index`. Targets
 need an `id`; dropdowns rendered in portals need a z-index above the tour's.
-
-## Updated in 9.7
-
-- `mn.tooltip(hide_detached=...)`: hides when the target is removed, hidden or
-  scrolled out of a clipping container (default on).
-- `mn.hover_card`: opens on focus, closes on Escape/outside press; no longer
-  opens on tap. New `events`, `interactive`, `role`, `return_focus`,
-  `close_on_escape`, `on_dismiss`. Restore tap: `events={"focus": False,
-  "touch": True}`, `close_on_escape=False`.
