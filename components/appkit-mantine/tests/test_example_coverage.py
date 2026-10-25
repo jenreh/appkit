@@ -15,12 +15,14 @@ EXAMPLES_DIR = REPO_ROOT / "app" / "pages" / "examples"
 NAVBAR_FILE = REPO_ROOT / "app" / "components" / "navbar.py"
 
 REQUIRED_COMPONENT_EXAMPLES = (
+    "action_bar",
     "agenda_view",
     "anchor",
     "background_image",
     "bars_list",
     "bullet_chart",
     "burger",
+    "candlestick_chart",
     "cascader",
     "chart_brush",
     "close_button",
@@ -34,10 +36,13 @@ REQUIRED_COMPONENT_EXAMPLES = (
     "menubar",
     "floating_indicator",
     "floating_window",
+    "gauge_chart",
     "inline_date_time_picker",
     "kbd",
+    "lightbox",
     "loading_overlay",
     "marquee",
+    "matrix_chart",
     "mobile_month_view",
     "month_view",
     "overflow_list",
@@ -62,6 +67,7 @@ REQUIRED_COMPONENT_EXAMPLES = (
     "transition",
     "tree_select",
     "unstyled_button",
+    "waffle_chart",
     "week_view",
     "year_view",
 )

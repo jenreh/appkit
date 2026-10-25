@@ -922,6 +922,26 @@ def slider_switch_content() -> rx.Component:
                     gap="md",
                 ),
             ),
+            example_box(
+                "Light variant (Mantine 9.7)",
+                mn.stack(
+                    mn.checkbox(
+                        variant="light", label="Light checkbox", default_checked=True
+                    ),
+                    mn.checkbox(
+                        variant="light",
+                        color="teal",
+                        label="Light, teal",
+                        default_checked=True,
+                    ),
+                    mn.radio.group(
+                        mn.radio(variant="light", value="a", label="Light radio A"),
+                        mn.radio(variant="light", value="b", label="Light radio B"),
+                        default_value="a",
+                    ),
+                    gap="sm",
+                ),
+            ),
             cols=2,
             spacing="md",
             w="100%",

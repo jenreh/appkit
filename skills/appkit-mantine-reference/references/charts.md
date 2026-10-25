@@ -21,6 +21,11 @@
 - SunburstChart
 - BulletChart
 - ChartBrush
+- GaugeChart
+- WaffleChart
+- MatrixChart
+- CandlestickChart
+- Reference areas & dots
 
 All charts use the shared `appkit_mantine.base.MANTINE_VERSION` for
 `@mantine/charts` (Recharts under the hood).
@@ -496,3 +501,120 @@ Props: `data_key`, `start_index`, `end_index`, `height`. Accepts recharts
 `Brush` props in general (Mantine applies its theming).
 
 > [Mantine docs — Brush](https://mantine.dev/charts/area-chart/)
+
+## GaugeChart
+
+Radial gauge for a single KPI (Mantine 9.6+). Required prop: `value`.
+
+```python
+mn.gauge_chart(
+    value=72,
+    target=85,
+    sections=[
+        {"value": 40, "color": "red.6"},
+        {"value": 70, "color": "yellow.6"},
+        {"value": 100, "color": "teal.6"},
+    ],
+    size=220,
+    thickness=14,
+    label="72% uptime",
+    round_caps=True,
+)
+```
+
+Props: `value`, `min`, `max`, `target`, `sections` (`[{value, color}]`),
+`thickness`, `size`, `start_angle`, `end_angle`, `label`, `value_formatter`
+(JS function), `track_color`, `filled_color`, `target_color`, `target_size`,
+`round_caps`.
+
+> [Mantine docs — GaugeChart](https://mantine.dev/charts/gauge-chart/)
+
+## WaffleChart
+
+Part-to-whole grid of colored cells (Mantine 9.6+).
+
+```python
+mn.waffle_chart(
+    data=[
+        {"name": "Chrome", "value": 65, "color": "blue"},
+        {"name": "Safari", "value": 19, "color": "teal"},
+        {"name": "Other", "value": 16, "color": "gray"},
+    ],
+    with_tooltip=True,
+    with_legend=True,
+    legend_position="right",
+)
+```
+
+Props: `data` (`[{name, value, color}]`), `rows`, `columns`, `total`, `gap`,
+`cell_radius`, `empty_color`, `with_tooltip`, `get_tooltip_label`,
+`with_legend`, `legend_position`, `fill_direction`, `size`.
+
+> [Mantine docs — WaffleChart](https://mantine.dev/charts/waffle-chart/)
+
+## MatrixChart
+
+Heatmap with categorical x/y axes (Mantine 9.6+). Cells are
+`{x, y, value}`; `value` may be `None`.
+
+```python
+mn.matrix_chart(
+    data=[{"x": "1", "y": "James", "value": 7}, ...],
+    y_labels=["James", "Mary"],
+    with_y_labels=True,
+    with_tooltip=True,
+    with_legend=True,
+    cell_size=14,
+)
+```
+
+Props: `data`, `x_labels`, `y_labels`, `domain`, `colors`, `cell_size`,
+`gap`, `cell_radius`, `with_tooltip`, `get_tooltip_label`, `tooltip_props`,
+`get_cell_props`, `y_labels_width`, `x_labels_height`, `x_labels_position`,
+`font_size`, `empty_color`, `with_legend`, `legend_labels`, `with_x_labels`,
+`with_y_labels`, `x_labels_rotation`. The chart has a fixed pixel size
+(`cell_size` × columns), so shrink `cell_size` for narrow containers.
+
+> [Mantine docs — MatrixChart](https://mantine.dev/charts/matrix-chart/)
+
+## CandlestickChart
+
+Financial OHLC chart (Mantine 9.6+). Rows need `open`, `high`, `low`,
+`close` keys (rename with `data_keys`).
+
+```python
+mn.candlestick_chart(
+    h=300,
+    data=[{"date": "Mar 01", "open": 136, "high": 142, "low": 133, "close": 140}],
+    data_key="date",
+    with_tooltip=True,
+    reference_lines=[{"y": 140, "label": "Support"}],
+)
+```
+
+Props: `data`, `data_key`, `data_keys`, `labels`, `up_color`, `down_color`,
+`max_candle_width`, `candle_stroke_width`, axis/grid/tooltip props as on
+categorical charts, `reference_lines`, `reference_areas`, `reference_dots`.
+
+> [Mantine docs — CandlestickChart](https://mantine.dev/charts/candlestick-chart/)
+
+## Reference areas & dots
+
+AreaChart, BarChart, LineChart, CompositeChart and ScatterChart accept
+`reference_lines`, `reference_areas` and `reference_dots` (Mantine 9.6+).
+
+```python
+mn.area_chart(
+    data=data,
+    data_key="date",
+    series=[{"name": "Apples", "color": "indigo.6"}],
+    reference_areas=[
+        {"x1": "Mar 23", "x2": "Mar 25", "color": "red.6", "label": "Weekend"}
+    ],
+    reference_dots=[{"x": "Mar 25", "y": 3470, "color": "red.6", "label": "Peak"}],
+)
+```
+
+Areas take `x1`/`x2` and/or `y1`/`y2` (omit a pair to span the full axis).
+`mn.area_chart(chart_type="stream")` renders a streamgraph; its y axis is
+hidden by default.

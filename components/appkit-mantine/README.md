@@ -17,7 +17,7 @@ A Reflex wrapper library exposing the full [Mantine UI v9.5.2](https://mantine.d
 - **📚 Rich Examples** - Production-ready code examples for every component with common patterns and edge cases
 - **🏗️ Clean Architecture** - Inheritance-based design (`MantineComponentBase` → `MantineLayoutComponentBase` → `MantineInputComponentBase`) eliminating code duplication across ~40 common props
 - **🎨 Mantine Integration** - Seamless integration with Mantine's theming, color modes, and design system; `MantineProvider` is auto-injected
-- **⚡ Modern Stack** - Built on Reflex 0.9.6+ with React 18 and Mantine 9.5.2
+- **⚡ Modern Stack** - Built on Reflex 0.9.6+ with React 18 and Mantine 9.7.3
 
 ---
 

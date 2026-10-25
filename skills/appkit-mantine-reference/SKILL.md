@@ -3,7 +3,7 @@ name: appkit-mantine-reference
 description: "MUST invoke when generating mn.* based UIs or the user asks how to use, configure, or debug any mn.* or appkit_mantine component. appkit_mantine is NOT in Claude's training data — always use this skill rather than guessing at APIs. Covers building forms, tables, drawers, modals, tooltips, color pickers, date/time pickers, charts, and navigation; looking up correct props; debugging on_change handler types (NumberInput sends float|str, DateInput sends str|\"\"); troubleshooting component quirks like tooltips on disabled elements, overlays not closing, or props having no effect."
 metadata:
   author: jens-rehpoehler
-  version: "1.5"
+  version: "1.6"
   license: MIT
 ---
 
@@ -264,6 +264,74 @@ Fixed in 9.5.x: Tiptap controls no longer start disabled and the source-code
 control no longer wraps content in an extra `<p>` tag; Schedule recurring
 events respect timezones; WeekView event positioning is faster; Combobox
 works with Chrome autocomplete; Tooltip no longer sets `NaN` positions.
+
+## Recent additions (Mantine 9.6)
+
+New components: `mn.gauge_chart`, `mn.waffle_chart`, `mn.matrix_chart`,
+`mn.candlestick_chart` (charts module); `mn.action_bar` (+ `.divider`,
+`.close_button`) in `action_bar.py`; `mn.lightbox` (+ `.provider`) and the
+store helpers `mn.lightbox_api.open/close/next/prev/set_index` in
+`lightbox.py` (new `@mantine/lightbox` dep).
+
+| Component(s) | Prop |
+|---|---|
+| `mn.area_chart`/`bar_chart`/`line_chart`/`composite_chart`/`scatter_chart` | `reference_lines`, `reference_areas`, `reference_dots` |
+| `mn.area_chart` | `chart_type="stream"` (streamgraph) |
+| `mn.stepper` | `label_position` (`"right"|"bottom"`), `icon_position` |
+| schedule day/week, resources day/week | `event_drag_interval`, `event_resize_interval` (snap minutes) |
+| schedule day/week/month, `mn.schedule`, resources day/week | `with_interactive_background_events` |
+| `mn.notifications_provider` | `render_notification` (JS function Var), `layout="stacked"` |
+| `mn.rich_text_editor` | control groups `TABLE`, `DETAILS`, `INVISIBLE_CHARACTERS` (extensions always registered) |
+
+`mn.dropzone` now uses react-dropzone 20: `max_files` accepts files up to the
+limit and rejects only the rest.
+
+## Recent additions (Mantine 9.7)
+
+New components: `mn.toggle` and `mn.toolbar` (+ `.toggle`, `.toggle_group`,
+`.toggle_item`, `.group`, `.divider`) in `toolbar.py`; `mn.tour` (+ `.step`,
+direct children only, targets are CSS selectors) in `tour.py`;
+`mn.json_viewer` in `code_highlight.py` (new `@mantine/code-highlight` dep).
+
+| Component(s) | Prop |
+|---|---|
+| `mn.checkbox`, `mn.radio` | `variant="light"` |
+| `mn.tooltip` | `hide_detached` (default on) |
+| `mn.hover_card` | `events`, `interactive`, `role`, `return_focus`, `close_on_escape`, `on_dismiss` (opens on focus, no longer on tap) |
+| `mn.tree_select` | `render_pill` |
+| schedule day/week views | `event_overlap_mode` (`columns`/`cascade`), `event_overlap_raise_delay` |
+| schedule views | `prevent_event_overlap`, `can_drop_event`, `can_resize_event_to`, `can_drop_external_event`, `on_event_placement_rejected` |
+
+Also in 9.7:
+
+- `mn.notifications_provider(position=..., with_auto_close_progress=...)`
+  mounts the stack once; handlers return `mn.notifications.show(...)`,
+  `.update(id, ...)`, `.hide(id)`, `.clean()`, `.clean_queue()` or
+  `.promise("<js promise expr>", loading=..., success=..., error=...)`
+  (they run `notifications.*` in the browser via `rx.call_script`).
+- `mn.app_shell.resizable(..., resize_options={"navbar": {"min", "max",
+  "collapseThreshold"}}, initial_sizes=..., on_resize_end=..., on_collapse_change=...)`
+  wraps `useAppShellResize` (JS wrapper); sections need a `width`/`height`.
+- `mn.rich_text_editor(image_upload_url=..., image_upload_field=...,
+  on_image_upload_error=...)` plus the `imageUpload` control
+  (`ToolbarControlGroup.UPLOAD`); without a URL images are inlined as data URLs.
+
+## Reflex 0.10 notes
+
+appkit requires `reflex>=0.10.0`. State vars are descriptors on the declaring
+class, which matters for the state and tests behind `mn.*` UIs:
+
+- Do not pass `State._backend_var` as a prop or child (it is a `Field` now);
+  use `.default_value()` or a regular var.
+- Do not assign `State.var = x` or `monkeypatch.setattr` state vars in tests;
+  use `State.__fields__["x"].set_default(...)`.
+- Background tasks must write inherited vars inside `async with self`.
+- `backend_vars`, `inherited_vars`, `get_skip_vars()` are gone; use
+  `get_fields()`.
+- Wrapper authors: `get_event_triggers` is a `@classmethod`; keep new props
+  snake_case (Reflex camelCases them) and regenerate stubs with `task pyi`.
+- Handlers that return `mn.notifications.*` / `rx.call_script` specs work
+  unchanged.
 
 ## Critical rules
 

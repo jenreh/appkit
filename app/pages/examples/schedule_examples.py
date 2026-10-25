@@ -106,6 +106,31 @@ _EVENTS: list[dict] = [
     },
 ]
 
+_INTERVAL_EVENTS: list[dict] = [
+    {
+        "id": "i1",
+        "start": "2026-05-21T09:00:00",
+        "end": "2026-05-21T09:30:00",
+        "title": "Morning standup",
+        "color": "blue",
+    },
+    {
+        "id": "i2",
+        "start": "2026-05-21T11:00:00",
+        "end": "2026-05-21T12:00:00",
+        "title": "Team meeting",
+        "color": "green",
+    },
+    {
+        "id": "i3",
+        "start": "2026-05-21T13:00:00",
+        "end": "2026-05-21T14:30:00",
+        "title": "Out of office",
+        "color": "gray",
+        "display": "background",
+    },
+]
+
 
 # ---------------------------------------------------------------------------
 # State
@@ -119,6 +144,17 @@ class ScheduleExState(rx.State):
     view: str = "week"
     last_event: str = ""
     last_day: str = ""
+    rejected: str = ""
+    interval_events: list[dict] = _INTERVAL_EVENTS
+
+    @rx.event
+    def move_interval_event(self, data: dict) -> None:
+        self.interval_events = [
+            {**event, "start": data["newStart"], "end": data["newEnd"]}
+            if event["id"] == data.get("eventId")
+            else event
+            for event in self.interval_events
+        ]
 
     @rx.event
     def on_date_change(self, date: str) -> None:
@@ -132,6 +168,11 @@ class ScheduleExState(rx.State):
     def on_event_click(self, event: dict) -> None:
         title = event.get("title", "") if isinstance(event, dict) else str(event)
         self.last_event = str(title)
+
+    @rx.event
+    def on_placement_rejected(self, data: dict) -> None:
+        event = data.get("event", {}) if isinstance(data, dict) else {}
+        self.rejected = f"Rejected: {event.get('title', '')}"
 
     @rx.event
     def on_day_click(self, date: str) -> None:
@@ -363,6 +404,59 @@ def schedule_examples() -> rx.Component:
                     h="100%",
                 ),
                 h="600px",
+            ),
+            # ------------------------------------------------------------------
+            # Overlap handling (Mantine 9.7)
+            # ------------------------------------------------------------------
+            _section(
+                "Overlap mode & drop validation (Mantine 9.7)",
+                "event_overlap_mode='cascade' stacks overlapping events;"
+                " prevent_event_overlap rejects drags and resizes that would"
+                " overlap another event.",
+            ),
+            mn.text(ScheduleExState.rejected, size="sm", c="red"),
+            _framed(
+                mn.schedule.week_view(
+                    events=_EVENTS,
+                    date="2026-05-21",
+                    event_overlap_mode="cascade",
+                    event_overlap_raise_delay=400,
+                    with_events_drag_and_drop=True,
+                    with_event_resize=True,
+                    prevent_event_overlap=True,
+                    on_event_placement_rejected=ScheduleExState.on_placement_rejected,
+                    h="100%",
+                ),
+            ),
+            # ------------------------------------------------------------------
+            # Drag / resize intervals (Mantine 9.6)
+            # ------------------------------------------------------------------
+            _section(
+                "Drag & resize intervals (Mantine 9.6)",
+                "A 30-minute grid with 15-minute drag and resize snapping"
+                " (event_drag_interval / event_resize_interval). The grey"
+                " background block is clickable via"
+                " with_interactive_background_events.",
+            ),
+            mn.text("Clicked: " + ScheduleExState.last_event, size="sm", c="dimmed"),
+            _framed(
+                mn.schedule.day_view(
+                    events=ScheduleExState.interval_events,
+                    date="2026-05-21",
+                    start_time="08:00:00",
+                    end_time="18:00:00",
+                    interval_minutes=30,
+                    event_drag_interval=15,
+                    event_resize_interval=15,
+                    with_sub_hour_grid_lines=False,
+                    with_events_drag_and_drop=True,
+                    with_event_resize=True,
+                    with_interactive_background_events=True,
+                    on_event_drop=ScheduleExState.move_interval_event,
+                    on_event_resize=ScheduleExState.move_interval_event,
+                    on_event_click=ScheduleExState.on_event_click,
+                    h="100%",
+                ),
             ),
             w="100%",
             mb="6rem",

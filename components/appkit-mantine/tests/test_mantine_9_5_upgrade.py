@@ -1,4 +1,4 @@
-"""Tests for the Mantine 9.5.2 upgrade — version pin, new props, new components.
+"""Tests for the Mantine 9.7.3 upgrade — version pin, new props, new components.
 
 Covers the props added in 9.5.0/9.5.1 on existing wrappers and the newly
 wrapped components (Cascader, SunburstChart, BulletChart, ChartBrush and
@@ -35,16 +35,16 @@ def _tag(component) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_mantine_version_is_9_5_2() -> None:
-    assert MANTINE_VERSION == "9.5.2"
+def test_mantine_version_is_9_7_3() -> None:
+    assert MANTINE_VERSION == "9.7.3"
 
 
-def test_core_library_pins_9_5_2() -> None:
-    assert MantineComponentBase().library == "@mantine/core@9.5.2"
+def test_core_library_pins_9_7_3() -> None:
+    assert MantineComponentBase().library == "@mantine/core@9.7.3"
 
 
-def test_schedule_library_pins_9_5_2() -> None:
-    assert mn.schedule.day_view(events=[]).library == "@mantine/schedule@9.5.2"
+def test_schedule_library_pins_9_7_3() -> None:
+    assert mn.schedule.day_view(events=[]).library == "@mantine/schedule@9.7.3"
 
 
 # ---------------------------------------------------------------------------

@@ -1,11 +1,12 @@
 import '@mantine/core/styles.css';
 import '@mantine/tiptap/styles.css';
 
-import { createElement, memo, useEffect } from 'react';
+import { createElement, memo, useEffect, useRef } from 'react';
 import { useEditor } from '@tiptap/react';
 import {
   RichTextEditor as MantineRichTextEditor,
-  Link
+  Link,
+  getUploadImageExtension
 } from '@mantine/tiptap';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
@@ -16,6 +17,9 @@ import { Color } from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from "@tiptap/extension-image";
+import { TableKit } from '@tiptap/extension-table';
+import { Details, DetailsSummary, DetailsContent } from '@tiptap/extension-details';
+import InvisibleCharacters from '@tiptap/extension-invisible-characters';
 
 
 export const RichTextEditorWrapper = memo(function Wrapper(props) {
@@ -23,6 +27,10 @@ export const RichTextEditorWrapper = memo(function Wrapper(props) {
   const {
     content = '',
     onUpdate,
+    onImageUploadError,
+    imageUploadUrl,
+    imageUploadField = 'file',
+    imageUploadHeaders,
     editable = true,
     placeholder = '',
     variant,
@@ -44,6 +52,55 @@ export const RichTextEditorWrapper = memo(function Wrapper(props) {
     toolbarConfig,   // Old dict-based approach
     ...restProps
   } = props;
+  // Upload settings live in a ref so changing them never rebuilds the editor.
+  const uploadRef = useRef({});
+  uploadRef.current = {
+    url: imageUploadUrl,
+    field: imageUploadField,
+    headers: imageUploadHeaders,
+    onError: onImageUploadError,
+  };
+
+  // Uploads to `imageUploadUrl` (multipart POST, JSON `{url|src}` or a plain
+  // URL string back). Without a URL the image is inlined as a data URL.
+  const handleImageUpload = async (file) => {
+    const { url, field, headers } = uploadRef.current;
+    if (!url) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    }
+    const body = new FormData();
+    body.append(field || 'file', file);
+    const response = await fetch(url, {
+      method: 'POST',
+      body,
+      headers: headers || undefined,
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      throw new Error(`Upload failed (${response.status})`);
+    }
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text);
+      if (typeof data === 'string') return data;
+      return { src: data.src || data.url, alt: data.alt, title: data.title };
+    } catch {
+      return text.trim();
+    }
+  };
+
+  const handleImageUploadError = (file, error) => {
+    const { onError } = uploadRef.current;
+    if (onError) {
+      onError(String((error && error.message) || error));
+    }
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: false }),
@@ -54,13 +111,21 @@ export const RichTextEditorWrapper = memo(function Wrapper(props) {
       Superscript,
       TextStyle,
       Color,
-      Image.configure({
+      getUploadImageExtension(Image, {
+        onImageUpload: handleImageUpload,
+        onImageUploadError: handleImageUploadError,
+      }).configure({
         inline: true,
         allowBase64: true,
         HTMLAttributes: {
           class: 'tiptap-image',
         },
       }),
+      TableKit,
+      Details,
+      DetailsSummary,
+      DetailsContent,
+      InvisibleCharacters.configure({ visible: false }),
       ...(placeholder ? [Placeholder.configure({ placeholder })] : []),
     ],
     content: content,
@@ -129,6 +194,21 @@ export const RichTextEditorWrapper = memo(function Wrapper(props) {
     // colorPicker is handled specially (needs colors prop)
     // color is handled specially (needs color prop)
     unsetColor: MantineRichTextEditor.UnsetColor,
+    imageUpload: MantineRichTextEditor.ImageUpload,
+    tableInsert: MantineRichTextEditor.TableInsert,
+    tableDelete: MantineRichTextEditor.TableDelete,
+    tableColumnBefore: MantineRichTextEditor.TableColumnBefore,
+    tableColumnAfter: MantineRichTextEditor.TableColumnAfter,
+    tableColumnDelete: MantineRichTextEditor.TableColumnDelete,
+    tableRowBefore: MantineRichTextEditor.TableRowBefore,
+    tableRowAfter: MantineRichTextEditor.TableRowAfter,
+    tableRowDelete: MantineRichTextEditor.TableRowDelete,
+    tableToggleHeaderRow: MantineRichTextEditor.TableToggleHeaderRow,
+    tableToggleHeaderColumn: MantineRichTextEditor.TableToggleHeaderColumn,
+    tableMergeCells: MantineRichTextEditor.TableMergeCells,
+    tableSplitCell: MantineRichTextEditor.TableSplitCell,
+    details: MantineRichTextEditor.Details,
+    invisibleCharacters: MantineRichTextEditor.InvisibleCharacters,
   };
 
   // Default toolbar configuration

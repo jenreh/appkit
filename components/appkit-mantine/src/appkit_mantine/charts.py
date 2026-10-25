@@ -79,6 +79,18 @@ class CategoricalChartBase(MantineChartComponentBase):
     right_y_axis_label: Var[str]
     right_y_axis_props: Var[dict[str, Any]]
 
+    # Annotations
+    reference_lines: Var[list[dict[str, Any]]]
+    """Reference lines: [{x | y, color?, label?, labelPosition?}]."""
+
+    reference_areas: Var[list[dict[str, Any]]]
+    """Highlighted regions: [{x1?, x2?, y1?, y2?, color?, label?}]. Omit one
+    pair to span the full opposite axis (Mantine 9.6+)."""
+
+    reference_dots: Var[list[dict[str, Any]]]
+    """Marked points: [{x, y, r?, color?, label?}], painted on top of the
+    series (Mantine 9.6+)."""
+
     # Dimensions
     h: Var[str | int]
     w: Var[str | int]
@@ -103,7 +115,9 @@ class AreaChart(CategoricalChartBase):
 
     tag = "AreaChart"
 
-    chart_type: Var[Literal["default", "stacked", "percent", "split"]] = None  # type: ignore
+    chart_type: Var[Literal["default", "stacked", "percent", "split", "stream"]] = None  # type: ignore
+    """``"stream"`` renders a streamgraph with a floating baseline; the y axis
+    is hidden by default for it (Mantine 9.6+)."""
     _rename_props = {
         "chartType": "type",
     }
@@ -592,6 +606,155 @@ class ChartBrush(MantineChartComponentBase):
     height: Var[int] = None
 
 
+class GaugeChart(MantineChartComponentBase):
+    """Mantine GaugeChart — radial gauge for KPI and status display.
+
+    Added in Mantine 9.6.
+
+    https://mantine.dev/charts/gauge-chart/
+    """
+
+    tag = "GaugeChart"
+
+    value: Var[int | float] = None
+    """Current value (required)."""
+
+    min: Var[int | float] = None
+    max: Var[int | float] = None
+    target: Var[int | float] = None
+    """Value marked with a target needle."""
+
+    sections: Var[list[dict[str, Any]]] = None
+    """Threshold sections: [{value, color}]."""
+
+    thickness: Var[int] = None
+    size: Var[int] = None
+    start_angle: Var[int] = None
+    end_angle: Var[int] = None
+    label: Var[Any] = None
+    value_formatter: Var[Any] = None
+    track_color: Var[str] = None
+    filled_color: Var[str] = None
+    target_color: Var[str] = None
+    target_size: Var[int] = None
+    round_caps: Var[bool] = None
+
+
+class WaffleChart(MantineChartComponentBase):
+    """Mantine WaffleChart — part-to-whole grid of colored cells.
+
+    Added in Mantine 9.6.
+
+    https://mantine.dev/charts/waffle-chart/
+    """
+
+    tag = "WaffleChart"
+
+    data: Var[list[dict[str, Any]]] = None
+    """Cells: [{name, value, color}]."""
+
+    rows: Var[int] = None
+    columns: Var[int] = None
+    total: Var[int | float] = None
+    gap: Var[int] = None
+    cell_radius: Var[int] = None
+    empty_color: Var[str] = None
+    with_tooltip: Var[bool] = None
+    get_tooltip_label: Var[Any] = None
+    with_legend: Var[bool] = None
+    legend_position: Var[Literal["top", "bottom", "left", "right"]] = None
+    fill_direction: Var[
+        Literal["left-to-right", "right-to-left", "top-to-bottom", "bottom-to-top"]
+    ] = None
+    size: Var[int] = None
+
+
+class MatrixChart(MantineChartComponentBase):
+    """Mantine MatrixChart — x/y heatmap with categorical axes.
+
+    Added in Mantine 9.6.
+
+    https://mantine.dev/charts/matrix-chart/
+    """
+
+    tag = "MatrixChart"
+
+    data: Var[list[dict[str, Any]]] = None
+    """Cells: [{x, y, value}], ``value`` may be ``None``."""
+
+    x_labels: Var[list[str]] = None
+    y_labels: Var[list[str]] = None
+    domain: Var[list[int | float]] = None
+    colors: Var[list[str]] = None
+    cell_size: Var[int] = None
+    gap: Var[int] = None
+    cell_radius: Var[int] = None
+    with_tooltip: Var[bool] = None
+    get_tooltip_label: Var[Any] = None
+    tooltip_props: Var[dict[str, Any]] = None
+    get_cell_props: Var[Any] = None
+    y_labels_width: Var[int] = None
+    x_labels_height: Var[int] = None
+    x_labels_position: Var[Literal["top", "bottom"]] = None
+    font_size: Var[int] = None
+    empty_color: Var[str] = None
+    with_legend: Var[bool] = None
+    legend_labels: Var[list[str]] = None
+    with_x_labels: Var[bool] = None
+    with_y_labels: Var[bool] = None
+    x_labels_rotation: Var[int] = None
+
+
+class CandlestickChart(MantineChartComponentBase):
+    """Mantine CandlestickChart — financial OHLC chart.
+
+    Added in Mantine 9.6.
+
+    https://mantine.dev/charts/candlestick-chart/
+    """
+
+    tag = "CandlestickChart"
+
+    data: Var[list[dict[str, Any]]] = None
+    data_key: Var[str] = None
+    data_keys: Var[dict[str, str]] = None
+    """Keys of the OHLC values: {open, high, low, close}."""
+
+    labels: Var[dict[str, str]] = None
+    """Tooltip labels: {open, high, low, close}."""
+
+    up_color: Var[str] = None
+    down_color: Var[str] = None
+    max_candle_width: Var[int] = None
+    candle_stroke_width: Var[int] = None
+    composed_chart_props: Var[dict[str, Any]] = None
+
+    with_x_axis: Var[bool] = None
+    with_y_axis: Var[bool] = None
+    x_axis_props: Var[dict[str, Any]] = None
+    y_axis_props: Var[dict[str, Any]] = None
+    x_axis_label: Var[str] = None
+    y_axis_label: Var[str] = None
+    grid_props: Var[dict[str, Any]] = None
+    grid_axis: Var[Literal["none", "x", "y", "xy"]] = None
+    tick_line: Var[Literal["none", "x", "y", "xy"]] = None
+    stroke_dasharray: Var[str | int] = None
+    grid_color: Var[str] = None
+    text_color: Var[str] = None
+    unit: Var[str] = None
+    value_formatter: Var[Any] = None
+    with_tooltip: Var[bool] = None
+    tooltip_animation_duration: Var[int] = None
+    tooltip_props: Var[dict[str, Any]] = None
+    reference_lines: Var[list[dict[str, Any]]] = None
+    reference_areas: Var[list[dict[str, Any]]] = None
+    reference_dots: Var[list[dict[str, Any]]] = None
+    accessibility_layer: Var[bool] = None
+
+    w: Var[str | int] = None
+    h: Var[str | int] = None
+
+
 area_chart = AreaChart.create
 bar_chart = BarChart.create
 line_chart = LineChart.create
@@ -611,3 +774,7 @@ sankey_chart = SankeyChart.create
 sunburst_chart = SunburstChart.create
 bullet_chart = BulletChart.create
 chart_brush = ChartBrush.create
+gauge_chart = GaugeChart.create
+waffle_chart = WaffleChart.create
+matrix_chart = MatrixChart.create
+candlestick_chart = CandlestickChart.create

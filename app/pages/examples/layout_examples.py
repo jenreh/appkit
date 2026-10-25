@@ -36,6 +36,21 @@ OVERFLOW_ITEMS = [
 ]
 
 
+class AppShellResizeState(rx.State):
+    """State for the resizable AppShell example."""
+
+    sizes: str = "navbar: default"
+    collapsed: str = ""
+
+    @rx.event
+    def on_resize_end(self, sizes: dict) -> None:
+        self.sizes = ", ".join(f"{k}: {round(v)}px" for k, v in sizes.items())
+
+    @rx.event
+    def on_collapse_change(self, section: str, collapsed: bool) -> None:
+        self.collapsed = f"{section} {'collapsed' if collapsed else 'expanded'}"
+
+
 @navbar_layout(
     route="/examples/layout",
     title="Layout Components",
@@ -61,6 +76,41 @@ def layout_examples() -> rx.Component:
                     navbar={"width": 300, "breakpoint": "sm"},
                     padding="md",
                     h=200,
+                ),
+            ),
+            example_box(
+                "Resizable App Shell (Mantine 9.7)",
+                mn.stack(
+                    mn.app_shell.resizable(
+                        mn.app_shell.header("Header", p="sm"),
+                        mn.app_shell.navbar("Drag the navbar edge", p="sm"),
+                        mn.app_shell.aside("Aside", p="sm"),
+                        mn.app_shell.main("Main content"),
+                        header={"height": 50},
+                        navbar={"width": 220, "breakpoint": "xs"},
+                        aside={"width": 160, "breakpoint": "sm"},
+                        resize_options={
+                            "navbar": {
+                                "min": 140,
+                                "max": 400,
+                                "collapseThreshold": 160,
+                            },
+                            "aside": {"min": 120, "max": 300},
+                        },
+                        on_resize_end=AppShellResizeState.on_resize_end,
+                        on_collapse_change=AppShellResizeState.on_collapse_change,
+                        padding="md",
+                        mode="static",
+                        h=240,
+                    ),
+                    mn.text(
+                        "Sizes: ",
+                        AppShellResizeState.sizes,
+                        " ",
+                        AppShellResizeState.collapsed,
+                        size="sm",
+                        c="dimmed",
+                    ),
                 ),
             ),
             example_box(

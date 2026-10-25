@@ -281,3 +281,33 @@ the arrow into the dropdown edge; the `prevent_position_change_when_visible`
 default became `true` in 9.3 (dropdowns stay put once opened).
 
 > [Mantine docs — Popover](https://mantine.dev/core/popover/)
+
+## Tour (9.7)
+
+Spotlight onboarding. `mn.tour.step` elements must be direct children and
+point at elements with CSS selectors; a step without `target` is centered.
+
+```python
+mn.tour(
+    mn.tour.step("Welcome!", title="Hello"),
+    mn.tour.step("Click here", target="#save-btn", title="Save", position="bottom"),
+    active=State.tour_active,
+    step=State.tour_step,
+    on_step_change=State.set_tour_step,
+    on_close=State.close_tour,
+)
+```
+
+`mode="beacon"` (use `default_step=-1`) shows beacons on all targets. Other
+props: `with_overlay`, `with_overlay_interaction`, `close_on_overlay_click`,
+`with_keyboard_navigation`, `spotlight_padding`, `labels`, `z_index`. Targets
+need an `id`; dropdowns rendered in portals need a z-index above the tour's.
+
+## Updated in 9.7
+
+- `mn.tooltip(hide_detached=...)`: hides when the target is removed, hidden or
+  scrolled out of a clipping container (default on).
+- `mn.hover_card`: opens on focus, closes on Escape/outside press; no longer
+  opens on tap. New `events`, `interactive`, `role`, `return_focus`,
+  `close_on_escape`, `on_dismiss`. Restore tap: `events={"focus": False,
+  "touch": True}`, `close_on_escape=False`.

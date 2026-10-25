@@ -387,6 +387,9 @@ class TreeSelect(MantineLayoutComponentBase):
     expanded_values: Var[list[str]] = None
     default_expanded_values: Var[list[str]] = None
     default_expand_all: Var[bool] = None
+    render_pill: Var[Any] = None
+    """Render-prop for pills in ``multiple``/``checkbox`` modes; receives the
+    tree node (Mantine 9.7)."""
 
     on_change: EventHandler[lambda value: [value]] = None
     on_clear: EventHandler[rx.event.no_args_event_spec] = None

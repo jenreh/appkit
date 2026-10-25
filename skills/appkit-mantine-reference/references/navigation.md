@@ -65,7 +65,8 @@ mn.stepper(
 **on_step_click receives step index** (int) directly.
 
 Stepper props: `active`, `orientation`, `icon_size`, `size`, `color`,
-`allow_next_steps_select`, `on_step_click`.
+`allow_next_steps_select`, `icon_position`, `label_position` (`"bottom"`
+puts label/description under the icon, 9.6), `on_step_click`.
 
 Step props: `label`, `description`, `icon`, `completed_icon`, `loading`,
 `allow_step_select`.
@@ -219,7 +220,11 @@ mn.rich_text_editor(
 ```
 
 Control groups: `BASIC_FORMATTING`, `HEADINGS`, `LISTS_AND_BLOCKS`, `LINKS`,
-`ALIGNMENT`, `COLORS`, `HISTORY`, `MEDIA`, `ALL`.
+`ALIGNMENT`, `COLORS`, `HISTORY`, `MEDIA`, `UPLOAD`, `TABLE`, `DETAILS`,
+`INVISIBLE_CHARACTERS`, `ALL`. Table controls (`tableInsert`,
+`tableColumnBefore`, `tableRowAfter`, `tableMergeCells`, ...) are disabled
+outside a table; `details` wraps the block in a collapsible section;
+`invisibleCharacters` toggles formatting marks (Mantine 9.6).
 
 ## MarkdownPreview
 
@@ -304,3 +309,39 @@ Props: `color`, `size`, `radius`, `auto_contrast`, `depth_offset`, `min_depth_to
 `initial_data`, `scroll_spy_options`.
 
 > [Mantine docs — TableOfContents](https://mantine.dev/core/table-of-contents/)
+
+## Toggle and Toolbar (9.7)
+
+`mn.toggle` is a button with an active state: `active` / `default_active`,
+`on_active_change(bool)`, `auto_width`, `auto_contrast`, `variant`, `color`.
+Icon-only toggles need `aria_label`.
+
+`mn.toolbar` groups toggles with roving tabindex (one tab stop, arrow keys
+move focus): `orientation`, `loop`, `with_border`, `variant`, `size`.
+
+```python
+mn.toolbar(
+    mn.toolbar.toggle_group(
+        mn.toolbar.toggle_item("B", value="bold", aria_label="Bold"),
+        mn.toolbar.toggle_item("I", value="italic", aria_label="Italic"),
+        type="multiple",
+        value=State.formatting,
+        on_change=State.set_formatting,
+    ),
+    mn.toolbar.divider(),
+    mn.toolbar.toggle_group(..., type="single", default_value="left"),
+)
+```
+
+`type="multiple"` gives/accepts `list[str]`; `type="single"` a `str` (the
+handler receives `None` when the active item is clicked again, so type it
+`str | None`). `mn.toolbar.toggle(active=...)` is the stateless variant;
+`mn.toolbar.group` groups without selection state.
+
+### RichTextEditor image upload (9.7)
+
+Add the `imageUpload` control (`ToolbarControlGroup.UPLOAD`) and optionally
+`image_upload_url="/upload"` (multipart POST, field `image_upload_field`,
+default `file`; answer JSON `{"url": ...}` or a plain URL),
+`image_upload_headers`, `on_image_upload_error(message)`. Pick, drop and paste
+all upload. Without a URL images are inlined as data URLs.

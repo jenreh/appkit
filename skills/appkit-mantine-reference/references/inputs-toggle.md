@@ -214,3 +214,9 @@ mn.fieldset(
 Props: `legend`, `variant`, `radius`, `disabled`.
 
 > [Mantine docs — Fieldset](https://mantine.dev/core/fieldset/)
+
+## Light variant (9.7)
+
+`mn.checkbox(variant="light")` and `mn.radio(variant="light")` render the
+indicator with a light background and a colored icon (`color` accepts theme
+colors with shade, e.g. `"teal.6"`).

@@ -168,6 +168,16 @@ def navigation_examples() -> rx.Component:
                     gap="md",
                 ),
             ),
+            example_box(
+                "Labels below icons (Mantine 9.6)",
+                mn.stepper(
+                    mn.stepper.step(label="Account"),
+                    mn.stepper.step(label="Verification"),
+                    mn.stepper.step(label="Access"),
+                    active=NavigationState.active_step,
+                    label_position="bottom",
+                ),
+            ),
             # Tabs
             mn.title("Tabs", order=2, mt="lg"),
             mn.text("Switch between different views.", size="sm", c="dimmed"),

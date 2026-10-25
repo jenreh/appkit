@@ -66,7 +66,7 @@ from appkit_ui.components import (
 
 Automatically installed by Reflex:
 
-- `@mantine/core@9.5.2` - Mantine UI library
+- `@mantine/core@9.7.3` - Mantine UI library
 - `react-textarea-autosize` - For autosize feature (used internally by Mantine)
 
 ---

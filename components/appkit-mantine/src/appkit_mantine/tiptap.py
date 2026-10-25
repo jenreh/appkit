@@ -59,6 +59,23 @@ class ToolbarControlGroup(list, enum.Enum):
     COLORS = ["colorPicker", "unsetColor"]
     HISTORY = ["undo", "redo"]
     MEDIA = ["image"]
+    UPLOAD = ["imageUpload"]
+    TABLE = [
+        "tableInsert",
+        "tableDelete",
+        "tableColumnBefore",
+        "tableColumnAfter",
+        "tableColumnDelete",
+        "tableRowBefore",
+        "tableRowAfter",
+        "tableRowDelete",
+        "tableToggleHeaderRow",
+        "tableToggleHeaderColumn",
+        "tableMergeCells",
+        "tableSplitCell",
+    ]
+    DETAILS = ["details"]
+    INVISIBLE_CHARACTERS = ["invisibleCharacters"]
     ALL = [
         "bold",
         "italic",
@@ -88,6 +105,21 @@ class ToolbarControlGroup(list, enum.Enum):
         "undo",
         "redo",
         "image",
+        "imageUpload",
+        "tableInsert",
+        "tableDelete",
+        "tableColumnBefore",
+        "tableColumnAfter",
+        "tableColumnDelete",
+        "tableRowBefore",
+        "tableRowAfter",
+        "tableRowDelete",
+        "tableToggleHeaderRow",
+        "tableToggleHeaderColumn",
+        "tableMergeCells",
+        "tableSplitCell",
+        "details",
+        "invisibleCharacters",
     ]
 
 
@@ -188,6 +220,9 @@ class RichTextEditor(NoSSRComponent):
         f"@tiptap/extension-superscript@{TIPTAP_VERSION}",
         f"@tiptap/extension-text-align@{TIPTAP_VERSION}",
         f"@tiptap/extension-text-style@{TIPTAP_VERSION}",
+        f"@tiptap/extension-table@{TIPTAP_VERSION}",
+        f"@tiptap/extension-details@{TIPTAP_VERSION}",
+        f"@tiptap/extension-invisible-characters@{TIPTAP_VERSION}",
     ]
 
     # Content management
@@ -196,6 +231,22 @@ class RichTextEditor(NoSSRComponent):
 
     on_update: EventHandler[lambda html: [html]] = None
     """Callback when content changes (receives HTML string)."""
+
+    on_image_upload_error: EventHandler[lambda message: [message]] = None
+    """Called with an error message when an image upload fails."""
+
+    image_upload_url: Var[str | None] = None
+    """Endpoint receiving images picked, dropped or pasted into the editor
+    (Mantine 9.7). Receives a multipart POST and answers with JSON
+    ``{"url": ...}`` (or ``src``/``alt``/``title``) or a plain URL string.
+    Without it images are inlined as data URLs. Add the ``imageUpload``
+    control to ``control_groups`` for the toolbar button."""
+
+    image_upload_field: Var[str | None] = None
+    """Multipart field name for the file. Default: ``file``."""
+
+    image_upload_headers: Var[dict | None] = None
+    """Extra HTTP headers sent with the upload request."""
 
     # Editor state
     editable: Var[bool | None] = None

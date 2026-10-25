@@ -58,6 +58,9 @@ class Stepper(MantineLayoutComponentBase):
     radius: Var[str | int]
     color: Var[str]
     allow_next_steps_select: Var[bool]
+    icon_position: Var[Literal["left", "right"]]
+    label_position: Var[Literal["right", "bottom"]]
+    """``"bottom"`` places label and description below the icon (Mantine 9.6+)."""
 
     on_step_click: EventHandler[lambda step: [step]]
 

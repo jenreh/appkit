@@ -10,7 +10,7 @@ References:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import reflex as rx
 from reflex.event import EventHandler
@@ -72,6 +72,19 @@ class MantineScheduleBase(MantineLayoutComponentBase):
     recurrence_expansion_limit: Var[int] = None
     """Maximum number of recurring event instances to expand."""
 
+    prevent_event_overlap: Var[bool | Any] = None
+    """Reject drops/resizes that overlap other events; accepts a predicate
+    deciding per pair of events (Mantine 9.7)."""
+
+    can_drop_event: Var[Any] = None
+    """Predicate returning ``False`` to reject a drop (Mantine 9.7)."""
+
+    can_resize_event_to: Var[Any] = None
+    """Predicate returning ``False`` to reject a resize (Mantine 9.7)."""
+
+    can_drop_external_event: Var[Any] = None
+    """Same check for items dragged in from outside the schedule (9.7)."""
+
     def _get_custom_code(self) -> str:
         return (
             "import '@mantine/core/styles.css';\n"
@@ -92,6 +105,7 @@ class MantineScheduleBase(MantineLayoutComponentBase):
             "on_event_click": _one,
             "on_event_drop": _one,
             "on_event_resize": _one,
+            "on_event_placement_rejected": _one,
         }
 
 
@@ -187,6 +201,22 @@ class DayView(MantineScheduleBase):
     get_time_slot_props: Var[Any] = None
     """Function returning extra props for individual time-slot elements."""
 
+    event_overlap_mode: Var[Literal["columns", "cascade"]] = None
+    """How overlapping events share horizontal space (Mantine 9.7)."""
+
+    event_overlap_raise_delay: Var[int] = None
+    """Delay in ms before a hovered/focused event is raised (default 600)."""
+
+    event_drag_interval: Var[int] = None
+    """Snap step in minutes for dragging, independent of
+    ``interval_minutes`` (Mantine 9.6)."""
+
+    event_resize_interval: Var[int] = None
+    """Snap step in minutes for resizing (Mantine 9.6)."""
+
+    with_interactive_background_events: Var[bool] = None
+    """Make ``display: "background"`` events clickable (Mantine 9.6)."""
+
 
 # ---------------------------------------------------------------------------
 # WeekView
@@ -231,6 +261,12 @@ class WeekView(MantineScheduleBase):
     on_all_day_slot_click: EventHandler[lambda date: [date]] = None
     scroll_area_props: Var[dict] = None
     get_time_slot_props: Var[Any] = None
+
+    event_overlap_mode: Var[Literal["columns", "cascade"]] = None
+    event_overlap_raise_delay: Var[int] = None
+    event_drag_interval: Var[int] = None
+    event_resize_interval: Var[int] = None
+    with_interactive_background_events: Var[bool] = None
 
     # -- Week-specific props ------------------------------------------------
     first_day_of_week: Var[int] = None
@@ -312,6 +348,9 @@ class MonthView(MantineScheduleBase):
 
     with_header: Var[bool] = None
     with_drag_slot_select: Var[bool] = None
+    with_interactive_background_events: Var[bool] = None
+    """Make ``display: "background"`` events clickable (Mantine 9.6)."""
+
     on_slot_drag_end: EventHandler[lambda start, end: [start, end]] = None
     scroll_area_props: Var[dict] = None
     get_day_props: Var[Any] = None
@@ -456,6 +495,9 @@ class Schedule(MantineScheduleBase):
 
     with_agenda: Var[bool] = None
     """Show the agenda view toggle button (Mantine 9.4)."""
+
+    with_interactive_background_events: Var[bool] = None
+    """Make ``display: "background"`` events clickable (Mantine 9.6)."""
 
     layout: Var[str] = None
     """``"default"`` or ``"responsive"``.

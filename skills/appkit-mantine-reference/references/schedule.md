@@ -90,6 +90,10 @@ Common props (in addition to shared props):
 
 - `start_time` / `end_time` — visible window (`"HH:MM"`).
 - `interval_minutes` — slot height interval.
+- `event_drag_interval` / `event_resize_interval` — snap step in minutes for
+  drag and resize, independent of the grid (9.6; day/week + resources views).
+- `with_interactive_background_events` — `display: "background"` events
+  become clickable and fire `on_event_click` (9.6).
 - `start_scroll_time` — initial scroll position.
 - `slot_height`, `all_day_slot_height` — pixel sizes.
 - `with_header`, `header_format`, `slot_label_format`.
@@ -229,3 +233,12 @@ Mantine 9.5.2 fixes recurring-events timezone handling and improves WeekView
 rendering performance — pure bugfixes, no API changes.
 
 > [Mantine docs — Schedule](https://mantine.dev/x/schedule/)
+
+## 9.7: overlap mode and drop validation
+
+Day/week views: `event_overlap_mode="columns"|"cascade"` and
+`event_overlap_raise_delay` (ms, default 600). All views:
+`prevent_event_overlap=True`, `can_drop_event`, `can_resize_event_to`,
+`can_drop_external_event` (JS predicates; return `False` to reject) and
+`on_event_placement_rejected` (receives `{event, conflicts, reason}`).
+Invalid targets get `data-invalid` while hovered.

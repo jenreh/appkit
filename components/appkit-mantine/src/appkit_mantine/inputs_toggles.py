@@ -157,6 +157,9 @@ class Radio(MantineToggleComponentBase):
     icon_color: Var[str] = None
     """Color of the check icon."""
 
+    variant: Var[Literal["filled", "outline", "light"]] = None
+    """Indicator variant; ``light`` (Mantine 9.7) uses a light background."""
+
 
 class RadioIndicator(MantineIndicatorBase):
     """Mantine Radio.Indicator component.
@@ -216,6 +219,9 @@ class Checkbox(MantineToggleComponentBase):
 
     icon_color: Var[str] = None
     """Color of the check icon."""
+
+    variant: Var[Literal["filled", "outline", "light"]] = None
+    """Indicator variant; ``light`` (Mantine 9.7) uses a light background."""
 
     tab_index: Var[int] = None
     """Tab index."""

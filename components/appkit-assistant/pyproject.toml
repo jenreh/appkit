@@ -1,6 +1,6 @@
 [project]
 dependencies = [
-    "anthropic>=1.11.0",
+    "anthropic>=2.3.0",
     "appkit-commons",
     "appkit-mantine",
     "appkit-ui",

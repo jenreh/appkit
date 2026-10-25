@@ -93,7 +93,7 @@ from appkit_ui.components import (
 These are automatically installed by Reflex:
 
 
-- `@mantine/core@9.5.2` - Mantine UI library
+- `@mantine/core@9.7.3` - Mantine UI library
 - `react-imask@7.6.1` - Input masking library
 
 ---

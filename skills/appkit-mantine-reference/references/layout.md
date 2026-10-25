@@ -514,3 +514,24 @@ mn.splitter(
 string), `collapsible`.
 
 > [Mantine docs — Splitter](https://mantine.dev/core/splitter/)
+
+## Resizable AppShell (9.7)
+
+```python
+mn.app_shell.resizable(
+    mn.app_shell.header("Header"),
+    mn.app_shell.navbar("Navbar"),
+    mn.app_shell.main("Main"),
+    header={"height": 50},
+    navbar={"width": 240, "breakpoint": "sm"},
+    resize_options={"navbar": {"min": 160, "max": 420, "collapseThreshold": 180}},
+    initial_sizes={"navbar": 300},
+    on_resize_end=State.on_resize_end,  # dict of sizes
+    on_collapse_change=State.on_collapse,  # (section, collapsed)
+)
+```
+
+Navbar/aside resize horizontally, header/footer vertically (mouse, touch,
+keyboard). Only sections with a `resize_options` entry get a handle, and they
+still need a `width`/`height` config. `--app-shell-*` CSS variables move from
+`:root` to the AppShell root, so Modal/Drawer content cannot read them.

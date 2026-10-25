@@ -478,3 +478,5 @@ await scheduler.shutdown()
 | Hardcoded OAuth `redirect_url` in `config.yaml` | Leave unset; derived from `public_base_url` |
 | `router.url.path == "/login"` | `strip_public_prefix(router.url.path) == "/login"` |
 | `session.commit()` inside `get_asyncdb_session()` block | Session auto-commits on context exit |
+| `State._backend_var` passed as prop/child, `State.var = x` (Reflex 0.10 descriptors) | `.default_value()` / `State.__fields__["x"].set_default(...)` |
+| Inherited vars written in a background task outside `async with self` | Wrap writes in `async with self` |

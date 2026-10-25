@@ -48,6 +48,7 @@ from app.components.navbar import app_navbar
 # Import pages to ensure they are registered
 from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
 from app.pages.assistant.assistant import assistant_page  # noqa: F401
+from app.pages.examples.action_bar_examples import action_bar_examples  # noqa: F401
 from app.pages.examples.alert_dialog_examples import alert_dialog_examples  # noqa: F401
 from app.pages.examples.auto_scroll_examples import auto_scroll_examples  # noqa: F401
 from app.pages.examples.button_examples import button_examples  # noqa: F401
@@ -66,6 +67,7 @@ from app.pages.examples.inputs_advanced_examples import (
     inputs_advanced_examples,  # noqa: F401
 )
 from app.pages.examples.layout_examples import layout_examples  # noqa: F401
+from app.pages.examples.lightbox_examples import lightbox_examples  # noqa: F401
 from app.pages.examples.map_examples import map_examples  # noqa: F401
 from app.pages.examples.markdown_preview_examples import (
     markdown_preview_examples,  # noqa: F401
@@ -74,6 +76,9 @@ from app.pages.examples.menu_examples import menu_examples  # noqa: F401
 from app.pages.examples.modal_examples import modal_examples  # noqa: F401
 from app.pages.examples.nav_link_examples import nav_link_examples  # noqa: F401
 from app.pages.examples.navigation_examples import navigation_examples  # noqa: F401
+from app.pages.examples.notifications_examples import (
+    notifications_examples,  # noqa: F401
+)
 from app.pages.examples.nprogress_examples import nprogress_examples_page  # noqa: F401
 from app.pages.examples.number_formatter_examples import (
     number_formatter_examples,  # noqa: F401
@@ -94,6 +99,8 @@ from app.pages.examples.splitter_examples import splitter_examples  # noqa: F401
 from app.pages.examples.table_examples import table_examples  # noqa: F401
 from app.pages.examples.theme_examples import theme_examples  # noqa: F401
 from app.pages.examples.tiptap_examples import tiptap_page  # noqa: F401
+from app.pages.examples.toolbar_examples import toolbar_examples  # noqa: F401
+from app.pages.examples.tour_examples import tour_examples  # noqa: F401
 from app.pages.examples.typography_examples import typography_examples  # noqa: F401
 from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.image_generators import image_generators_page  # noqa: F401

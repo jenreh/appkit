@@ -8,7 +8,7 @@ enterprise authentication, AI assistants, image generation, and built-in MCP ser
 <p>
 <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13+" /></a>
 <a href="https://reflex.dev/"><img src="https://img.shields.io/badge/Reflex-0.9%2B-5646ED?style=flat-square" alt="Reflex 0.9+" /></a>
-<a href="https://mantine.dev/"><img src="https://img.shields.io/badge/Mantine-9.5.2-339AF0?style=flat-square" alt="Mantine 9.5.2" /></a>
+<a href="https://mantine.dev/"><img src="https://img.shields.io/badge/Mantine-9.7.3-339AF0?style=flat-square" alt="Mantine 9.7.3" /></a>
 <a href="./pyproject.toml"><img src="https://img.shields.io/badge/version-1.13.1-2F855A?style=flat-square" alt="Version 1.13.1" /></a>
 </p>
 

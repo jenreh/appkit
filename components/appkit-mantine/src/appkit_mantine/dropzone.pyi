@@ -12,7 +12,7 @@ import reflex
 import reflex as rx
 from appkit_mantine.base import MANTINE_VERSION, MantineLayoutComponentBase
 DROPZONE_LIBRARY = f'@mantine/dropzone@{MANTINE_VERSION}'
-REACT_DROPZONE_LIBRARY = 'react-dropzone@15.0.0'
+REACT_DROPZONE_LIBRARY = 'react-dropzone@20.1.2'
 
 class MantineDropzoneBase(MantineLayoutComponentBase):
 
@@ -107,7 +107,7 @@ Args:
     *children: The children of the component.
     accept: no description
     multiple: no description
-    max_files: no description
+    max_files: Files up to the limit are accepted, the rest rejected (Mantine 9.6+).
     max_size: no description
     disabled: no description
     loading: no description
@@ -556,7 +556,7 @@ Args:
     *children: The children of the component.
     accept: no description
     multiple: no description
-    max_files: no description
+    max_files: Files up to the limit are accepted, the rest rejected (Mantine 9.6+).
     max_size: no description
     disabled: no description
     loading: no description

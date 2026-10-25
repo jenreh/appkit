@@ -7,7 +7,7 @@ from reflex.vars.base import Var
 from appkit_mantine.base import MANTINE_VERSION, MantineLayoutComponentBase
 
 DROPZONE_LIBRARY = f"@mantine/dropzone@{MANTINE_VERSION}"
-REACT_DROPZONE_LIBRARY = "react-dropzone@15.0.0"
+REACT_DROPZONE_LIBRARY = "react-dropzone@20.1.2"
 
 
 class MantineDropzoneBase(MantineLayoutComponentBase):
@@ -34,6 +34,7 @@ class Dropzone(MantineDropzoneBase):
 
     multiple: Var[bool] = None
     max_files: Var[int] = None
+    """Files up to the limit are accepted, the rest rejected (Mantine 9.6+)."""
     max_size: Var[int] = None
     disabled: Var[bool] = None
     loading: Var[bool] = None
