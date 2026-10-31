@@ -1,8 +1,8 @@
 profile: production
 
 reflex:
-  deploy_url: https://oriole-guiding-miserably.ngrok-free.app
-  api_url: https://oriole-guiding-miserably.ngrok-free.app
+  deploy_url: secret:mn-server-endpoint
+  api_url: secret:mn-server-endpoint
   frontend_port: 8080
   backend_port: 3030
   workers: 2
@@ -12,7 +12,7 @@ app:
   environment: production
 
   authentication:
-    server_url: https://oriole-guiding-miserably.ngrok-free.app
+    server_url: secret:mn-server-endpoint
     server_port: 80
     # Deployment is TLS-terminated: never let the session cookie travel or be
     # set over plaintext http.
@@ -22,7 +22,7 @@ app:
       - provider: "github"
         client_id: secret:mn-oauth-github-client-id
         client_secret: secret:mn-oauth-github-client-secret
-        redirect_url: https://oriole-guiding-miserably.ngrok-free.app/oauth/github/callback
+        redirect_url: secret:mn-oauth-endpoint
 
   mcp_image:
     default_model: "nano-banana-2"

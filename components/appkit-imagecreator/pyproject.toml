@@ -28,7 +28,7 @@ dependencies = [
     "httpx>=0.28.1",
     "openai>=3.24.0",
     "pillow>=13.0.0",
-    "reflex>=0.10.0",
+    "reflex>=0.10.1",
     "pyasn1>=0.6.3",
 ]
 

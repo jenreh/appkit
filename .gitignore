@@ -1,6 +1,7 @@
 __pycache__/
 __pypackages__/
 .cache
+.claude/scheduled_tasks.lock
 .coverage
 .coverage.*
 .dmypy.json
@@ -9,6 +10,7 @@ __pypackages__/
 .env
 .env.backup
 .env.docker
+.env.*
 .hypothesis/
 .idea/
 .installed.cfg
@@ -16,6 +18,7 @@ __pypackages__/
 .mypy_cache/
 .nox/
 .pdm.toml
+.playwright-mcp/
 .pybuilder/
 .pyre/
 .pytest_cache/
@@ -57,16 +60,17 @@ __pypackages__/
 *$py.class
 /site
 /vectorstore/
-aila-storage/
-assets/external/
-# Reflex copies shared component assets to "<cwd>/assets/external" whenever a
+# artifacts, never source.
 # component module is imported. Generating .pyi stubs (scripts/make_pyi.py) runs
 # from each package's src dir, so these copies land here; they are build-time
-# artifacts, never source.
-components/*/src/assets/
+# Reflex copies shared component assets to "<cwd>/assets/external" whenever a
+aila-storage/
+assets/external/
 build/
 celerybeat-schedule
 celerybeat.pid
+components/**/assets/
+components/*/src/assets/
 configuration/config.abaz009.yaml
 configuration/config.bubb001.yaml
 configuration/config.stie104.yaml
@@ -111,13 +115,10 @@ stores/
 target/
 tests/mcp_test.py
 tmp.txt
+trigger-eval.json
 uploaded_files/
 uploads/
 var/
 venv.bak/
 venv/
 wheels/
-.playwright-mcp/
-.claude/scheduled_tasks.lock
-trigger-eval.json
-components/**/assets/
