@@ -80,6 +80,12 @@ app:
 `public_routes` are matched against the route **without** the path prefix.
 Never write `/knai/login` there.
 
+Behind a reverse proxy, Reflex (>= 0.10.1) ignores `X-Forwarded-For` unless
+`trusted_proxy_hops` is set in the Reflex config, so `router.session.client_ip`
+is the proxy address by default. Set it to the number of trusted proxies before
+using the client IP for logging or rate limits. `router.headers.cookie` keeps
+every repeated cookie header; parse it with `unquote` like the session cookie.
+
 ---
 
 ## 3. Protecting UI and handlers
@@ -194,3 +200,4 @@ In-process tests switch the prefix with
 | `rx.redirect(public_path("/login"))` | `rx.redirect("/login")` |
 | UI gate (`requires_admin`) as the only check | Server-side `@requires_admin` / `RequiredSession` |
 | Session cookie name hardcoded | `session_validation.session_cookie_name()` |
+| Trusting `X-Forwarded-For` / `client_ip` behind a proxy without config | Set `trusted_proxy_hops` to the trusted proxy count |

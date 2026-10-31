@@ -484,3 +484,5 @@ await scheduler.shutdown()
 | `session.commit()` inside `get_asyncdb_session()` block | Session auto-commits on context exit |
 | `State._backend_var` passed as prop/child, `State.var = x` (Reflex 0.10 descriptors) | `.default_value()` / `State.__fields__["x"].set_default(...)` |
 | Inherited vars written in a background task outside `async with self` | Wrap writes in `async with self` |
+| Several backend versions behind a load balancer without sticky sessions | Sticky sessions; Reflex 0.10.1 reloads a stale frontend on state-tree hash mismatch |
+| Non fork-safe app in production on Linux (workers fork from the imported app) | `REFLEX_BACKEND_START_METHOD=spawn` |

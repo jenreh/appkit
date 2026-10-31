@@ -240,7 +240,7 @@ Mantine names them (`{"startTime": "08:00:00"}`, `styles={"content": {"minHeight
 
 ## Reflex 0.10 notes
 
-appkit requires `reflex>=0.10.0`. State vars are descriptors on the declaring
+appkit requires `reflex>=0.10.1`. State vars are descriptors on the declaring
 class, which matters for the state and tests behind `mn.*` UIs:
 
 - No auto setters: write each `set_*` handler yourself (see above).
