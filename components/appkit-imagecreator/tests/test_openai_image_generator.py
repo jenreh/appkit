@@ -152,7 +152,13 @@ class TestProcessResponseImages:
         mock_resp.content = b"downloaded"
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("httpx.AsyncClient") as mock_client_cls:
+        with (
+            patch(
+                "appkit_imagecreator.backend.generators.openai.assert_public_http_url",
+                new=AsyncMock(),
+            ),
+            patch("httpx.AsyncClient") as mock_client_cls,
+        ):
             ctx = AsyncMock()
             ctx.get = AsyncMock(return_value=mock_resp)
             mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=ctx)
@@ -160,6 +166,17 @@ class TestProcessResponseImages:
             result = await gen._process_response_images([img], "image/png")
 
         assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_url_fetch_blocks_internal_address(self) -> None:
+        gen = _gen()
+        img = SimpleNamespace(b64_json=None, url="http://169.254.169.254/latest")
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            result = await gen._process_response_images([img], "image/png")
+
+        assert result == []
+        mock_client_cls.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_data(self) -> None:

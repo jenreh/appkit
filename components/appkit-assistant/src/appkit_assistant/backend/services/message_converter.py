@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class MessageConverterProtocol(Protocol[T]):
+class MessageConverterProtocol[T](Protocol):
     """Protocol for message format converters."""
 
     async def convert(

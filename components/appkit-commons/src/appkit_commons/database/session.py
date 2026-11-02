@@ -75,4 +75,4 @@ def get_db_session() -> Iterator[Session]:
 
 
 def get_db_engine() -> Engine:
-    return get_session_manager().get_engine()  # type: ignore
+    return get_session_manager().get_engine()

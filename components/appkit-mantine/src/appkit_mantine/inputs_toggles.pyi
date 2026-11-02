@@ -11,6 +11,7 @@ from reflex_base.vars.base import Var
 import reflex
 from typing import Any, Literal
 import reflex as rx
+from reflex.components.component import Component
 from appkit_mantine.base import MantineComponentBase, MantineInputComponentBase, MantineNumberSize, MantineSize
 
 class MantineToggleComponentBase(MantineComponentBase):

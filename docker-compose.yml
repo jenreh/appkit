@@ -57,8 +57,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: appkit-db
       POSTGRES_PASSWORD: postgres
+    # Local development only: bound to loopback, with throwaway credentials.
+    # Never publish this database or reuse these credentials on a server.
     ports:
-      - 5433:5432
+      - "127.0.0.1:5433:5432"
     networks:
       - appkit-network
 

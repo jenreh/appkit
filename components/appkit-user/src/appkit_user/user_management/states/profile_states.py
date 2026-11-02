@@ -1,5 +1,4 @@
 import reflex as rx
-from reflex.components.sonner.toast import Toaster
 
 from appkit_user.authentication.backend.services.password_reset_service import (
     ChangePasswordOutcome,
@@ -66,7 +65,7 @@ class ProfileState(rx.State):
         self.current_password = password
 
     @rx.event
-    async def handle_password_update(self) -> Toaster:
+    async def handle_password_update(self) -> rx.event.EventSpec:
         """Change the signed-in user's password.
 
         Delegates to :class:`PasswordResetService` so this path enforces the

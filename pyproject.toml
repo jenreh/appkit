@@ -10,10 +10,6 @@ dependencies = [
     "appkit-commons[apscheduler,pgqueuer,azure]",
     "appkit-imagecreator",
     "appkit-mantine",
-    "appkit-mcp-bpmn",
-    "appkit-mcp-charts",
-    "appkit-mcp-image",
-    "appkit-mcp-user",
     "appkit-ui",
     "appkit-user[azure,resend]",
     "psycopg==3.3.6",
@@ -23,21 +19,21 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest==9.1.1",
-    "pytest-asyncio==1.4.1",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1.post1",
     "pytest-cov==7.1.0",
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     "aiosqlite==0.22.1",
     "httpx==0.28.1",
     "responses==0.26.3",
-    "faker==40.43.0",
-    "ruff==0.17.2",
-    "bump-my-version==1.6.7",
+    "faker==40.44.0",
+    "ruff==0.17.3",
+    "bump-my-version==1.8.1",
     "detect-secrets==1.5.0",
     "respx>=0.23.1",
-    "mypy==2.4.0",
-    "types-pyyaml==6.0.12.20260906",
+    "ty==0.0.95",
+    "types-pyyaml==6.0.12.20261030",
 ]
 
 [tool.setuptools.packages.find]
@@ -46,11 +42,6 @@ where = [
     "components/appkit-commons/src",
     "components/appkit-imagecreator/src",
     "components/appkit-mantine/src",
-    "components/appkit-mcp-bpmn/src",
-    "components/appkit-mcp-charts/src",
-    "components/appkit-mcp-commons/src",
-    "components/appkit-mcp-image/src",
-    "components/appkit-mcp-user/src",
     "components/appkit-ui/src",
     "components/appkit-user/src",
 ]
@@ -62,11 +53,6 @@ packages = [
     "appkit_commons",
     "appkit_imagecreator",
     "appkit_mantine",
-    "appkit_mcp_bpmn",
-    "appkit_mcp_charts",
-    "appkit_mcp_commons",
-    "appkit_mcp_image",
-    "appkit_mcp_user",
     "appkit_ui",
     "appkit_user",
 ]
@@ -83,11 +69,6 @@ appkit-assistant = { workspace = true }
 appkit-commons = { workspace = true }
 appkit-imagecreator = { workspace = true }
 appkit-mantine = { workspace = true }
-appkit-mcp-bpmn = { workspace = true }
-appkit-mcp-charts = { workspace = true }
-appkit-mcp-commons = { workspace = true }
-appkit-mcp-image = { workspace = true }
-appkit-mcp-user = { workspace = true }
 appkit-ui = { workspace = true }
 appkit-user = { workspace = true }
 
@@ -124,31 +105,6 @@ replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "components/appkit-mantine/pyproject.toml"
-search = 'version = "{current_version}"'
-replace = 'version = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "components/appkit-mcp-bpmn/pyproject.toml"
-search = 'version = "{current_version}"'
-replace = 'version = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "components/appkit-mcp-charts/pyproject.toml"
-search = 'version = "{current_version}"'
-replace = 'version = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "components/appkit-mcp-commons/pyproject.toml"
-search = 'version = "{current_version}"'
-replace = 'version = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "components/appkit-mcp-image/pyproject.toml"
-search = 'version = "{current_version}"'
-replace = 'version = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "components/appkit-mcp-user/pyproject.toml"
 search = 'version = "{current_version}"'
 replace = 'version = "{new_version}"'
 
@@ -253,11 +209,6 @@ testpaths = [
     "components/appkit-commons/tests",
     "components/appkit-assistant/tests",
     "components/appkit-imagecreator/tests",
-    "components/appkit-mcp-user/tests",
-    "components/appkit-mcp-charts/tests",
-    "components/appkit-mcp-bpmn/tests",
-    "components/appkit-mcp-commons/tests",
-    "components/appkit-mcp-image/tests",
     "components/appkit-user/tests",
 ]
 
@@ -282,135 +233,78 @@ disable = [
     "W0622",
 ]
 
-[tool.mypy]
-cache_dir = ".cache/mypy"
-disallow_untyped_defs = true
-incremental = true
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-ignore_errors = false
-ignore_missing_imports = false
-# Components use src-layout PEP 420 namespace packages (no __init__.py), so mypy
-# needs explicit package bases plus each src dir on the path to derive correct
-# dotted module names. Without this, files like `types.py` are mistaken for the
-# stdlib module they share a name with.
-namespace_packages = true
-explicit_package_bases = true
-mypy_path = [
-    ".",
-    "components/appkit-assistant/src",
-    "components/appkit-commons/src",
-    "components/appkit-imagecreator/src",
-    "components/appkit-mantine/src",
-    "components/appkit-mcp-bpmn/src",
-    "components/appkit-mcp-charts/src",
-    "components/appkit-mcp-commons/src",
-    "components/appkit-mcp-image/src",
-    "components/appkit-mcp-user/src",
-    "components/appkit-ui/src",
-    "components/appkit-user/src",
-]
-files = [
-    # Incremental mypy rollout — checking these modules first, expanding later.
-    "components/appkit-commons/src",
-    "components/appkit-mantine/src",
-    "components/appkit-user/src",
-]
-follow_imports = "silent"
+# Type checking with `ty` (Astral). Run via `task lint` (uv run ty check).
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.ty.src]
 exclude = [
     ".cache",
+    ".claude",
     ".venv",
     ".venv.mac",
-    ".venv_mac",
     ".web",
-    ".github",
-    ".devcontainer",
-    ".idea",
-    ".vscode",
     "build",
     "dist",
-    "docs",
-    "infra",
-    "prompts",
-    "scripts",
-    "static",
-    "uploads",
-    "/tests/",
-    "\\.pyi$",
+    "**/*.pyi",
 ]
 
-# Third-party dependencies that ship no type stubs / py.typed marker. Ignoring
-# missing imports here keeps `ignore_missing_imports = false` strict everywhere
-# else so our own untyped imports still surface.
-[[tool.mypy.overrides]]
-module = [
-    "pgqueuer.*",
-    "apscheduler.*",
-    "openai.*",
-    "azure.*",
-    "requests_oauthlib.*",
-    "sqlalchemy_utils.*",
-    # Reflex lazily aliases this from the separate `reflex_components_sonner`
-    # distribution at runtime; the mapping isn't statically resolvable.
-    "reflex.components.sonner.*",
-]
-ignore_missing_imports = true
+# Treat unresolved third-party imports as warnings; ty resolves imports from the
+# project venv instead.
+[tool.ty.rules]
+unresolved-import = "warn"
 
-# appkit_mantine is a Reflex component-wrapper library. Its component classes are
-# written in Reflex's prop DSL — `prop: Var[T] = default` declarations and
-# `EventHandler[...]` / `get_event_triggers` overrides — which mypy's strict mode
-# cannot model (it reads the defaults as type-mismatched assignments). These error
-# codes are pure framework noise here; real issues still surface under other codes.
-[[tool.mypy.overrides]]
-module = ["appkit_mantine.*"]
-disable_error_code = [
-    "assignment",
-    "type-arg",
-    "valid-type",
-    "override",
-    "operator",
-    # Reflex component factories (rx.box, rx.button, super().create) return Any.
-    "no-any-return",
+# Reflex Vars are typed as their Python value but behave as Var objects
+# (~, .contains, comparisons), so ty reports false positives in UI and state code.
+[[tool.ty.overrides]]
+include = [
+    "**/components/**",
+    "app/**",
+    "rxconfig.py",
 ]
 
-# appkit_ui is not in the gated `files` set; it is only reached as a followed
-# import from gated packages (e.g. appkit_user). mypy resolves a followed module
-# to its generated `.pyi` stub (preferred over `.py`) — and the regex `exclude`
-# only applies to crawled directories, not followed imports. The generated stubs
-# carry Reflex's framework-noise codes (untyped `*children`/`**props`, Enum/list
-# `__hash__` conflicts, reflex internals lacking py.typed). Silence those codes so
-# the gate stays green; the `.py` sources remain the source of truth.
-[[tool.mypy.overrides]]
-module = ["appkit_ui.*"]
-disable_error_code = [
-    "no-untyped-def",
-    "import-untyped",
-    "misc",
-    "name-defined",
-]
+[tool.ty.overrides.rules]
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+invalid-method-override = "ignore"
+invalid-mutable-override = "ignore"
+invalid-return-type = "ignore"
+invalid-type-form = "ignore"
+unresolved-attribute = "ignore"
+unsupported-operator = "ignore"
+deprecated = "ignore"
+# Reflex state handlers/event callbacks and `async with self` are not modelled.
+missing-argument = "ignore"
+no-matching-overload = "ignore"
+invalid-context-manager = "ignore"
+not-iterable = "ignore"
+not-subscriptable = "ignore"
+unknown-argument = "ignore"
 
-# Reflex UI layer (component/page/template builders). These read state Vars and
-# wire event handlers, which mypy can't model: `State.user.name` on an optional
-# Var (union-attr), Var methods like `.contains()` / namespace sub-components like
-# `mn.table.tr` (attr-defined), Var boolean operators (operator), `EventHandler`
-# vs `Callable` (arg-type/call-arg/list-item), and `Any`-returning factories
-# (no-any-return). Other codes stay active so real issues here still surface.
-[[tool.mypy.overrides]]
-module = [
-    "appkit_user.*.components.*",
-    "appkit_user.*.pages",
-    "appkit_user.authentication.templates",
-]
-disable_error_code = [
-    "union-attr",
-    "attr-defined",
-    "operator",
-    "arg-type",
-    "call-arg",
-    "list-item",
-    "no-any-return",
-]
+# Demo app pages build Reflex components whose props ty cannot see.
+[[tool.ty.overrides]]
+include = ["app/pages/**"]
+
+[tool.ty.overrides.rules]
+missing-argument = "ignore"
+
+# Tests use fakes, partial entity construction and monkeypatching.
+[[tool.ty.overrides]]
+include = ["**/tests/**", "scripts/**"]
+
+[tool.ty.overrides.rules]
+deprecated = "ignore"
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+missing-argument = "ignore"
+no-matching-overload = "ignore"
+unresolved-attribute = "ignore"
+invalid-type-form = "ignore"
+unsupported-operator = "ignore"
+not-iterable = "ignore"
+invalid-await = "ignore"
+invalid-attribute-access = "ignore"
+pydantic-discarded-extra-argument = "ignore"
 
 [tool.coverage.run]
 branch = true

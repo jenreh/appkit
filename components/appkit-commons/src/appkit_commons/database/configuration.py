@@ -36,7 +36,7 @@ class DatabaseConfig(BaseConfig):
         "disable", "allow", "prefer", "require", "verify-ca", "verify-full"
     ] = "disable"
 
-    @computed_field(repr=False)  # type: ignore
+    @computed_field(repr=False)
     @property
     def url(self) -> str:
         if self.url_override is not None:

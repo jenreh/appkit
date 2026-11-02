@@ -5,6 +5,7 @@ from typing import Literal
 import httpx
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
+from appkit_commons.net import UnsafeURLError, assert_public_http_url
 from appkit_imagecreator.backend.models import (
     GeneratedImageData,
     GenerationInput,
@@ -100,7 +101,8 @@ class OpenAIImageGenerator(ImageGenerator):
                 )
             elif img.url:
                 try:
-                    async with httpx.AsyncClient() as client:
+                    await assert_public_http_url(img.url)
+                    async with httpx.AsyncClient(follow_redirects=False) as client:
                         resp = await client.get(img.url, timeout=60.0)
                         resp.raise_for_status()
                         generated_images.append(
@@ -108,7 +110,7 @@ class OpenAIImageGenerator(ImageGenerator):
                                 resp.content, content_type
                             )
                         )
-                except httpx.HTTPError as e:
+                except (httpx.HTTPError, UnsafeURLError) as e:
                     logger.warning("Failed to fetch image from URL %s: %s", img.url, e)
             else:
                 logger.warning("Image data from OpenAI is neither b64_json nor a URL.")

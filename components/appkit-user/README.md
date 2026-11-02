@@ -339,7 +339,7 @@ tenant_users = get_users_by_tenant(current_tenant)
 
 - **OAuth2 PKCE Support** - Proof Key for Code Exchange for enhanced security
 - **Secure Redirects** - Configurable redirect URLs prevent open redirect attacks
-- **Login Throttle** - Failed password logins are counted per email (default 5) and per client address (default 20) within 15 minutes; a locked key is refused for 15 minutes before the password is checked. Configure via `authentication.login_rate_limit`. State is in-memory per process; behind a proxy set `trusted_proxy_hops` so client addresses are real.
+- **Login Throttle** - Failed password logins are counted per email (default 5) and per client address (default 20) within 15 minutes; a locked key is refused for 15 minutes before the password is checked. Configure via `authentication.login_rate_limit`. Counters live in the `auth_login_throttle` table (hashed keys, fixed window), so the limit holds across workers and restarts; add the table with the Alembic migration of your app. Behind a proxy set `reflex.trusted_proxy_hops` so client addresses are real.
 - **Session Security** - Automatic session cleanup and validation
 - **CSRF Protection** - Built-in CSRF tokens for forms
 - **Role Validation** - Server-side role checking in addition to client-side decorators

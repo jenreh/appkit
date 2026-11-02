@@ -3,7 +3,7 @@
 <img src="./assets/img/appkit_logo.svg" alt="AppKit logo" width="180" />
 <p>&nbsp;</p>
 <p>A production-ready Reflex application framework with Mantine UI components,<br />
-enterprise authentication, AI assistants, image generation, and built-in MCP servers.</p>
+enterprise authentication, AI assistants, image generation, and MCP integration.</p>
 
 <p>
 <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13+" /></a>
@@ -25,7 +25,7 @@ enterprise authentication, AI assistants, image generation, and built-in MCP ser
 
 ## Overview
 
-AppKit is a modular Python workspace for building authenticated, AI-enabled Reflex applications. The repository contains both a runnable application and reusable packages for Mantine-based UI, user management, assistants, image generation, shared infrastructure, and Model Context Protocol (MCP) servers.
+AppKit is a modular Python workspace for building authenticated, AI-enabled Reflex applications. The repository contains both a runnable application and reusable packages for Mantine-based UI, user management, assistants, image generation, shared infrastructure, and shared infrastructure.
 
 The current app combines:
 
@@ -33,7 +33,7 @@ The current app combines:
 - **Enterprise user management** with OAuth login, sessions, role-based access control, profile pages, password reset flows, and admin screens.
 - **AI assistant workflows** with model management, file upload support, MCP app integration, slash-command style prompts, and configurable providers.
 - **Image generation** with multiple generator backends, galleries, cleanup jobs, and admin-managed generator configuration.
-- **MCP servers** for user analytics, chart generation, BPMN diagrams, and image generation, mounted into the FastAPI backend.
+- **MCP servers** now live in the separate [appkit-mcp-servers](https://github.com/jenreh/appkit-mcp-servers) project. They require a bearer token: add `{"Authorization": "Bearer <token>"}` as header in the MCP server settings of the assistant admin.
 - **Production infrastructure** with SQLAlchemy 2.0, Alembic migrations, Pydantic settings, encrypted configuration values, PostgreSQL scheduling via PGQueuer, Docker support, and structured logging.
 
 > [!NOTE]
@@ -62,11 +62,6 @@ Small previews are shown below. See the [full-size screenshot gallery](./docs/SC
 | [`appkit-assistant`](./components/appkit-assistant) | AI assistant UI and backend services with model registry, MCP integration, and file cleanup. |
 | [`appkit-imagecreator`](./components/appkit-imagecreator) | Image generation workflows, galleries, generator registry, and generated-image cleanup. |
 | [`appkit-commons`](./components/appkit-commons) | Configuration, registry, database entities, repositories, encryption helpers, middleware, and scheduler support. |
-| [`appkit-mcp-commons`](./components/appkit-mcp-commons) | Shared MCP server utilities. |
-| [`appkit-mcp-user`](./components/appkit-mcp-user) | MCP server for user analytics and user-management context. |
-| [`appkit-mcp-charts`](./components/appkit-mcp-charts) | MCP server for chart and visualization generation. |
-| [`appkit-mcp-bpmn`](./components/appkit-mcp-bpmn) | MCP server for BPMN 2.0 workflow diagram generation. |
-| [`appkit-mcp-image`](./components/appkit-mcp-image) | MCP server for authenticated image generation and editing. |
 
 ## Getting Started
 
@@ -190,7 +185,6 @@ appkit/
 
 - Reflex frontend: `http://localhost:8080/`
 - Backend API: `http://localhost:3030`
-- MCP servers mounted under the backend for `/user`, `/charts`, `/bpmn`, and `/image`
 - Authenticated app routes include `/assistant`, `/image-gallery`, `/profile`, `/admin/users`, `/admin/assistant`, and `/admin/image-generators`
 
 ## Resources

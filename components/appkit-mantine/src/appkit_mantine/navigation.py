@@ -3,6 +3,7 @@
 from typing import Any, Literal
 
 import reflex as rx
+from reflex.components.component import Component
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
@@ -18,7 +19,7 @@ class Breadcrumbs(MantineLayoutComponentBase):
 
     tag = "Breadcrumbs"
 
-    separator: Var[str | rx.Component]
+    separator: Var[str | Component]
     separator_margin: Var[str | int]
 
 
@@ -243,7 +244,7 @@ class NavLink(MantineComponentBase):
     icon: Var[Any] = None
     left_section: Var[Any] = None
     right_section: Var[Any] = None
-    children: Var[Any] = None
+    children: Var[Any] = None  # ty: ignore[invalid-attribute-override]
 
     # Open/active state control
     opened: Var[bool] = None

@@ -265,3 +265,21 @@ class PasswordResetRequestEntity(Entity, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(200), nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
+
+class LoginThrottleEntity(Base):
+    """Failed-login counter for one throttle key (hashed email or client)."""
+
+    __tablename__ = "auth_login_throttle"
+
+    # SHA-256 hex of "<kind>:<value>": no email or address is stored in clear.
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    window_started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (Index("idx_login_throttle_window_started", "window_started_at"),)

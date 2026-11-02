@@ -85,34 +85,3 @@ app:
     tmp_dir: ./uploaded_files
     cleanup_days_threshold: 60
     openai_model: gpt-5-mini
-
-  mcp_user:
-    openai_model: gpt-5-mini
-
-  mcp_bpmn:
-    storage_dir: ./uploaded_files/bpmn
-    storage_mode: database
-    default_model: gpt-5.3-codex
-    max_file_size_mb: 10
-    cleanup_days_threshold: 60
-    diagram_types:
-      - process
-      - collaboration
-      - choreography
-
-  mcp_image:
-    default_model: "nano-banana-2"
-    max_file_size_mb: 10
-
-    auth_tokens:
-      - id: secret:mn-image-default-auth-token
-        token:
-          client_id: "default-client-id"
-          scopes:
-            - "image:generate"
-            - "image:edit"
-      - id: secret:mn-image-guest-auth-token
-        token:
-          client_id: "guest-user-id"
-          scopes:
-            - "image:generate"

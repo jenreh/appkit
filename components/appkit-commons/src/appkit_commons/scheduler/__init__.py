@@ -8,11 +8,11 @@ and the default implementation.
 try:
     from appkit_commons.scheduler.pgqueuer import PGQueuerScheduler
 except ImportError:
-    PGQueuerScheduler = None  # type: ignore
+    PGQueuerScheduler = None
 try:
     from appkit_commons.scheduler.apscheduler import APScheduler
 except ImportError:
-    APScheduler = None  # type: ignore
+    APScheduler = None
 
 from appkit_commons.scheduler.scheduler_types import (
     CalendarIntervalTrigger,

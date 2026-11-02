@@ -1,6 +1,7 @@
 """Database entities and repositories for authentication."""
 
 from appkit_user.authentication.backend.database.entities import (
+    LoginThrottleEntity,
     OAuthAccountEntity,
     OAuthStateEntity,
     PasswordHistoryEntity,
@@ -8,6 +9,10 @@ from appkit_user.authentication.backend.database.entities import (
     PasswordResetTokenEntity,
     UserEntity,
     UserSessionEntity,
+)
+from appkit_user.authentication.backend.database.login_throttle_repository import (
+    LoginThrottleRepository,
+    login_throttle_repo,
 )
 from appkit_user.authentication.backend.database.oauthstate_repository import (
     OAuthStateRepository,
@@ -37,6 +42,8 @@ from appkit_user.authentication.backend.database.user_session_repository import 
 
 __all__ = [
     "DefaultUserRoles",
+    "LoginThrottleEntity",
+    "LoginThrottleRepository",
     "OAuthAccountEntity",
     "OAuthStateEntity",
     "OAuthStateRepository",
@@ -50,6 +57,7 @@ __all__ = [
     "UserRepository",
     "UserSessionEntity",
     "UserSessionRepository",
+    "login_throttle_repo",
     "oauth_state_repo",
     "password_history_repo",
     "password_reset_request_repo",

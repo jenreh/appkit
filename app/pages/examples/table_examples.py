@@ -66,7 +66,7 @@ def table_rows() -> rx.Component:
             mn.table.td(el["mass"]),
             key=el["name"],
         ),
-    )  # type: ignore
+    )
 
 
 @navbar_layout(

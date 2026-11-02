@@ -23,6 +23,3 @@ app:
         client_id: secret:mn-oauth-github-client-id
         client_secret: secret:mn-oauth-github-client-secret
         redirect_url: secret:mn-oauth-endpoint
-
-  mcp_image:
-    default_model: "nano-banana-2"

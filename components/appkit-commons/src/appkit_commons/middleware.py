@@ -1,14 +1,34 @@
+import logging
+import os
 from typing import Final
 
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+logger = logging.getLogger(__name__)
 
 HSTS: Final = "max-age=31536000; includeSubDomains"
 BASE_SECURITY_HEADERS: Final = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Content-Security-Policy": "frame-ancestors 'self'",
+    "Permissions-Policy": "camera=(self), microphone=(self), geolocation=(self)",
+    # Keeps window.opener for popups we open (OAuth) but isolates the page from
+    # cross-origin windows that open it.
+    "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
 }
+
+
+def trusted_proxy_hosts_from_env(name: str = "FORWARDED_ALLOW_IPS") -> set[str] | None:
+    """Proxy addresses allowed to set ``X-Forwarded-Proto``, from the environment.
+
+    Uses the same variable and comma-separated format as uvicorn. Unset, empty or
+    ``*`` returns ``None``, which trusts every peer.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw or raw == "*":
+        return None
+    return {host.strip() for host in raw.split(",") if host.strip()}
 
 
 class ForceHTTPSMiddleware:
@@ -32,6 +52,12 @@ class ForceHTTPSMiddleware:
     def __init__(self, app: ASGIApp, trusted_hosts: set[str] | None = None) -> None:
         self.app = app
         self.trusted_hosts = trusted_hosts
+        if trusted_hosts is None:
+            logger.warning(
+                "X-Forwarded-Proto is trusted from every peer; set "
+                "FORWARDED_ALLOW_IPS to the proxy addresses if the app can be "
+                "reached directly"
+            )
 
     def _peer_is_trusted(self, scope: Scope) -> bool:
         if self.trusted_hosts is None:

@@ -14,7 +14,7 @@ import io
 import locale
 import logging
 from collections import defaultdict
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from datetime import date
 from typing import Any
 
@@ -23,6 +23,7 @@ import reflex as rx
 from PIL import Image
 
 from appkit_commons.database.session import get_asyncdb_session
+from appkit_commons.net import UnsafeURLError, assert_public_http_url
 from appkit_commons.public_path import public_path
 from appkit_imagecreator.backend.generator_registry import generator_registry
 from appkit_imagecreator.backend.models import (
@@ -558,11 +559,12 @@ class ImageGalleryState(rx.State):
 
         if img_data.external_url:
             try:
-                async with httpx.AsyncClient() as client:
+                await assert_public_http_url(img_data.external_url)
+                async with httpx.AsyncClient(follow_redirects=False) as client:
                     resp = await client.get(img_data.external_url, timeout=60.0)
                     resp.raise_for_status()
                     return resp.content
-            except httpx.HTTPError as e:
+            except (httpx.HTTPError, UnsafeURLError) as e:
                 logger.error("Failed to fetch image from URL: %s", e)
                 return None
 
@@ -1104,11 +1106,11 @@ class ImageGalleryState(rx.State):
     # -------------------------------------------------------------------------
 
     @rx.event
-    def toggle_history(self) -> None:
+    def toggle_history(self) -> Generator[Any, Any, Any]:
         """Toggle the history drawer and reload history when opening."""
         self.history_drawer_open = not self.history_drawer_open
         if self.history_drawer_open:
-            yield ImageGalleryState.load_history_images  # type: ignore[misc]
+            yield ImageGalleryState.load_history_images
 
     @rx.event(background=True)
     async def load_history_images(self) -> AsyncGenerator[Any, Any]:

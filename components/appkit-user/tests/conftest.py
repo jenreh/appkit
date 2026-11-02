@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+from _throttle_store import SessionThrottleStore
 from faker import Faker
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -437,14 +438,16 @@ def mock_azure_token_response() -> dict[str, Any]:
 
 
 @pytest.fixture(autouse=True)
-def login_throttle() -> Any:
+def login_throttle(async_session: AsyncSession) -> Any:
     """Give every test its own login throttle instead of the configured one."""
     from unittest.mock import patch  # noqa: PLC0415
 
     from appkit_user.authentication.login_throttle import LoginThrottle  # noqa: PLC0415
     from appkit_user.configuration import LoginRateLimitConfig  # noqa: PLC0415
 
-    throttle = LoginThrottle(LoginRateLimitConfig())
+    throttle = LoginThrottle(
+        LoginRateLimitConfig(), store=SessionThrottleStore(async_session)
+    )
     with patch(
         "appkit_user.authentication.states.get_login_throttle",
         return_value=throttle,

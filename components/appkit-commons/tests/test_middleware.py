@@ -7,6 +7,7 @@ from appkit_commons.middleware import (
     HSTS,
     ForceHTTPSMiddleware,
     SecurityHeadersMiddleware,
+    trusted_proxy_hosts_from_env,
 )
 
 
@@ -243,3 +244,32 @@ class TestSecurityHeadersMiddleware:
         await SecurityHeadersMiddleware(app)({"type": "websocket"}, None, None)
 
         assert app.last_scope == {"type": "websocket"}
+
+
+class TestTrustedProxyHostsFromEnv:
+    @pytest.mark.parametrize("value", [None, "", "  ", "*"])
+    def test_unset_or_wildcard_trusts_every_peer(
+        self, monkeypatch: pytest.MonkeyPatch, value: str | None
+    ) -> None:
+        if value is None:
+            monkeypatch.delenv("FORWARDED_ALLOW_IPS", raising=False)
+        else:
+            monkeypatch.setenv("FORWARDED_ALLOW_IPS", value)
+
+        assert trusted_proxy_hosts_from_env() is None
+
+    def test_parses_comma_separated_hosts(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("FORWARDED_ALLOW_IPS", "10.0.0.1, 10.0.0.2 ,,")
+
+        assert trusted_proxy_hosts_from_env() == {"10.0.0.1", "10.0.0.2"}
+
+
+class TestSecurityHeaderSet:
+    def test_includes_permissions_and_opener_policy(self) -> None:
+        assert "Permissions-Policy" in BASE_SECURITY_HEADERS
+        assert (
+            BASE_SECURITY_HEADERS["Cross-Origin-Opener-Policy"]
+            == "same-origin-allow-popups"
+        )

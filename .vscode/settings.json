@@ -64,11 +64,6 @@
     "components/appkit-assistant/tests",
     "components/appkit-commons/tests",
     "components/appkit-imagecreator/tests",
-    "components/appkit-mcp-bpmn/tests",
-    "components/appkit-mcp-charts/tests",
-    "components/appkit-mcp-commons/tests",
-    "components/appkit-mcp-image/tests",
-    "components/appkit-mcp-user/tests",
     "components/appkit-user/tests",
   ],
   "terminal.integrated.defaultProfile.linux": "zsh",
@@ -91,8 +86,6 @@
   "[yaml]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "mypy-type-checker.preferDaemon": true,
-  "mypy-type-checker.reportingScope": "workspace",
   "python-envs.defaultPackageManager": "ms-python.python:uv",
   "chat.agent.maxRequests": 100,
   "[jsonc]": {

@@ -115,7 +115,7 @@ class AreaChart(CategoricalChartBase):
 
     tag = "AreaChart"
 
-    chart_type: Var[Literal["default", "stacked", "percent", "split", "stream"]] = None  # type: ignore
+    chart_type: Var[Literal["default", "stacked", "percent", "split", "stream"]] = None
     """``"stream"`` renders a streamgraph with a floating baseline; the y axis
     is hidden by default for it (Mantine 9.6+)."""
     _rename_props = {
@@ -146,7 +146,7 @@ class BarChart(CategoricalChartBase):
 
     tag = "BarChart"
 
-    chart_type: Var[Literal["default", "stacked", "percent", "waterfall"]] = None  # type: ignore
+    chart_type: Var[Literal["default", "stacked", "percent", "waterfall"]] = None
     _rename_props = {
         "chartType": "type",
     }
@@ -334,7 +334,7 @@ class ScatterChart(CategoricalChartBase):
 
     data: Var[list[dict[str, Any]]]
     # Note: Scatter uses object for dataKey {x: 'ug', y: 'pg'}
-    data_key: Var[dict[str, Any]]
+    data_key: Var[dict[str, Any]]  # ty: ignore[invalid-attribute-override]
     labels: Var[dict[str, Any]]  # {x: 'label', y: 'label'}
 
 

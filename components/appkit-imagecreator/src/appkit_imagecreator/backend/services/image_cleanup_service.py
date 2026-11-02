@@ -21,7 +21,7 @@ class ImageCleanupService(ScheduledService):
     job_id = "image_cleanup"
     name = "Clean up old generated images"
 
-    def __init__(self, config: ImageGeneratorConfig = None) -> None:
+    def __init__(self, config: ImageGeneratorConfig | None = None) -> None:
         """Initialize the cleanup service."""
         self.config = config or service_registry().get(ImageGeneratorConfig)
 

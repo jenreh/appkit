@@ -13,6 +13,7 @@ from appkit_assistant.backend.services.file_manager import (
     cleanup_uploaded_files,
     get_user_upload_directory,
     move_to_user_directory,
+    sanitize_upload_filename,
 )
 
 
@@ -109,3 +110,32 @@ class TestCleanupUploadedFiles:
     def test_empty_list(self) -> None:
         cleanup_uploaded_files([])
         # Should not raise
+
+
+class TestSanitizeUploadFilename:
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("report.pdf", "report.pdf"),
+            ("../../etc/cron.d/x.pdf", "x.pdf"),
+            ("..\\..\\win\\x.xlsx", "x.xlsx"),
+            ("/abs/path/photo.JPG", "photo.JPG"),
+            ("na\x00me.csv", "name.csv"),
+        ],
+    )
+    def test_strips_directories_and_control_chars(
+        self, raw: str, expected: str
+    ) -> None:
+        assert sanitize_upload_filename(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw", [None, "", "..", ".", "dir/", "script.py", "shell.sh", "noext", ".pdf."]
+    )
+    def test_rejects_unusable_or_disallowed_names(self, raw: str | None) -> None:
+        with pytest.raises(ValueError):  # noqa: PT011
+            sanitize_upload_filename(raw)
+
+    @pytest.mark.parametrize("user_id", ["../x", "a/b", "", "x" * 65, "a b"])
+    def test_user_directory_rejects_unsafe_ids(self, user_id: str) -> None:
+        with pytest.raises(ValueError):  # noqa: PT011
+            get_user_upload_directory(user_id)

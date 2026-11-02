@@ -150,7 +150,7 @@ class StreamingProcessorBase(ProcessorBase, ABC):
             # Only yield error chunk if NOT an auth error
             if not self._auth_detector.is_auth_error(error_msg):
                 yield self._chunk_factory.error(
-                    f"Ein Fehler ist aufgetreten: {error_msg}",
+                    "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
                     error_type=type(e).__name__,
                 )
 

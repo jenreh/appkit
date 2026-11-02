@@ -78,7 +78,7 @@ app:
     password_reset:
       token_expiry_minutes: 10
       max_requests_per_hour: 3
-    login_rate_limit:            # failed password logins, in-memory per process
+    login_rate_limit:            # failed password logins, stored in auth_login_throttle
       enabled: true
       max_attempts: 5            # per normalized email within window_minutes
       max_attempts_per_client: 20  # per client IP (offices share one address)
@@ -101,9 +101,11 @@ every repeated cookie header; parse it with `unquote` like the session cookie.
 (`appkit_user.authentication.login_throttle`) before checking the password.
 A locked email or client is refused with a toast and no password check runs.
 Only `invalid_credentials` counts as a failure; success clears the email's
-counter. State is per process (N workers allow up to N x `max_attempts`) and
-is lost on restart. The client key uses `router.session.client_ip`, so set
-`trusted_proxy_hops` behind a proxy or all users share the proxy's bucket.
+counter. Counters are rows in `auth_login_throttle` (SHA-256 keys, fixed window;
+the consuming app needs the Alembic migration that creates the table), so
+workers and restarts share them. The client key uses `router.session.client_ip`,
+so set `reflex.trusted_proxy_hops` behind a proxy or all users share the
+proxy's bucket. `SessionCleanupService` prunes stale rows.
 
 If the password is correct but `needs_password_reset` is set, no session is
 created. The login issues an `ADMIN_FORCED` reset token

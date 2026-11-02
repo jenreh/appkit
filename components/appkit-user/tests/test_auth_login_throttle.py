@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from _auth_state_stubs import _PATCH, _StubLoginState, _unwrap, _user_entity
+from _throttle_store import SessionThrottleStore
 
 from appkit_user.authentication.login_throttle import LoginThrottle
 from appkit_user.authentication.states import (
@@ -57,7 +58,7 @@ class TestLoginThrottle:
     ) -> None:
         state = _StubLoginState()
         for _ in range(5):
-            login_throttle.record_failure(_FORM["username"])
+            await login_throttle.record_failure(_FORM["username"])
 
         with _db("success", _user_entity()) as users:
             await _run(state)
@@ -76,7 +77,7 @@ class TestLoginThrottle:
             for _ in range(5):
                 await _run(state)
 
-        assert login_throttle.retry_after(_FORM["username"]) > 0
+        assert await login_throttle.retry_after(_FORM["username"]) > 0
 
     @pytest.mark.asyncio
     async def test_inactive_account_is_not_counted(
@@ -88,7 +89,7 @@ class TestLoginThrottle:
             for _ in range(6):
                 await _run(state)
 
-        assert login_throttle.retry_after(_FORM["username"]) == 0
+        assert await login_throttle.retry_after(_FORM["username"]) == 0
 
     @pytest.mark.asyncio
     async def test_success_clears_the_failures(
@@ -96,19 +97,22 @@ class TestLoginThrottle:
     ) -> None:
         state = _StubLoginState()
         for _ in range(4):
-            login_throttle.record_failure(_FORM["username"])
+            await login_throttle.record_failure(_FORM["username"])
 
         with _db("success", _user_entity()):
             await _run(state)
-        login_throttle.record_failure(_FORM["username"])
+        await login_throttle.record_failure(_FORM["username"])
 
-        assert login_throttle.retry_after(_FORM["username"]) == 0
+        assert await login_throttle.retry_after(_FORM["username"]) == 0
 
     @pytest.mark.asyncio
-    async def test_client_address_is_counted(self) -> None:
+    async def test_client_address_is_counted(self, async_session) -> None:  # noqa: ANN001
         state = _StubLoginState()
         state.router.session.client_ip = "9.9.9.9"
-        throttle = LoginThrottle(LoginRateLimitConfig(max_attempts_per_client=2))
+        throttle = LoginThrottle(
+            LoginRateLimitConfig(max_attempts_per_client=2),
+            store=SessionThrottleStore(async_session),
+        )
 
         with (
             _db("invalid_credentials"),
@@ -117,7 +121,7 @@ class TestLoginThrottle:
             await _run(state, {"username": "a@x.de", "password": "p"})
             await _run(state, {"username": "b@x.de", "password": "p"})
 
-        assert throttle.retry_after("c@x.de", "9.9.9.9") > 0
+        assert await throttle.retry_after("c@x.de", "9.9.9.9") > 0
 
 
 class TestForcedPasswordChange:
