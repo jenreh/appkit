@@ -8,8 +8,6 @@ __pypackages__/
 .DS_Store
 .eggs/
 .env
-.env.backup
-.env.docker
 .env.*
 .hypothesis/
 .idea/
