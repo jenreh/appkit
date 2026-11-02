@@ -75,6 +75,15 @@ app:
         client_id: secret:my-github-client-id
         client_secret: secret:my-github-client-secret
         # redirect_url: leave unset (see §5)
+    password_reset:
+      token_expiry_minutes: 10
+      max_requests_per_hour: 3
+    login_rate_limit:            # failed password logins, in-memory per process
+      enabled: true
+      max_attempts: 5            # per normalized email within window_minutes
+      max_attempts_per_client: 20  # per client IP (offices share one address)
+      window_minutes: 15
+      lockout_minutes: 15
 ```
 
 `public_routes` are matched against the route **without** the path prefix.
@@ -85,6 +94,21 @@ Behind a reverse proxy, Reflex (>= 0.10.1) ignores `X-Forwarded-For` unless
 is the proxy address by default. Set it to the number of trusted proxies before
 using the client IP for logging or rate limits. `router.headers.cookie` keeps
 every repeated cookie header; parse it with `unquote` like the session cookie.
+
+### Login throttle and forced reset
+
+`LoginState.process_login` consults `get_login_throttle()`
+(`appkit_user.authentication.login_throttle`) before checking the password.
+A locked email or client is refused with a toast and no password check runs.
+Only `invalid_credentials` counts as a failure; success clears the email's
+counter. State is per process (N workers allow up to N x `max_attempts`) and
+is lost on restart. The client key uses `router.session.client_ip`, so set
+`trusted_proxy_hops` behind a proxy or all users share the proxy's bucket.
+
+If the password is correct but `needs_password_reset` is set, no session is
+created. The login issues an `ADMIN_FORCED` reset token
+(`password_reset_token_repo.create_token`) and redirects to
+`/password-reset/confirm?token=...`.
 
 ---
 
@@ -200,4 +224,5 @@ In-process tests switch the prefix with
 | `rx.redirect(public_path("/login"))` | `rx.redirect("/login")` |
 | UI gate (`requires_admin`) as the only check | Server-side `@requires_admin` / `RequiredSession` |
 | Session cookie name hardcoded | `session_validation.session_cookie_name()` |
+| Counting login failures in your own state or DB table | `get_login_throttle()` / `login_rate_limit` config |
 | Trusting `X-Forwarded-For` / `client_ip` behind a proxy without config | Set `trusted_proxy_hops` to the trusted proxy count |

@@ -434,3 +434,19 @@ def mock_azure_token_response() -> dict[str, Any]:
         "refresh_token": "azure_refresh_token_test",
         "scope": "User.Read",
     }
+
+
+@pytest.fixture(autouse=True)
+def login_throttle() -> Any:
+    """Give every test its own login throttle instead of the configured one."""
+    from unittest.mock import patch  # noqa: PLC0415
+
+    from appkit_user.authentication.login_throttle import LoginThrottle  # noqa: PLC0415
+    from appkit_user.configuration import LoginRateLimitConfig  # noqa: PLC0415
+
+    throttle = LoginThrottle(LoginRateLimitConfig())
+    with patch(
+        "appkit_user.authentication.states.get_login_throttle",
+        return_value=throttle,
+    ):
+        yield throttle

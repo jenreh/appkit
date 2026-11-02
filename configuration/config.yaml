@@ -65,6 +65,13 @@ app:
       max_requests_per_hour: 3
       templates_dir: ./assets/email-templates
 
+    login_rate_limit:
+      enabled: true
+      max_attempts: 5
+      max_attempts_per_client: 20
+      window_minutes: 15
+      lockout_minutes: 15
+
   assistant:
     # Set to a model ID (e.g. "gpt-5-mini") to pin the default; empty = first available
     default_model: "gpt-5-mini"

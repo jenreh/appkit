@@ -18,6 +18,8 @@ appkit-user provides comprehensive user authentication, authorization, and manag
 - **User Management UI** - Complete admin interface for user CRUD operations
 - **Authentication Decorators** - Easy-to-use decorators for protecting routes and components
 - **Profile Management** - User profile editing with role assignment
+- **Login Throttling** - Lockout after repeated failed password logins, per email and per client address
+- **Forced Password Reset** - Users flagged `needs_password_reset` get a one-time reset link instead of a session
 - **Security Features** - CSRF protection, secure redirects, and session validation
 
 ---
@@ -320,6 +322,8 @@ tenant_users = get_users_by_tenant(current_tenant)
 - `GithubOAuthConfig` - GitHub OAuth settings
 - `AzureOAuthConfig` - Azure AD OAuth settings
 - `OAuthProvider` - Enum of supported OAuth providers
+- `PasswordResetConfig` - Password reset token expiry, request limit, email templates
+- `LoginRateLimitConfig` - Failed-login throttle (`enabled`, `max_attempts`, `max_attempts_per_client`, `window_minutes`, `lockout_minutes`)
 
 ### State Management
 
@@ -335,6 +339,7 @@ tenant_users = get_users_by_tenant(current_tenant)
 
 - **OAuth2 PKCE Support** - Proof Key for Code Exchange for enhanced security
 - **Secure Redirects** - Configurable redirect URLs prevent open redirect attacks
+- **Login Throttle** - Failed password logins are counted per email (default 5) and per client address (default 20) within 15 minutes; a locked key is refused for 15 minutes before the password is checked. Configure via `authentication.login_rate_limit`. State is in-memory per process; behind a proxy set `trusted_proxy_hops` so client addresses are real.
 - **Session Security** - Automatic session cleanup and validation
 - **CSRF Protection** - Built-in CSRF tokens for forms
 - **Role Validation** - Server-side role checking in addition to client-side decorators
