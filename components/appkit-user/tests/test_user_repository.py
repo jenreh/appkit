@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from appkit_commons.testing import TEST_PASSWORD
 from appkit_user.authentication.backend.database import OAuthAccountEntity
 from appkit_user.authentication.backend.database.user_repository import (
     DefaultUserRoles,
@@ -144,7 +145,7 @@ class TestUserRepository:
     ) -> None:
         """find_by_email_and_password returns user with correct credentials."""
         # Arrange
-        password = "CorrectPassword123!"  # noqa: S105
+        password = TEST_PASSWORD
         user = await user_with_password_factory(
             email="login@example.com", password=password
         )
@@ -165,12 +166,12 @@ class TestUserRepository:
         """find_by_email_and_password returns None for wrong password."""
         # Arrange
         await user_with_password_factory(
-            email="wrong@example.com", password="CorrectPass123!"
+            email="wrong@example.com", password=TEST_PASSWORD
         )
 
         # Act
         found = await user_repository.find_by_email_and_password(
-            async_session, "wrong@example.com", "WrongPassword"
+            async_session, "wrong@example.com", f"{TEST_PASSWORD}-wrong"
         )
 
         # Assert
@@ -183,12 +184,12 @@ class TestUserRepository:
         """find_by_email_and_password returns None for inactive user."""
         # Arrange
         await user_with_password_factory(
-            email="inactive@example.com", password="Pass123!", is_active=False
+            email="inactive@example.com", password=TEST_PASSWORD, is_active=False
         )
 
         # Act
         found = await user_repository.find_by_email_and_password(
-            async_session, "inactive@example.com", "Pass123!"
+            async_session, "inactive@example.com", TEST_PASSWORD
         )
 
         # Assert
@@ -201,12 +202,12 @@ class TestUserRepository:
         """find_by_email_and_password returns None for unverified user."""
         # Arrange
         await user_with_password_factory(
-            email="unverified@example.com", password="Pass123!", is_verified=False
+            email="unverified@example.com", password=TEST_PASSWORD, is_verified=False
         )
 
         # Act
         found = await user_repository.find_by_email_and_password(
-            async_session, "unverified@example.com", "Pass123!"
+            async_session, "unverified@example.com", TEST_PASSWORD
         )
 
         # Assert
@@ -218,7 +219,7 @@ class TestUserRepository:
     ) -> None:
         """get_login_status_by_credentials returns user and success status."""
         # Arrange
-        password = "ValidPass123!"  # noqa: S105
+        password = TEST_PASSWORD
         user = await user_with_password_factory(
             email="status@example.com", password=password
         )
@@ -240,12 +241,12 @@ class TestUserRepository:
         """get_login_status_by_credentials returns invalid_credentials status."""
         # Arrange
         await user_with_password_factory(
-            email="invalid@example.com", password="Pass123!"
+            email="invalid@example.com", password=TEST_PASSWORD
         )
 
         # Act
         found_user, status = await user_repository.get_login_status_by_credentials(
-            async_session, "invalid@example.com", "WrongPassword"
+            async_session, "invalid@example.com", f"{TEST_PASSWORD}-wrong"
         )
 
         # Assert
@@ -259,12 +260,12 @@ class TestUserRepository:
         """get_login_status_by_credentials returns inactive status."""
         # Arrange
         await user_with_password_factory(
-            email="inactive@example.com", password="Pass123!", is_active=False
+            email="inactive@example.com", password=TEST_PASSWORD, is_active=False
         )
 
         # Act
         found_user, status = await user_repository.get_login_status_by_credentials(
-            async_session, "inactive@example.com", "Pass123!"
+            async_session, "inactive@example.com", TEST_PASSWORD
         )
 
         # Assert
@@ -278,12 +279,12 @@ class TestUserRepository:
         """get_login_status_by_credentials returns not_verified status."""
         # Arrange
         await user_with_password_factory(
-            email="notverified@example.com", password="Pass123!", is_verified=False
+            email="notverified@example.com", password=TEST_PASSWORD, is_verified=False
         )
 
         # Act
         found_user, status = await user_repository.get_login_status_by_credentials(
-            async_session, "notverified@example.com", "Pass123!"
+            async_session, "notverified@example.com", TEST_PASSWORD
         )
 
         # Assert
@@ -379,7 +380,7 @@ class TestUserRepository:
         user_create = UserCreate(
             email="new@example.com",
             name="New User",
-            password="SecurePass123!",
+            password=TEST_PASSWORD,
             is_verified=True,
             is_admin=False,
             is_active=True,
@@ -395,7 +396,7 @@ class TestUserRepository:
         assert created.is_verified is True
         assert created.is_admin is False
         assert created.is_active is True
-        assert created.check_password("SecurePass123!") is True
+        assert created.check_password(TEST_PASSWORD) is True
 
     @pytest.mark.asyncio
     async def test_create_new_user_extracts_name_from_email(
@@ -403,7 +404,7 @@ class TestUserRepository:
     ) -> None:
         """create_new_user extracts name from email when not provided."""
         # Arrange
-        user_create = UserCreate(email="extracted@example.com", password="Pass123!")
+        user_create = UserCreate(email="extracted@example.com", password=TEST_PASSWORD)
 
         # Act
         created = await user_repository.create_new_user(async_session, user_create)
@@ -417,7 +418,7 @@ class TestUserRepository:
     ) -> None:
         """create_new_user assigns default USER role when not specified."""
         # Arrange
-        user_create = UserCreate(email="role@example.com", password="Pass123!")
+        user_create = UserCreate(email="role@example.com", password=TEST_PASSWORD)
 
         # Act
         created = await user_repository.create_new_user(async_session, user_create)
@@ -456,7 +457,7 @@ class TestUserRepository:
         """update_from_model returns None for nonexistent user."""
         # Arrange
         user_update = UserCreate(
-            user_id=99999, email="nonexistent@example.com", password="Pass123!"
+            user_id=99999, email="nonexistent@example.com", password=TEST_PASSWORD
         )
 
         # Act
@@ -472,10 +473,10 @@ class TestUserRepository:
         """update_from_model updates password when provided."""
         # Arrange
         user = await user_with_password_factory(
-            email="pass@example.com", password="OldPass123!"
+            email="pass@example.com", password=TEST_PASSWORD
         )
         user_update = UserCreate(
-            user_id=user.id, email="pass@example.com", password="NewPass456!"
+            user_id=user.id, email="pass@example.com", password=f"{TEST_PASSWORD}-new"
         )
 
         # Act
@@ -483,8 +484,8 @@ class TestUserRepository:
 
         # Assert
         assert updated is not None
-        assert updated.check_password("NewPass456!") is True
-        assert updated.check_password("OldPass123!") is False
+        assert updated.check_password(f"{TEST_PASSWORD}-new") is True
+        assert updated.check_password(TEST_PASSWORD) is False
 
     @pytest.mark.asyncio
     async def test_update_password_success(
@@ -492,8 +493,8 @@ class TestUserRepository:
     ) -> None:
         """update_password changes password successfully."""
         # Arrange
-        old_password = "OldPassword123!"  # noqa: S105
-        new_password = "NewPassword456!"  # noqa: S105
+        old_password = TEST_PASSWORD
+        new_password = f"{TEST_PASSWORD}-new"
         user = await user_with_password_factory(password=old_password)
 
         # Act
@@ -512,12 +513,12 @@ class TestUserRepository:
     ) -> None:
         """update_password raises ValueError for incorrect old password."""
         # Arrange
-        user = await user_with_password_factory(password="CorrectPass123!")
+        user = await user_with_password_factory(password=TEST_PASSWORD)
 
         # Act & Assert
         with pytest.raises(ValueError, match="Old password is incorrect"):
             await user_repository.update_password(
-                async_session, user.id, "NewPass456!", "WrongOldPass"
+                async_session, user.id, f"{TEST_PASSWORD}-new", f"{TEST_PASSWORD}-wrong"
             )
 
     @pytest.mark.asyncio
@@ -527,7 +528,7 @@ class TestUserRepository:
         """update_password returns None for nonexistent user."""
         # Act
         result = await user_repository.update_password(
-            async_session, 99999, "NewPass", "OldPass"
+            async_session, 99999, f"{TEST_PASSWORD}-new", TEST_PASSWORD
         )
 
         # Assert

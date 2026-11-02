@@ -8,6 +8,8 @@ import pytest
 import yaml
 from faker import Faker
 
+from appkit_commons.testing import TEST_PASSWORD
+
 pytest_plugins = ["appkit_commons.testing"]
 
 
@@ -40,7 +42,7 @@ def sample_yaml_config(tmp_path: Path) -> Path:
             "host": "localhost",
             "port": 5432,
             "user": "test_user",
-            "password": "test_password",
+            "password": TEST_PASSWORD,
             "database": "test_db",
         },
         "logging": {

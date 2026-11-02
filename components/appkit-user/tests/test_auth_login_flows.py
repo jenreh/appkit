@@ -21,7 +21,7 @@ from _auth_state_stubs import (
     _user_entity,
 )
 
-from appkit_commons.testing import set_public_path_prefix
+from appkit_commons.testing import TEST_PASSWORD, set_public_path_prefix
 from appkit_user.authentication.session_validation import (
     SessionStatus,
     SessionValidationResult,
@@ -157,7 +157,7 @@ class TestLoginWithPassword:
             [
                 c
                 async for c in state.login_with_password(
-                    {"username": "alice", "password": "pass"}
+                    {"username": "alice", "password": TEST_PASSWORD}
                 )
             ]
 
@@ -184,7 +184,7 @@ class TestLoginWithPassword:
             [
                 c
                 async for c in state.login_with_password(
-                    {"username": "bad", "password": "bad"}
+                    {"username": "bad", "password": f"{TEST_PASSWORD}-wrong"}
                 )
             ]
 
@@ -211,7 +211,7 @@ class TestLoginWithPassword:
             [
                 c
                 async for c in state.login_with_password(
-                    {"username": "u", "password": "p"}
+                    {"username": "u", "password": TEST_PASSWORD}
                 )
             ]
 
@@ -238,7 +238,7 @@ class TestLoginWithPassword:
             [
                 c
                 async for c in state.login_with_password(
-                    {"username": "u", "password": "p"}
+                    {"username": "u", "password": TEST_PASSWORD}
                 )
             ]
 

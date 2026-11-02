@@ -21,11 +21,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v3.0.0
+      # Betterleaks ships no official action, so install the pinned release binary.
+      - name: Install betterleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
+          BETTERLEAKS_VERSION: "1.9.0"
+          BETTERLEAKS_SHA256: f8b185a39ffcece2a1ca82bf3a4e7435cd81963ffd16b7a9128daf75f35f6de7
+        run: |
+          archive="betterleaks_${BETTERLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/betterleaks/betterleaks/releases/download/v${BETTERLEAKS_VERSION}/$archive"
+          echo "$BETTERLEAKS_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" betterleaks
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Run betterleaks
+        run: betterleaks git . --no-banner --redact --verbose
 
   python:
     name: uv audit (uv.lock)

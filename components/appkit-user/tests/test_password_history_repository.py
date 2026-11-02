@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from appkit_commons.security import generate_password_hash
+from appkit_commons.testing import TEST_PASSWORD
 from appkit_user.authentication.backend.database import (
     PasswordHistoryEntity,
     PasswordHistoryRepository,
@@ -58,9 +59,9 @@ class TestPasswordHistoryRepository:
         """get_last_n_password_hashes returns hashes ordered by most recent."""
         # Arrange
         user = await user_factory()
-        old_hash = password_hash_factory("OldPassword123!")
-        middle_hash = password_hash_factory("MiddlePassword123!")
-        new_hash = password_hash_factory("NewPassword123!")
+        old_hash = password_hash_factory(TEST_PASSWORD)
+        middle_hash = password_hash_factory(f"{TEST_PASSWORD}-middle")
+        new_hash = password_hash_factory(f"{TEST_PASSWORD}-new")
 
         # Create entities with different timestamps
         old_entity = PasswordHistoryEntity(
@@ -109,7 +110,7 @@ class TestPasswordHistoryRepository:
         """get_last_n_password_hashes respects the n parameter."""
         # Arrange
         user = await user_factory()
-        hashes = [password_hash_factory(f"Password{i}123!") for i in range(10)]
+        hashes = [password_hash_factory(f"{TEST_PASSWORD}{i}") for i in range(10)]
 
         for i, hash_val in enumerate(hashes):
             entity = PasswordHistoryEntity(
@@ -140,7 +141,7 @@ class TestPasswordHistoryRepository:
         """check_password_reuse returns True when password was previously used."""
         # Arrange
         user = await user_factory()
-        old_password = "OldPassword123!"  # noqa: S105
+        old_password = TEST_PASSWORD
         old_hash = password_hash_factory(old_password)
 
         entity = PasswordHistoryEntity(
@@ -171,7 +172,7 @@ class TestPasswordHistoryRepository:
         """check_password_reuse returns False when password is new."""
         # Arrange
         user = await user_factory()
-        old_hash = password_hash_factory("OldPassword123!")
+        old_hash = password_hash_factory(TEST_PASSWORD)
 
         entity = PasswordHistoryEntity(
             user_id=user.id,
@@ -184,7 +185,7 @@ class TestPasswordHistoryRepository:
 
         # Act
         result = await password_history_repository.check_password_reuse(
-            async_session, user_id=user.id, new_password="BrandNewPassword456!", n=6
+            async_session, user_id=user.id, new_password=f"{TEST_PASSWORD}-new", n=6
         )
 
         # Assert
@@ -202,7 +203,7 @@ class TestPasswordHistoryRepository:
         # Arrange
         user = await user_factory()
         # Create 10 passwords in history
-        passwords = [f"Password{i}123!" for i in range(10)]
+        passwords = [f"{TEST_PASSWORD}{i}" for i in range(10)]
         hashes = [password_hash_factory(pwd) for pwd in passwords]
 
         for i, hash_val in enumerate(hashes):
@@ -218,7 +219,7 @@ class TestPasswordHistoryRepository:
         # Act - Check only last 3 passwords
         # Most recent 3 are: Password0 (0 days), Password1 (1 day), Password2 (2 days)
         result = await password_history_repository.check_password_reuse(
-            async_session, user_id=user.id, new_password="Password1123!", n=3
+            async_session, user_id=user.id, new_password=f"{TEST_PASSWORD}1", n=3
         )
 
         # Assert - Password1 is the second most recent (within last 3)
@@ -236,7 +237,7 @@ class TestPasswordHistoryRepository:
         # Arrange
         user = await user_factory()
         # Create 10 passwords
-        passwords = [f"Password{i}123!" for i in range(10)]
+        passwords = [f"{TEST_PASSWORD}{i}" for i in range(10)]
         hashes = [password_hash_factory(pwd) for pwd in passwords]
 
         for i, hash_val in enumerate(hashes):
@@ -253,7 +254,7 @@ class TestPasswordHistoryRepository:
         # Most recent 3 are: Password0 (0 days), Password1 (1 day), Password2 (2 days)
         # Password9 is oldest (9 days), so should NOT be found
         result = await password_history_repository.check_password_reuse(
-            async_session, user_id=user.id, new_password="Password9123!", n=3
+            async_session, user_id=user.id, new_password=f"{TEST_PASSWORD}9", n=3
         )
 
         # Assert - Should not detect reuse since it's beyond our limit
@@ -272,7 +273,7 @@ class TestPasswordHistoryRepository:
 
         # Act
         result = await password_history_repository.check_password_reuse(
-            async_session, user_id=user.id, new_password="AnyPassword123!", n=6
+            async_session, user_id=user.id, new_password=TEST_PASSWORD, n=6
         )
 
         # Assert
@@ -289,7 +290,7 @@ class TestPasswordHistoryRepository:
         """save_password_to_history creates a new password history entity."""
         # Arrange
         user = await user_factory()
-        password_hash = password_hash_factory("NewPassword123!")
+        password_hash = password_hash_factory(f"{TEST_PASSWORD}-new")
 
         # Act
         entity = await password_history_repository.save_password_to_history(
@@ -317,7 +318,7 @@ class TestPasswordHistoryRepository:
         """save_password_to_history sets changed_at timestamp."""
         # Arrange
         user = await user_factory()
-        password_hash = password_hash_factory("AnotherPassword123!")
+        password_hash = password_hash_factory(TEST_PASSWORD)
         before = datetime.now(UTC)
 
         # Act
@@ -350,13 +351,13 @@ class TestPasswordHistoryRepository:
         entity1 = await password_history_repository.save_password_to_history(
             async_session,
             user_id=user.id,
-            password_hash=password_hash_factory("Pass1123!"),
+            password_hash=password_hash_factory(f"{TEST_PASSWORD}1"),
             change_reason="password_change",
         )
         entity2 = await password_history_repository.save_password_to_history(
             async_session,
             user_id=user.id,
-            password_hash=password_hash_factory("Pass2123!"),
+            password_hash=password_hash_factory(f"{TEST_PASSWORD}2"),
             change_reason="admin_reset",
         )
 

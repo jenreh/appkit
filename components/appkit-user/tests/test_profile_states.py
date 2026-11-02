@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_commons.testing import TEST_PASSWORD
 from appkit_user.authentication.backend.services import ChangePasswordOutcome
 from appkit_user.user_management.states.profile_states import (
     MIN_PASSWORD_LENGTH,
@@ -73,7 +74,7 @@ class TestConstants:
         assert MIN_PASSWORD_LENGTH == 12
 
     def test_password_regex_strong(self) -> None:
-        assert PASSWORD_REGEX.match("StrongPass1!")
+        assert PASSWORD_REGEX.match(TEST_PASSWORD)
 
     def test_password_regex_no_upper(self) -> None:
         assert not PASSWORD_REGEX.match("weakpassword1!")
@@ -111,7 +112,7 @@ class TestSetNewPassword:
 
     def test_strong_password(self) -> None:
         state = _make_state()
-        state.set_new_password("MyStr0ng!Pass")
+        state.set_new_password(TEST_PASSWORD)
         assert state.has_length is True
         assert state.has_upper is True
         assert state.has_lower is True
@@ -158,14 +159,14 @@ class TestSetName:
 class TestSetConfirmPassword:
     def test_matching_passwords(self) -> None:
         state = _make_state()
-        state.new_password = "pass123"
-        state.set_confirm_password("pass123")
+        state.new_password = TEST_PASSWORD
+        state.set_confirm_password(TEST_PASSWORD)
         assert state.password_error == ""
 
     def test_mismatching_passwords(self) -> None:
         state = _make_state()
-        state.new_password = "pass123"
-        state.set_confirm_password("different")
+        state.new_password = TEST_PASSWORD
+        state.set_confirm_password(f"{TEST_PASSWORD}-other")
         assert state.password_error != ""
 
 
@@ -177,8 +178,8 @@ class TestSetConfirmPassword:
 class TestSetCurrentPassword:
     def test_sets_value(self) -> None:
         state = _make_state()
-        state.set_current_password("old_pass")
-        assert state.current_password == "old_pass"
+        state.set_current_password(TEST_PASSWORD)
+        assert state.current_password == TEST_PASSWORD
 
 
 # ============================================================================
@@ -198,17 +199,17 @@ class TestHandlePasswordUpdate:
     @pytest.mark.asyncio
     async def test_passwords_dont_match(self) -> None:
         state = _make_state()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "DifferentPass1!"
+        state.new_password = TEST_PASSWORD
+        state.confirm_password = f"{TEST_PASSWORD}-other"
         result = await state.handle_password_update()
         assert result is not None  # returns toast error
 
     @pytest.mark.asyncio
     async def test_successful_update(self) -> None:
         state = _make_state()
-        state.new_password = "NewStr0ng!Pass"
-        state.confirm_password = "NewStr0ng!Pass"
-        state.current_password = "OldPassword"
+        state.new_password = f"{TEST_PASSWORD}-new"
+        state.confirm_password = f"{TEST_PASSWORD}-new"
+        state.current_password = TEST_PASSWORD
 
         service = MagicMock()
         service.change_password = AsyncMock(return_value=ChangePasswordOutcome.SUCCESS)
@@ -243,9 +244,9 @@ class TestHandlePasswordUpdate:
         return and reported success even when nothing had changed.
         """
         state = _make_state()
-        state.new_password = "NewStr0ng!Pass"
-        state.confirm_password = "NewStr0ng!Pass"
-        state.current_password = "WrongOld"
+        state.new_password = f"{TEST_PASSWORD}-new"
+        state.confirm_password = f"{TEST_PASSWORD}-new"
+        state.current_password = f"{TEST_PASSWORD}-wrong"
 
         service = MagicMock()
         service.change_password = AsyncMock(return_value=outcome)
@@ -255,4 +256,4 @@ class TestHandlePasswordUpdate:
 
         assert result is not None  # error toast
         # Fields are not cleared, so the user can correct and retry.
-        assert state.current_password == "WrongOld"
+        assert state.current_password == f"{TEST_PASSWORD}-wrong"

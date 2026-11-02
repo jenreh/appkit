@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from appkit_commons.testing import TEST_PASSWORD
 from appkit_user.authentication.backend.services import (
     ConfirmResetOutcome,
     ConfirmResetResult,
@@ -67,7 +68,7 @@ class TestConstants:
         assert not EMAIL_REGEX.match("@missing.com")
 
     def test_password_regex_strong(self) -> None:
-        assert PASSWORD_REGEX.match("StrongPass1!")
+        assert PASSWORD_REGEX.match(TEST_PASSWORD)
 
     def test_password_regex_weak(self) -> None:
         assert not PASSWORD_REGEX.match("weak")
@@ -174,7 +175,7 @@ class _StubConfirmState:
 class TestSetNewPasswordConfirm:
     def test_strong_password(self) -> None:
         state = _StubConfirmState()
-        state.set_new_password("MyStr0ng!Pass")
+        state.set_new_password(TEST_PASSWORD)
         assert state.strength_value == 100
         assert state.has_length is True
         assert state.has_upper is True
@@ -213,14 +214,14 @@ class TestSetNewPasswordConfirm:
 class TestSetConfirmPasswordConfirm:
     def test_matching(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "pw123"
-        state.set_confirm_password("pw123")
+        state.new_password = TEST_PASSWORD
+        state.set_confirm_password(TEST_PASSWORD)
         assert state.password_error == ""
 
     def test_mismatch(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "pw123"
-        state.set_confirm_password("different")
+        state.new_password = TEST_PASSWORD
+        state.set_confirm_password(f"{TEST_PASSWORD}-other")
         assert state.password_error != ""
 
 
@@ -341,8 +342,8 @@ class TestConfirmPasswordReset:
     @pytest.mark.asyncio
     async def test_invalid_password(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "StrongPass1!xx"
+        state.new_password = TEST_PASSWORD
+        state.confirm_password = TEST_PASSWORD
         svc = _confirm_service(ConfirmResetOutcome.INVALID_PASSWORD)
         with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.confirm_password_reset()]
@@ -352,8 +353,8 @@ class TestConfirmPasswordReset:
     @pytest.mark.asyncio
     async def test_passwords_dont_match(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "Different1!xx"
+        state.new_password = TEST_PASSWORD
+        state.confirm_password = f"{TEST_PASSWORD}-other"
         svc = _confirm_service(ConfirmResetOutcome.PASSWORD_MISMATCH)
         with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.confirm_password_reset()]
@@ -362,8 +363,8 @@ class TestConfirmPasswordReset:
     @pytest.mark.asyncio
     async def test_invalid_token_on_confirm(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "StrongPass1!xx"
+        state.new_password = TEST_PASSWORD
+        state.confirm_password = TEST_PASSWORD
         state.token = "tok"
         svc = _confirm_service(ConfirmResetOutcome.INVALID_TOKEN)
         with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
@@ -373,8 +374,8 @@ class TestConfirmPasswordReset:
     @pytest.mark.asyncio
     async def test_password_reuse(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "StrongPass1!xx"
+        state.new_password = TEST_PASSWORD
+        state.confirm_password = TEST_PASSWORD
         state.token = "tok"
         svc = _confirm_service(ConfirmResetOutcome.PASSWORD_REUSED)
         with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
@@ -384,22 +385,20 @@ class TestConfirmPasswordReset:
     @pytest.mark.asyncio
     async def test_successful_reset(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "StrongPass1!xx"
+        state.new_password = TEST_PASSWORD
+        state.confirm_password = TEST_PASSWORD
         state.token = "tok"
         svc = _confirm_service(ConfirmResetOutcome.SUCCESS)
         with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
             _ = [c async for c in state.confirm_password_reset()]
         assert state.is_loading is False
-        svc.confirm_reset.assert_awaited_once_with(
-            "tok", "StrongPass1!xx", "StrongPass1!xx"
-        )
+        svc.confirm_reset.assert_awaited_once_with("tok", TEST_PASSWORD, TEST_PASSWORD)
 
     @pytest.mark.asyncio
     async def test_user_not_found_on_confirm(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "StrongPass1!xx"
+        state.new_password = TEST_PASSWORD
+        state.confirm_password = TEST_PASSWORD
         state.token = "tok"
         svc = _confirm_service(ConfirmResetOutcome.USER_NOT_FOUND)
         with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):
@@ -409,8 +408,8 @@ class TestConfirmPasswordReset:
     @pytest.mark.asyncio
     async def test_error_outcome_on_confirm(self) -> None:
         state = _StubConfirmState()
-        state.new_password = "StrongPass1!xx"
-        state.confirm_password = "StrongPass1!xx"
+        state.new_password = TEST_PASSWORD
+        state.confirm_password = TEST_PASSWORD
         state.token = "tok"
         svc = _confirm_service(ConfirmResetOutcome.ERROR)
         with patch(f"{_PATCH}.get_password_reset_service", return_value=svc):

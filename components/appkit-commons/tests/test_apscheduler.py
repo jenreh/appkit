@@ -17,6 +17,7 @@ from appkit_commons.scheduler.scheduler_types import (
     IntervalTrigger,
     ScheduledService,
 )
+from appkit_commons.testing import TEST_PASSWORD
 
 
 class TestAPSchedulerInitialization:
@@ -348,7 +349,7 @@ class TestAPSchedulerConfigureScheduler:
             mock_registry_fn.return_value = mock_registry
 
             mock_config = MagicMock(spec=DatabaseConfig)
-            mock_config.url = "postgresql://user:pass@localhost/dbname"
+            mock_config.url = f"postgresql://user:{TEST_PASSWORD}@localhost/dbname"
             mock_registry.get.return_value = mock_config
 
             # Mock APScheduler constructor
@@ -405,7 +406,9 @@ class TestAPSchedulerConfigureScheduler:
             mock_registry_fn.return_value = mock_registry
 
             mock_config = MagicMock(spec=DatabaseConfig)
-            mock_config.url = "postgresql+psycopg://user:pass@localhost/dbname"
+            mock_config.url = (
+                f"postgresql+psycopg://user:{TEST_PASSWORD}@localhost/dbname"
+            )
             mock_registry.get.return_value = mock_config
 
             with (

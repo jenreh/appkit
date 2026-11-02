@@ -16,6 +16,7 @@ from appkit_commons.configuration.secret_provider import (
     _get_secret_from_azure,
     _get_secret_from_env,
 )
+from appkit_commons.testing import TEST_PASSWORD
 
 
 class TestStartsWithSecret:
@@ -193,12 +194,12 @@ class TestGetSecretFromEnv:
     def test_get_secret_dash_to_underscore_lowercase(self) -> None:
         """_get_secret_from_env tries lowercase after dash conversion."""
         # Arrange
-        with patch.dict(os.environ, {"my_db_password": "dbpass"}, clear=True):
+        with patch.dict(os.environ, {"my_db_password": TEST_PASSWORD}, clear=True):
             # Act
             result = _get_secret_from_env("my-db-password")
 
             # Assert
-            assert result == "dbpass"
+            assert result == TEST_PASSWORD
 
     def test_get_secret_not_found_raises_error(self) -> None:
         """_get_secret_from_env raises SecretNotFoundError when not found."""

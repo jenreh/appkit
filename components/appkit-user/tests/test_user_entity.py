@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from appkit_commons.testing import TEST_PASSWORD
 from appkit_user.authentication.backend.database import UserEntity
 
 
@@ -48,12 +49,12 @@ class TestUserEntity:
         user = await user_factory(email="user@example.com")
 
         # Act
-        user.password = "MySecretPassword123!"  # noqa: S105
+        user.password = TEST_PASSWORD
         await async_session.flush()
 
         # Assert
         assert user._password is not None  # noqa: SLF001
-        assert user._password != "MySecretPassword123!"  # noqa: S105, SLF001
+        assert user._password != TEST_PASSWORD  # noqa: SLF001
         assert user._password.startswith("scrypt:")  # noqa: SLF001
 
     @pytest.mark.asyncio
@@ -61,7 +62,7 @@ class TestUserEntity:
         """Reading password directly raises AttributeError."""
         # Arrange
         user = await user_factory(email="user@example.com")
-        user.password = "test123"  # noqa: S105
+        user.password = TEST_PASSWORD
 
         # Act & Assert
         with pytest.raises(
@@ -73,7 +74,7 @@ class TestUserEntity:
     async def test_check_password_correct(self, user_with_password_factory) -> None:
         """check_password returns True for correct password."""
         # Arrange
-        password = "CorrectPassword123!"  # noqa: S105
+        password = TEST_PASSWORD
         user = await user_with_password_factory(password=password)
 
         # Act
@@ -86,10 +87,10 @@ class TestUserEntity:
     async def test_check_password_incorrect(self, user_with_password_factory) -> None:
         """check_password returns False for incorrect password."""
         # Arrange
-        user = await user_with_password_factory(password="CorrectPassword123!")
+        user = await user_with_password_factory(password=TEST_PASSWORD)
 
         # Act
-        result = user.check_password("WrongPassword!")
+        result = user.check_password(f"{TEST_PASSWORD}-wrong")
 
         # Assert
         assert result is False
@@ -204,14 +205,14 @@ class TestUserEntity:
     ) -> None:
         """Changing password updates the hash."""
         # Arrange
-        user = await user_with_password_factory(password="OldPassword123!")
+        user = await user_with_password_factory(password=TEST_PASSWORD)
         old_hash = user._password  # noqa: SLF001
 
         # Act
-        user.password = "NewPassword456!"  # noqa: S105
+        user.password = f"{TEST_PASSWORD}-new"
         await async_session.flush()
 
         # Assert
         assert user._password != old_hash  # noqa: SLF001
-        assert user.check_password("NewPassword456!") is True
-        assert user.check_password("OldPassword123!") is False
+        assert user.check_password(f"{TEST_PASSWORD}-new") is True
+        assert user.check_password(TEST_PASSWORD) is False

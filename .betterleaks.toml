@@ -1,0 +1,63 @@
+title = "appkit betterleaks config"
+
+[extend]
+useDefault = true
+
+# Lockfile hashes and generated trees are never hand-written secrets.
+[[allowlists]]
+description = "Lockfiles and generated or vendored trees"
+paths = [
+    '''(^|/)uv\.lock$''',
+    '''(^|/)\.venv(\.mac)?/''',
+    '''(^|/)\.web/''',
+    '''(^|/)node_modules/''',
+]
+
+# Config values like `password: secret:mn-db-password` name a secret in the secret provider,
+# they never contain one. Only the whole kebab- or snake-case reference is ignored, so a real value
+# that merely contains "secret:" is still reported.
+[[allowlists]]
+description = "References to the secret provider, which hold no secret value"
+regexes = ['''^secret:[a-z0-9]+([-_][a-z0-9]+)*$''']
+
+# Already in git history, cannot be removed without rewriting it.
+[[allowlists]]
+description = "Removed detect-secrets baseline"
+targetRules = ["generic-api-key"]
+paths = ['''^\.secrets\.baseline$''']
+
+# A fixed row id in a migration is flagged as an API key.
+[[allowlists]]
+description = "Default admin id in alembic migration"
+targetRules = ["generic-api-key"]
+paths = ['''^alembic/versions/2025_02_12_99a9644dc419_default_admin\.py$''']
+
+# Fake passwords and connection strings in test fixtures. Limited to the generic rules,
+# so a provider-specific key in a test is still reported.
+[[allowlists]]
+description = "Test fixtures"
+targetRules = ["generic-password", "generic-credential-uri"]
+paths = ['''(^|/)tests/''']
+
+# Only the exact local default is ignored, so a real password in these files is still reported.
+[[allowlists]]
+description = "Local development database password"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ['''(^|/)docker-compose\.yml$''', '''^\.env\.default$''']
+regexes = ['''^postgres$''']
+
+[[allowlists]]
+description = "TEST_PASSWORD and its predecessor in the shared testing module"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ['''^components/appkit-commons/src/appkit_commons/testing\.py$''']
+regexes = ['''^(StrongPass1!|test_password)$''']
+
+# Constants like `ERROR_INCORRECT_PASSWORD: "..."` hold user-facing messages.
+[[allowlists]]
+description = "Password error messages"
+targetRules = ["generic-password"]
+condition = "AND"
+paths = ['''^components/appkit-user/src/appkit_user/user_management/states/profile_states\.py$''']
+regexes = ['''^(Incorrect current password|Password does not meet the requirements)$''']

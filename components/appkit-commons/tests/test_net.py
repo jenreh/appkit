@@ -1,6 +1,7 @@
 import pytest
 
 from appkit_commons.net import UnsafeURLError, assert_public_http_url
+from appkit_commons.testing import TEST_PASSWORD
 
 
 @pytest.mark.parametrize(
@@ -9,7 +10,7 @@ from appkit_commons.net import UnsafeURLError, assert_public_http_url
         "file:///etc/passwd",
         "ftp://example.com/x.png",
         "http://",
-        "http://user:pw@example.com/x.png",
+        f"http://user:{TEST_PASSWORD}@example.com/x.png",
         "http://127.0.0.1/x.png",
         "http://localhost:8080/x.png",
         "http://169.254.169.254/latest/meta-data/",

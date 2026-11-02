@@ -18,6 +18,7 @@ from appkit_commons.database.session import (
     get_session_manager,
 )
 from appkit_commons.registry import ServiceRegistry
+from appkit_commons.testing import TEST_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class TestGetEngineKwargs:
         """_get_engine_kwargs returns PostgreSQL pool configuration."""
         # Arrange
         db_config = DatabaseConfig(
-            url="postgresql://user:pass@localhost/db",
+            url=f"postgresql://user:{TEST_PASSWORD}@localhost/db",
             type="postgresql",
             echo=True,
             pool_size=20,
@@ -123,7 +124,7 @@ class TestGetEngineKwargs:
         """_get_engine_kwargs respects echo=False for PostgreSQL."""
         # Arrange
         db_config = DatabaseConfig(
-            url="postgresql://user:pass@localhost/db",
+            url=f"postgresql://user:{TEST_PASSWORD}@localhost/db",
             type="postgresql",
             echo=False,
             pool_size=10,

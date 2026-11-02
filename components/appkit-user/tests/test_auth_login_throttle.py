@@ -11,6 +11,7 @@ import pytest
 from _auth_state_stubs import _PATCH, _StubLoginState, _unwrap, _user_entity
 from _throttle_store import SessionThrottleStore
 
+from appkit_commons.testing import TEST_PASSWORD
 from appkit_user.authentication.login_throttle import LoginThrottle
 from appkit_user.authentication.states import (
     FORCED_RESET_MESSAGE,
@@ -20,7 +21,7 @@ from appkit_user.authentication.states import (
 from appkit_user.configuration import LoginRateLimitConfig
 
 _login = _unwrap(LoginState, "login_with_password")
-_FORM = {"username": "Alice@Example.com", "password": "pw"}
+_FORM = {"username": "Alice@Example.com", "password": TEST_PASSWORD}
 
 
 @contextmanager
@@ -118,8 +119,8 @@ class TestLoginThrottle:
             _db("invalid_credentials"),
             patch(f"{_PATCH}.get_login_throttle", return_value=throttle),
         ):
-            await _run(state, {"username": "a@x.de", "password": "p"})
-            await _run(state, {"username": "b@x.de", "password": "p"})
+            await _run(state, {"username": "a@x.de", "password": TEST_PASSWORD})
+            await _run(state, {"username": "b@x.de", "password": TEST_PASSWORD})
 
         assert await throttle.retry_after("c@x.de", "9.9.9.9") > 0
 

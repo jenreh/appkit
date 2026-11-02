@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import appkit_commons.testing  # noqa: F401
 from appkit_commons.security import generate_password_hash
+from appkit_commons.testing import TEST_PASSWORD
 from appkit_user.authentication.backend.database import (
     OAuthAccountEntity,
     OAuthStateEntity,
@@ -78,7 +79,7 @@ async def user_with_password_factory(
     async def _create_user(password: str | None = None, **kwargs: Any) -> UserEntity:
         """Create a user with a password."""
         if password is None:
-            password = "TestPassword123!"  # noqa: S105
+            password = TEST_PASSWORD
 
         defaults = {
             "email": faker_instance.email(),
@@ -276,7 +277,7 @@ async def password_history_factory(
     ) -> PasswordHistoryEntity:
         """Create a password history entry."""
         if password is None:
-            password = "TestPassword123!"  # noqa: S105
+            password = TEST_PASSWORD
 
         password_hash = generate_password_hash(password)
 

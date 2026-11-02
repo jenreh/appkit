@@ -16,6 +16,7 @@ from appkit_commons.database.entities import (
     Entity,
     get_cipher_key,
 )
+from appkit_commons.testing import TEST_PASSWORD
 
 
 class TestGetCipherKey:
@@ -88,7 +89,7 @@ class TestEncryptedString:
     ) -> None:  # noqa: E501
         """process_bind_param encrypts the value."""
         # Arrange
-        plaintext = "secret_password"
+        plaintext = TEST_PASSWORD
         dialect = MagicMock(spec=Dialect)
 
         # Act

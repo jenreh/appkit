@@ -40,6 +40,10 @@ from appkit_commons.registry import ServiceRegistry, service_registry
 
 logger = logging.getLogger(__name__)
 
+# The one password literal for all tests. It meets the password policy at exactly the
+# minimum length. Derive a second password where needed: f"{TEST_PASSWORD}-new".
+TEST_PASSWORD = "StrongPass1!"  # noqa: S105
+
 # ============================================================================
 # Module-level registry bootstrapping
 # ============================================================================
@@ -54,7 +58,7 @@ if not _registry.has(DatabaseConfig):
             type="sqlite",
             name=":memory:",
             encryption_key=SecretStr(
-                "x6wrrHmIwfEZacK9sOBq5wJOykTDNhYlTdI_lLmmtJw="  # gitleaks:allow
+                "x6wrrHmIwfEZacK9sOBq5wJOykTDNhYlTdI_lLmmtJw="  # betterleaks:allow
             ),
             testing=True,
         )
@@ -225,7 +229,7 @@ def mock_secrets(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
     secrets = {
         "test-api-key": "test-key-12345",
         "test-db-user": "test_user",
-        "test-db-password": "test_password",
+        "test-db-password": TEST_PASSWORD,
         "OPENAI_API_KEY": "sk-test-key",
         "ANTHROPIC_API_KEY": "sk-ant-test-key",
         "GOOGLE_API_KEY": "google-test-key",

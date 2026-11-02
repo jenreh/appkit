@@ -13,6 +13,7 @@ from appkit_commons.configuration.secret_provider import (
     _get_secret_from_env,
     get_secret,
 )
+from appkit_commons.testing import TEST_PASSWORD
 
 
 class TestSecretProviderEnv:
@@ -258,13 +259,13 @@ class TestGetSecretAzureProvider:
     ) -> None:
         """Test getting secrets with multiple environment keys."""
         # Arrange
-        monkeypatch.setenv("db-password", "secret123")
+        monkeypatch.setenv("db-password", TEST_PASSWORD)
 
         # Act
         value = _get_secret_from_env("db-password")
 
         # Assert
-        assert value == "secret123"
+        assert value == TEST_PASSWORD
 
     def test_secret_provider_enum_has_correct_values(self) -> None:
         """Verify SecretProvider enum values."""
@@ -280,13 +281,13 @@ class TestGetSecretAzureProvider:
         """get_secret delegates to correct provider based on configuration."""
         # When SECRET_PROVIDER env var is not "azure", it uses local provider
         monkeypatch.delenv("SECRET_PROVIDER", raising=False)
-        monkeypatch.setenv("test-password", "local-secret")
+        monkeypatch.setenv("test-password", TEST_PASSWORD)
 
         # Act
         value = get_secret("test-password")
 
         # Assert
-        assert value == "local-secret"
+        assert value == TEST_PASSWORD
 
     def test_secret_error_details_transformation_keys(
         self, monkeypatch: pytest.MonkeyPatch

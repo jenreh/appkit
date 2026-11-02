@@ -10,6 +10,7 @@ from appkit_commons.security import (
     check_password_hash,
     generate_password_hash,
 )
+from appkit_commons.testing import TEST_PASSWORD
 
 
 class TestSecurity:
@@ -57,7 +58,7 @@ class TestSecurity:
         """_hash_internal with scrypt uses default parameters."""
         # Arrange
         salt = "testsalt12345678"
-        password = "testpassword"
+        password = TEST_PASSWORD
 
         # Act
         hash_value, method = _hash_internal("scrypt", salt, password)
@@ -71,7 +72,7 @@ class TestSecurity:
         """_hash_internal with scrypt accepts custom parameters."""
         # Arrange
         salt = "testsalt12345678"
-        password = "testpassword"
+        password = TEST_PASSWORD
 
         # Act
         hash_value, method = _hash_internal("scrypt:16384:8:1", salt, password)
@@ -84,13 +85,13 @@ class TestSecurity:
         """_hash_internal with scrypt raises on invalid parameters."""
         # Act & Assert
         with pytest.raises(ValueError, match="'scrypt' takes 3 arguments"):
-            _hash_internal("scrypt:invalid", "salt", "password")
+            _hash_internal("scrypt:invalid", "salt", TEST_PASSWORD)
 
     def test_hash_internal_pbkdf2_default(self) -> None:
         """_hash_internal with pbkdf2 uses default parameters."""
         # Arrange
         salt = "testsalt12345678"
-        password = "testpassword"
+        password = TEST_PASSWORD
 
         # Act
         hash_value, method = _hash_internal("pbkdf2", salt, password)
@@ -103,7 +104,7 @@ class TestSecurity:
         """_hash_internal with pbkdf2 accepts custom hash algorithm."""
         # Arrange
         salt = "testsalt12345678"
-        password = "testpassword"
+        password = TEST_PASSWORD
 
         # Act
         hash_value, method = _hash_internal("pbkdf2:sha512", salt, password)
@@ -116,7 +117,7 @@ class TestSecurity:
         """_hash_internal with pbkdf2 accepts custom iterations."""
         # Arrange
         salt = "testsalt12345678"
-        password = "testpassword"
+        password = TEST_PASSWORD
 
         # Act
         hash_value, method = _hash_internal("pbkdf2:sha256:500000", salt, password)
@@ -129,18 +130,18 @@ class TestSecurity:
         """_hash_internal with pbkdf2 raises on too many arguments."""
         # Act & Assert
         with pytest.raises(ValueError, match="'pbkdf2' takes 2 arguments"):
-            _hash_internal("pbkdf2:sha256:600000:extra", "salt", "password")
+            _hash_internal("pbkdf2:sha256:600000:extra", "salt", TEST_PASSWORD)
 
     def test_hash_internal_invalid_method_raises(self) -> None:
         """_hash_internal with invalid method raises ValueError."""
         # Act & Assert
         with pytest.raises(ValueError, match="Invalid hash method"):
-            _hash_internal("invalid_method", "salt", "password")
+            _hash_internal("invalid_method", "salt", TEST_PASSWORD)
 
     def test_generate_password_hash_default_scrypt(self) -> None:
         """generate_password_hash uses scrypt by default."""
         # Act
-        pwhash = generate_password_hash("mypassword")
+        pwhash = generate_password_hash(TEST_PASSWORD)
 
         # Assert
         assert pwhash.startswith("scrypt:")
@@ -151,7 +152,7 @@ class TestSecurity:
     def test_generate_password_hash_pbkdf2(self) -> None:
         """generate_password_hash works with pbkdf2 method."""
         # Act
-        pwhash = generate_password_hash("mypassword", method="pbkdf2")
+        pwhash = generate_password_hash(TEST_PASSWORD, method="pbkdf2")
 
         # Assert
         assert pwhash.startswith("pbkdf2:")
@@ -161,7 +162,7 @@ class TestSecurity:
     def test_generate_password_hash_custom_salt_length(self) -> None:
         """generate_password_hash respects custom salt length."""
         # Act
-        pwhash = generate_password_hash("mypassword", salt_length=32)
+        pwhash = generate_password_hash(TEST_PASSWORD, salt_length=32)
 
         # Assert
         parts = pwhash.split("$")
@@ -171,8 +172,8 @@ class TestSecurity:
     def test_generate_password_hash_different_each_time(self) -> None:
         """generate_password_hash produces different hashes each time."""
         # Act
-        hash1 = generate_password_hash("mypassword")
-        hash2 = generate_password_hash("mypassword")
+        hash1 = generate_password_hash(TEST_PASSWORD)
+        hash2 = generate_password_hash(TEST_PASSWORD)
 
         # Assert
         assert hash1 != hash2  # Different salt each time
@@ -180,7 +181,7 @@ class TestSecurity:
     def test_check_password_hash_correct_password(self) -> None:
         """check_password_hash returns True for correct password."""
         # Arrange
-        password = "correct_password"
+        password = TEST_PASSWORD
         pwhash = generate_password_hash(password)
 
         # Act
@@ -192,10 +193,10 @@ class TestSecurity:
     def test_check_password_hash_incorrect_password(self) -> None:
         """check_password_hash returns False for incorrect password."""
         # Arrange
-        pwhash = generate_password_hash("correct_password")
+        pwhash = generate_password_hash(TEST_PASSWORD)
 
         # Act
-        result = check_password_hash(pwhash, "wrong_password")
+        result = check_password_hash(pwhash, f"{TEST_PASSWORD}-wrong")
 
         # Assert
         assert result is False
@@ -203,7 +204,7 @@ class TestSecurity:
     def test_check_password_hash_scrypt_compatibility(self) -> None:
         """check_password_hash verifies scrypt hashes."""
         # Arrange
-        password = "test123"
+        password = TEST_PASSWORD
         pwhash = generate_password_hash(password, method="scrypt")
 
         # Act
@@ -215,7 +216,7 @@ class TestSecurity:
     def test_check_password_hash_pbkdf2_compatibility(self) -> None:
         """check_password_hash verifies pbkdf2 hashes."""
         # Arrange
-        password = "test456"
+        password = TEST_PASSWORD
         pwhash = generate_password_hash(password, method="pbkdf2")
 
         # Act
@@ -227,7 +228,7 @@ class TestSecurity:
     def test_check_password_hash_malformed_hash_returns_false(self) -> None:
         """check_password_hash returns False for malformed hash."""
         # Act
-        result = check_password_hash("invalid_hash_format", "password")
+        result = check_password_hash("invalid_hash_format", TEST_PASSWORD)
 
         # Assert
         assert result is False
@@ -246,7 +247,7 @@ class TestSecurity:
     def test_check_password_hash_special_characters(self) -> None:
         """check_password_hash handles passwords with special characters."""
         # Arrange
-        password = "p@ssw0rd!#$%^&*()"
+        password = f"{TEST_PASSWORD}@#$%^&*()"
         pwhash = generate_password_hash(password)
 
         # Act
@@ -258,7 +259,7 @@ class TestSecurity:
     def test_check_password_hash_unicode_password(self) -> None:
         """check_password_hash handles Unicode passwords."""
         # Arrange
-        password = "パスワード🔒"
+        password = f"{TEST_PASSWORD}パスワード🔒"
         pwhash = generate_password_hash(password)
 
         # Act
@@ -273,7 +274,7 @@ class TestSecurity:
         # We can't easily test timing, but we can verify behavior
 
         # Arrange
-        pwhash = generate_password_hash("test")
+        pwhash = generate_password_hash(TEST_PASSWORD)
 
         # Act - both wrong passwords should take similar time
         result1 = check_password_hash(pwhash, "a")

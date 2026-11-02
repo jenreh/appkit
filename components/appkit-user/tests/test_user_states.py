@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from appkit_commons.roles import Role
+from appkit_commons.testing import TEST_PASSWORD
 from appkit_user.authentication.backend.models import User
 from appkit_user.user_management.states.user_states import UserState
 
@@ -219,7 +220,7 @@ class TestCreateUser:
         form_data = {
             "name": "Bob",
             "email": "bob@x.com",
-            "password": "X",
+            "password": TEST_PASSWORD,
             "role_admin": "on",
         }
         with (
@@ -234,7 +235,7 @@ class TestCreateUser:
     @pytest.mark.asyncio
     async def test_error(self) -> None:
         state = _make_state()
-        form_data = {"name": "B", "email": "b@x.com", "password": "X"}
+        form_data = {"name": "B", "email": "b@x.com", "password": TEST_PASSWORD}
         with (
             patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
             patch(f"{_PATCH}.user_repo") as mock_repo,
@@ -414,7 +415,7 @@ class TestAdminAuthorization:
             results = [
                 c
                 async for c in state.create_user(
-                    {"name": "X", "email": "x@y.com", "password": "p"}
+                    {"name": "X", "email": "x@y.com", "password": TEST_PASSWORD}
                 )
             ]
         mock_repo.create_new_user.assert_not_called()

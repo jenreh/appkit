@@ -1,9 +1,14 @@
 """Tests for database configuration."""
 
+from urllib.parse import quote
+
 import pytest
 from pydantic import SecretStr
 
 from appkit_commons.database.configuration import DatabaseConfig
+from appkit_commons.testing import TEST_PASSWORD
+
+_ENCODED_PASSWORD = quote(TEST_PASSWORD, safe="")
 
 
 class TestDatabaseConfig:
@@ -13,7 +18,7 @@ class TestDatabaseConfig:
         """DatabaseConfig uses sensible defaults."""
         # Act
         config = DatabaseConfig(
-            password=SecretStr("test_pass"),
+            password=SecretStr(TEST_PASSWORD),
             encryption_key=SecretStr("test_key"),
         )
 
@@ -49,7 +54,7 @@ class TestDatabaseConfig:
         config = DatabaseConfig(
             type="postgresql",
             username="testuser",
-            password=SecretStr("testpass"),
+            password=SecretStr(TEST_PASSWORD),
             host="localhost",
             port=5432,
             name="testdb",
@@ -58,7 +63,7 @@ class TestDatabaseConfig:
 
         # Assert
         assert config.url == (
-            "postgresql+psycopg://testuser:testpass@localhost:5432/testdb"
+            f"postgresql+psycopg://testuser:{_ENCODED_PASSWORD}@localhost:5432/testdb"
         )
 
     def test_postgresql_url_with_special_char_password(self) -> None:
@@ -84,7 +89,7 @@ class TestDatabaseConfig:
         config = DatabaseConfig(
             type="postgresql",
             username="testuser",
-            password=SecretStr("testpass"),
+            password=SecretStr(TEST_PASSWORD),
             host="localhost",
             port=5432,
             name="testdb",
@@ -94,7 +99,7 @@ class TestDatabaseConfig:
 
         # Assert
         assert config.url == (
-            "postgresql+psycopg://testuser:testpass@localhost:5432/testdb?sslmode=require"  # noqa: E501
+            f"postgresql+psycopg://testuser:{_ENCODED_PASSWORD}@localhost:5432/testdb?sslmode=require"  # noqa: E501
         )
 
     def test_postgresql_url_with_ssl_mode_verify_full(self) -> None:
@@ -103,7 +108,7 @@ class TestDatabaseConfig:
         config = DatabaseConfig(
             type="postgresql",
             username="testuser",
-            password=SecretStr("testpass"),
+            password=SecretStr(TEST_PASSWORD),
             host="pg.example.com",
             port=5432,
             name="mydb",
@@ -113,7 +118,7 @@ class TestDatabaseConfig:
 
         # Assert
         assert config.url == (
-            "postgresql+psycopg://testuser:testpass@pg.example.com:5432/mydb?sslmode=verify-full"  # noqa: E501
+            f"postgresql+psycopg://testuser:{_ENCODED_PASSWORD}@pg.example.com:5432/mydb?sslmode=verify-full"  # noqa: E501
         )
 
     def test_postgresql_url_with_ssl_mode_disable(self) -> None:
@@ -122,7 +127,7 @@ class TestDatabaseConfig:
         config = DatabaseConfig(
             type="postgresql",
             username="testuser",
-            password=SecretStr("testpass"),
+            password=SecretStr(TEST_PASSWORD),
             host="localhost",
             port=5432,
             name="testdb",
@@ -139,7 +144,7 @@ class TestDatabaseConfig:
         config = DatabaseConfig(
             type="postgresql",
             username="testuser",
-            password=SecretStr("testpass"),
+            password=SecretStr(TEST_PASSWORD),
             host="db.example.com",
             port=5433,
             name="mydb",
@@ -164,12 +169,12 @@ class TestDatabaseConfig:
         """DatabaseConfig stores password as SecretStr."""
         # Act
         config = DatabaseConfig(
-            password=SecretStr("secret_password"),
+            password=SecretStr(TEST_PASSWORD),
             encryption_key=SecretStr(""),
         )
 
         # Assert
-        assert config.password.get_secret_value() == "secret_password"
+        assert config.password.get_secret_value() == TEST_PASSWORD
 
     def test_encryption_key_encapsulation(self) -> None:
         """DatabaseConfig stores encryption_key as SecretStr."""
