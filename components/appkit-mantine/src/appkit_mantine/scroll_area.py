@@ -13,7 +13,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import secrets
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import reflex as rx
 from reflex.constants.compiler import MemoizationDisposition, MemoizationMode
@@ -238,7 +238,7 @@ class ScrollAreaAutoscroll(ScrollArea):
         Returns:
             The imports required for the component.
         """
-        return cast("rx.ImportDict", {"react": ["useEffect", "useRef"]})
+        return {"react": ["useEffect", "useRef"]}
 
     def add_hooks(self) -> list[str | Var]:
         """Add hooks required for the component.

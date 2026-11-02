@@ -1,6 +1,6 @@
 [project]
 name = "appkit-user"
-version = "1.16.2"
+version = "1.18.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
@@ -24,15 +24,15 @@ dependencies = [
     "greenlet>=3.5.6",
     "appkit-commons",
     "appkit-ui",
-    "fastapi>=0.143.2",
+    "fastapi>=0.162.0",
     "requests_oauthlib>=2.0.0",
-    "urllib3>=2.7.0",
+    "urllib3>=2.8.0",
     "jinja2>=3.1.6",
 ]
 
 [project.optional-dependencies]
 azure = ["azure-communication-email>=1.1.0"]
-resend = ["resend>=2.32.2"]
+resend = ["resend>=2.50.1"]
 
 [project.urls]
 Homepage = "https://github.com/jenreh/appkit"

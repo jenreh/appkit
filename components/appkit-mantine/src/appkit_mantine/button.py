@@ -36,7 +36,7 @@ class MantineButtonBase(MantineLayoutComponentBase):
     aria_label: Var[str] = None
 
     # Content
-    children: Var[Any] = None
+    children: Var[Any] = None  # ty: ignore[invalid-attribute-override]
 
     # Events
     on_click: EventHandler[rx.event.no_args_event_spec] = None
@@ -88,7 +88,7 @@ class ActionIconGroup(MantineLayoutComponentBase):
     # rendered between children. Accepts any component (string or rx.Component)
     separator: Var[Any] = None
     separator_props: Var[dict] = None
-    children: Var[Any] = None
+    children: Var[Any] = None  # ty: ignore[invalid-attribute-override]
 
 
 class ActionIconGroupSection(MantineLayoutComponentBase):
@@ -101,7 +101,7 @@ class ActionIconGroupSection(MantineLayoutComponentBase):
     tag = "ActionIcon.GroupSection"
 
     # Content
-    children: Var[Any] = None
+    children: Var[Any] = None  # ty: ignore[invalid-attribute-override]
 
 
 class Button(MantineButtonBase):
@@ -150,8 +150,9 @@ class CloseButton(MantineButtonBase):
 
     icon: Var[Any] = None
     icon_size: Var[str | int] = None
-    radius: Var[str | int] = None
+    radius: Var[str | int] = None  # ty: ignore[invalid-attribute-override]
     size: Var[str | int] = None
+    variant: Var[Literal["subtle", "transparent"]] = None
 
 
 class UnstyledButton(MantineButtonBase):

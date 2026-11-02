@@ -11,9 +11,13 @@
 - JsonInput
 
 All input components inherit from `MantineInputComponentBase`. Common inherited props:
-`label`, `description`, `error`, `required`, `with_asterisk`, `variant`, `size`, `radius`,
-`value`, `default_value`, `placeholder`, `disabled`, `read_only`, `name`, `id`, `aria_label`,
-`left_section`, `right_section`, `on_change`, `on_focus`, `on_blur`, `on_key_down`, `on_key_up`.
+`label`, `description`, `error`, `success`, `required`, `with_asterisk`, `variant`, `size`,
+`radius`, `value`, `default_value`, `placeholder`, `disabled`, `read_only`, `name`, `id`,
+`aria_label`, `left_section`, `right_section`, `on_change`, `on_focus`, `on_blur`,
+`on_key_down`, `on_key_up`.
+
+`success` mirrors `error`: `True` draws a green border, a string also shows the message
+below the input. Both take a Var, e.g. `success=rx.cond(State.email_ok, "Looks good", False)`.
 
 **Controlled vs uncontrolled**: prefer `default_value` (uncontrolled) unless the component must
 react to external state changes. Pair `value` with `on_change` only when you need two-way binding.
@@ -164,28 +168,37 @@ keystroke because Reflex re-renders the whole DOM node. Always prefer `default_v
 for text areas.
 
 Props: `rows`, `cols`, `wrap`, `autosize`, `min_rows`, `max_rows`, `resize`
-(`"none"` | `"vertical"` | `"horizontal"` | `"both"`).
+(`"none"` | `"vertical"` | `"horizontal"` | `"both"`), `bottom_section`
+(content inside the border below the text, e.g. a character counter).
 
 > [Mantine docs — Textarea](https://mantine.dev/core/textarea/)
 
 ## MaskedInput
 
+Mantine's own `MaskInput` (not react-imask).
+
 ```python
 mn.masked_input(
     label="Phone number",
-    mask="(999) 999-9999",  # 9=digit  a=letter  *=any char
-    placeholder="(___) ___-____",
+    mask="+49 (999) 999-9999",
+    placeholder="+49 (___) ___-____",
     default_value="",
-    on_accept=State.handle_phone,
+    on_change=State.set_phone,  # receives the masked string
 )
 ```
 
-**ALWAYS UNCONTROLLED** — never use `value` prop (prevents typing). Use `default_value` for
-initial display. Use `on_accept` (fires when input matches the full mask) to capture values.
+**Uncontrolled**: use `default_value`, not `value`. A controlled `value` fights the
+mask and jumps the cursor. `on_change` receives the formatted string on every
+keystroke.
 
-Props: `mask`, `definitions` (custom char→regex map), `blocks` (named block patterns),
-`lazy`, `placeholder_char`, `overwrite`, `autofix`, `eager`, `unmask`, `on_accept`,
-`on_complete`.
+Mask tokens: `9` digit, `a` letter, `A` uppercase letter, `*` letter or digit,
+`#` digit or `+`/`-`. Everything else is a literal. Props: `mask` (string or list of
+literals and regexes), `tokens` (extra/overridden `{char: regex}`), `slot_char`
+(placeholder slot, `"_"` default), `modify` and `transform` (JS functions),
+`always_show_mask`, `show_mask_on_focus` (default `True`), `auto_clear` (clear on
+blur when incomplete), `separate` (decouple raw and display values).
+`on_complete` fires once every required slot is filled and receives the masked
+string.
 
 ## JsonInput
 

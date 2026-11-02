@@ -1,5 +1,6 @@
 from logging.config import fileConfig
-from typing import Any
+
+from sqlalchemy.sql.schema import SchemaItem
 
 from appkit_commons.database.entities import Base
 
@@ -31,11 +32,18 @@ target_metadata = [Base.metadata]
 def get_database_url() -> str:
     """Get database URL, trying multiple sources."""
 
-    return configuration.app.database.url
+    database = configuration.app.database
+    if database is None:
+        raise RuntimeError("Database configuration is missing")
+    return database.url
 
 
 def include_object(
-    obj: Any, name: str, type_: str, reflected: bool, compare_to: Any | None
+    obj: SchemaItem,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: SchemaItem | None,
 ) -> bool:
     # Exclude specific tables
     if type_ == "table" and name in [
@@ -56,8 +64,7 @@ def include_object(
     # Skip indexes on excluded tables
     return not (
         type_ == "index"
-        and hasattr(obj, "table")
-        and obj.table.name
+        and getattr(getattr(obj, "table", None), "name", None)
         in [
             "hours_employee_booking",
             "server",

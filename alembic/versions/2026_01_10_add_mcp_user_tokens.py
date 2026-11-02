@@ -31,6 +31,8 @@ depends_on: str | Sequence[str] | None = None
 def get_encryption_key() -> str:
     """Get encryption key from environment or config."""
     config = configuration.app.database
+    if config is None:
+        raise RuntimeError("Database configuration is missing")
     return config.encryption_key.get_secret_value()
 
 

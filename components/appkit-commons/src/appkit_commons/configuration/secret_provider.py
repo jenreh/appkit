@@ -24,10 +24,10 @@ class SecretProvider(StrEnum):
 @lru_cache(maxsize=1)
 def _get_azure_client() -> Any:
     try:
-        from azure.identity import (  # type: ignore # noqa: PLC0415
+        from azure.identity import (  # noqa: PLC0415
             DefaultAzureCredential,
         )
-        from azure.keyvault.secrets import SecretClient  # type: ignore # noqa: PLC0415
+        from azure.keyvault.secrets import SecretClient  # noqa: PLC0415
     except ImportError as exc:
         raise ImportError(
             "Optional Azure dependencies are required to use SecretProvider.AZURE. "

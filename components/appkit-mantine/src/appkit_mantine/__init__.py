@@ -15,6 +15,7 @@ from appkit_mantine.theme import (
 from appkit_mantine.alert_dialog import alert_dialog
 from appkit_mantine.button import button, action_icon, close_button, unstyled_button
 from appkit_mantine.carousel import carousel
+from appkit_mantine.code_highlight import json_viewer
 from appkit_mantine.combobox import (
     Cascader,
     select,
@@ -156,6 +157,7 @@ from appkit_mantine.markdown_preview import (
     markdown_preview,
 )
 from appkit_mantine.menu import menu, menubar
+from appkit_mantine.notifications import notifications, notifications_provider
 from appkit_mantine.modal import modal
 from appkit_mantine.navigation import (
     anchor,
@@ -189,6 +191,10 @@ from appkit_mantine.scroll_area import scroll_area
 from appkit_mantine.slider import slider, range_slider
 from appkit_mantine.splitter import splitter
 from appkit_mantine.table import table
+from appkit_mantine.toolbar import toggle, toolbar
+from appkit_mantine.tour import tour
+from appkit_mantine.action_bar import action_bar
+from appkit_mantine.lightbox import lightbox, lightbox_api
 from appkit_mantine.tree import tree, Tree
 from appkit_mantine.tiptap import (
     rich_text_editor,
@@ -207,18 +213,25 @@ from appkit_mantine.typography import (
 )
 from appkit_mantine.charts import (
     BulletChart,
+    CandlestickChart,
     ChartBrush,
+    GaugeChart,
+    MatrixChart,
     SunburstChart,
+    WaffleChart,
     area_chart,
     bar_chart,
     bars_list,
     bubble_chart,
     bullet_chart,
+    candlestick_chart,
     chart_brush,
     composite_chart,
     donut_chart,
     funnel_chart,
+    gauge_chart,
     heatmap,
+    matrix_chart,
     treemap,
     line_chart,
     pie_chart,
@@ -228,6 +241,7 @@ from appkit_mantine.charts import (
     scatter_chart,
     sparkline,
     sunburst_chart,
+    waffle_chart,
 )
 
 
@@ -236,6 +250,7 @@ __all__ = [
     "MANTINE_VERSION",
     "BulletChart",
     "Calendar",
+    "CandlestickChart",
     "Cascader",
     "ChartBrush",
     "DateInput",
@@ -243,6 +258,7 @@ __all__ = [
     "DatePickerInput",
     "DateTimePicker",
     "EditorToolbarConfig",
+    "GaugeChart",
     "InlineDateTimePicker",
     "MantineComponentBase",
     "MantineInputComponentBase",
@@ -261,6 +277,7 @@ __all__ = [
     "MarkerLabel",
     "MarkerPopup",
     "MarkerTooltip",
+    "MatrixChart",
     "MemoizedMantineProvider",
     "MiniCalendar",
     "MonthPicker",
@@ -272,9 +289,11 @@ __all__ = [
     "TimeValue",
     "ToolbarControlGroup",
     "Tree",
+    "WaffleChart",
     "YearPicker",
     "YearPickerInput",
     "accordion",
+    "action_bar",
     "action_icon",
     "affix",
     "agenda_view",
@@ -300,6 +319,7 @@ __all__ = [
     "burger",
     "button",
     "calendar",
+    "candlestick_chart",
     "card",
     "carousel",
     "cascader",
@@ -337,6 +357,7 @@ __all__ = [
     "focus_trap",
     "form",
     "funnel_chart",
+    "gauge_chart",
     "get_app_theme",
     "grid",
     "grid_col",
@@ -349,7 +370,10 @@ __all__ = [
     "indicator",
     "inline_date_time_picker",
     "json_input",
+    "json_viewer",
     "kbd",
+    "lightbox",
+    "lightbox_api",
     "line_chart",
     "list_",
     "loader",
@@ -361,6 +385,7 @@ __all__ = [
     "marker",
     "marquee",
     "masked_input",
+    "matrix_chart",
     "menu",
     "menubar",
     "mermaid_zoom_script",
@@ -374,6 +399,8 @@ __all__ = [
     "nav_link",
     "navigation_progress",
     "notification",
+    "notifications",
+    "notifications_provider",
     "number_formatter",
     "number_input",
     "overflow_list",
@@ -435,7 +462,10 @@ __all__ = [
     "time_value",
     "timeline",
     "title",
+    "toggle",
+    "toolbar",
     "tooltip",
+    "tour",
     "transition",
     "tree",
     "tree_select",
@@ -443,6 +473,7 @@ __all__ = [
     "typography_styles_provider",
     "unstyled_button",
     "visually_hidden",
+    "waffle_chart",
     "year_picker",
     "year_picker_input",
 ]

@@ -3,10 +3,13 @@
 from typing import Any, Literal
 
 import reflex as rx
+from reflex.assets import asset
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
 from appkit_mantine.base import (
+    MANTINE_LIBARY,
+    MANTINE_VERSION,
     MantineComponentBase,
     MantineLayoutComponentBase,
     MantineSize,
@@ -221,10 +224,62 @@ class AppShellRoot(MantineLayoutComponentBase):
     footer: Var[dict] = None
 
 
+_APP_SHELL_RESIZABLE_JS = asset(path="app_shell_resizable_wrapper.js", shared=True)
+
+
+class AppShellResizable(AppShellRoot):
+    """Mantine AppShell with resizable sections (Mantine 9.7).
+
+    Wraps ``useAppShellResize`` so sections resize with mouse, touch and
+    keyboard. Navbar and Aside resize horizontally, Header and Footer
+    vertically. Give the sections a ``width``/``height`` in ``navbar``,
+    ``aside``, ``header`` or ``footer`` and enable resizing per section in
+    ``resize_options``::
+
+        mn.app_shell.resizable(
+            ...,
+            navbar={"width": 280, "breakpoint": "sm"},
+            resize_options={"navbar": {"min": 200, "max": 480}},
+        )
+
+    ``--app-shell-*`` CSS variables are set on the root instead of ``:root``,
+    so content in a Portal (Modal, Drawer) cannot read them.
+
+    https://mantine.dev/core/app-shell/
+    """
+
+    tag = "AppShellResizable"
+    library = _APP_SHELL_RESIZABLE_JS.importable_path
+    is_default = True
+
+    lib_dependencies: list[str] = [
+        f"{MANTINE_LIBARY}@{MANTINE_VERSION}",
+        f"@mantine/hooks@{MANTINE_VERSION}",
+    ]
+
+    resize_options: Var[dict] = None
+    """Per-section options: ``{"navbar": {"min", "max", "collapseThreshold",
+    "label"}, "aside": {...}, "header": {...}, "footer": {...}}``. A section is
+    resizable when it has an entry."""
+
+    initial_sizes: Var[dict] = None
+    """Sizes applied before the first resize, e.g. ``{"navbar": 320}``."""
+
+    @classmethod
+    def get_event_triggers(cls) -> dict[str, Any]:
+        return {
+            **super().get_event_triggers(),
+            "on_resize": lambda sizes: [sizes],
+            "on_resize_end": lambda sizes: [sizes],
+            "on_collapse_change": lambda section, collapsed: [section, collapsed],
+        }
+
+
 class AppShellNamespace(rx.ComponentNamespace):
     """Namespace for AppShell components."""
 
     __call__ = staticmethod(AppShellRoot.create)
+    resizable = staticmethod(AppShellResizable.create)
     header = staticmethod(AppShellHeader.create)
     navbar = staticmethod(AppShellNavbar.create)
     aside = staticmethod(AppShellAside.create)

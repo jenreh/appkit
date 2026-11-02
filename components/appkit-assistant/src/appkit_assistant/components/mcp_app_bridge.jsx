@@ -694,7 +694,10 @@ export function McpAppBridge({
     ? `1px solid ${theme === "dark" ? "#373a40" : "#dee2e6"}`
     : "none";
 
-  const sandboxAttr = "allow-scripts allow-popups allow-forms allow-downloads allow-same-origin";
+  // No allow-same-origin: with it a srcDoc frame shares the app's origin, so
+  // server-supplied HTML could read the session cookie and localStorage. The
+  // opaque origin still works with postMessage (we match on event.source).
+  const sandboxAttr = "allow-scripts allow-popups allow-forms allow-downloads";
   const permAllowParts = [];
   if (resourcePermissions?.camera) permAllowParts.push("camera");
   if (resourcePermissions?.microphone) permAllowParts.push("microphone");

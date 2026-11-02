@@ -51,7 +51,7 @@ uv add appkit-ui
 ### Dependencies
 
 - `appkit-commons` (shared utilities)
-- `reflex>=0.9.2` (UI framework)
+- `reflex>=0.10.1` (UI framework)
 
 ---
 

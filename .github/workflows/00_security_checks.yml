@@ -1,0 +1,46 @@
+name: Security checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Scan for committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  python:
+    name: uv audit (uv.lock)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+
+      # PYSEC-2026-282 (apscheduler deserialization RCE) has no fixed release. It
+      # needs write access to the APScheduler data store; the demo app schedules
+      # with PGQueuer. Drop the ignore once a fixed apscheduler ships.
+      - name: Audit uv.lock against known vulnerabilities
+        run: uv audit --frozen --ignore PYSEC-2026-282

@@ -172,6 +172,60 @@ BULLET_RANGES = [
     {"value": 300, "color": "teal.8", "label": "High"},
 ]
 
+WAFFLE_DATA = [
+    {"name": "Chrome", "value": 65, "color": "blue"},
+    {"name": "Safari", "value": 19, "color": "teal"},
+    {"name": "Firefox", "value": 10, "color": "orange"},
+    {"name": "Other", "value": 6, "color": "gray"},
+]
+
+GAUGE_SECTIONS = [
+    {"value": 40, "color": "red.6"},
+    {"value": 70, "color": "yellow.6"},
+    {"value": 100, "color": "teal.6"},
+]
+
+MATRIX_PEOPLE = ["James", "Mary", "Robert", "Linda", "Michael"]
+MATRIX_DATA = [
+    {
+        "x": str(day),
+        "y": person,
+        "value": None if (day * (row + 3)) % 7 == 0 else (day * (row + 5)) % 11,
+    }
+    for row, person in enumerate(MATRIX_PEOPLE)
+    for day in range(1, 11)
+]
+
+CANDLESTICK_DATA = [
+    {"date": "Mar 01", "open": 136, "high": 142, "low": 133, "close": 140},
+    {"date": "Mar 02", "open": 140, "high": 145, "low": 138, "close": 139},
+    {"date": "Mar 03", "open": 139, "high": 141, "low": 129, "close": 131},
+    {"date": "Mar 04", "open": 131, "high": 134, "low": 124, "close": 125},
+    {"date": "Mar 05", "open": 125, "high": 133, "low": 124, "close": 132},
+    {"date": "Mar 06", "open": 132, "high": 138, "low": 131, "close": 137},
+    {"date": "Mar 07", "open": 137, "high": 137, "low": 128, "close": 129},
+    {"date": "Mar 08", "open": 129, "high": 135, "low": 127, "close": 134},
+    {"date": "Mar 09", "open": 134, "high": 148, "low": 133, "close": 146},
+    {"date": "Mar 10", "open": 146, "high": 152, "low": 144, "close": 151},
+    {"date": "Mar 11", "open": 151, "high": 154, "low": 143, "close": 145},
+    {"date": "Mar 12", "open": 145, "high": 149, "low": 142, "close": 148},
+    {"date": "Mar 13", "open": 148, "high": 156, "low": 147, "close": 155},
+    {"date": "Mar 14", "open": 155, "high": 158, "low": 150, "close": 152},
+]
+
+STREAM_DATA = [
+    {"month": "Jan", "Apples": 220, "Oranges": 140, "Tomatoes": 90, "Grapes": 60},
+    {"month": "Feb", "Apples": 260, "Oranges": 180, "Tomatoes": 120, "Grapes": 90},
+    {"month": "Mar", "Apples": 300, "Oranges": 240, "Tomatoes": 180, "Grapes": 140},
+    {"month": "Apr", "Apples": 340, "Oranges": 320, "Tomatoes": 260, "Grapes": 200},
+    {"month": "May", "Apples": 380, "Oranges": 420, "Tomatoes": 360, "Grapes": 280},
+    {"month": "Jun", "Apples": 420, "Oranges": 520, "Tomatoes": 460, "Grapes": 360},
+    {"month": "Jul", "Apples": 400, "Oranges": 560, "Tomatoes": 520, "Grapes": 420},
+    {"month": "Aug", "Apples": 360, "Oranges": 520, "Tomatoes": 560, "Grapes": 460},
+    {"month": "Sep", "Apples": 300, "Oranges": 440, "Tomatoes": 520, "Grapes": 420},
+    {"month": "Oct", "Apples": 260, "Oranges": 340, "Tomatoes": 440, "Grapes": 360},
+]
+
 
 @navbar_layout(
     route="/examples/charts",
@@ -462,6 +516,104 @@ def charts_examples() -> rx.Component:
                         series=[{"name": "uv", "color": "grape.6"}],
                         curve_type="monotone",
                         with_gradient=True,
+                    ),
+                ),
+                # Gauge Chart (Mantine 9.6)
+                example_box(
+                    "Gauge Chart",
+                    mn.center(
+                        mn.gauge_chart(
+                            value=72,
+                            target=85,
+                            sections=GAUGE_SECTIONS,
+                            size=220,
+                            thickness=14,
+                            label="72% uptime",
+                            round_caps=True,
+                        ),
+                    ),
+                ),
+                # Waffle Chart (Mantine 9.6)
+                example_box(
+                    "Waffle Chart",
+                    mn.center(
+                        mn.waffle_chart(
+                            data=WAFFLE_DATA,
+                            with_tooltip=True,
+                            with_legend=True,
+                            legend_position="right",
+                        ),
+                    ),
+                ),
+                # Matrix Chart (Mantine 9.6)
+                example_box(
+                    "Matrix Chart",
+                    mn.matrix_chart(
+                        data=MATRIX_DATA,
+                        y_labels=MATRIX_PEOPLE,
+                        with_y_labels=True,
+                        with_x_labels=True,
+                        with_tooltip=True,
+                        with_legend=True,
+                        cell_size=14,
+                        y_labels_width=56,
+                    ),
+                ),
+                # Candlestick Chart (Mantine 9.6)
+                example_box(
+                    "Candlestick Chart",
+                    mn.candlestick_chart(
+                        h=300,
+                        data=CANDLESTICK_DATA,
+                        data_key="date",
+                        grid_axis="x",
+                        tick_line="y",
+                        with_tooltip=True,
+                        reference_lines=[
+                            {"y": 140, "label": "Support", "color": "gray.6"}
+                        ],
+                    ),
+                ),
+                # Reference areas and dots (Mantine 9.6)
+                example_box(
+                    "Reference Areas & Dots",
+                    mn.area_chart(
+                        h=300,
+                        data=DATA,
+                        data_key="name",
+                        series=[
+                            {"name": "uv", "color": "indigo.6"},
+                            {"name": "pv", "color": "teal.6"},
+                        ],
+                        curve_type="monotone",
+                        reference_areas=[
+                            {
+                                "x1": "Mar",
+                                "x2": "Apr",
+                                "color": "red.6",
+                                "label": "Promo",
+                            }
+                        ],
+                        reference_dots=[
+                            {"x": "Mar", "y": 9800, "color": "red.6", "label": "Peak"}
+                        ],
+                    ),
+                ),
+                # Streamgraph (Mantine 9.6)
+                example_box(
+                    "Area Chart Streamgraph",
+                    mn.area_chart(
+                        h=300,
+                        data=STREAM_DATA,
+                        data_key="month",
+                        chart_type="stream",
+                        curve_type="monotone",
+                        series=[
+                            {"name": "Apples", "color": "indigo.6"},
+                            {"name": "Oranges", "color": "blue.6"},
+                            {"name": "Tomatoes", "color": "teal.6"},
+                            {"name": "Grapes", "color": "grape.6"},
+                        ],
                     ),
                 ),
                 cols=2,

@@ -133,6 +133,21 @@ class PasswordResetConfig(BaseConfig):
     templates_dir: Path | None = None
 
 
+class LoginRateLimitConfig(BaseConfig):
+    """Throttle for failed password logins.
+
+    A key (the email, or the client address) that reaches its limit of failed
+    attempts within ``window_minutes`` is locked for ``lockout_minutes``. The
+    client limit is higher because users of one office share an address.
+    """
+
+    enabled: bool = True
+    max_attempts: int = Field(default=5, ge=1)
+    max_attempts_per_client: int = Field(default=20, ge=1)
+    window_minutes: int = Field(default=15, ge=1)
+    lockout_minutes: int = Field(default=15, ge=1)
+
+
 _DEFAULT_PORTS: Final = {"http": 80, "https": 443}
 
 
@@ -172,6 +187,9 @@ class AuthenticationConfiguration(BaseSettings):
 
     # Password reset configuration
     password_reset: PasswordResetConfig = PasswordResetConfig()
+
+    # Throttle for failed password logins
+    login_rate_limit: LoginRateLimitConfig = LoginRateLimitConfig()
 
     @property
     def public_origin(self) -> str:

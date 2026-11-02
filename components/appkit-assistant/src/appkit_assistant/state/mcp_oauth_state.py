@@ -181,7 +181,7 @@ class MCPOAuthState(rx.State):
             auth_service.save_user_token(
                 session,
                 user_id,
-                server.id,  # type: ignore
+                server.id,
                 result,
             )
 

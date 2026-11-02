@@ -3,14 +3,15 @@ name: appkit-commons
 description: >
   appkit-commons usage patterns: configuration (YAML profiles, env overrides, secrets),
   service registry, repository pattern, database entities, custom column types
-  (EncryptedString, ArrayType), scheduler (APScheduler, PGQueuer), and serving apps
+  (EncryptedString, ArrayType), scheduler (APScheduler, PGQueuer), ASGI middleware
+  (ForceHTTPSMiddleware, SecurityHeadersMiddleware), and serving apps
   below a shared-origin path prefix (frontend_path, public_path, cookie and storage
   key prefixes, OAuth redirect URLs). Apply automatically when adding new features,
   services, repositories, scheduled tasks, links, browser storage, or configuring
   the application stack.
 metadata:
   author: jens-rehpoehler
-  version: "2.0"
+  version: "2.1"
   license: MIT
 ---
 
@@ -224,7 +225,7 @@ Rules:
 Single IoC container. All services registered as singletons by type.
 
 ```python
-from appkit_commons import service_registry
+from appkit_commons.registry import service_registry
 
 # Register (in app startup / _initialize_services, in dependency order)
 registry = service_registry()
@@ -239,6 +240,10 @@ config = service_registry().get(MyFeatureConfig)
 registry.has(MyService)  # bool
 registry.list_registered()  # list[type]
 registry.unregister(MyService)
+
+# Tests: save and restore the registry around a test
+saved = registry.snapshot()
+registry.restore(saved)
 ```
 
 Call `service_registry()` inside functions/methods — never at module level.
@@ -462,7 +467,41 @@ await scheduler.shutdown()
 
 ---
 
-## 7. Anti-Patterns
+## 7. ASGI Middleware
+
+`appkit_commons.middleware` holds two pure ASGI middlewares for Reflex's
+`api_transformer`. Do not copy them into an app.
+
+```python
+from appkit_commons.middleware import ForceHTTPSMiddleware, SecurityHeadersMiddleware
+
+
+def add_security_headers(asgi_app: ASGIApp) -> ASGIApp:
+    return SecurityHeadersMiddleware(asgi_app)
+
+
+def add_https_middleware(asgi_app: ASGIApp) -> ASGIApp:
+    return ForceHTTPSMiddleware(asgi_app, trusted_hosts=config.app.trusted_proxies)
+
+
+rx.App(api_transformer=[create_rest_api(), add_security_headers, add_https_middleware])
+```
+
+- `ForceHTTPSMiddleware` sets `scope["scheme"]` from `X-Forwarded-Proto`; it never
+  redirects. Pass `trusted_hosts` (the proxy addresses) wherever the backend port
+  can be reached without the proxy.
+- `SecurityHeadersMiddleware` adds `X-Content-Type-Options`, `Referrer-Policy`,
+  `Content-Security-Policy: frame-ancestors 'self'` and, on https, HSTS. Headers a
+  route sets itself are kept. A full CSP stays with the proxy (Reflex needs inline
+  scripts).
+- Reflex applies transformers in list order, each wrapping the previous. Put
+  `SecurityHeadersMiddleware` before `ForceHTTPSMiddleware`, so it sits inside it and
+  sees the corrected scheme when it decides on HSTS.
+- Tests: `BASE_SECURITY_HEADERS` and `HSTS` are module constants; assert on them.
+
+---
+
+## 8. Anti-Patterns
 
 | Anti-pattern | Correct approach |
 | --- | --- |
@@ -478,3 +517,7 @@ await scheduler.shutdown()
 | Hardcoded OAuth `redirect_url` in `config.yaml` | Leave unset; derived from `public_base_url` |
 | `router.url.path == "/login"` | `strip_public_prefix(router.url.path) == "/login"` |
 | `session.commit()` inside `get_asyncdb_session()` block | Session auto-commits on context exit |
+| `State._backend_var` passed as prop/child, `State.var = x` (Reflex 0.10 descriptors) | `.default_value()` / `State.__fields__["x"].set_default(...)` |
+| Inherited vars written in a background task outside `async with self` | Wrap writes in `async with self` |
+| Several backend versions behind a load balancer without sticky sessions | Sticky sessions; Reflex 0.10.1 reloads a stale frontend on state-tree hash mismatch |
+| Non fork-safe app in production on Linux (workers fork from the imported app) | `REFLEX_BACKEND_START_METHOD=spawn` |

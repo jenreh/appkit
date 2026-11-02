@@ -43,8 +43,8 @@ mn.carousel(
 Root props: `height`, `initial_slide`, `orientation`, `slide_size`, `slide_gap`,
 `with_controls`, `with_indicators`, `with_keyboard_events`, `control_size`,
 `controls_offset`, `include_gap_in_size`, `embla_options` (Embla config dict),
-`next_control_icon`, `previous_control_icon`, `next_control_props`,
-`previous_control_props`, `on_slide_change`, `on_next_slide`, `on_previous_slide`.
+`next_control_icon`, `previous_control_icon`, `on_slide_change`, `on_next_slide`,
+`on_previous_slide`.
 
 `carousel.slide` has no special props — just layout/style props.
 
@@ -112,3 +112,104 @@ Props: `modal_props` (default props applied to every imperative modal), `labels`
 (default confirm/cancel button text).
 
 > [Mantine docs — Modals manager](https://mantine.dev/x/modals/)
+
+## Notifications (`@mantine/notifications`)
+
+Mount the provider once (page or layout), then return the imperative helpers
+from event handlers. They run `notifications.*` in the browser.
+
+```python
+mn.notifications_provider(position="top-right", limit=5)
+
+
+@rx.event
+def save(self):
+    return mn.notifications.show(
+        "Saved",
+        title="Done",
+        color="teal",
+        auto_close=5000,
+        with_auto_close_progress=True,
+    )
+```
+
+Helpers: `show(message, id=, title=, color=, position=, auto_close=,
+with_auto_close_progress=, with_close_button=, loading=, ...)`,
+`update(id, ...)`, `hide(id)`, `clean()`, `clean_queue()`,
+`promise("<js promise expr>", loading={...}, success={...}, error={...})`.
+Loading flow: `show(..., id="job", loading=True, auto_close=False)`, later
+`update("job", loading=False, color="teal", auto_close=3000)`. Provider props:
+`position`, `auto_close`, `limit`, `layout` (`default|stacked`),
+`with_auto_close_progress`, `pause_reset_on_hover`, `container_width`.
+`promise` takes a JavaScript expression, not a Python value; success/error are
+static dicts.
+
+`render_notification` on the provider takes a JS function Var
+(`(notification) => ReactNode`) that replaces every notification body.
+
+## Lightbox (`@mantine/lightbox`)
+
+Controlled, or mount `mn.lightbox.provider()` once and open it from handlers.
+
+```python
+mn.lightbox(
+    opened=State.opened,
+    on_close=State.close,
+    slides=[{"src": "a.png", "alt": "A", "caption": "A"}],
+    current_index=State.index,
+    on_index_change=State.set_index,
+    with_thumbnails=True,
+)
+
+mn.lightbox.provider(with_thumbnails=True)
+
+
+@rx.event
+def open_gallery(self):
+    return mn.lightbox_api.open(SLIDES, start_index=2)
+```
+
+Slides: images `{src, alt, caption, thumbSrc}` or videos
+`{type: "video", src, poster, autoPlay}`. Props: `loop`, `with_zoom`,
+`with_thumbnails`, `with_fullscreen`, `with_download`, `with_navigation`,
+`with_keyboard_events`, `close_on_click_outside`, `close_on_swipe_down`,
+`labels`, `transition_props`, `z_index`, `zoom_max_scale`. Helpers:
+`mn.lightbox_api.open/close/next/prev/set_index`.
+
+## ActionBar
+
+```python
+mn.action_bar(
+    mn.text(State.count.to_string() + " selected", size="sm"),
+    mn.action_bar.divider(),
+    mn.button("Delete", variant="default", size="compact-sm"),
+    mn.action_bar.close_button(),
+    opened=State.count > 0,
+    on_close=State.clear_selection,
+    shadow="md",
+)
+```
+
+Props: `opened`, `close_on_escape`, `keep_mounted`, `position`, `radius`,
+`shadow`, `with_border`, `within_portal`, `transition_props`, `z_index`.
+
+## JsonViewer (`@mantine/code-highlight`)
+
+```python
+mn.json_viewer(
+    value={"a": 1},
+    root_name="data",
+    default_expand_depth=2,
+    with_copy_button=True,
+    with_controls=True,
+    with_types=True,
+    with_size=True,
+    with_border=True,
+)
+```
+
+Also `with_line_numbers`, `with_chevrons`, `sort_keys`, `all_expanded`,
+`highlight_items` (`{serialized_path: "added"|"removed"}`),
+`on_value_select(path, value)`, `on_expanded_paths_change(paths)`.
+`default_expand_depth` applies on mount only; give the component a `key` to
+re-apply it after `value` changes.

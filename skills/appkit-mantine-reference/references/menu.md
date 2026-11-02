@@ -104,7 +104,7 @@ mn.menu.item(
 )
 ```
 
-## Search, checkbox & radio items (Mantine 9.3)
+## Search, checkbox & radio items
 
 ```python
 mn.menu(
@@ -132,7 +132,7 @@ mn.menu(
 `mn.menu.context_menu(...)` opens the menu at the cursor on right-click.
 `mn.menu(align_items_labels=True)` aligns item indicator slots.
 
-## Menubar (Mantine 9.4)
+## Menubar
 
 Desktop-application style horizontal menu bar. Each `mn.menubar.menu` holds a
 top-level `target` and a `dropdown` of `mn.menu.item` children.

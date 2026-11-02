@@ -3,6 +3,7 @@
 from typing import Any, Literal
 
 import reflex as rx
+from reflex.components.component import Component
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
@@ -18,7 +19,7 @@ class Breadcrumbs(MantineLayoutComponentBase):
 
     tag = "Breadcrumbs"
 
-    separator: Var[str | rx.Component]
+    separator: Var[str | Component]
     separator_margin: Var[str | int]
 
 
@@ -58,6 +59,9 @@ class Stepper(MantineLayoutComponentBase):
     radius: Var[str | int]
     color: Var[str]
     allow_next_steps_select: Var[bool]
+    icon_position: Var[Literal["left", "right"]]
+    label_position: Var[Literal["right", "bottom"]]
+    """``"bottom"`` places label and description below the icon (Mantine 9.6+)."""
 
     on_step_click: EventHandler[lambda step: [step]]
 
@@ -240,7 +244,7 @@ class NavLink(MantineComponentBase):
     icon: Var[Any] = None
     left_section: Var[Any] = None
     right_section: Var[Any] = None
-    children: Var[Any] = None
+    children: Var[Any] = None  # ty: ignore[invalid-attribute-override]
 
     # Open/active state control
     opened: Var[bool] = None

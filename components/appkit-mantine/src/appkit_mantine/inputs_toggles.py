@@ -1,6 +1,7 @@
 from typing import Any, Literal
 
 import reflex as rx
+from reflex.components.component import Component
 from reflex.event import EventHandler
 from reflex.vars.base import Var
 
@@ -131,7 +132,7 @@ class Switch(MantineToggleComponentBase):
     off_label: Var[str] = None
     """Label to be shown when switch is off."""
 
-    thumb_icon: Var[rx.Component] = None
+    thumb_icon: Var[Component] = None
     """Icon inside the thumb of the switch."""
 
 
@@ -156,6 +157,9 @@ class Radio(MantineToggleComponentBase):
 
     icon_color: Var[str] = None
     """Color of the check icon."""
+
+    variant: Var[Literal["filled", "outline", "light"]] = None
+    """Indicator variant; ``light`` (Mantine 9.7) uses a light background."""
 
 
 class RadioIndicator(MantineIndicatorBase):
@@ -216,6 +220,9 @@ class Checkbox(MantineToggleComponentBase):
 
     icon_color: Var[str] = None
     """Color of the check icon."""
+
+    variant: Var[Literal["filled", "outline", "light"]] = None
+    """Indicator variant; ``light`` (Mantine 9.7) uses a light background."""
 
     tab_index: Var[int] = None
     """Tab index."""

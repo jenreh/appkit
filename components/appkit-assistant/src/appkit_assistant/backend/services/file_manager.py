@@ -5,6 +5,7 @@ directories. Files are stored temporarily and cleaned up after processing.
 """
 
 import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -12,6 +13,31 @@ logger = logging.getLogger(__name__)
 
 # Base directory for uploaded files (relative to project root)
 UPLOAD_BASE_DIR = Path("uploaded_files")
+
+# Mirrors the composer's `accept` list; the browser filter is only a convenience.
+ALLOWED_UPLOAD_SUFFIXES = frozenset(
+    {".xlsx", ".csv", ".docx", ".pptx", ".md", ".pdf", ".png", ".jpg", ".jpeg"}
+)
+
+_SAFE_USER_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def sanitize_upload_filename(filename: str | None) -> str:
+    """Reduce a client-supplied filename to a safe base name.
+
+    Directory parts (``/`` and ``\\``), control characters and dot-only names are
+    removed or refused, and only extensions in ``ALLOWED_UPLOAD_SUFFIXES`` pass.
+
+    Raises:
+        ValueError: If nothing usable remains or the extension is not allowed.
+    """
+    base = _CONTROL_CHARS.sub("", re.split(r"[\\/]", filename or "")[-1]).strip()
+    if not base or base.strip(".") == "":
+        raise ValueError("Invalid file name")
+    if Path(base).suffix.lower() not in ALLOWED_UPLOAD_SUFFIXES:
+        raise ValueError("File type is not allowed")
+    return base
 
 
 def get_user_upload_directory(user_id: str) -> Path:
@@ -25,6 +51,8 @@ def get_user_upload_directory(user_id: str) -> Path:
     Returns:
         Path to the user's upload directory.
     """
+    if not _SAFE_USER_ID.fullmatch(user_id):
+        raise ValueError("Invalid user id for upload directory")
     user_dir = UPLOAD_BASE_DIR / user_id
     user_dir.mkdir(parents=True, exist_ok=True)
     logger.debug("User upload dir: %s", user_dir)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from reflex import asset
+from reflex.event import EventHandler
 from reflex.vars.base import Var
 
 from appkit_mantine.base import MantineComponentBase
@@ -40,10 +41,28 @@ class Tree(MantineComponentBase):
     with_drag_handle: Var[bool] = None
     with_lines: Var[bool] = None
 
+    # Controller (useTree) options handled by the wrapper
+    initial_selected_state: Var[list[str]] = None
+    initial_checked_state: Var[list[str]] = None
+    initial_expanded_state: Var[dict[str, bool]] = None
+    check_strictly: Var[bool] = None
+
     # Enhanced wrapper properties
     search: Var[str] = None
     with_checkbox: Var[bool] = None
     with_custom_node: Var[bool] = None
+
+    on_select: EventHandler[lambda values: [values]] = None
+    """Called with the selected node values (``list[str]``)."""
+
+    on_check: EventHandler[lambda values: [values]] = None
+    """Called with the checked node values (``list[str]``)."""
+
+    on_expand: EventHandler[lambda value: [value]] = None
+    """Called with the value of the expanded node."""
+
+    on_collapse: EventHandler[lambda value: [value]] = None
+    """Called with the value of the collapsed node."""
 
 
 tree = Tree.create

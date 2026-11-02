@@ -59,15 +59,17 @@ mn.file_input(
     accept="image/png,image/jpeg",  # MIME types
     multiple=False,
     clearable=True,
-    value=State.uploaded_file,
-    on_change=State.handle_file,  # receives a File object (or list when multiple)
+    on_change=State.handle_file,  # receives the browser File (or list when multiple)
 )
 ```
 
-Props: `value`, `default_value`, `accept`, `multiple`, `capture`, `clearable`,
-`clear_button_props`, `file_input_props`, `value_component`, `placeholder`,
-`label`, `description`, `error`, `required`, `disabled`, `radius`, `size`,
-`left_section`, `right_section`, `with_asterisk`, `name`, `form`, `on_change`.
+`on_change` hands over the browser `File` object, not an upload. To store file
+content on the server, use Reflex's upload flow (`rx.upload` + `rx.upload_files`).
+
+Props: `accept`, `multiple`, `capture`, `clearable`, `value_component`, plus the
+input base props (`label`, `description`, `error`, `placeholder`, `required`,
+`disabled`, `radius`, `size`, `left_section`, `right_section`, `with_asterisk`,
+`name`, `on_change`).
 
 > [Mantine docs — FileInput](https://mantine.dev/core/file-input/)
 
@@ -89,9 +91,9 @@ mn.pin_input(
 ```
 
 Props: `length`, `type` (`"number"`, `"alphanumeric"`, or regex), `mask`,
-`one_time_code`, `placeholder`, `value`, `default_value`, `name`, `form`,
-`autofocus`, `disabled`, `error`, `inputmode`, `size`, `radius`, `gap`,
-`input_type`, `manage_focus`, `on_change`, `on_complete` (both receive `str`).
+`one_time_code`, `placeholder`, `value`, `default_value`, `name`, `auto_focus`,
+`disabled`, `read_only`, `error`, `input_mode`, `input_type`, `size`, `radius`,
+`manage_focus`, `on_change`, `on_complete` (both receive `str`).
 
 > [Mantine docs — PinInput](https://mantine.dev/core/pin-input/)
 
@@ -107,14 +109,15 @@ mn.rating(
     fractions=2,  # half-stars
     size="lg",
     color="yellow",
-    readonly=False,
+    read_only=False,
     highlight_selected_only=False,
 )
 ```
 
 Props: `value`, `default_value`, `count`, `fractions` (segments per item, e.g. 2 = half),
-`size`, `color`, `readonly`, `highlight_selected_only`, `empty_symbol`, `full_symbol`,
-`name`, `on_change`, `on_hover` (receives `float`), `on_hover_end`.
+`size`, `color`, `read_only`, `allow_clear`, `highlight_selected_only`,
+`empty_symbol`, `full_symbol`, `name`, `on_change`, `on_hover` (receives `float`;
+`-1` when the pointer leaves).
 
 > [Mantine docs — Rating](https://mantine.dev/core/rating/)
 
@@ -140,7 +143,7 @@ mn.color_input(
 ```
 
 Props: `format`, `swatches`, `swatches_per_row`, `disallow_input`, `fix_on_blur`,
-`with_eye_dropper`, `with_picker`, `with_preview`, `picker_type`, `full_width`,
+`with_eye_dropper`, `with_picker`, `with_preview`, `full_width`,
 `popover_props`, `close_on_color_swatch_click`, `eye_dropper_icon`,
 `left_section`, `right_section`, `label`, `description`, `error`, `placeholder`,
 `size`, `radius`, `disabled`, `required`, `with_asterisk`, `value`, `default_value`,
@@ -216,12 +219,12 @@ mn.angle_slider(
     ],
     with_label=True,
     step=1,
-    format_label=lambda v: f"{v}°",
 )
 ```
 
 Props: `value`, `default_value`, `size`, `thumb_size`, `step`, `marks`, `with_label`,
-`format_label`, `restrict_to_marks`, `disabled`, `aria_label`, `name`, `hidden_input_props`,
-`thumb_props`, `on_change`, `on_change_end`, `on_mouse_down`, `on_scrub_start`, `on_scrub_end`.
+`restrict_to_marks`, `disabled`, `aria_label`, `name`, `on_change`, `on_change_end`,
+`on_scrub_start`, `on_scrub_end`, `format_label` (JS function, e.g.
+`rx.Var("(v) => `${v}°`")`).
 
 > [Mantine docs — AngleSlider](https://mantine.dev/core/angle-slider/)

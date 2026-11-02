@@ -38,6 +38,10 @@ class HoverCard(MantineLayoutComponentBase):
 
     tag = "HoverCard"
 
+    position: Var[str]
+    offset: Var[int | dict]
+    with_arrow: Var[bool]
+    transition_props: Var[dict]
     width: Var[str | int]
     shadow: Var[str]
     open_delay: Var[int]
@@ -45,9 +49,22 @@ class HoverCard(MantineLayoutComponentBase):
     keep_mounted: Var[bool]
     disabled: Var[bool]
     initially_opened: Var[bool]
+    events: Var[dict]
+    """Events that open the card, e.g. ``{"hover": True, "focus": True,
+    "touch": False}`` (Mantine 9.7: focus is enabled by default)."""
+    interactive: Var[bool]
+    """Keeps the card open while the pointer moves onto the dropdown."""
+    role: Var[str]
+    """ARIA role of the dropdown."""
+    return_focus: Var[bool]
+    """Returns focus to the target when the card closes."""
+    close_on_escape: Var[bool]
+    """Closes the card on ``Escape`` (Mantine 9.7)."""
 
     on_open: EventHandler[list]
     on_close: EventHandler[list]
+    on_dismiss: EventHandler[list]
+    """Called when the card is dismissed with ``Escape`` or an outside press."""
 
 
 class HoverCardTarget(MantineLayoutComponentBase):
@@ -88,6 +105,9 @@ class Tooltip(MantineLayoutComponentBase):
     interactive: Var[bool]
     """Keeps the tooltip open while the pointer moves from the target element
     to the tooltip content."""
+    hide_detached: Var[bool]
+    """Hides the tooltip when its target is removed, hidden or scrolled out of
+    a clipping container (Mantine 9.7, default ``True``)."""
 
 
 class TooltipFloating(MantineLayoutComponentBase):
@@ -212,6 +232,11 @@ class PopoverRoot(MantineLayoutComponentBase):
     close_on_escape: Var[bool] = None
     within_portal: Var[bool] = None
     disabled: Var[bool] = None
+    transition_props: Var[dict] = None
+    portal_props: Var[dict] = None
+    middlewares: Var[dict] = None
+    click_outside_events: Var[list[str]] = None
+    prevent_position_change_when_visible: Var[bool] = None
 
     on_open: EventHandler[rx.event.no_args_event_spec] = None
     on_close: EventHandler[rx.event.no_args_event_spec] = None

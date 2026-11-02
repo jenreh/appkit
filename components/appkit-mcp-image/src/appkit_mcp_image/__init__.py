@@ -1,1 +1,0 @@
-"""AppKit MCP Image component."""

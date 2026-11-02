@@ -14,6 +14,32 @@ from app.components.navbar import app_navbar
 class TiptapState(rx.State):
     """State for Tiptap editor examples."""
 
+    upload_content: str = "<p>Pick, drop or paste an image.</p>"
+    structure_content: str = (
+        "<table><tbody>"
+        "<tr><th><p>Framework</p></th><th><p>Language</p></th></tr>"
+        "<tr><td><p>Mantine</p></td><td><p>TypeScript</p></td></tr>"
+        "<tr><td><p>Reflex</p></td><td><p>Python</p></td></tr>"
+        "</tbody></table>"
+        "<details><summary>Shipping and delivery</summary>"
+        "<p>Orders ship within 1-2 business days.</p></details>"
+        "<p>Toggle formatting marks to reveal spaces and paragraph breaks.</p>"
+    )
+
+    @rx.event
+    def set_structure_content(self, html: str) -> None:
+        self.structure_content = html
+
+    upload_error: str = ""
+
+    @rx.event
+    def set_upload_content(self, html: str) -> None:
+        self.upload_content = html
+
+    @rx.event
+    def on_upload_error(self, message: str) -> None:
+        self.upload_error = message
+
     # Simple editor content
     simple_content: str = (
         "<p>This is a simple rich text editor. Try formatting some text!</p>"
@@ -304,6 +330,62 @@ def tiptap_page() -> rx.Component:
             mn.rich_text_editor(
                 content="<p>This editor uses the subtle variant style.</p>",
                 variant="subtle",
+                width="100%",
+            ),
+            # Image upload (Mantine 9.7)
+            mn.title("Image Upload", order=2, mt="xl"),
+            mn.text(
+                "Use the image upload toolbar button, drag and drop, or paste. "
+                "Without image_upload_url the image is inlined as a data URL; "
+                "set it to POST files to your own endpoint.",
+                size="md",
+                c="gray",
+                mb="md",
+            ),
+            mn.rich_text_editor(
+                content=TiptapState.upload_content,
+                on_update=TiptapState.set_upload_content,
+                on_image_upload_error=TiptapState.on_upload_error,
+                toolbar_config=mn.EditorToolbarConfig(
+                    control_groups=[
+                        mn.ToolbarControlGroup.BASIC_FORMATTING.value,
+                        mn.ToolbarControlGroup.UPLOAD.value,
+                        mn.ToolbarControlGroup.HISTORY.value,
+                    ]
+                ),
+                width="100%",
+            ),
+            mn.text(TiptapState.upload_error, size="sm", c="red"),
+            # Tables, details, formatting marks (Mantine 9.6)
+            mn.title("Tables, Details & Formatting Marks", order=2, mt="xl"),
+            mn.text(
+                "Table controls insert a table from a size grid and edit rows, "
+                "columns, headers and merged cells; they are disabled outside a "
+                "table. Details wraps the current block in a collapsible section; "
+                "the pilcrow control shows invisible characters.",
+                size="md",
+                c="gray",
+                mb="md",
+            ),
+            mn.rich_text_editor(
+                content=TiptapState.structure_content,
+                on_update=TiptapState.set_structure_content,
+                toolbar_config=mn.EditorToolbarConfig(
+                    control_groups=[
+                        ["bold", "italic", "underline"],
+                        ["tableInsert", "tableDelete"],
+                        ["tableColumnBefore", "tableColumnAfter", "tableColumnDelete"],
+                        ["tableRowBefore", "tableRowAfter", "tableRowDelete"],
+                        [
+                            "tableToggleHeaderRow",
+                            "tableToggleHeaderColumn",
+                            "tableMergeCells",
+                            "tableSplitCell",
+                        ],
+                        mn.ToolbarControlGroup.DETAILS.value,
+                        mn.ToolbarControlGroup.INVISIBLE_CHARACTERS.value,
+                    ]
+                ),
                 width="100%",
             ),
             # Action buttons

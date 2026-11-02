@@ -18,7 +18,7 @@ _TREE_WRAPPER_IMPORT = _TREE_WRAPPER.importable_path
 class Tree(MantineComponentBase):
 
     @classmethod
-    def create(cls, *children, allow_drop: Var[bool] | bool | None=None, allow_range_selection: Var[bool] | bool | None=None, check_on_space: Var[bool] | bool | None=None, clear_selection_on_outside_click: Var[bool] | bool | None=None, data: Var[list[dict]] | list[dict] | None=None, expand_on_click: Var[bool] | bool | None=None, expand_on_space: Var[bool] | bool | None=None, keep_mounted: Var[bool] | bool | None=None, level_offset: Var[int | str] | int | str | None=None, multiple: Var[bool] | bool | None=None, render_node: Any | Var[Any] | None=None, select_on_click: Var[bool] | bool | None=None, tree: Var[str] | str | None=None, value: Var[str] | str | None=None, with_drag_handle: Var[bool] | bool | None=None, with_lines: Var[bool] | bool | None=None, search: Var[str] | str | None=None, with_checkbox: Var[bool] | bool | None=None, with_custom_node: Var[bool] | bool | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'Tree':
+    def create(cls, *children, allow_drop: Var[bool] | bool | None=None, allow_range_selection: Var[bool] | bool | None=None, check_on_space: Var[bool] | bool | None=None, clear_selection_on_outside_click: Var[bool] | bool | None=None, data: Var[list[dict]] | list[dict] | None=None, expand_on_click: Var[bool] | bool | None=None, expand_on_space: Var[bool] | bool | None=None, keep_mounted: Var[bool] | bool | None=None, level_offset: Var[int | str] | int | str | None=None, multiple: Var[bool] | bool | None=None, render_node: Any | Var[Any] | None=None, select_on_click: Var[bool] | bool | None=None, tree: Var[str] | str | None=None, value: Var[str] | str | None=None, with_drag_handle: Var[bool] | bool | None=None, with_lines: Var[bool] | bool | None=None, initial_selected_state: Var[list[str]] | list[str] | None=None, initial_checked_state: Var[list[str]] | list[str] | None=None, initial_expanded_state: Var[dict[str, bool]] | dict[str, bool] | None=None, check_strictly: Var[bool] | bool | None=None, search: Var[str] | str | None=None, with_checkbox: Var[bool] | bool | None=None, with_custom_node: Var[bool] | bool | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_check: Optional[EventType[Any]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_collapse: Optional[EventType[Any]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_expand: Optional[EventType[Any]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_select: Optional[EventType[Any]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'Tree':
         """Create the component.
 
 Args:
@@ -39,6 +39,10 @@ Args:
     value: no description
     with_drag_handle: no description
     with_lines: no description
+    initial_selected_state: Controller (useTree) options handled by the wrapper
+    initial_checked_state: no description
+    initial_expanded_state: no description
+    check_strictly: no description
     search: Enhanced wrapper properties
     with_checkbox: no description
     with_custom_node: no description
@@ -64,6 +68,10 @@ Args:
     on_scroll_end: Fired when scrolling ends on the element.
     on_mount: Fired when the component is mounted to the page.
     on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+    on_select: Called with the selected node values (``list[str]``).
+    on_check: Called with the checked node values (``list[str]``).
+    on_expand: Called with the value of the expanded node.
+    on_collapse: Called with the value of the collapsed node.
     **props: The props of the component.
 
 Returns:

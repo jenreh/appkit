@@ -415,7 +415,7 @@ class TestServiceRegistry:
 
         # Arrange
         class NestedAppConfig(ApplicationConfig):
-            model_config = ConfigDict(env_prefix="TEST_")
+            model_config = ConfigDict(extra="allow")
 
         # Mock env_file to avoid file access
         # Act

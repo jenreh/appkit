@@ -36,13 +36,13 @@ def _make_state() -> _StubFileUpload:
 
 
 def _uploaded_file(
-    name: str = "test.txt",
-    path: str = "/tmp/test.txt",  # noqa: S108
+    name: str = "test.pdf",
+    path: str = "/tmp/test.pdf",  # noqa: S108
 ) -> UploadedFile:
     return UploadedFile(filename=name, file_path=path, size=100)
 
 
-def _mock_upload_file(name: str = "test.txt", data: bytes = b"content") -> MagicMock:
+def _mock_upload_file(name: str = "test.pdf", data: bytes = b"content") -> MagicMock:
     f = AsyncMock()
     f.filename = name
     f.read = AsyncMock(return_value=data)
@@ -70,7 +70,7 @@ class TestHandleUpload:
     async def test_too_many_files(self) -> None:
         state = _make_state()
         state.max_files_per_thread = 2
-        files = [_mock_upload_file(f"f{i}.txt") for i in range(3)]
+        files = [_mock_upload_file(f"f{i}.pdf") for i in range(3)]
 
         chunks = [c async for c in state.handle_upload(files)]
         assert len(chunks) == 1  # toast error
@@ -87,6 +87,7 @@ class TestHandleUpload:
             patch(f"{_PATCH}.rx.get_upload_dir", return_value=mock_dir),
             patch(f"{_PATCH}.file_manager") as mock_fm,
         ):
+            mock_fm.sanitize_upload_filename.side_effect = lambda name: name
             mock_fm.move_to_user_directory.return_value = "/final/doc.pdf"
             mock_fm.get_file_size.return_value = 1234
 
@@ -99,7 +100,7 @@ class TestHandleUpload:
     @pytest.mark.asyncio
     async def test_upload_exception_handled(self) -> None:
         state = _make_state()
-        f = _mock_upload_file("bad.txt")
+        f = _mock_upload_file("bad.pdf")
         f.read = AsyncMock(side_effect=RuntimeError("read failed"))
 
         chunks = [c async for c in state.handle_upload([f])]
@@ -109,8 +110,8 @@ class TestHandleUpload:
     @pytest.mark.asyncio
     async def test_multiple_files(self) -> None:
         state = _make_state()
-        f1 = _mock_upload_file("a.txt", b"A")
-        f2 = _mock_upload_file("b.txt", b"B")
+        f1 = _mock_upload_file("a.pdf", b"A")
+        f2 = _mock_upload_file("b.pdf", b"B")
 
         mock_dir = _mock_upload_dir()
 
@@ -118,7 +119,8 @@ class TestHandleUpload:
             patch(f"{_PATCH}.rx.get_upload_dir", return_value=mock_dir),
             patch(f"{_PATCH}.file_manager") as mock_fm,
         ):
-            mock_fm.move_to_user_directory.return_value = "/final/file.txt"
+            mock_fm.sanitize_upload_filename.side_effect = lambda name: name
+            mock_fm.move_to_user_directory.return_value = "/final/file.pdf"
             mock_fm.get_file_size.return_value = 50
 
             chunks = [c async for c in state.handle_upload([f1, f2])]
@@ -136,27 +138,27 @@ class TestRemoveFileFromPrompt:
     def test_removes_file(self) -> None:
         state = _make_state()
         state.uploaded_files = [
-            _uploaded_file("a.txt", "/tmp/a.txt"),  # noqa: S108
-            _uploaded_file("b.txt", "/tmp/b.txt"),  # noqa: S108
+            _uploaded_file("a.pdf", "/tmp/a.pdf"),  # noqa: S108
+            _uploaded_file("b.pdf", "/tmp/b.pdf"),  # noqa: S108
         ]
 
         with patch(f"{_PATCH}.file_manager") as mock_fm:
-            state.remove_file_from_prompt("/tmp/a.txt")  # noqa: S108
+            state.remove_file_from_prompt("/tmp/a.pdf")  # noqa: S108
             mock_fm.cleanup_uploaded_files.assert_called_once_with(
-                ["/tmp/a.txt"]  # noqa: S108
+                ["/tmp/a.pdf"]  # noqa: S108
             )
 
         assert len(state.uploaded_files) == 1
-        assert state.uploaded_files[0].filename == "b.txt"
+        assert state.uploaded_files[0].filename == "b.pdf"
 
     def test_removes_nonexistent_noop(self) -> None:
         state = _make_state()
         state.uploaded_files = [
-            _uploaded_file("a.txt", "/tmp/a.txt")  # noqa: S108
+            _uploaded_file("a.pdf", "/tmp/a.pdf")  # noqa: S108
         ]
 
         with patch(f"{_PATCH}.file_manager"):
-            state.remove_file_from_prompt("/tmp/nonexistent.txt")  # noqa: S108
+            state.remove_file_from_prompt("/tmp/nonexistent.pdf")  # noqa: S108
 
         assert len(state.uploaded_files) == 1
 
@@ -170,14 +172,14 @@ class TestClearUploadedFiles:
     def test_clears_all(self) -> None:
         state = _make_state()
         state.uploaded_files = [
-            _uploaded_file("a.txt", "/tmp/a.txt"),  # noqa: S108
-            _uploaded_file("b.txt", "/tmp/b.txt"),  # noqa: S108
+            _uploaded_file("a.pdf", "/tmp/a.pdf"),  # noqa: S108
+            _uploaded_file("b.pdf", "/tmp/b.pdf"),  # noqa: S108
         ]
 
         with patch(f"{_PATCH}.file_manager") as mock_fm:
             state._clear_uploaded_files()
             mock_fm.cleanup_uploaded_files.assert_called_once_with(
-                ["/tmp/a.txt", "/tmp/b.txt"]  # noqa: S108
+                ["/tmp/a.pdf", "/tmp/b.pdf"]  # noqa: S108
             )
 
         assert state.uploaded_files == []
@@ -187,3 +189,48 @@ class TestClearUploadedFiles:
         with patch(f"{_PATCH}.file_manager") as mock_fm:
             state._clear_uploaded_files()
             mock_fm.cleanup_uploaded_files.assert_not_called()
+
+
+class TestUploadHardening:
+    @pytest.mark.asyncio
+    async def test_traversal_filename_is_reduced_to_base_name(self) -> None:
+        state = _make_state()
+        upload_dir = _mock_upload_dir()
+        with (
+            patch(f"{_PATCH}.rx.get_upload_dir", return_value=upload_dir),
+            patch(f"{_PATCH}.file_manager") as fm,
+        ):
+            fm.sanitize_upload_filename.side_effect = lambda n: (
+                __import__("pathlib").Path(n).name
+            )
+            fm.move_to_user_directory.return_value = "/u/x.pdf"
+            fm.get_file_size.return_value = 5
+            _ = [
+                c
+                async for c in state.handle_upload(
+                    [_mock_upload_file("../../evil/x.pdf")]
+                )
+            ]
+        upload_dir.__truediv__.assert_called_once_with("x.pdf")
+
+    @pytest.mark.asyncio
+    async def test_disallowed_extension_is_rejected(self) -> None:
+        state = _make_state()
+        with patch(f"{_PATCH}.rx.get_upload_dir", return_value=_mock_upload_dir()):
+            chunks = [
+                c async for c in state.handle_upload([_mock_upload_file("run.sh")])
+            ]
+        assert len(chunks) == 1  # error toast
+        assert state.uploaded_files == []
+
+    @pytest.mark.asyncio
+    async def test_oversized_file_is_rejected(self) -> None:
+        state = _make_state()
+        state.max_file_size_mb = 1
+        big = b"0" * (1024 * 1024 + 1)
+        with patch(f"{_PATCH}.rx.get_upload_dir", return_value=_mock_upload_dir()):
+            chunks = [
+                c async for c in state.handle_upload([_mock_upload_file("a.pdf", big)])
+            ]
+        assert len(chunks) == 1
+        assert state.uploaded_files == []

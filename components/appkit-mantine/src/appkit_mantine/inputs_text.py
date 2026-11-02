@@ -130,6 +130,21 @@ class MaskInput(MantineInputComponentBase):
     slot_char: Var[str] = None
     """Character for the placeholder slot (default: '_')."""
 
+    separate: Var[bool] = None
+    """Decouple raw and display values."""
+
+    always_show_mask: Var[bool] = None
+    """Show the mask even when the field is empty and unfocused."""
+
+    show_mask_on_focus: Var[bool] = None
+    """Show the mask placeholder on focus (default: True)."""
+
+    auto_clear: Var[bool] = None
+    """Clear the value on blur when the mask is incomplete."""
+
+    on_complete: EventHandler[lambda masked_value, _raw_value: [masked_value]] = None
+    """Called with the masked value once all required slots are filled."""
+
     @classmethod
     def get_event_triggers(cls) -> dict[str, Any]:
         """Transform events to work with Reflex state system."""

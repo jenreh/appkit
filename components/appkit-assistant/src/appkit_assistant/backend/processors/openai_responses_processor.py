@@ -162,7 +162,7 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 )
                 if not is_auth_related:
                     yield self.chunk_factory.error(
-                        f"Ein Fehler ist aufgetreten: {error_msg}",
+                        "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
                         error_type=type(e).__name__,
                     )
 

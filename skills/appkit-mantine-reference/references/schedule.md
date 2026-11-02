@@ -26,18 +26,22 @@ mn.schedule.day_view(
     radius="md",
     labels={"today": "Heute"},  # localisation overrides
     mode="default",  # "default" | "static"
-    render_event=lambda event: ...,  # full custom render
-    render_event_body=lambda event: ...,  # custom body only
     with_events_drag_and_drop=True,
-    can_drag_event=lambda event: event.draggable,
+    can_drag_event=rx.Var("(event) => event.data?.draggable !== false"),
     with_event_resize=True,
-    can_resize_event=lambda event: event.resizable,
+    can_resize_event=rx.Var("(event) => !event.allDay"),
     recurrence_expansion_limit=100,
     on_event_click=State.open_event,  # receives event
     on_event_drop=State.move_event,
     on_event_resize=State.resize_event,
 )
 ```
+
+Predicates and render props (`can_drag_event`, `can_resize_event`,
+`can_drop_event`, `render_event`, `render_event_body`, `render_day`,
+`get_current_time`, `get_time_slot_props`, ...) run in the browser. Pass a
+JavaScript function as `rx.Var("(event) => ...")`; a Python lambda does not
+work. `mode="static"` makes every view read-only.
 
 `events` items shape (Mantine convention):
 
@@ -63,9 +67,9 @@ mn.schedule(
     on_view_change=State.set_current_view,
     layout="responsive",  # "default" | "responsive"
     locale="en",
-    day_view_props={"start_time": "08:00", "end_time": "20:00"},
-    week_view_props={"first_day_of_week": 1, "weekend_days": [0, 6]},
-    month_view_props={"max_events_per_day": 3},
+    day_view_props={"startTime": "08:00:00", "endTime": "20:00:00"},
+    week_view_props={"firstDayOfWeek": 1, "weekendDays": [0, 6]},
+    month_view_props={"maxEventsPerDay": 3},
     year_view_props={},
     mobile_month_view_props={},
     on_day_click=State.on_day_click,
@@ -78,7 +82,8 @@ Props specific to the unified `Schedule`:
 - `view`, `default_view`, `on_view_change`
 - `layout` (`"default"` | `"responsive"`)
 - `day_view_props`, `week_view_props`, `month_view_props`, `year_view_props`,
-  `mobile_month_view_props` — per-view prop dicts.
+  `mobile_month_view_props` — per-view prop dicts. Reflex passes dict keys to
+  React unchanged, so write them in camelCase (`startTime`, not `start_time`).
 - All shared event handlers (`on_event_click`, `on_event_drop`, etc.)
 - Slot interaction: `with_drag_slot_select`, `on_slot_drag_end`,
   `on_time_slot_click`, `on_all_day_slot_click`, `on_day_click`,
@@ -88,13 +93,23 @@ Props specific to the unified `Schedule`:
 
 Common props (in addition to shared props):
 
-- `start_time` / `end_time` — visible window (`"HH:MM"`).
+- `start_time` / `end_time` — visible window (`"HH:MM:SS"`).
 - `interval_minutes` — slot height interval.
+- `event_drag_interval` / `event_resize_interval` — snap step in minutes for
+  drag and resize, independent of the grid (also on resources day/week).
+- `with_interactive_background_events` — `display: "background"` events
+  become clickable and fire `on_event_click`.
 - `start_scroll_time` — initial scroll position.
 - `slot_height`, `all_day_slot_height` — pixel sizes.
 - `with_header`, `header_format`, `slot_label_format`.
 - `with_current_time_indicator`, `with_current_time_bubble`, `with_all_day_slot`.
+- `get_current_time` — JS function returning "now", for a timezone-aware
+  current-time indicator.
+- `with_sub_hour_grid_lines` — extra grid lines inside each hour.
+- `with_agenda` — adds a toggle that switches to the agenda list.
 - `highlight_business_hours`, `business_hours`.
+- `event_overlap_mode` (`"columns"` | `"cascade"`), `event_overlap_raise_delay`
+  (ms before a hovered cascaded event comes to the front, default 600).
 - `with_drag_slot_select`, `on_slot_drag_end`, `on_time_slot_click`,
   `on_all_day_slot_click`, `on_day_click`, `on_external_event_drop`,
   `scroll_area_props`, `get_time_slot_props`.
@@ -112,7 +127,8 @@ Common props (in addition to shared props):
 - `first_day_of_week`, `weekend_days`, `weekday_format`.
 - `with_week_numbers`, `with_week_days`, `with_header`.
 - `consistent_weeks`, `highlight_today`, `with_outside_days`.
-- `max_events_per_day`.
+- `max_events_per_day`, `with_weekend_days` (`False` hides weekend columns),
+  `with_agenda`.
 - `with_drag_slot_select`, `on_slot_drag_end`, `on_external_event_drop`,
   `get_day_props`, `get_week_number_props`, `on_week_number_click`,
   `scroll_area_props`, `on_day_click`, `on_date_change`, `on_view_change`.
@@ -121,9 +137,7 @@ Common props (in addition to shared props):
 
 Renders 12 mini-months. Props: shared props plus
 `first_day_of_week`, `weekend_days`, `highlight_today`, `with_outside_days`,
-`with_week_numbers`, `on_day_click`, `on_month_click`.
-
-Mantine 9.5 additions:
+`with_week_numbers`, `on_day_click`, `on_month_click`, plus:
 
 - `render_day` — render-prop for fully custom day cell content; receives the day
   date (`YYYY-MM-DD`) and that day's events.
@@ -143,7 +157,7 @@ mn.schedule.year_view(
 Stacked agenda layout for narrow viewports. Props: shared props plus
 `first_day_of_week`, `with_outside_days`, `on_day_click`, `on_date_change`.
 
-## Resource views (Mantine 9.4)
+## Resource views
 
 Resource-oriented views render resources (rooms, people, equipment) as **rows**
 and time as **columns**. Each resource is `{id, label}`; events reference a
@@ -197,16 +211,36 @@ Shared props: `resources`, `events`, `date`, `on_date_change`, `groups`,
 `interval_minutes`, `slot_width`, `row_height`, `with_current_time_indicator`.
 Month adds `day_width`, `with_weekend_days`, `with_header`, `on_day_click`.
 
-Mantine 9.5 changes:
-
-- `interval_minutes` (Day/Week) now supports values over 60 — any whole number
-  of hours (e.g. `120`, `240`) renders multi-hour time slots.
-- `ResourcesMonthView` now supports event resizing via `with_event_resize` /
+- `interval_minutes` (Day/Week) accepts values over 60 — any whole number of
+  hours (e.g. `120`, `240`) renders multi-hour time slots.
+- `ResourcesMonthView` resizes events via `with_event_resize` /
   `can_resize_event` / `on_event_resize` (payload: `{eventId, newStart,
-  newEnd}`). Resizing snaps to whole days, preserves the event's time of day,
+  newEnd}`). Resizing snaps to whole days, keeps the event's time of day,
   and cannot cross resources.
 
-## AgendaView (Mantine 9.4)
+## Overlap rules and drop validation (all views)
+
+`prevent_event_overlap=True` rejects moves and resizes that would overlap
+another event. For custom rules pass JS predicates that return `False` to
+reject: `can_drop_event` and `can_resize_event_to` receive
+`{event, start, end, resourceId?}`, `can_drop_external_event` does the same check
+for items dragged in from outside. `on_event_placement_rejected` receives
+`{action, event, start, end, conflicts, reason, resourceId?}` with `action`
+`"drop"` | `"resize"` | `"external-drop"` and `reason` `"overlap"` |
+`"rejected"`. Invalid targets get
+`data-invalid` while hovered, so you can style them.
+
+```python
+mn.schedule.week_view(
+    events=State.events,
+    with_events_drag_and_drop=True,
+    prevent_event_overlap=True,
+    can_drop_event=rx.Var("({ start }) => new Date(start).getDay() !== 0"),
+    on_event_placement_rejected=State.on_rejected,
+)
+```
+
+## AgendaView
 
 Vertical list of events grouped by date across a range.
 
@@ -222,10 +256,5 @@ mn.agenda_view(
 Props: `range_start`, `range_end`, `events`, `header_format`,
 `date_header_format`, `render_event`, `on_event_click`, `locale`, `labels`,
 `mode`.
-
-## Version notes
-
-Mantine 9.5.2 fixes recurring-events timezone handling and improves WeekView
-rendering performance — pure bugfixes, no API changes.
 
 > [Mantine docs — Schedule](https://mantine.dev/x/schedule/)

@@ -48,7 +48,7 @@ from reflex.vars.base import Var
 from appkit_mantine.theme import get_app_theme
 
 MANTINE_LIBARY: Final[str] = "@mantine/core"
-MANTINE_VERSION: Final[str] = "9.5.2"
+MANTINE_VERSION: Final[str] = "9.7.3"
 
 
 MantineSize = Literal["xs", "sm", "md", "lg", "xl"]
@@ -171,7 +171,9 @@ if (typeof document !== 'undefined') {
       overflow: visible;
       pointer-events: none;
     }
-    div[data-portal="true"] > * {
+    /* :where() keeps specificity at zero so portalled components that set
+       their own pointer-events (e.g. Tour's click-through root) still win. */
+    :where(div[data-portal="true"]) > :where(*) {
       pointer-events: auto;
     }
   `;
@@ -368,6 +370,8 @@ class MantineLayoutComponentBase(MantineComponentBase):
     flex: Var[str | int] = None
     hidden_from: Var[MantineSize] = None
     visible_from: Var[MantineSize] = None
+    light_hidden: Var[bool] = None
+    dark_hidden: Var[bool] = None
 
 
 class MantineOverlayComponentBase(MantineLayoutComponentBase):

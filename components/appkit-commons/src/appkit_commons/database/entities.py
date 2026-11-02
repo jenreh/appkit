@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 import json
 from typing import Any, cast
 
@@ -110,12 +110,12 @@ class Base(DeclarativeBase):
 class Entity:  # mixin class with default columns
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
 
-    created: Mapped[datetime.datetime] = mapped_column(
+    created: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
-    updated: Mapped[datetime.datetime] = mapped_column(
+    updated: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),

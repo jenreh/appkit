@@ -2,7 +2,6 @@ import asyncio
 import functools
 import logging
 import secrets
-import string
 from collections.abc import AsyncGenerator, Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
@@ -20,11 +19,14 @@ from appkit_user.authentication.backend.database import (
     UserEntity,
     UserSessionEntity,
     oauth_state_repo,
+    password_reset_token_repo,
     session_repo,
     user_repo,
 )
 from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.backend.services import OAuthService
+from appkit_user.authentication.backend.types import PasswordResetType
+from appkit_user.authentication.login_throttle import get_login_throttle
 from appkit_user.authentication.session_validation import (
     LOGIN_ROUTE,
     SessionStatus,
@@ -53,9 +55,39 @@ def _session_monitor_interval() -> timedelta:
     return timedelta(seconds=_auth_config().session_monitor_interval_seconds)
 
 
+PASSWORD_RESET_CONFIRM_ROUTE = "/password-reset/confirm"  # noqa: S105
+FORCED_RESET_MESSAGE = "Bitte vergeben Sie jetzt ein neues Passwort."
+
+
+def _locked_message(retry_after: int) -> str:
+    minutes = max(1, -(-retry_after // 60))
+    return (
+        "Zu viele fehlgeschlagene Anmeldeversuche. "
+        f"Bitte versuchen Sie es in {minutes} Minute(n) erneut."
+    )
+
+
+async def _forced_reset_url(db: AsyncSession, user_entity: UserEntity) -> str:
+    """Route of the reset page with a one-time token for ``user_entity``.
+
+    Used when the password is right but must be replaced before a session is
+    created (``needs_password_reset``).
+    """
+    expiry = _auth_config().password_reset.token_expiry_minutes
+    _, raw_token = await password_reset_token_repo.create_token(
+        db,
+        user_id=user_entity.id,
+        email=user_entity.email or "",
+        reset_type=PasswordResetType.ADMIN_FORCED,
+        expiry_minutes=expiry,
+    )
+    await db.commit()
+    return f"{PASSWORD_RESET_CONFIRM_ROUTE}?token={raw_token}"
+
+
 def _generate_auth_token() -> str:
-    """Generate a secure auth token."""
-    return "".join(secrets.choice(TOKEN_CHARS) for _ in range(TOKEN_LENGTH))
+    """Generate a secure auth token (URL-safe, so it survives cookie encoding)."""
+    return secrets.token_urlsafe(TOKEN_BYTES)
 
 
 def storage_key(name: str, prefix: str) -> str:
@@ -82,8 +114,7 @@ AUTH_TOKEN_LOCAL_STORAGE_KEY: Final = app_storage_key("_auth_token")
 OAUTH_STATE_LOCAL_STORAGE_KEY: Final = app_storage_key("_oauth_state")
 LOGIN_REDIRECT_LOCAL_STORAGE_KEY: Final = app_storage_key("login_redirect_to")
 
-TOKEN_LENGTH: Final = 64
-TOKEN_CHARS: Final = string.ascii_letters + string.digits + "!@#$%^&*()-=_+[]{}|;:,.<>?"
+TOKEN_BYTES: Final = 48  # 384 bits of entropy
 
 LOGOUT_ROUTE: Final = "/login"
 
@@ -427,20 +458,45 @@ class LoginState(UserSession):
         await self._prepare_login()
 
         try:
+            username = str(form_data["username"])
+            client = str(getattr(self.router.session, "client_ip", "") or "")
+            throttle = get_login_throttle()
+            retry_after = await throttle.retry_after(username, client)
+            if retry_after:
+                logger.warning("Login refused for a locked key (client=%s)", client)
+                self.error_message = _locked_message(retry_after)
+                yield rx.toast.error(self.error_message, position="top-right")
+                return
+
             async with get_asyncdb_session() as db:
                 user_entity, status = await user_repo.get_login_status_by_credentials(
-                    db, form_data["username"], form_data["password"]
+                    db, username, form_data["password"]
                 )
 
+                if status == "invalid_credentials":
+                    await throttle.record_failure(username, client)
+
                 if status != "success" or user_entity is None:
+                    logger.warning("Login denied: status=%s client=%s", status, client)
                     self.error_message = self._LOGIN_ERROR_MESSAGES.get(status, "")
                     if self.error_message:
                         yield rx.toast.error(self.error_message, position="top-right")
                     return
 
+                await throttle.record_success(username)
+                logger.info(
+                    "Login succeeded: user_id=%s client=%s", user_entity.id, client
+                )
+
+                if user_entity.needs_password_reset:
+                    reset_url = await _forced_reset_url(db, user_entity)
+                    yield rx.toast.info(FORCED_RESET_MESSAGE, position="top-right")
+                    yield rx.redirect(reset_url)
+                    return
+
                 await self._create_session(db, user_entity)
 
-            yield LoginState.redir()  # type: ignore[operator]
+            yield LoginState.redir()  # ty: ignore[invalid-yield]
 
         except Exception:
             logger.exception("Login failed")
@@ -560,7 +616,7 @@ class LoginState(UserSession):
                 await self._create_session(db, user_entity)
                 await oauth_state_repo.delete(db, oauth_state)
 
-            yield LoginState.redir()  # type: ignore[operator]
+            yield LoginState.redir()  # ty: ignore[invalid-yield]
 
         except Exception:
             logger.exception("OAuth callback failed")
@@ -601,6 +657,7 @@ class LoginState(UserSession):
     @rx.event
     async def logout(self) -> list[EventSpec]:
         """Logout user and terminate session."""
+        logger.info("Logout: user_id=%s", self.user_id)
         clear_storage = await self.terminate_session()  # type: ignore[operator]  # rx.event handler invoked directly
 
         # terminate_session() clears the browser's session storage; forward it

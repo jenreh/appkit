@@ -36,6 +36,7 @@ class Table(MantineComponentBase):
     with_column_borders: Var[bool] = False
     with_row_borders: Var[bool] = True
     with_table_border: Var[bool] = False
+    variant: Var[Literal["default", "vertical"]] = None
 
 
 class Thead(MantineComponentBase):

@@ -61,7 +61,7 @@ def assistant_page() -> rx.Component:
                 Assistant.thread_list(
                     width="100%",
                     margin_top="6px",
-                    **assistant_styles,  # type: ignore
+                    **assistant_styles,
                 ),
                 flex_shrink=0,
                 width="248px",

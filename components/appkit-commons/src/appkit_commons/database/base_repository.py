@@ -161,7 +161,7 @@ class BaseRepository[T: HasId, S: AsyncSession](ABC):
         result = await session.execute(
             select(self.model_class).where(model_with_id.id == item_id)
         )
-        return cast("T | None", result.scalars().first())
+        return result.scalars().first()
 
     async def find_all(self, session: S) -> list[T]:
         """Find all instances."""

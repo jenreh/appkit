@@ -190,6 +190,8 @@ class AngleSlider(MantineLayoutComponentBase):
     restrict_to_marks: Var[bool] = None
     marks: Var[list[dict]] = None
     name: Var[str] = None
+    format_label: Var[Any] = None
+    """JS function ``(value) => ReactNode`` that formats the label."""
 
     on_change: EventHandler[lambda value: [value]] = None
     on_change_end: EventHandler[lambda value: [value]] = None

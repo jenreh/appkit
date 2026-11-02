@@ -56,6 +56,10 @@ class ReflexConfig(BaseConfig):
     # "" serves it at the site root. rxconfig.py passes it to Reflex, and
     # appkit derives its links, cookie name and storage keys from it.
     frontend_path: str = ""
+    # Number of trusted reverse proxies in front of the backend. 0 ignores
+    # X-Forwarded-For, so client_ip is the direct peer. Behind a proxy set it to
+    # the proxy count, or all users share the proxy's address (login throttle).
+    trusted_proxy_hops: int = 0
 
 
 class ApplicationConfig(BaseConfig):

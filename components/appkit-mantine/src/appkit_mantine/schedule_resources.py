@@ -110,6 +110,16 @@ class _ResourcesTimeViewBase(_ResourcesViewBase):
     slot_label_format: Var[Any] = None
     """Format string or function for time-slot labels."""
 
+    event_drag_interval: Var[int] = None
+    """Snap step in minutes for dragging, independent of
+    ``interval_minutes`` (Mantine 9.6)."""
+
+    event_resize_interval: Var[int] = None
+    """Snap step in minutes for resizing (Mantine 9.6)."""
+
+    with_interactive_background_events: Var[bool] = None
+    """Make ``display: "background"`` events clickable (Mantine 9.6)."""
+
 
 class ResourcesDayView(_ResourcesTimeViewBase):
     """Mantine ResourcesDayView — resources as rows, day time-slots as columns.

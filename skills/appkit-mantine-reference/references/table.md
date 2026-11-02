@@ -47,7 +47,7 @@ mn.table(
 | `caption_side` | `str` | `"bottom"` | `"top"` or `"bottom"` |
 | `tabular_nums` | `bool` | `False` | Use tabular-nums font feature |
 | `layout` | `str` | — | CSS table-layout; `"fixed"` for equal column widths |
-| `variant` | `str` | — | `"vertical"` for key-value layout |
+| `variant` | `str` | `"default"` | `"vertical"` styles the first column as row headers (key-value tables) |
 
 ## Sub-components
 

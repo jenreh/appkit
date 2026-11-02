@@ -146,7 +146,7 @@ mn.chip.group(
 
 Chip props: `value`, `checked`, `default_checked`, `color`, `variant`
 (`"outline"`, `"filled"`, `"light"`), `size`, `radius`, `icon`, `wrapper_props`,
-`autocontrast`, `disabled`, `id`, `name`, `type` (`"checkbox"` | `"radio"`), `on_change`
+`auto_contrast`, `disabled`, `id`, `name`, `type` (`"checkbox"` | `"radio"`), `on_change`
 (receives `bool` when used standalone).
 
 Chip.Group props: `multiple`, `value`, `default_value`, `on_change`
@@ -214,3 +214,9 @@ mn.fieldset(
 Props: `legend`, `variant`, `radius`, `disabled`.
 
 > [Mantine docs — Fieldset](https://mantine.dev/core/fieldset/)
+
+## Light variant
+
+`mn.checkbox(variant="light")` and `mn.radio(variant="light")` render the
+indicator with a light background and a colored icon (`color` accepts theme
+colors with shade, e.g. `"teal.6"`).

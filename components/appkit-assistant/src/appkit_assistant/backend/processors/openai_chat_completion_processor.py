@@ -199,6 +199,6 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
                 current_content = formatted[-1]["content"] or ""
                 formatted[-1]["content"] = f"{current_content}\n\n{msg.text}"
             else:
-                formatted.append({"role": role, "content": msg.text})  # type: ignore
+                formatted.append({"role": role, "content": msg.text})
 
         return formatted

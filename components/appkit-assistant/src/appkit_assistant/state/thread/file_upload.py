@@ -5,6 +5,7 @@ Handles uploading, removing, and clearing attached files.
 
 import logging
 from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import Any
 
 import reflex as rx
@@ -48,8 +49,11 @@ class FileUploadMixin:
 
         for upload_file in files:
             try:
+                filename = file_manager.sanitize_upload_filename(upload_file.filename)
                 upload_data = await upload_file.read()
-                temp_path = rx.get_upload_dir() / upload_file.filename
+                if len(upload_data) > self.max_file_size_mb * 1024 * 1024:
+                    raise ValueError("File exceeds the maximum size")
+                temp_path = rx.get_upload_dir() / filename
                 temp_path.parent.mkdir(parents=True, exist_ok=True)
                 temp_path.write_bytes(upload_data)
 
@@ -59,7 +63,7 @@ class FileUploadMixin:
                 file_size = file_manager.get_file_size(final_path)
 
                 uploaded = UploadedFile(
-                    filename=upload_file.filename,
+                    filename=filename,
                     file_path=final_path,
                     size=file_size,
                 )
@@ -68,6 +72,14 @@ class FileUploadMixin:
                     "Uploaded file: %s (total files: %d)",
                     upload_file.filename,
                     len(self.uploaded_files),
+                )
+            except ValueError as e:
+                logger.warning("Rejected upload %r: %s", upload_file.filename, e)
+                yield rx.toast.error(
+                    f"{Path(upload_file.filename or 'Datei').name}: "
+                    "Datei nicht erlaubt oder zu groß.",
+                    position="top-right",
+                    close_button=True,
                 )
             except Exception as e:
                 logger.error(

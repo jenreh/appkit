@@ -31,7 +31,11 @@ class ToolbarControlGroup(list, enum.Enum):
     COLORS = ['colorPicker', 'unsetColor']
     HISTORY = ['undo', 'redo']
     MEDIA = ['image']
-    ALL = ['bold', 'italic', 'underline', 'strikethrough', 'clearFormatting', 'code', 'highlight', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'hr', 'bulletList', 'orderedList', 'subscript', 'superscript', 'link', 'unlink', 'alignLeft', 'alignCenter', 'alignRight', 'alignJustify', 'colorPicker', 'unsetColor', 'undo', 'redo', 'image']
+    UPLOAD = ['imageUpload']
+    TABLE = ['tableInsert', 'tableDelete', 'tableColumnBefore', 'tableColumnAfter', 'tableColumnDelete', 'tableRowBefore', 'tableRowAfter', 'tableRowDelete', 'tableToggleHeaderRow', 'tableToggleHeaderColumn', 'tableMergeCells', 'tableSplitCell']
+    DETAILS = ['details']
+    INVISIBLE_CHARACTERS = ['invisibleCharacters']
+    ALL = ['bold', 'italic', 'underline', 'strikethrough', 'clearFormatting', 'code', 'highlight', 'h1', 'h2', 'h3', 'h4', 'blockquote', 'hr', 'bulletList', 'orderedList', 'subscript', 'superscript', 'link', 'unlink', 'alignLeft', 'alignCenter', 'alignRight', 'alignJustify', 'colorPicker', 'unsetColor', 'undo', 'redo', 'image', 'imageUpload', 'tableInsert', 'tableDelete', 'tableColumnBefore', 'tableColumnAfter', 'tableColumnDelete', 'tableRowBefore', 'tableRowAfter', 'tableRowDelete', 'tableToggleHeaderRow', 'tableToggleHeaderColumn', 'tableMergeCells', 'tableSplitCell', 'details', 'invisibleCharacters']
 
 class EditorToolbarConfig(BaseModel):
     control_groups: list[list[str]] | None
@@ -45,12 +49,15 @@ class RichTextEditor(NoSSRComponent):
         ...
 
     @classmethod
-    def create(cls, *children, content: Var[str | None] | str | None=None, editable: Var[bool | None] | bool | None=None, placeholder: Var[str | None] | str | None=None, variant: Literal['default', 'subtle'] | Var[Literal['default', 'subtle']] | None=None, with_typography_styles: Var[bool | None] | bool | None=None, labels: Var[dict | None] | dict | None=None, control_groups: Var[list | None] | list | None=None, show_toolbar: Var[bool | None] | bool | None=None, sticky: Var[bool | None] | bool | None=None, sticky_offset: Var[int | str | None] | int | str | None=None, styles: Var[dict | None] | dict | None=None, class_names: Var[dict | None] | dict | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, on_update: Optional[EventType[Any]]=None, **props) -> 'RichTextEditor':
+    def create(cls, *children, content: Var[str | None] | str | None=None, image_upload_url: Var[str | None] | str | None=None, image_upload_field: Var[str | None] | str | None=None, image_upload_headers: Var[dict | None] | dict | None=None, editable: Var[bool | None] | bool | None=None, placeholder: Var[str | None] | str | None=None, variant: Literal['default', 'subtle'] | Var[Literal['default', 'subtle']] | None=None, with_typography_styles: Var[bool | None] | bool | None=None, labels: Var[dict | None] | dict | None=None, control_groups: Var[list | None] | list | None=None, show_toolbar: Var[bool | None] | bool | None=None, sticky: Var[bool | None] | bool | None=None, sticky_offset: Var[int | str | None] | int | str | None=None, styles: Var[dict | None] | dict | None=None, class_names: Var[dict | None] | dict | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_image_upload_error: Optional[EventType[Any]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, on_update: Optional[EventType[Any]]=None, **props) -> 'RichTextEditor':
         """Create an instance of RichTextEditor.
 
 Args:
     toolbar_config: Optional toolbar configuration to customize controls.
     content: HTML content for the editor.
+    image_upload_url: Endpoint receiving images picked, dropped or pasted into the editor (Mantine 9.7). Receives a multipart POST and answers with JSON ``{"url": ...}`` (or ``src``/``alt``/``title``) or a plain URL string. Without it images are inlined as data URLs. Add the ``imageUpload`` control to ``control_groups`` for the toolbar button.
+    image_upload_field: Multipart field name for the file. Default: ``file``.
+    image_upload_headers: Extra HTTP headers sent with the upload request.
     editable: Whether the editor is editable. Default: True.
     placeholder: Placeholder text when editor is empty.
     variant: Visual style: default (with borders) or subtle (borderless).
@@ -85,6 +92,7 @@ Args:
     on_mount: Fired when the component is mounted to the page.
     on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
     on_update: Callback when content changes (receives HTML string).
+    on_image_upload_error: Called with an error message when an image upload fails.
     **props: Any properties to be passed to the RichTextEditor
 
 Returns:
@@ -123,12 +131,15 @@ Example:
 class RichTextEditorNamespace(rx.ComponentNamespace):
 
     @staticmethod
-    def __call__(*children, content: Var[str | None] | str | None=None, editable: Var[bool | None] | bool | None=None, placeholder: Var[str | None] | str | None=None, variant: Literal['default', 'subtle'] | Var[Literal['default', 'subtle']] | None=None, with_typography_styles: Var[bool | None] | bool | None=None, labels: Var[dict | None] | dict | None=None, control_groups: Var[list | None] | list | None=None, show_toolbar: Var[bool | None] | bool | None=None, sticky: Var[bool | None] | bool | None=None, sticky_offset: Var[int | str | None] | int | str | None=None, styles: Var[dict | None] | dict | None=None, class_names: Var[dict | None] | dict | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, on_update: Optional[EventType[Any]]=None, **props) -> 'RichTextEditor':
+    def __call__(*children, content: Var[str | None] | str | None=None, image_upload_url: Var[str | None] | str | None=None, image_upload_field: Var[str | None] | str | None=None, image_upload_headers: Var[dict | None] | dict | None=None, editable: Var[bool | None] | bool | None=None, placeholder: Var[str | None] | str | None=None, variant: Literal['default', 'subtle'] | Var[Literal['default', 'subtle']] | None=None, with_typography_styles: Var[bool | None] | bool | None=None, labels: Var[dict | None] | dict | None=None, control_groups: Var[list | None] | list | None=None, show_toolbar: Var[bool | None] | bool | None=None, sticky: Var[bool | None] | bool | None=None, sticky_offset: Var[int | str | None] | int | str | None=None, styles: Var[dict | None] | dict | None=None, class_names: Var[dict | None] | dict | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_image_upload_error: Optional[EventType[Any]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, on_update: Optional[EventType[Any]]=None, **props) -> 'RichTextEditor':
         """Create an instance of RichTextEditor.
 
 Args:
     toolbar_config: Optional toolbar configuration to customize controls.
     content: HTML content for the editor.
+    image_upload_url: Endpoint receiving images picked, dropped or pasted into the editor (Mantine 9.7). Receives a multipart POST and answers with JSON ``{"url": ...}`` (or ``src``/``alt``/``title``) or a plain URL string. Without it images are inlined as data URLs. Add the ``imageUpload`` control to ``control_groups`` for the toolbar button.
+    image_upload_field: Multipart field name for the file. Default: ``file``.
+    image_upload_headers: Extra HTTP headers sent with the upload request.
     editable: Whether the editor is editable. Default: True.
     placeholder: Placeholder text when editor is empty.
     variant: Visual style: default (with borders) or subtle (borderless).
@@ -163,6 +174,7 @@ Args:
     on_mount: Fired when the component is mounted to the page.
     on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
     on_update: Callback when content changes (receives HTML string).
+    on_image_upload_error: Called with an error message when an image upload fails.
     **props: Any properties to be passed to the RichTextEditor
 
 Returns:

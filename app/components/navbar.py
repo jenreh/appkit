@@ -131,6 +131,7 @@ def navbar_items() -> rx.Component:
         ),
         sub_heading("Others"),
         mn.stack(
+            sidebar_sub_item(label="ActionBar", url="/examples/action-bar"),
             sidebar_sub_item(label="Alert Dialog", url="/examples/alert-dialog"),
             sidebar_sub_item(label="Charts", url="/examples/charts"),
             sidebar_sub_item(label="Data Display", url="/examples/data-display"),
@@ -138,6 +139,7 @@ def navbar_items() -> rx.Component:
             sidebar_sub_item(label="Empty State", url="/examples/empty-state"),
             sidebar_sub_item(label="Feedback", url="/examples/feedback"),
             sidebar_sub_item(label="Layout", url="/examples/layout"),
+            sidebar_sub_item(label="Lightbox", url="/examples/lightbox"),
             sidebar_sub_item(label="Splitter", url="/examples/splitter"),
             sidebar_sub_item(
                 label="Markdown Preview", url="/examples/markdown-preview"
@@ -146,11 +148,14 @@ def navbar_items() -> rx.Component:
             sidebar_sub_item(
                 label="Number Formatter", url="/examples/number-formatter"
             ),
+            sidebar_sub_item(label="Notifications", url="/examples/notifications"),
             sidebar_sub_item(label="Overlay", url="/examples/overlay"),
             sidebar_sub_item(label="ScrollArea", url="/examples/scroll-area"),
             sidebar_sub_item(label="Auto Scroll", url="/examples/auto-scroll"),
             sidebar_sub_item(label="Table", url="/examples/table"),
             sidebar_sub_item(label="Theme", url="/examples/theme"),
+            sidebar_sub_item(label="Toggle & Toolbar", url="/examples/toolbar"),
+            sidebar_sub_item(label="Tour", url="/examples/tour"),
             sidebar_sub_item(label="Typography", url="/examples/typography"),
             gap="0",
             w="100%",

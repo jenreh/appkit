@@ -25,6 +25,7 @@ config = rx.Config(
     # One setting: Reflex serves the app below it, and appkit derives links,
     # redirects, route checks, cookie name and storage keys from it.
     frontend_path=reflex.frontend_path if reflex else "",
+    trusted_proxy_hops=reflex.trusted_proxy_hops if reflex else 0,
     db_url=database.url,
     async_db_url=database.url,
     telemetry_enabled=False,

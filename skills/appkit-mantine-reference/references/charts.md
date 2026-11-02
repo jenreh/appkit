@@ -21,6 +21,11 @@
 - SunburstChart
 - BulletChart
 - ChartBrush
+- GaugeChart
+- WaffleChart
+- MatrixChart
+- CandlestickChart
+- Reference areas & dots
 
 All charts use the shared `appkit_mantine.base.MANTINE_VERSION` for
 `@mantine/charts` (Recharts under the hood).
@@ -56,7 +61,7 @@ Common props: `data`, `data_key`, `series`, `with_legend`, `legend_props`,
 `x_axis_props`, `x_axis_label`, `with_y_axis`, `y_axis_props`, `y_axis_label`,
 `unit`, `with_right_y_axis`, `accessibility_layer`, `h`, `w`, `m*`, `p*`.
 
-### Mantine 9.5+ additions
+### Accessibility layer and brush
 
 - `accessibility_layer` (bool, `True` by default) — keyboard navigation via
   the Recharts accessibility layer. Available on all Recharts-based charts
@@ -220,7 +225,7 @@ mn.scatter_chart(
 )
 ```
 
-Second y axis (Mantine 9.5+): set `with_right_y_axis=True` (plus optional
+Second y axis: set `with_right_y_axis=True` (plus optional
 `right_y_axis_label` / `right_y_axis_props`) and bind a series to it with
 `"yAxisId": "right"` inside the `data` object — series without `yAxisId`
 stay on the left axis.
@@ -290,7 +295,7 @@ mn.heatmap(
 
 Props: `data`, `start_date`, `end_date`, `min`, `max`, `color_scale`,
 `value_label`, `enable_labels`, `with_legend`, `legend_labels`,
-`month_labels_position` (`"top"` default, `"bottom"`; Mantine 9.5+).
+`month_labels_position` (`"top"` default, `"bottom"`).
 
 ## Treemap
 
@@ -350,8 +355,7 @@ mn.radial_bar_chart(
 
 Props: `data`, `data_key`, `bar_size`, `start_angle`, `end_angle`,
 `empty_background_color`, `with_background`, `with_labels`, `with_legend`,
-`with_tooltip`, `legend_props`, `tooltip_props`, `radial_bar_props`,
-`radial_bar_chart_props`, `h`, `w`.
+`with_tooltip`, `legend_props`, `tooltip_props`, `accessibility_layer`, `h`, `w`.
 
 > [Mantine docs — RadialBarChart](https://mantine.dev/charts/radial-bar-chart/)
 
@@ -415,8 +419,8 @@ Props: `data` (`{nodes: [{name}], links: [{source, target, value}]}`), `height`,
 
 ## SunburstChart
 
-Hierarchical data as concentric rings — a treemap in polar coordinates
-(Mantine 9.5+). Same data shape as Treemap: leaf nodes carry `value`,
+Hierarchical data as concentric rings — a treemap in polar coordinates.
+Same data shape as Treemap: leaf nodes carry `value`,
 parents carry `children`.
 
 ```python
@@ -452,7 +456,7 @@ Props: `data`, `data_key`, `size`, `gap`, `inner_radius`, `start_angle`,
 ## BulletChart
 
 Compact KPI chart — a value bar against a target marker and qualitative
-range bands (Mantine 9.5+). Required props: `value`, `ranges`.
+range bands. Required props: `value`, `ranges`.
 
 ```python
 mn.bullet_chart(
@@ -478,7 +482,7 @@ Props: `value`, `ranges` (`[{value, color, label?}]`, rendered back-to-front),
 
 ## ChartBrush
 
-Themed Recharts `Brush` (Mantine 9.5+). Render as a child of AreaChart,
+Themed Recharts `Brush`. Render as a child of AreaChart,
 BarChart, LineChart, or CompositeChart for full control over the brush —
 use instead of `with_brush`, not together with it.
 
@@ -496,3 +500,120 @@ Props: `data_key`, `start_index`, `end_index`, `height`. Accepts recharts
 `Brush` props in general (Mantine applies its theming).
 
 > [Mantine docs — Brush](https://mantine.dev/charts/area-chart/)
+
+## GaugeChart
+
+Radial gauge for a single KPI. Required prop: `value`.
+
+```python
+mn.gauge_chart(
+    value=72,
+    target=85,
+    sections=[
+        {"value": 40, "color": "red.6"},
+        {"value": 70, "color": "yellow.6"},
+        {"value": 100, "color": "teal.6"},
+    ],
+    size=220,
+    thickness=14,
+    label="72% uptime",
+    round_caps=True,
+)
+```
+
+Props: `value`, `min`, `max`, `target`, `sections` (`[{value, color}]`),
+`thickness`, `size`, `start_angle`, `end_angle`, `label`, `value_formatter`
+(JS function), `track_color`, `filled_color`, `target_color`, `target_size`,
+`round_caps`.
+
+> [Mantine docs — GaugeChart](https://mantine.dev/charts/gauge-chart/)
+
+## WaffleChart
+
+Part-to-whole grid of colored cells.
+
+```python
+mn.waffle_chart(
+    data=[
+        {"name": "Chrome", "value": 65, "color": "blue"},
+        {"name": "Safari", "value": 19, "color": "teal"},
+        {"name": "Other", "value": 16, "color": "gray"},
+    ],
+    with_tooltip=True,
+    with_legend=True,
+    legend_position="right",
+)
+```
+
+Props: `data` (`[{name, value, color}]`), `rows`, `columns`, `total`, `gap`,
+`cell_radius`, `empty_color`, `with_tooltip`, `get_tooltip_label`,
+`with_legend`, `legend_position`, `fill_direction`, `size`.
+
+> [Mantine docs — WaffleChart](https://mantine.dev/charts/waffle-chart/)
+
+## MatrixChart
+
+Heatmap with categorical x/y axes. Cells are
+`{x, y, value}`; `value` may be `None`.
+
+```python
+mn.matrix_chart(
+    data=[{"x": "1", "y": "James", "value": 7}, ...],
+    y_labels=["James", "Mary"],
+    with_y_labels=True,
+    with_tooltip=True,
+    with_legend=True,
+    cell_size=14,
+)
+```
+
+Props: `data`, `x_labels`, `y_labels`, `domain`, `colors`, `cell_size`,
+`gap`, `cell_radius`, `with_tooltip`, `get_tooltip_label`, `tooltip_props`,
+`get_cell_props`, `y_labels_width`, `x_labels_height`, `x_labels_position`,
+`font_size`, `empty_color`, `with_legend`, `legend_labels`, `with_x_labels`,
+`with_y_labels`, `x_labels_rotation`. The chart has a fixed pixel size
+(`cell_size` × columns), so shrink `cell_size` for narrow containers.
+
+> [Mantine docs — MatrixChart](https://mantine.dev/charts/matrix-chart/)
+
+## CandlestickChart
+
+Financial OHLC chart. Rows need `open`, `high`, `low`,
+`close` keys (rename with `data_keys`).
+
+```python
+mn.candlestick_chart(
+    h=300,
+    data=[{"date": "Mar 01", "open": 136, "high": 142, "low": 133, "close": 140}],
+    data_key="date",
+    with_tooltip=True,
+    reference_lines=[{"y": 140, "label": "Support"}],
+)
+```
+
+Props: `data`, `data_key`, `data_keys`, `labels`, `up_color`, `down_color`,
+`max_candle_width`, `candle_stroke_width`, axis/grid/tooltip props as on
+categorical charts, `reference_lines`, `reference_areas`, `reference_dots`.
+
+> [Mantine docs — CandlestickChart](https://mantine.dev/charts/candlestick-chart/)
+
+## Reference areas & dots
+
+AreaChart, BarChart, LineChart, CompositeChart and ScatterChart accept
+`reference_lines`, `reference_areas` and `reference_dots`.
+
+```python
+mn.area_chart(
+    data=data,
+    data_key="date",
+    series=[{"name": "Apples", "color": "indigo.6"}],
+    reference_areas=[
+        {"x1": "Mar 23", "x2": "Mar 25", "color": "red.6", "label": "Weekend"}
+    ],
+    reference_dots=[{"x": "Mar 25", "y": 3470, "color": "red.6", "label": "Peak"}],
+)
+```
+
+Areas take `x1`/`x2` and/or `y1`/`y2` (omit a pair to span the full axis).
+`mn.area_chart(chart_type="stream")` renders a streamgraph; its y axis is
+hidden by default.

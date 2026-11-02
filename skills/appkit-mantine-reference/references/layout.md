@@ -290,15 +290,17 @@ Animates children show/hide via height/opacity.
 ```python
 mn.collapse(
     mn.text("Hidden until opened"),
-    in_=State.expanded,  # `in` is reserved in Python
+    expanded=State.expanded,
     transition_duration=200,
     transition_timing_function="ease",
     animate_opacity=True,
 )
 ```
 
-Props: `in_` (alias of `in`), `transition_duration`, `transition_timing_function`,
-`animate_opacity`, `on_transition_end`.
+Props: `expanded` (Mantine 9 name for the old `in`), `keep_mounted`,
+`animate_opacity`, `orientation` (`"vertical"` default, `"horizontal"` animates
+width), `transition_duration`, `transition_timing_function`,
+`on_transition_start`, `on_transition_end`.
 
 > [Mantine docs — Collapse](https://mantine.dev/core/collapse/)
 
@@ -330,38 +332,38 @@ mn.marquee(
         mn.image(src="/img/logo2.png", h=40),
         mn.image(src="/img/logo3.png", h=40),
     ),
-    speed=40,
+    duration=40000,  # ms for one full loop (default 100000)
     gap="xl",
-    direction="left",  # "left" | "right" | "up" | "down"
+    orientation="horizontal",  # "horizontal" | "vertical"
+    reverse=False,  # True reverses the scroll direction
     pause_on_hover=True,
-    fade=True,
-    fade_color="white",
+    fade_edges=True,
+    fade_edge_color="var(--mantine-color-body)",
 )
 ```
 
-Props: `speed`, `gap`, `direction`, `pause_on_hover`, `fade`, `fade_color`,
-`fade_width`, `repeat`, `vertical`.
+Props: `duration`, `gap`, `orientation`, `reverse`, `pause_on_hover`, `repeat`,
+`fade_edges`, `fade_edge_color`, `fade_edge_size`.
 
-> [Mantine docs — Marquee](https://mantine.dev/x/marquee/)
+> [Mantine docs — Marquee](https://mantine.dev/core/marquee/)
 
 ## Scroller
 
-Horizontal scroll container with optional next/prev controls.
+Horizontal scroll container with start/end controls and edge gradients.
 
 ```python
 mn.scroller(
-    mn.group(*[mn.card("Item " + str(i), maw=200) for i in range(20)]),
-    with_controls=True,
-    control_size="lg",
-    scroll_by="page",  # "page" | "item" | number
-    snap=True,
+    mn.group(*[mn.card(f"Item {i}", maw=200) for i in range(20)], wrap="nowrap"),
+    scroll_amount=200,  # px per control click
+    control_size=30,
+    draggable=True,  # drag to scroll with the mouse (default)
 )
 ```
 
-Props: `with_controls`, `control_size`, `controls_offset`, `scroll_by`, `snap`,
-`previous_control_icon`, `next_control_icon`, `previous_control_props`, `next_control_props`.
+Props: `scroll_amount`, `control_size`, `draggable`, `edge_gradient_color`,
+`show_start_control`, `show_end_control`, `start_control_icon`, `end_control_icon`.
 
-> [Mantine docs — Scroller](https://mantine.dev/x/scroller/)
+> [Mantine docs — Scroller](https://mantine.dev/core/scroller/)
 
 ## Transition
 
@@ -379,7 +381,7 @@ mn.transition(
 ```
 
 Props: `mounted`, `transition`, `duration`, `exit_duration`, `timing_function`,
-`exit_timing_function`, `enter_delay`, `exit_delay`, `keep_mounted`, `on_entered`,
+`enter_delay`, `exit_delay`, `keep_mounted`, `on_enter`, `on_entered`, `on_exit`,
 `on_exited`.
 
 > [Mantine docs — Transition](https://mantine.dev/core/transition/)
@@ -419,7 +421,7 @@ Props: `enabled`, `axis` (`"x"|"y"`), `constrain_to_viewport`,
 Drag events: `on_drag_start`, `on_drag_end` (no payload),
 `on_position_change` (payload: position object).
 
-### Resizing (Mantine 9.5)
+### Resizing
 
 Set the `dimensions` prop and place a `mn.floating_window.resize_handle`
 compound component inside the window:
@@ -472,20 +474,23 @@ Renders only items that fit; remaining items appear in an overflow indicator
 
 ```python
 mn.overflow_list(
-    items=State.tags,  # list of dicts
-    render_item=lambda item: mn.badge(item.label),
-    render_overflow=lambda n: mn.badge(f"+{n}"),
+    data=State.tags,  # list of dicts
+    max_visible_items=3,
     gap="xs",
-    item_min_width=60,
+    render_item=rx.Var("(item) => <span>{item.label}</span>", _var_type=rx.Component),
+    render_overflow=rx.Var(
+        "(items) => <span>+{items.length} more</span>", _var_type=rx.Component
+    ),
 )
 ```
 
-Props: `items`, `render_item`, `render_overflow`, `gap`, `item_min_width`,
-`max_visible`, `align`. Also `collapse_from` (`"start"|"end"`, Mantine 9.3).
+Props: `data`, `render_item`, `render_overflow` (both JS render functions, see
+above), `gap`, `max_rows`, `max_visible_items`, `collapse_from`
+(`"start"|"end"`).
 
 > Mantine extension — typically used for tag rows, breadcrumbs, action toolbars.
 
-## Splitter (Mantine 9.3)
+## Splitter
 
 Resizable split-pane layout. Drag the resizer between panes to resize.
 
@@ -494,7 +499,7 @@ mn.splitter(
     mn.splitter.pane("Left", default_size="40%", min="20%"),
     mn.splitter.pane("Right", min="20%"),
     with_handle=True,
-    reset_on_double_click=True,  # 9.4 — double-click restores default ratio
+    reset_on_double_click=True,  # double-click restores default ratio
     h="220px",
 )
 
@@ -514,3 +519,24 @@ mn.splitter(
 string), `collapsible`.
 
 > [Mantine docs — Splitter](https://mantine.dev/core/splitter/)
+
+## Resizable AppShell
+
+```python
+mn.app_shell.resizable(
+    mn.app_shell.header("Header"),
+    mn.app_shell.navbar("Navbar"),
+    mn.app_shell.main("Main"),
+    header={"height": 50},
+    navbar={"width": 240, "breakpoint": "sm"},
+    resize_options={"navbar": {"min": 160, "max": 420, "collapseThreshold": 180}},
+    initial_sizes={"navbar": 300},
+    on_resize_end=State.on_resize_end,  # dict of sizes
+    on_collapse_change=State.on_collapse,  # (section, collapsed)
+)
+```
+
+Navbar/aside resize horizontally, header/footer vertically (mouse, touch,
+keyboard). Only sections with a `resize_options` entry get a handle, and they
+still need a `width`/`height` config. `--app-shell-*` CSS variables move from
+`:root` to the AppShell root, so Modal/Drawer content cannot read them.

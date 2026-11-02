@@ -286,4 +286,38 @@ def overlay_examples() -> rx.Component:
             w="100%",
             p="12px",
         ),
+        mn.stack(
+            rx.heading("Mantine 9.7", size="8"),
+            mn.simple_grid(
+                example_box(
+                    "HoverCard (keyboard accessible)",
+                    mn.hover_card(
+                        mn.hover_card.target(mn.button("Hover or focus me")),
+                        mn.hover_card.dropdown(
+                            mn.text(
+                                "Opens on focus, closes on Escape or outside press.",
+                                size="sm",
+                            )
+                        ),
+                        interactive=True,
+                        return_focus=True,
+                        width=260,
+                    ),
+                ),
+                example_box(
+                    "Tooltip hide_detached",
+                    mn.tooltip(
+                        mn.button("Hides when detached", variant="outline"),
+                        label="Hidden if the target is removed or scrolled away",
+                        hide_detached=True,
+                        opened=True,
+                        with_arrow=True,
+                    ),
+                ),
+                cols=2,
+                spacing="md",
+            ),
+            w="100%",
+            p="12px",
+        ),
     )

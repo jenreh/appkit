@@ -106,23 +106,16 @@ my_theme = mn.create_theme(
 
 ### Virtual colors
 
-Virtual colors render differently in light vs. dark mode. Define them in `colors`
-using the `virtual_color()` helper:
+Mantine's `virtualColor()` is a JavaScript helper and is **not** wrapped
+(there is no `mn.virtual_color`). To vary a color between light and dark mode,
+use `primary_shade` per color scheme (below), or pass a CSS `light-dark()`
+value to a style prop:
 
 ```python
-my_theme = mn.create_theme(
-    colors={
-        "primary": mn.virtual_color(
-            name="primary",
-            light="blue",
-            dark="cyan",
-        )
-    },
-    primary_color="primary",
+mn.text(
+    "Status", c="light-dark(var(--mantine-color-blue-7), var(--mantine-color-cyan-4))"
 )
 ```
-
-The `name` key must match the dict key in `colors`.
 
 ### Using colors on components
 
@@ -171,11 +164,11 @@ scheme is reflected as `data-mantine-color-scheme` on the `<html>` element.
 
 ### Conditional rendering by scheme
 
-Components expose `light_hidden` / `dark_hidden` boolean props:
+Every layout-capable component takes Mantine's `light_hidden` / `dark_hidden`:
 
 ```python
-mn.text("Only in light mode", light_hidden=False, dark_hidden=True)
-mn.text("Only in dark mode", light_hidden=True, dark_hidden=False)
+mn.text("Only in light mode", dark_hidden=True)
+mn.text("Only in dark mode", light_hidden=True)
 ```
 
 ---

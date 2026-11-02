@@ -18,7 +18,7 @@
 - CloseButton, UnstyledButton
 - Tooltip, HoverCard
 
-For status feedback (Alert, Notification, Progress, Skeleton, Loader) → see [references/feedback.md](references/feedback.md)
+For status feedback (Alert, Notification, Progress, Skeleton, Loader) → see [references/feedback.md](feedback.md)
 
 ## Accordion
 
@@ -41,7 +41,7 @@ mn.accordion(
 
 Props: `multiple`, `value`, `default_value`, `transition_duration`,
 `chevron_position`, `variant` (`"default"`, `"contained"`, `"filled"`, `"separated"`),
-`disable_collapse` (Mantine 9.5 — single mode only: the open item cannot be
+`disable_collapse` (single mode only: the open item cannot be
 collapsed by clicking its control again; no effect when `multiple` is set),
 `on_change`.
 
@@ -187,12 +187,12 @@ mn.timeline(
 
 Timeline props: `active`, `reverse_active`, `line_width`, `bullet_size`, `color`, `align`.
 Timeline.Item props: `title`, `bullet`, `bullet_size`, `color`, `line_variant`,
-`opposite` (Mantine 9.5 — content on the opposite side of the line; any item
+`opposite` (content on the opposite side of the line; any item
 setting it switches the timeline to a centered two-sided layout),
-`alternate` (Mantine 9.5 — swaps content and `opposite` for this item).
+`alternate` (swaps content and `opposite` for this item).
 
 ```python
-# Centered layout with timestamps on the opposite side (Mantine 9.5)
+# Centered layout with timestamps on the opposite side
 mn.timeline(
     mn.timeline.item(
         rx.text("Repository initialized"),
@@ -246,15 +246,20 @@ Animated counter that "rolls" when the value changes.
 ```python
 mn.rolling_number(
     value=State.live_count,
-    size="xl",
+    fz="xl",
     fw=700,
-    duration=500,
+    animation_duration=500,
+    thousand_separator=".",
+    decimal_separator=",",
 )
 ```
 
-Props: `value` (number), `duration`, `easing`, plus typography style props.
+Props: `value` (number), `animation_duration` (ms), `timing_function`,
+`decimal_scale`, `fixed_decimal_scale`, `decimal_separator`, `thousand_separator`,
+`prefix`, `suffix`, `tabular_numbers`, `with_live_region`, plus style props
+(`fz`, `fw`, `c`).
 
-> Mantine extension component.
+> [Mantine docs — RollingNumber](https://mantine.dev/core/rolling-number/)
 
 ## ThemeIcon
 
@@ -271,7 +276,7 @@ mn.theme_icon(
 )
 ```
 
-Props: `size`, `radius`, `color`, `variant`, `gradient`, `autocontrast`.
+Props: `size`, `radius`, `color`, `variant`, `gradient`, `auto_contrast`.
 
 > [Mantine docs — ThemeIcon](https://mantine.dev/core/theme-icon/)
 
@@ -314,15 +319,15 @@ mn.spoiler(
     max_height=120,
     show_label="Show more",
     hide_label="Hide",
-    initial_state=False,
     expanded=State.expanded,
     on_expanded_change=State.set_expanded,
     transition_duration=200,
 )
 ```
 
-Props: `max_height`, `show_label`, `hide_label`, `initial_state`, `expanded`,
-`transition_duration`, `control_ref`, `on_expanded_change` (receives `bool`).
+Props: `max_height`, `show_label`, `hide_label`, `default_expanded`, `expanded`,
+`transition_duration`, `show_aria_label`, `hide_aria_label`,
+`on_expanded_change` (receives `bool`).
 
 > [Mantine docs — Spoiler](https://mantine.dev/core/spoiler/)
 
@@ -375,7 +380,9 @@ mn.action_icon(
 )
 ```
 
-Props: same as Button minus `left_section`/`right_section`/`full_width`.
+Props: `variant`, `color`, `size`, `radius`, `gradient`, `auto_contrast`,
+`loading`, `loader_props`, `disabled`, `data_disabled`, `component`, `type`,
+`aria_label` (always set one: the button has no text), `on_click`.
 Group: `mn.action_icon.group(icon1, icon2, orientation="horizontal")`.
 
 > [Mantine docs — ActionIcon](https://mantine.dev/core/action-icon/)
@@ -389,14 +396,14 @@ mn.close_button(
     on_click=State.dismiss,
     size="md",
     radius="xl",
-    variant="subtle",
     icon_size=16,
     aria_label="Close",
 )
 ```
 
-Props: `size`, `radius`, `icon`, `icon_size`, `variant`, `color`, `disabled`, plus
-`MantineButtonBase` props.
+Props: `size`, `radius`, `icon`, `icon_size`, `color`, `gradient`, `auto_contrast`,
+`disabled`, `data_disabled`, `loading`, `aria_label`, `on_click`, `variant`
+(`"subtle"` | `"transparent"`).
 
 > [Mantine docs — CloseButton](https://mantine.dev/core/close-button/)
 
@@ -433,9 +440,11 @@ mn.tooltip(
 
 Props: `label`, `position`, `offset`, `open_delay`, `close_delay`, `color`,
 `radius`, `with_arrow`, `multiline`, `opened` (controlled),
-`interactive` (Mantine 9.5 — keeps the tooltip open while the pointer moves
+`interactive` (keeps the tooltip open while the pointer moves
 from the target onto the tooltip content; use when the label contains links
-or other interactive elements).
+or other interactive elements), `hide_detached` (default `True`: hides when the
+target is removed, hidden or scrolled out of a clipping container). An open
+tooltip keeps its position instead of flipping while visible.
 
 Floating tooltip: `mn.tooltip.floating(child, label="Follows cursor")`.
 
@@ -473,11 +482,18 @@ mn.hover_card(
 
 Sub-components: `mn.hover_card.target(child)`, `mn.hover_card.dropdown(*content)`.
 
-Props: `width`, `shadow`, `open_delay`, `close_delay`, `position`, `disabled`.
+Opens on hover and on keyboard focus, closes on Escape or an outside press, and
+does not open on tap. To open on tap instead of focus:
+`events={"focus": False, "touch": True}, close_on_escape=False`.
+
+Props: `position`, `offset`, `with_arrow`, `transition_props`, `width`, `shadow`,
+`open_delay`, `close_delay`, `initially_opened`, `keep_mounted`, `disabled`,
+`events`, `interactive`, `role`, `return_focus`, `close_on_escape`, `on_open`,
+`on_close`, `on_dismiss`.
 
 > [Mantine docs — HoverCard](https://mantine.dev/core/hover-card/)
 
-## DataList (Mantine 9.4)
+## DataList
 
 Semantic label/value pairs rendered as `dl`/`dt`/`dd`.
 
@@ -503,7 +519,7 @@ Props: `gap`, `label_width`, `orientation` (`"horizontal"|"vertical"`), `size`,
 
 > [Mantine docs — DataList](https://mantine.dev/core/data-list/)
 
-## EmptyState (Mantine 9.4)
+## EmptyState
 
 Placeholder for "no data" situations, with optional call-to-action.
 

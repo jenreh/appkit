@@ -54,7 +54,7 @@ Returns:
 class CategoricalChartBase(MantineChartComponentBase):
 
     @classmethod
-    def create(cls, *children, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'CategoricalChartBase':
+    def create(cls, *children, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, reference_lines: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_areas: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_dots: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'CategoricalChartBase':
         """Create the component.
 
 Args:
@@ -83,6 +83,9 @@ Args:
     with_right_y_axis: Additional Axis
     right_y_axis_label: no description
     right_y_axis_props: no description
+    reference_lines: Reference lines: [{x | y, color?, label?, labelPosition?}].
+    reference_areas: Highlighted regions: [{x1?, x2?, y1?, y2?, color?, label?}]. Omit one pair to span the full opposite axis (Mantine 9.6+).
+    reference_dots: Marked points: [{x, y, r?, color?, label?}], painted on top of the series (Mantine 9.6+).
     h: Dimensions
     w: no description
     m: no description
@@ -130,12 +133,12 @@ Returns:
 class AreaChart(CategoricalChartBase):
 
     @classmethod
-    def create(cls, *children, chart_type: Literal['default', 'percent', 'split', 'stacked'] | Var[Literal['default', 'percent', 'split', 'stacked']] | None=None, curve_type: Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore'] | Var[Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore']] | None=None, connect_nulls: Var[bool] | bool | None=None, fill_opacity: Var[float] | float | None=None, split_colors: Var[list[str]] | list[str] | None=None, split_offset: Var[float] | float | None=None, with_dots: Var[bool] | bool | None=None, with_gradient: Var[bool] | bool | None=None, dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, active_dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, stroke_width: Var[float] | float | None=None, with_point_labels: Var[bool] | bool | None=None, with_brush: Var[bool] | bool | None=None, brush_props: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'AreaChart':
+    def create(cls, *children, chart_type: Literal['default', 'percent', 'split', 'stacked', 'stream'] | Var[Literal['default', 'percent', 'split', 'stacked', 'stream']] | None=None, curve_type: Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore'] | Var[Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore']] | None=None, connect_nulls: Var[bool] | bool | None=None, fill_opacity: Var[float] | float | None=None, split_colors: Var[list[str]] | list[str] | None=None, split_offset: Var[float] | float | None=None, with_dots: Var[bool] | bool | None=None, with_gradient: Var[bool] | bool | None=None, dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, active_dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, stroke_width: Var[float] | float | None=None, with_point_labels: Var[bool] | bool | None=None, with_brush: Var[bool] | bool | None=None, brush_props: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, reference_lines: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_areas: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_dots: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'AreaChart':
         """Create the component.
 
 Args:
     *children: The children of the component.
-    chart_type: no description
+    chart_type: ``"stream"`` renders a streamgraph with a floating baseline; the y axis is hidden by default for it (Mantine 9.6+).
     curve_type: no description
     connect_nulls: no description
     fill_opacity: no description
@@ -173,6 +176,9 @@ Args:
     with_right_y_axis: Additional Axis
     right_y_axis_label: no description
     right_y_axis_props: no description
+    reference_lines: Reference lines: [{x | y, color?, label?, labelPosition?}].
+    reference_areas: Highlighted regions: [{x1?, x2?, y1?, y2?, color?, label?}]. Omit one pair to span the full opposite axis (Mantine 9.6+).
+    reference_dots: Marked points: [{x, y, r?, color?, label?}], painted on top of the series (Mantine 9.6+).
     h: Dimensions
     w: no description
     m: no description
@@ -220,7 +226,7 @@ Returns:
 class BarChart(CategoricalChartBase):
 
     @classmethod
-    def create(cls, *children, chart_type: Literal['default', 'percent', 'stacked', 'waterfall'] | Var[Literal['default', 'percent', 'stacked', 'waterfall']] | None=None, cursor_fill: Var[str] | str | None=None, bar_label_color: Var[str] | str | None=None, fill_opacity: Var[float] | float | None=None, max_bar_width: Var[int] | int | None=None, min_bar_size: Var[int] | int | None=None, orientation: Literal['horizontal', 'vertical'] | Var[Literal['horizontal', 'vertical']] | None=None, with_bar_value_label: Var[bool] | bool | None=None, with_brush: Var[bool] | bool | None=None, brush_props: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'BarChart':
+    def create(cls, *children, chart_type: Literal['default', 'percent', 'stacked', 'waterfall'] | Var[Literal['default', 'percent', 'stacked', 'waterfall']] | None=None, cursor_fill: Var[str] | str | None=None, bar_label_color: Var[str] | str | None=None, fill_opacity: Var[float] | float | None=None, max_bar_width: Var[int] | int | None=None, min_bar_size: Var[int] | int | None=None, orientation: Literal['horizontal', 'vertical'] | Var[Literal['horizontal', 'vertical']] | None=None, with_bar_value_label: Var[bool] | bool | None=None, with_brush: Var[bool] | bool | None=None, brush_props: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, reference_lines: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_areas: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_dots: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'BarChart':
         """Create the component.
 
 Args:
@@ -259,6 +265,9 @@ Args:
     with_right_y_axis: Additional Axis
     right_y_axis_label: no description
     right_y_axis_props: no description
+    reference_lines: Reference lines: [{x | y, color?, label?, labelPosition?}].
+    reference_areas: Highlighted regions: [{x1?, x2?, y1?, y2?, color?, label?}]. Omit one pair to span the full opposite axis (Mantine 9.6+).
+    reference_dots: Marked points: [{x, y, r?, color?, label?}], painted on top of the series (Mantine 9.6+).
     h: Dimensions
     w: no description
     m: no description
@@ -306,7 +315,7 @@ Returns:
 class LineChart(CategoricalChartBase):
 
     @classmethod
-    def create(cls, *children, curve_type: Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore'] | Var[Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore']] | None=None, connect_nulls: Var[bool] | bool | None=None, stroke_width: Var[float] | float | None=None, with_dots: Var[bool] | bool | None=None, dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, active_dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, orientation: Literal['horizontal', 'vertical'] | Var[Literal['horizontal', 'vertical']] | None=None, with_brush: Var[bool] | bool | None=None, brush_props: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'LineChart':
+    def create(cls, *children, curve_type: Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore'] | Var[Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore']] | None=None, connect_nulls: Var[bool] | bool | None=None, stroke_width: Var[float] | float | None=None, with_dots: Var[bool] | bool | None=None, dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, active_dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, orientation: Literal['horizontal', 'vertical'] | Var[Literal['horizontal', 'vertical']] | None=None, with_brush: Var[bool] | bool | None=None, brush_props: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, reference_lines: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_areas: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_dots: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'LineChart':
         """Create the component.
 
 Args:
@@ -344,6 +353,9 @@ Args:
     with_right_y_axis: Additional Axis
     right_y_axis_label: no description
     right_y_axis_props: no description
+    reference_lines: Reference lines: [{x | y, color?, label?, labelPosition?}].
+    reference_areas: Highlighted regions: [{x1?, x2?, y1?, y2?, color?, label?}]. Omit one pair to span the full opposite axis (Mantine 9.6+).
+    reference_dots: Marked points: [{x, y, r?, color?, label?}], painted on top of the series (Mantine 9.6+).
     h: Dimensions
     w: no description
     m: no description
@@ -391,7 +403,7 @@ Returns:
 class CompositeChart(CategoricalChartBase):
 
     @classmethod
-    def create(cls, *children, curve_type: Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore'] | Var[Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore']] | None=None, connect_nulls: Var[bool] | bool | None=None, max_bar_width: Var[int] | int | None=None, min_bar_size: Var[int] | int | None=None, stroke_width: Var[float] | float | None=None, with_dots: Var[bool] | bool | None=None, dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, active_dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_brush: Var[bool] | bool | None=None, brush_props: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'CompositeChart':
+    def create(cls, *children, curve_type: Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore'] | Var[Literal['bumpX', 'bumpY', 'linear', 'monotone', 'natural', 'step', 'stepAfter', 'stepBefore']] | None=None, connect_nulls: Var[bool] | bool | None=None, max_bar_width: Var[int] | int | None=None, min_bar_size: Var[int] | int | None=None, stroke_width: Var[float] | float | None=None, with_dots: Var[bool] | bool | None=None, dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, active_dot_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_brush: Var[bool] | bool | None=None, brush_props: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, reference_lines: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_areas: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_dots: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'CompositeChart':
         """Create the component.
 
 Args:
@@ -430,6 +442,9 @@ Args:
     with_right_y_axis: Additional Axis
     right_y_axis_label: no description
     right_y_axis_props: no description
+    reference_lines: Reference lines: [{x | y, color?, label?, labelPosition?}].
+    reference_areas: Highlighted regions: [{x1?, x2?, y1?, y2?, color?, label?}]. Omit one pair to span the full opposite axis (Mantine 9.6+).
+    reference_dots: Marked points: [{x, y, r?, color?, label?}], painted on top of the series (Mantine 9.6+).
     h: Dimensions
     w: no description
     m: no description
@@ -663,7 +678,7 @@ Returns:
 class ScatterChart(CategoricalChartBase):
 
     @classmethod
-    def create(cls, *children, labels: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'ScatterChart':
+    def create(cls, *children, labels: Var[dict[str, Any]] | dict[str, Any] | None=None, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, series: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, with_legend: Var[bool] | bool | None=None, legend_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, accessibility_layer: Var[bool] | bool | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, with_x_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, with_y_axis: Var[bool] | bool | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_label: Var[str] | str | None=None, unit: Var[str] | str | None=None, with_right_y_axis: Var[bool] | bool | None=None, right_y_axis_label: Var[str] | str | None=None, right_y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, reference_lines: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_areas: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_dots: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, h: Var[int | str] | int | str | None=None, w: Var[int | str] | int | str | None=None, m: Var[int | str] | int | str | None=None, mt: Var[int | str] | int | str | None=None, mb: Var[int | str] | int | str | None=None, ml: Var[int | str] | int | str | None=None, mr: Var[int | str] | int | str | None=None, mx: Var[int | str] | int | str | None=None, my: Var[int | str] | int | str | None=None, p: Var[int | str] | int | str | None=None, pt: Var[int | str] | int | str | None=None, pb: Var[int | str] | int | str | None=None, pl: Var[int | str] | int | str | None=None, pr: Var[int | str] | int | str | None=None, px: Var[int | str] | int | str | None=None, py: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'ScatterChart':
         """Create the component.
 
 Args:
@@ -693,6 +708,9 @@ Args:
     with_right_y_axis: Additional Axis
     right_y_axis_label: no description
     right_y_axis_props: no description
+    reference_lines: Reference lines: [{x | y, color?, label?, labelPosition?}].
+    reference_areas: Highlighted regions: [{x1?, x2?, y1?, y2?, color?, label?}]. Omit one pair to span the full opposite axis (Mantine 9.6+).
+    reference_dots: Marked points: [{x, y, r?, color?, label?}], painted on top of the series (Mantine 9.6+).
     h: Dimensions
     w: no description
     m: no description
@@ -1258,6 +1276,233 @@ Args:
 Returns:
     The component."""
         ...
+
+class GaugeChart(MantineChartComponentBase):
+
+    @classmethod
+    def create(cls, *children, value: Var[float | int] | float | int | None=None, min: Var[float | int] | float | int | None=None, max: Var[float | int] | float | int | None=None, target: Var[float | int] | float | int | None=None, sections: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, thickness: Var[int] | int | None=None, size: Var[int] | int | None=None, start_angle: Var[int] | int | None=None, end_angle: Var[int] | int | None=None, label: Any | Var[Any] | None=None, value_formatter: Any | Var[Any] | None=None, track_color: Var[str] | str | None=None, filled_color: Var[str] | str | None=None, target_color: Var[str] | str | None=None, target_size: Var[int] | int | None=None, round_caps: Var[bool] | bool | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'GaugeChart':
+        """Create the component.
+
+Args:
+    *children: The children of the component.
+    value: no description
+    min: no description
+    max: no description
+    target: Value marked with a target needle.
+    sections: Threshold sections: [{value, color}].
+    thickness: no description
+    size: no description
+    start_angle: no description
+    end_angle: no description
+    label: no description
+    value_formatter: no description
+    track_color: no description
+    filled_color: no description
+    target_color: no description
+    target_size: no description
+    round_caps: no description
+    style: The style of the component.
+    key: A unique key for the component.
+    id: The id for the component.
+    ref: The Var to pass as the ref to the component.
+    class_name: The class name for the component.
+    custom_attrs: Attributes passed directly to the component.
+    on_focus: Fired when the element (or some element inside of it) receives focus. For example, it is called when the user clicks on a text input.
+    on_blur: Fired when focus has left the element (or left some element inside of it). For example, it is called when the user clicks outside of a focused text input.
+    on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+    on_context_menu: Fired when the user right-clicks on an element.
+    on_double_click: Fired when the user double-clicks on an element.
+    on_mouse_down: Fired when the user presses a mouse button on an element.
+    on_mouse_enter: Fired when the mouse pointer enters the element.
+    on_mouse_leave: Fired when the mouse pointer leaves the element.
+    on_mouse_move: Fired when the mouse pointer moves over the element.
+    on_mouse_out: Fired when the mouse pointer moves out of the element.
+    on_mouse_over: Fired when the mouse pointer moves onto the element.
+    on_mouse_up: Fired when the user releases a mouse button on an element.
+    on_scroll: Fired when the user scrolls the element.
+    on_scroll_end: Fired when scrolling ends on the element.
+    on_mount: Fired when the component is mounted to the page.
+    on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+    **props: The props of the component.
+
+Returns:
+    The component."""
+        ...
+
+class WaffleChart(MantineChartComponentBase):
+
+    @classmethod
+    def create(cls, *children, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, rows: Var[int] | int | None=None, columns: Var[int] | int | None=None, total: Var[float | int] | float | int | None=None, gap: Var[int] | int | None=None, cell_radius: Var[int] | int | None=None, empty_color: Var[str] | str | None=None, with_tooltip: Var[bool] | bool | None=None, get_tooltip_label: Any | Var[Any] | None=None, with_legend: Var[bool] | bool | None=None, legend_position: Literal['bottom', 'left', 'right', 'top'] | Var[Literal['bottom', 'left', 'right', 'top']] | None=None, fill_direction: Literal['bottom-to-top', 'left-to-right', 'right-to-left', 'top-to-bottom'] | Var[Literal['bottom-to-top', 'left-to-right', 'right-to-left', 'top-to-bottom']] | None=None, size: Var[int] | int | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'WaffleChart':
+        """Create the component.
+
+Args:
+    *children: The children of the component.
+    data: no description
+    rows: no description
+    columns: no description
+    total: no description
+    gap: no description
+    cell_radius: no description
+    empty_color: no description
+    with_tooltip: no description
+    get_tooltip_label: no description
+    with_legend: no description
+    legend_position: no description
+    fill_direction: no description
+    size: no description
+    style: The style of the component.
+    key: A unique key for the component.
+    id: The id for the component.
+    ref: The Var to pass as the ref to the component.
+    class_name: The class name for the component.
+    custom_attrs: Attributes passed directly to the component.
+    on_focus: Fired when the element (or some element inside of it) receives focus. For example, it is called when the user clicks on a text input.
+    on_blur: Fired when focus has left the element (or left some element inside of it). For example, it is called when the user clicks outside of a focused text input.
+    on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+    on_context_menu: Fired when the user right-clicks on an element.
+    on_double_click: Fired when the user double-clicks on an element.
+    on_mouse_down: Fired when the user presses a mouse button on an element.
+    on_mouse_enter: Fired when the mouse pointer enters the element.
+    on_mouse_leave: Fired when the mouse pointer leaves the element.
+    on_mouse_move: Fired when the mouse pointer moves over the element.
+    on_mouse_out: Fired when the mouse pointer moves out of the element.
+    on_mouse_over: Fired when the mouse pointer moves onto the element.
+    on_mouse_up: Fired when the user releases a mouse button on an element.
+    on_scroll: Fired when the user scrolls the element.
+    on_scroll_end: Fired when scrolling ends on the element.
+    on_mount: Fired when the component is mounted to the page.
+    on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+    **props: The props of the component.
+
+Returns:
+    The component."""
+        ...
+
+class MatrixChart(MantineChartComponentBase):
+
+    @classmethod
+    def create(cls, *children, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, x_labels: Var[list[str]] | list[str] | None=None, y_labels: Var[list[str]] | list[str] | None=None, domain: Var[list[float | int]] | list[float | int] | None=None, colors: Var[list[str]] | list[str] | None=None, cell_size: Var[int] | int | None=None, gap: Var[int] | int | None=None, cell_radius: Var[int] | int | None=None, with_tooltip: Var[bool] | bool | None=None, get_tooltip_label: Any | Var[Any] | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, get_cell_props: Any | Var[Any] | None=None, y_labels_width: Var[int] | int | None=None, x_labels_height: Var[int] | int | None=None, x_labels_position: Literal['bottom', 'top'] | Var[Literal['bottom', 'top']] | None=None, font_size: Var[int] | int | None=None, empty_color: Var[str] | str | None=None, with_legend: Var[bool] | bool | None=None, legend_labels: Var[list[str]] | list[str] | None=None, with_x_labels: Var[bool] | bool | None=None, with_y_labels: Var[bool] | bool | None=None, x_labels_rotation: Var[int] | int | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'MatrixChart':
+        """Create the component.
+
+Args:
+    *children: The children of the component.
+    data: no description
+    x_labels: no description
+    y_labels: no description
+    domain: no description
+    colors: no description
+    cell_size: no description
+    gap: no description
+    cell_radius: no description
+    with_tooltip: no description
+    get_tooltip_label: no description
+    tooltip_props: no description
+    get_cell_props: no description
+    y_labels_width: no description
+    x_labels_height: no description
+    x_labels_position: no description
+    font_size: no description
+    empty_color: no description
+    with_legend: no description
+    legend_labels: no description
+    with_x_labels: no description
+    with_y_labels: no description
+    x_labels_rotation: no description
+    style: The style of the component.
+    key: A unique key for the component.
+    id: The id for the component.
+    ref: The Var to pass as the ref to the component.
+    class_name: The class name for the component.
+    custom_attrs: Attributes passed directly to the component.
+    on_focus: Fired when the element (or some element inside of it) receives focus. For example, it is called when the user clicks on a text input.
+    on_blur: Fired when focus has left the element (or left some element inside of it). For example, it is called when the user clicks outside of a focused text input.
+    on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+    on_context_menu: Fired when the user right-clicks on an element.
+    on_double_click: Fired when the user double-clicks on an element.
+    on_mouse_down: Fired when the user presses a mouse button on an element.
+    on_mouse_enter: Fired when the mouse pointer enters the element.
+    on_mouse_leave: Fired when the mouse pointer leaves the element.
+    on_mouse_move: Fired when the mouse pointer moves over the element.
+    on_mouse_out: Fired when the mouse pointer moves out of the element.
+    on_mouse_over: Fired when the mouse pointer moves onto the element.
+    on_mouse_up: Fired when the user releases a mouse button on an element.
+    on_scroll: Fired when the user scrolls the element.
+    on_scroll_end: Fired when scrolling ends on the element.
+    on_mount: Fired when the component is mounted to the page.
+    on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+    **props: The props of the component.
+
+Returns:
+    The component."""
+        ...
+
+class CandlestickChart(MantineChartComponentBase):
+
+    @classmethod
+    def create(cls, *children, data: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, data_key: Var[str] | str | None=None, data_keys: Var[dict[str, str]] | dict[str, str] | None=None, labels: Var[dict[str, str]] | dict[str, str] | None=None, up_color: Var[str] | str | None=None, down_color: Var[str] | str | None=None, max_candle_width: Var[int] | int | None=None, candle_stroke_width: Var[int] | int | None=None, composed_chart_props: Var[dict[str, Any]] | dict[str, Any] | None=None, with_x_axis: Var[bool] | bool | None=None, with_y_axis: Var[bool] | bool | None=None, x_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, y_axis_props: Var[dict[str, Any]] | dict[str, Any] | None=None, x_axis_label: Var[str] | str | None=None, y_axis_label: Var[str] | str | None=None, grid_props: Var[dict[str, Any]] | dict[str, Any] | None=None, grid_axis: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, tick_line: Literal['none', 'x', 'xy', 'y'] | Var[Literal['none', 'x', 'xy', 'y']] | None=None, stroke_dasharray: Var[int | str] | int | str | None=None, grid_color: Var[str] | str | None=None, text_color: Var[str] | str | None=None, unit: Var[str] | str | None=None, value_formatter: Any | Var[Any] | None=None, with_tooltip: Var[bool] | bool | None=None, tooltip_animation_duration: Var[int] | int | None=None, tooltip_props: Var[dict[str, Any]] | dict[str, Any] | None=None, reference_lines: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_areas: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, reference_dots: Var[list[dict[str, Any]]] | list[dict[str, Any]] | None=None, accessibility_layer: Var[bool] | bool | None=None, w: Var[int | str] | int | str | None=None, h: Var[int | str] | int | str | None=None, style: Sequence[Mapping[str, Any]] | Mapping[str, Any] | Var[Mapping[str, Any]] | Breakpoints | None=None, key: Any | None=None, id: Any | None=None, ref: Var | None=None, class_name: Any | None=None, custom_attrs: dict[str, Any | Var] | None=None, on_blur: Optional[EventType[()]]=None, on_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_context_menu: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_double_click: Optional[EventType[()] | EventType[PointerEventInfo]]=None, on_focus: Optional[EventType[()]]=None, on_mount: Optional[EventType[()]]=None, on_mouse_down: Optional[EventType[()]]=None, on_mouse_enter: Optional[EventType[()]]=None, on_mouse_leave: Optional[EventType[()]]=None, on_mouse_move: Optional[EventType[()]]=None, on_mouse_out: Optional[EventType[()]]=None, on_mouse_over: Optional[EventType[()]]=None, on_mouse_up: Optional[EventType[()]]=None, on_scroll: Optional[EventType[()]]=None, on_scroll_end: Optional[EventType[()]]=None, on_unmount: Optional[EventType[()]]=None, **props) -> 'CandlestickChart':
+        """Create the component.
+
+Args:
+    *children: The children of the component.
+    data: no description
+    data_key: no description
+    data_keys: no description
+    labels: Tooltip labels: {open, high, low, close}.
+    up_color: no description
+    down_color: no description
+    max_candle_width: no description
+    candle_stroke_width: no description
+    composed_chart_props: no description
+    with_x_axis: no description
+    with_y_axis: no description
+    x_axis_props: no description
+    y_axis_props: no description
+    x_axis_label: no description
+    y_axis_label: no description
+    grid_props: no description
+    grid_axis: no description
+    tick_line: no description
+    stroke_dasharray: no description
+    grid_color: no description
+    text_color: no description
+    unit: no description
+    value_formatter: no description
+    with_tooltip: no description
+    tooltip_animation_duration: no description
+    tooltip_props: no description
+    reference_lines: no description
+    reference_areas: no description
+    reference_dots: no description
+    accessibility_layer: no description
+    w: no description
+    h: no description
+    style: The style of the component.
+    key: A unique key for the component.
+    id: The id for the component.
+    ref: The Var to pass as the ref to the component.
+    class_name: The class name for the component.
+    custom_attrs: Attributes passed directly to the component.
+    on_focus: Fired when the element (or some element inside of it) receives focus. For example, it is called when the user clicks on a text input.
+    on_blur: Fired when focus has left the element (or left some element inside of it). For example, it is called when the user clicks outside of a focused text input.
+    on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+    on_context_menu: Fired when the user right-clicks on an element.
+    on_double_click: Fired when the user double-clicks on an element.
+    on_mouse_down: Fired when the user presses a mouse button on an element.
+    on_mouse_enter: Fired when the mouse pointer enters the element.
+    on_mouse_leave: Fired when the mouse pointer leaves the element.
+    on_mouse_move: Fired when the mouse pointer moves over the element.
+    on_mouse_out: Fired when the mouse pointer moves out of the element.
+    on_mouse_over: Fired when the mouse pointer moves onto the element.
+    on_mouse_up: Fired when the user releases a mouse button on an element.
+    on_scroll: Fired when the user scrolls the element.
+    on_scroll_end: Fired when scrolling ends on the element.
+    on_mount: Fired when the component is mounted to the page.
+    on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+    **props: The props of the component.
+
+Returns:
+    The component."""
+        ...
 area_chart = AreaChart.create
 bar_chart = BarChart.create
 line_chart = LineChart.create
@@ -1277,3 +1522,7 @@ sankey_chart = SankeyChart.create
 sunburst_chart = SunburstChart.create
 bullet_chart = BulletChart.create
 chart_brush = ChartBrush.create
+gauge_chart = GaugeChart.create
+waffle_chart = WaffleChart.create
+matrix_chart = MatrixChart.create
+candlestick_chart = CandlestickChart.create
