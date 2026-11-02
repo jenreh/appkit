@@ -15,6 +15,7 @@ appkit-commons provides the foundational infrastructure used across all AppKit p
 - **Database Integration** - SQLAlchemy-based ORM with PostgreSQL support, connection pooling, and encryption
 - **Logging Infrastructure** - Structured logging with color output and configurable levels
 - **Security Utilities** - Password hashing with PBKDF2 and scrypt, secure random generation
+- **ASGI Middleware** - `ForceHTTPSMiddleware` (scheme from `X-Forwarded-Proto`) and `SecurityHeadersMiddleware` (nosniff, referrer policy, frame-ancestors, HSTS on https)
 - **Service Registry** - Dependency injection container for managing application services
 - **Secret Management** - Support for local secrets and Azure Key Vault integration
 

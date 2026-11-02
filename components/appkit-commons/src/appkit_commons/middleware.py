@@ -1,4 +1,14 @@
-from starlette.types import ASGIApp, Receive, Scope, Send
+from typing import Final
+
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+HSTS: Final = "max-age=31536000; includeSubDomains"
+BASE_SECURITY_HEADERS: Final = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Content-Security-Policy": "frame-ancestors 'self'",
+}
 
 
 class ForceHTTPSMiddleware:
@@ -37,3 +47,37 @@ class ForceHTTPSMiddleware:
             if headers.get(b"x-forwarded-proto") == b"https":
                 scope["scheme"] = "https"
         await self.app(scope, receive, send)
+
+
+class SecurityHeadersMiddleware:
+    """Add baseline security response headers to every HTTP response.
+
+    Sets ``X-Content-Type-Options``, ``Referrer-Policy`` and a
+    ``frame-ancestors 'self'`` policy, plus ``Strict-Transport-Security`` when the
+    request scheme is ``https``. A header a route already sets is kept, so a route
+    can send its own Content-Security-Policy. A full Content-Security-Policy is
+    left to the proxy, because Reflex pages need inline scripts.
+
+    Wrap it inside ``ForceHTTPSMiddleware`` so the scheme is already corrected
+    behind a TLS-terminating proxy when HSTS is decided.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        secure = scope.get("scheme") == "https"
+
+        async def send_with_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in BASE_SECURITY_HEADERS.items():
+                    headers.setdefault(name, value)
+                if secure:
+                    headers.setdefault("Strict-Transport-Security", HSTS)
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)

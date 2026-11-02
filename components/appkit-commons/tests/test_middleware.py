@@ -2,7 +2,12 @@
 
 import pytest
 
-from appkit_commons.middleware import ForceHTTPSMiddleware
+from appkit_commons.middleware import (
+    BASE_SECURITY_HEADERS,
+    HSTS,
+    ForceHTTPSMiddleware,
+    SecurityHeadersMiddleware,
+)
 
 
 class MockApp:
@@ -183,3 +188,58 @@ class TestForceHTTPSMiddleware:
         # Assert
         assert app.last_scope is not None
         assert app.last_scope["scheme"] == "http"
+
+
+async def _call_with_headers(
+    scope: dict, response_headers: list[tuple[bytes, bytes]]
+) -> dict[str, str]:
+    sent: list[dict] = []
+
+    async def inner(_scope, _receive, send) -> None:  # noqa: ANN001
+        await send(
+            {"type": "http.response.start", "status": 200, "headers": response_headers}
+        )
+
+    async def receive() -> dict:
+        return {"type": "http.request"}
+
+    async def send(message: dict) -> None:
+        sent.append(message)
+
+    await SecurityHeadersMiddleware(inner)(scope, receive, send)
+    return {k.decode(): v.decode() for k, v in sent[0]["headers"]}
+
+
+class TestSecurityHeadersMiddleware:
+    """Test suite for SecurityHeadersMiddleware."""
+
+    @pytest.mark.asyncio
+    async def test_adds_base_headers(self) -> None:
+        headers = await _call_with_headers({"type": "http", "scheme": "http"}, [])
+
+        assert {k: headers[k.lower()] for k in BASE_SECURITY_HEADERS} == (
+            BASE_SECURITY_HEADERS
+        )
+        assert "strict-transport-security" not in headers
+
+    @pytest.mark.asyncio
+    async def test_adds_hsts_on_https(self) -> None:
+        headers = await _call_with_headers({"type": "http", "scheme": "https"}, [])
+
+        assert headers["strict-transport-security"] == HSTS
+
+    @pytest.mark.asyncio
+    async def test_keeps_headers_a_route_set(self) -> None:
+        own = [(b"content-security-policy", b"default-src 'none'; sandbox")]
+
+        headers = await _call_with_headers({"type": "http", "scheme": "http"}, own)
+
+        assert headers["content-security-policy"] == "default-src 'none'; sandbox"
+
+    @pytest.mark.asyncio
+    async def test_passes_other_scopes_through(self) -> None:
+        app = MockApp()
+
+        await SecurityHeadersMiddleware(app)({"type": "websocket"}, None, None)
+
+        assert app.last_scope == {"type": "websocket"}
