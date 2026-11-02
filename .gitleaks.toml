@@ -1,31 +1,33 @@
+title = "appkit gitleaks config"
+
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Allowlist for uv and reflex.dev"
+# Lockfile hashes and generated trees are never hand-written secrets.
+[[allowlists]]
+description = "Lockfiles and generated or vendored trees"
 paths = [
-    # --- UV Specifics ---
-    '''uv\.lock''', # Essential: uv lockfile hashes look like secrets
-    '''\.venv/.*''', # Just in case venv isn't in .gitignore
-
-    # --- Reflex.dev Specifics ---
-    '''\.web/.*''', # Reflex compiled frontend artifacts
-    '''assets/.*''', # Static assets (images/fonts) can trigger entropy checks
-    '''alembic/versions/.*''', # Migration scripts have random revision IDs
-    '''\.secrets\.baseline''', # Removed detect-secrets baseline, still in history
-    '''rxconfig\.py''', # Config often has non-sensitive keys flagged
-
-    # --- Standard Python ---
-    '''tests/.*''',
-    '''__pycache__/.*''',
-]
-regexes = [
-    # Matches "secret:" followed by letters, numbers, dashes, or underscores
-    '''secret:[a-zA-Z0-9\-_]+''',
+    '''(^|/)uv\.lock$''',
+    '''(^|/)\.venv(\.mac)?/''',
+    '''(^|/)\.web/''',
+    '''(^|/)node_modules/''',
 ]
 
-[[rules]]
-# Ignore the specific dummy secret if you use Reflex's tutorial templates
-id = "reflex-dummy-secret"
-description = "Ignore Reflex tutorial dummy keys"
-regex = '''(my_secret_key|sk_test_4eC39HqLyjWDarjtT1zdp7dc)'''
+# Config values like `password: secret:mn-db-password` name a secret in the secret provider,
+# they never contain one. Only the whole kebab-case reference is ignored, so a real value
+# that merely contains "secret:" is still reported.
+[[allowlists]]
+description = "References to the secret provider, which hold no secret value"
+regexes = ['''^secret:[a-z0-9]+(-[a-z0-9]+)*$''']
+
+# Already in git history, cannot be removed without rewriting it.
+[[allowlists]]
+description = "Removed detect-secrets baseline"
+targetRules = ["generic-api-key"]
+paths = ['''^\.secrets\.baseline$''']
+
+# A fixed row id in a migration is flagged as an API key.
+[[allowlists]]
+description = "Default admin id in alembic migration"
+targetRules = ["generic-api-key"]
+paths = ['''^alembic/versions/2025_02_12_99a9644dc419_default_admin\.py$''']
