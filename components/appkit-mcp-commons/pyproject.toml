@@ -1,9 +1,9 @@
 [project]
 dependencies = [
     "appkit-commons",
-    "pydantic>=2.13.4",
-    "starlette>=1.8.0",
-    "fastmcp>=4.0.10",
+    "pydantic>=2.14.2",
+    "starlette>=1.10.0",
+    "fastmcp>=4.1.5",
 ]
 name = "appkit-mcp-commons"
 version = "1.17.1"

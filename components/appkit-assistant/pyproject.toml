@@ -5,11 +5,11 @@ dependencies = [
     "appkit-mantine",
     "appkit-ui",
     "appkit-user",
-    "google-genai>=2.25.0",
+    "google-genai>=2.34.0",
     "mcp>=2.3.0",
-    "openai>=3.24.0",
+    "openai>=3.42.1",
     "reflex>=0.10.1",
-    "python-multipart>=0.0.27",
+    "python-multipart>=0.0.33",
 ]
 name = "appkit-assistant"
 version = "1.17.1"
