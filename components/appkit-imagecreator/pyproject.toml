@@ -29,7 +29,7 @@ dependencies = [
     "openai>=3.24.0",
     "pillow>=13.0.0",
     "reflex>=0.10.1",
-    "pyasn1>=0.6.3",
+    "pyasn1>=0.6.5",
 ]
 
 [project.urls]
