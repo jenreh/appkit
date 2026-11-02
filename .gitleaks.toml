@@ -12,6 +12,7 @@ paths = [
     '''\.web/.*''', # Reflex compiled frontend artifacts
     '''assets/.*''', # Static assets (images/fonts) can trigger entropy checks
     '''alembic/versions/.*''', # Migration scripts have random revision IDs
+    '''\.secrets\.baseline''', # Removed detect-secrets baseline, still in history
     '''rxconfig\.py''', # Config often has non-sensitive keys flagged
 
     # --- Standard Python ---

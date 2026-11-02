@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Lint and test (Python)
+    runs-on: ubuntu-latest
+    env:
+      # Importing `app` loads the YAML configuration; the local profile plus
+      # dummy secrets let it resolve without a real database or OAuth app.
+      PROFILES: local
+      SECRET_PROVIDER: local
+      # Placeholders for every `secret:` in configuration/config*.yaml; the
+      # local secret provider reads them from the environment.
+      MN_DB_USER: ci
+      MN_DB_PASSWORD: ci
+      MN_DB_HOST: localhost
+      MN_DB_NAME: ci
+      MN_OAUTH_GITHUB_CLIENT_ID: ci
+      MN_OAUTH_GITHUB_CLIENT_SECRET: ci
+      MN_RESEND_API_KEY: ci
+      MN_AZURE_EMAIL_CONNECTION_STRING: ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.6"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked --all-packages
+
+      - name: Generate throwaway DB encryption key
+        run: |
+          key="$(uv run python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+          echo "::add-mask::${key}"
+          echo "COMMON_DB_ENCRYPTION_KEY=${key}" >> "$GITHUB_ENV"
+          echo "MN_DB_ENCRYPTION_KEY=${key}" >> "$GITHUB_ENV"
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format
+        run: uv run ruff format --check .
+
+      - name: Pytest
+        run: uv run pytest -q
