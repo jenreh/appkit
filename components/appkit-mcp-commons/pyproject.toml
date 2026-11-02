@@ -6,7 +6,7 @@ dependencies = [
     "fastmcp>=4.1.5",
 ]
 name = "appkit-mcp-commons"
-version = "1.17.1"
+version = "1.17.2"
 description = "Shared base classes and utilities for appkit MCP servers"
 readme = "README.md"
 authors = [{ name = "Jens Rehpöhler" }]
