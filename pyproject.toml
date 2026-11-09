@@ -33,7 +33,7 @@ dev = [
     "detect-secrets==1.5.0",
     "respx>=0.23.1",
     "ty==0.0.95",
-    "types-pyyaml==6.0.12.20261030",
+    "types-pyyaml==6.0.12.20261103",
 ]
 
 [tool.setuptools.packages.find]
