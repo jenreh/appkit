@@ -32,7 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 azure = ["azure-communication-email>=1.1.0"]
-resend = ["resend>=2.50.1"]
+resend = ["resend>=2.52.0"]
 
 [project.urls]
 Homepage = "https://github.com/jenreh/appkit"
