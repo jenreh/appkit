@@ -49,10 +49,11 @@ def user_form_fields(user: User | None = None) -> rx.Component:
 
     # Basic user fields
     basic_fields = [
-        rx.el.input(
+        mn.form.input(
             type="hidden",
             name="user_id",
             default_value=user.user_id.to_string() if is_edit_mode else "",
+            display="none",
         ),
         mn.text_input(
             name="name",

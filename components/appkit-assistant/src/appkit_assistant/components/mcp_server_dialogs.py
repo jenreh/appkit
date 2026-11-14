@@ -455,19 +455,21 @@ def _oauth_auth_fields(server: MCPServer | None = None) -> rx.Component:
                 on_change=ValidationState.set_oauth_scopes,
             ),
             # Hidden field to pass auth_type to form submission
-            rx.el.input(
+            mn.form.input(
                 type="hidden",
                 name="auth_type",
                 value=MCPAuthType.OAUTH_DISCOVERY,
+                display="none",
             ),
             direction="column",
             width="100%",
         ),
         # Hidden field for non-OAuth mode
-        rx.el.input(
+        mn.form.input(
             type="hidden",
             name="auth_type",
             value=MCPAuthType.API_KEY,
+            display="none",
         ),
     )
 
