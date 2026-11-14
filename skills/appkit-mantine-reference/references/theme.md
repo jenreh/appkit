@@ -8,6 +8,7 @@
 - Typography
 - Default component props
 - mantine_provider
+- theme_wrapper / ThemeState
 - mermaid_zoom_script
 
 ---
@@ -316,13 +317,32 @@ def themed_page() -> rx.Component:
 
 ---
 
+## theme_wrapper / ThemeState
+
+`mn.theme_wrapper(content)` wraps a page in `rx.theme` bound to `mn.ThemeState`
+(`gray_color="gray"`, `radius="large"`, `scaling="100%"`, `appearance="inherit"`)
+with `has_background=True`. While `mn.LoadingState.is_loading` is true the page
+shows a wait cursor. Page decorators call it once around the whole page; pair it
+with `on_load=mn.with_loading_reset(handlers)` so the cursor resets after load.
+
+```python
+@rx.page(route="/reports", on_load=mn.with_loading_reset(ReportState.on_load))
+def reports_page() -> rx.Component:
+    return mn.theme_wrapper(report_layout())
+```
+
+`ThemeState` styles Radix (`rx.*`) components only. Mantine components follow
+`mn.create_theme` and the Mantine color scheme.
+
+---
+
 ## mermaid_zoom_script
 
 One-time script that enables click-to-zoom on Mermaid diagrams rendered inside
 `mn.markdown_preview`. Add once at the root of any page that renders Mermaid.
 
 ```python
-@navbar_layout(route="/docs", ...)
+@authenticated_page(route="/docs", title="Docs")
 def docs_page() -> rx.Component:
     return mn.container(
         mn.mermaid_zoom_script(),

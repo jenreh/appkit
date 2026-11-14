@@ -3,7 +3,7 @@ name: appkit-mantine-reference
 description: "MUST invoke when generating mn.* based UIs or the user asks how to use, configure, or debug any mn.* or appkit_mantine component. appkit_mantine is NOT in Claude's training data — always use this skill rather than guessing at APIs. Covers building forms, tables, drawers, modals, tooltips, color pickers, date/time pickers, charts, and navigation; looking up correct props; debugging on_change handler types (NumberInput sends float|str, DateInput sends str|\"\"); troubleshooting component quirks like tooltips on disabled elements, overlays not closing, or props having no effect. Targets Mantine 9.7.3 on Reflex 0.10."
 metadata:
   author: jens-rehpoehler
-  version: "1.7"
+  version: "1.8"
   license: MIT
 ---
 
@@ -157,7 +157,10 @@ Mantine names them (`{"startTime": "08:00:00"}`, `styles={"content": {"minHeight
 — Map, MapControls, MapMarker (+content/popup/tooltip/label), MapPopup, MapRoute, MapArc, MapGeoJSON, MapClusterLayer, MapNavigation, MapDirectionsPanel
 
 **Theme**: See [references/theme.md](references/theme.md)
-— create_theme, mantine_provider (scoped theme override), mermaid_zoom_script
+— create_theme, mantine_provider (scoped theme override), theme_wrapper, ThemeState, mermaid_zoom_script
+
+**App helpers**: see [App helpers](#app-helpers) below
+— delete_dialog, LoadingState, with_loading_reset, sticky_header_style
 
 ## Decision tree
 
@@ -237,6 +240,41 @@ Mantine names them (`{"startTime": "08:00:00"}`, `styles={"content": {"minHeight
 **Need to render HTML/Markdown with Mantine typography styles?** → typography.md (`mn.typography_styles_provider`)
 **Need to customise the theme?** → theme.md (`mn.create_theme` + `mn.mantine_provider`)
 **Rendering Mermaid diagrams?** → theme.md (`mn.mermaid_zoom_script` to enable click-to-zoom)
+**Need a delete confirmation for a table row?** → [App helpers](#app-helpers) (`mn.delete_dialog`)
+**Need a hidden form field?** → inputs-text.md (`mn.form.input(type="hidden", ...)`)
+**Writing a page decorator / layout?** → [App helpers](#app-helpers) (`mn.theme_wrapper`, `mn.with_loading_reset`)
+
+## App helpers
+
+Ready-made pieces for appkit apps, exported from `appkit_mantine`:
+
+| Helper | Purpose |
+| --- | --- |
+| `mn.delete_dialog(title, content, on_click, icon_button=False, action_loading=False, **trigger_props)` | `mn.alert_dialog` with a trash trigger (`mn.button` or `mn.action_icon`) and a German confirmation text naming `content` |
+| `mn.LoadingState` | `is_loading`, `is_loading_message`, `set_is_loading(bool)`; drives the wait cursor |
+| `mn.with_loading_reset(on_load)` | Returns the page `on_load` list (handler, list or `None`) with `LoadingState.set_is_loading(False)` appended |
+| `mn.ThemeState` | `gray_color`, `radius`, `scaling`, `appearance` for the Radix theme |
+| `mn.theme_wrapper(content)` | `rx.theme` bound to `ThemeState`, wait cursor while `LoadingState.is_loading` |
+| `mn.sticky_header_style` | Style dict for a sticky page header (z-index, shadow, clip path) |
+
+```python
+mn.delete_dialog(
+    title="Benutzer löschen",
+    content=user.name,
+    on_click=UserState.delete_user(user.user_id),
+    icon_button=True,
+    variant="subtle",
+    color="red",
+)
+
+
+@rx.page(route="/reports", on_load=mn.with_loading_reset(ReportState.on_load))
+def reports_page() -> rx.Component:
+    return mn.theme_wrapper(mn.app_shell(mn.app_shell.main(report_content())))
+```
+
+Pages behind a login use `authenticated_page` (appkit-user), which applies both
+helpers itself.
 
 ## Reflex 0.10 notes
 
@@ -359,6 +397,8 @@ Radix 1–12 scale and does not follow the Mantine theme.
 | Bare Python `if` in component functions | `rx.cond(condition, true_comp, false_comp)` |
 | Bare Python `for` in component functions | `rx.foreach(State.items, render_fn)` |
 | Custom background on `mn.card` via `background_color`/`--card-bg` | `mn.card` ignores these; wrap in `rx.box` with desired `style` |
+| `rx.el.input(type="hidden", ...)` in a form | `mn.form.input(type="hidden", name=..., value=..., display="none")` |
+| Hand-written delete confirmation `alert_dialog` per table | `mn.delete_dialog(...)` |
 | `.to_string()` for user-facing numbers in alloq apps | `de_number(value, ...)` from `alloq_commons.components.formatters` |
 
 ## ScrollArea variants

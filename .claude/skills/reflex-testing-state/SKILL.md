@@ -4,7 +4,7 @@ description: >
   Generates pytest unit tests for Reflex.dev state logic — event handlers,
   computed vars, substates, and mocked external dependencies. Use when the user asks to
   write, scaffold, or review tests for a Reflex State class. Do NOT use for Playwright
-integration tests or UI component rendering tests.
+  integration tests or UI component rendering tests.
 ---
 
 # Testing Reflex State

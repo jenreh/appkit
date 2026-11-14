@@ -5,7 +5,7 @@ description: >
   service registry, repository pattern, database models, project architecture.
 metadata:
   author: jens-rehpoehler
-  version: "1.1"
+  version: "1.2"
   license: MIT
 ---
 
@@ -169,6 +169,9 @@ async def on_load(self) -> AsyncGenerator:
         yield
 ```
 
+`on_load` accepts any sequence of events (list or tuple). Reflex 0.10.1 cancels unfinished
+page-load chains when the client disconnects; independent background events keep running.
+
 ### Cache invalidation
 
 ```python
@@ -264,6 +267,25 @@ Use `rx.cond` and `rx.foreach` for conditionals and iteration — never bare Pyt
 
 **→ See [`examples/pages_example.py`](examples/pages_example.py) for the full annotated example including multi-page factories and registration.**
 
+Page layouts belong to the app. `app/components/templates.py` defines `authenticated`,
+`navbar_layout` (navbar + session monitor + `admin_only` gate) and `default_layout`
+(splash pages such as login). They build on `mn.theme_wrapper`,
+`mn.with_loading_reset(on_load)` and `session_monitor()` / `default_fallback()` from
+`appkit_user.authentication.components`.
+
+A package that registers pages without knowing the app layout uses
+`authenticated_page` from `appkit_user.authentication.templates` and takes the layout
+as a `template` callable `(content) -> rx.Component`:
+
+```python
+from appkit_user.authentication.templates import authenticated_page
+
+@authenticated_page(route="/settings", title="Settings", template=my_template, admin_only=True)
+def settings_page() -> rx.Component:
+    return mn.stack(...)
+```
+
+Pages registered by the app itself (or by a factory the app calls) use the app layout.
 Every feature package exports a factory function (not a bare page):
 
 ```python
@@ -484,6 +506,12 @@ Use a **dedicated `rx.State` subclass** (not mixed into the main feature state) 
 - Async DB uniqueness checks (`validate_email_unique`) — attach to `on_blur`, **not** `on_change` (avoids a DB hit on every keystroke).
 - Call `initialize()` from the parent state's `open_add_modal` / `open_edit_modal`, returning `[ValidationState.initialize(...)]`.
 - Call `validate_all()` at the top of the submit handler to surface all errors before bailing out.
+- For a native `rx.form` with repeated field names (checkbox groups, multi-selects), annotate the
+  `on_submit` handler as `form_data: rx.form.FormData[str, str]` and read `form_data.getlist("name")`
+  (Reflex 0.10.1). A plain `dict` annotation keeps only the last value per name. In a `TypedDict`,
+  `list[str]` collects every value and `bool` is `False` for an unchecked box.
+- Hidden form fields: `mn.form.input(type="hidden", name="user_id", value=..., display="none")`,
+  not `rx.el.input`.
 
 ### Pattern summary
 

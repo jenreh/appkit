@@ -3,14 +3,15 @@ name: appkit-user
 description: >
   appkit-user usage patterns: wiring the session guard (install_session_filter,
   add_session_guard, require_session), AuthenticationConfiguration (OAuth providers,
-  public_routes, session cookie), login/profile page factories, auth decorators and
-  role gates, and shared-origin path prefix handling (session cookie name,
-  app_storage_key for browser storage, OAuth redirect URLs). Apply automatically when
-  adding login, OAuth providers, protected pages or REST routes, rx.LocalStorage
-  fields, or serving an app below a frontend_path.
+  public_routes, session cookie), the authenticated_page decorator, login and
+  password-reset page factories, auth decorators and role gates, and shared-origin
+  path prefix handling (session cookie name, app_storage_key for browser storage,
+  OAuth redirect URLs). Apply automatically when adding login, OAuth providers,
+  protected pages or REST routes, rx.LocalStorage fields, or serving an app below a
+  frontend_path.
 metadata:
   author: jens-rehpoehler
-  version: "1.0"
+  version: "1.2"
   license: MIT
 ---
 
@@ -33,11 +34,17 @@ from appkit_user.authentication.pages import (  # noqa: F401  registers routes
     azure_oauth_callback_page,
     github_oauth_callback_page,
 )
-from appkit_user.user_management.pages import create_login_page
+from appkit_user.user_management.pages import (
+    create_login_page,
+    create_password_reset_confirm_page,
+    create_password_reset_request_page,
+)
 
 from app.components.templates import default_layout  # layouts live in the app
 
 create_login_page(default_layout)  # logo paths are app relative; prefixed internally
+create_password_reset_request_page(default_layout)
+create_password_reset_confirm_page(default_layout)
 
 app = rx.App(api_transformer=[api_app, add_session_guard, add_https_middleware])
 install_session_filter(app)
@@ -64,8 +71,8 @@ app:
     server_port: 8080            # 0 or the scheme default is dropped
     session_timeout: 25          # minutes
     session_cookie_secure: true  # false only for non-TLS hosts other than localhost
-    # session_cookie_name: ""    # "" = derived from frontend_path (see §4)
-    # storage_key_prefix: ""     # "" = derived from frontend_path (see §4)
+    # session_cookie_name: ""    # "" = derived from frontend_path (see §5)
+    # storage_key_prefix: ""     # "" = derived from frontend_path (see §5)
     public_routes:               # fnmatch globs, app relative; all else default-deny
       - /login
       - /password-reset
@@ -75,7 +82,7 @@ app:
       - provider: github
         client_id: secret:my-github-client-id
         client_secret: secret:my-github-client-secret
-        # redirect_url: leave unset (see §5)
+        # redirect_url: leave unset (see §6)
     password_reset:
       token_expiry_minutes: 10
       max_requests_per_hour: 3
@@ -115,7 +122,55 @@ created. The login issues an `ADMIN_FORCED` reset token
 
 ---
 
-## 3. Protecting UI and handlers
+## 3. Pages
+
+`authenticated_page` is the page decorator of appkit-user. It wraps the page in
+`mn.theme_wrapper`, adds the session monitor (timeout detection) and the
+`admin_only` gate, and appends `LoadingState` reset to `on_load`
+(`mn.with_loading_reset`). The layout comes from the app as a `template` callable;
+without one the page renders in a bare `mn.app_shell`.
+
+```python
+import appkit_mantine as mn
+from appkit_user.authentication.templates import authenticated_page
+
+
+def my_template(content: rx.Component) -> rx.Component:
+    return mn.app_shell(
+        mn.app_shell.navbar(app_navbar()),
+        mn.app_shell.main(content),
+        navbar={"width": 250, "breakpoint": "sm"},
+    )
+
+
+@authenticated_page(
+    route="/settings",
+    title="Settings",
+    template=my_template,
+    admin_only=True,
+    on_load=SettingsState.on_load,
+)
+def settings_page() -> rx.Component:
+    return mn.stack(...)
+```
+
+- `SessionFilter` gates the route before any `on_load` handler runs; an
+  unauthenticated visitor never reaches the page handlers.
+- `admin_only` only switches the rendered content to `default_fallback()`. Guard
+  admin events with `@requires_admin` (see §4).
+- Layouts such as a splash page or a page with a navbar live in the app
+  (`app/components/templates.py`). They reuse `default_meta`
+  (`appkit_user.authentication.templates`), `session_monitor()` and
+  `default_fallback()` (`appkit_user.authentication.components`).
+- `create_login_page`, `create_password_reset_request_page` and
+  `create_password_reset_confirm_page` take the app's page decorator factory as
+  their first argument. It is called as `layout(route=..., title=..., on_load=...)`
+  and returns a page decorator (`PageLayout` protocol in
+  `appkit_user.user_management.pages`).
+
+---
+
+## 4. Protecting UI and handlers
 
 ```python
 from appkit_user.authentication.components.components import (
@@ -145,7 +200,7 @@ route that reads or writes protected data checks on the server
 
 ---
 
-## 4. Path prefix: cookie and browser storage
+## 5. Path prefix: cookie and browser storage
 
 With `reflex.frontend_path: /knai`, several apps share one origin and therefore
 one cookie jar and one `localStorage`. appkit-user derives distinct names:
@@ -192,7 +247,7 @@ Rules:
 
 ---
 
-## 5. Path prefix: routes, redirects, OAuth
+## 6. Path prefix: routes, redirects, OAuth
 
 - `self.router.url.path` carries the prefix and is client controlled. Compare
   routes via `strip_public_prefix(path)`; never authorize on it.
@@ -215,7 +270,7 @@ In-process tests switch the prefix with
 
 ---
 
-## 6. Anti-Patterns
+## 7. Anti-Patterns
 
 | Anti-pattern | Correct approach |
 | --- | --- |
@@ -229,3 +284,5 @@ In-process tests switch the prefix with
 | Session cookie name hardcoded | `session_validation.session_cookie_name()` |
 | Counting login failures in your own state or DB table | `get_login_throttle()` / `login_rate_limit` config |
 | Trusting `X-Forwarded-For` / `client_ip` behind a proxy without config | Set `trusted_proxy_hops` to the trusted proxy count |
+| `admin_only=True` as the only admin check on a page | Also `@requires_admin` on every admin event handler |
+| Layout code (navbar, header) inside a reusable package | `template=` callable or a `PageLayout` passed in by the app |

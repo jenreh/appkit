@@ -11,7 +11,7 @@ description: >
   the application stack.
 metadata:
   author: jens-rehpoehler
-  version: "2.1"
+  version: "2.3"
   license: MIT
 ---
 

@@ -47,9 +47,7 @@ def create_my_feature_page(
         navbar=navbar,
         with_header=with_header,
         on_load=MyFeatureState.on_load,
-        # Choose ONE of:
-        admin_only=True,  # only admins
-        # role="my-feature",         # specific role from app/roles.py
+        admin_only=True,  # render gate; enforce events with @requires_admin
     )
     def my_feature_page() -> rx.Component:
         return rx.flex(
@@ -80,7 +78,6 @@ def create_my_feature_list_page(
         title=title,
         navbar=navbar,
         on_load=MyFeatureState.on_load,
-        role="my-feature",
     )
     def my_feature_list_page() -> rx.Component:
         return rx.flex(

@@ -59,6 +59,18 @@ mn.form.wrapper(
 )
 ```
 
+Hidden form fields that travel with `on_submit` use `mn.form.input` with
+`display="none"`:
+
+```python
+mn.form.input(
+    type="hidden",
+    name="user_id",
+    default_value=user.user_id.to_string(),
+    display="none",
+)
+```
+
 > [Mantine docs — Input](https://mantine.dev/core/input/)
 
 ## TextInput

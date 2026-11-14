@@ -97,8 +97,7 @@ plus all standard Dropzone props.
 ## ModalsProvider
 
 Enables imperative modal/confirm/dialog management from any state handler.
-Wrap your app (or a subtree) once; then call the modals API via `rx.call_script`
-or via `appkit_ui` helpers if present.
+Wrap your app (or a subtree) once; then call the modals API via `rx.call_script`.
 
 ```python
 # In your root layout (typically in app/app.py around app.add_page args)
