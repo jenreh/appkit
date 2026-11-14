@@ -1,7 +1,6 @@
 """Tests for the login page components."""
 
 import re
-from unittest.mock import patch
 
 import pytest
 from reflex.config import get_config
@@ -13,8 +12,6 @@ from appkit_user.user_management.pages import (
     create_password_reset_confirm_page,
     create_password_reset_request_page,
 )
-
-_PAGES = "appkit_user.user_management.pages"
 
 OAUTH_ICONS = (
     "google.svg",
@@ -76,7 +73,6 @@ def test_oauth_login_splash_logo_has_prefix() -> None:
     ],
 )
 def test_page_logo_has_prefix(factory) -> None:  # noqa: ANN001
-    with patch(f"{_PAGES}.default_layout", lambda **_: lambda page: page):
-        rendered = str(factory()())
+    rendered = str(factory(lambda **_: lambda page: page)())
 
     assert set(re.findall(_LOGO_RE, rendered)) == _LOGOS

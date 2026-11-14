@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any
 
+import click
 import pytest
 import yaml
 from typer.testing import CliRunner
@@ -202,7 +203,8 @@ class TestCompletionCommand:
     def test_install_completion_option_exists(self) -> None:
         result = CliRunner().invoke(app, ["--help"])
 
-        assert "--install-completion" in result.output
+        # Typer forces Rich styling on GitHub Actions; compare the plain text.
+        assert "--install-completion" in click.unstyle(result.output)
 
 
 class TestDetectCompletionShell:

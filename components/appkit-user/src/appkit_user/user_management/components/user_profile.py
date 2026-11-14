@@ -3,7 +3,6 @@ from typing import Any
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_ui.components.header import header
 from appkit_user.authentication.components.components import password_rules_checklist
 from appkit_user.authentication.states import UserSession
 from appkit_user.user_management.states.profile_states import (
@@ -207,10 +206,9 @@ def _password_change_section() -> rx.Component:
     )
 
 
-def user_profile_view(with_header: bool = False, **kwargs: Any) -> rx.Component:
+def user_profile_view(**kwargs: Any) -> rx.Component:
     """Render the user profile view content."""
     return mn.stack(
-        rx.cond(with_header, header("Profil")),
         _personal_info_section(),
         mn.divider(my="md"),
         _password_change_section(),

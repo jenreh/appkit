@@ -13,7 +13,6 @@ from appkit_assistant.state.thread_state import (
     ThreadState,
 )
 from appkit_ui.components.collapsible import collapsible
-from appkit_ui.components.dialogs import delete_dialog
 
 # Approximate character threshold for 6 lines of text
 USER_MESSAGE_COLLAPSE_THRESHOLD = 300
@@ -117,7 +116,7 @@ class MessageActionsBar:
                 content="Herunterladen",
             ),
             rx.tooltip(
-                delete_dialog(
+                mn.delete_dialog(
                     title="Nachricht löschen",
                     content="diese Nachricht",
                     on_click=ThreadState.delete_message(message.id),
@@ -382,7 +381,7 @@ class MessageComponent:
                         content="Bearbeiten",
                     ),
                     rx.tooltip(
-                        delete_dialog(
+                        mn.delete_dialog(
                             title="Nachricht löschen",
                             content="diese Nachricht",
                             on_click=ThreadState.delete_message(message.id),

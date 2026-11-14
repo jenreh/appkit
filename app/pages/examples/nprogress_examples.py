@@ -14,9 +14,9 @@ from typing import Any
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 # ============================================================================
 # State Management for Examples
@@ -26,8 +26,6 @@ from app.components.navbar import app_navbar
 class NProgressExamplesState(rx.State):
     """State for NavigationProgress examples."""
 
-    # Progress value tracking
-    current_progress: int = 0
     is_loading: bool = False
 
     # Simulated loading states
@@ -62,22 +60,18 @@ class NProgressExamplesState(rx.State):
 
     def set_progress_50(self) -> rx.event.EventSpec:
         """Set progress to 50%."""
-        self.current_progress = 50
         return rx.call_script("window.nprogress && window.nprogress.set(50)")
 
     def set_progress_75(self) -> rx.event.EventSpec:
         """Set progress to 75%."""
-        self.current_progress = 75
         return rx.call_script("window.nprogress && window.nprogress.set(75)")
 
     def reset_progress(self) -> rx.event.EventSpec:
         """Reset progress to 0."""
-        self.current_progress = 0
         return rx.call_script("window.nprogress && window.nprogress.reset()")
 
     def complete_progress(self) -> rx.event.EventSpec:
         """Complete the progress (100%) and fade out."""
-        self.current_progress = 100
         self.is_loading = False
         return rx.call_script("window.nprogress && window.nprogress.complete()")
 

@@ -54,7 +54,7 @@ uv add appkit-user
 
 - `greenlet>=3.2.4` (async utilities)
 - `appkit-commons` (shared utilities)
-- `appkit-ui` (UI components)
+- `appkit-mantine` (Mantine UI components)
 - `requests_oauthlib>=2.0.0` (OAuth2 client)
 
 ---
@@ -124,6 +124,51 @@ def login_page():
         header="My App", logo="/img/logo.svg", logo_dark="/img/logo_dark.svg"
     )
 ```
+
+#### Page factories
+
+`authenticated_page` takes the page layout from the app through its `template`
+argument:
+
+```python
+from appkit_user.authentication.templates import authenticated_page
+
+
+def my_template(content: rx.Component) -> rx.Component:
+    return mn.app_shell(mn.app_shell.main(content))
+
+
+@authenticated_page(route="/settings", title="Settings", template=my_template)
+def settings_page() -> rx.Component:
+    return rx.box("Settings")
+```
+
+`authenticated_page` is the only page decorator in appkit-user. It adds the session
+monitor and the `admin_only` gate. Theming comes from appkit-mantine
+(`mn.theme_wrapper`). Layouts such as a splash page or a page with a navbar belong
+in the app.
+
+The login and password-reset page factories take the app's page decorator factory
+as their first argument. It is called as
+`layout(route=..., title=..., on_load=...)` and must return a page decorator
+(see the `PageLayout` protocol in `appkit_user.user_management.pages`).
+
+```python
+from appkit_user.user_management.pages import (
+    create_login_page,
+    create_password_reset_confirm_page,
+    create_password_reset_request_page,
+)
+
+from app.components.templates import default_layout  # your app's layout
+
+create_login_page(default_layout)
+create_password_reset_request_page(default_layout)
+create_password_reset_confirm_page(default_layout)
+```
+
+There is no profile page factory. Build the page in your app around
+`user_profile_view()` from `appkit_user.user_management.components.user_profile`.
 
 ---
 
@@ -441,6 +486,5 @@ def navigation():
 ## 📚 Related Components
 
 - **[appkit-commons](./../appkit-commons)** - Shared utilities and configuration
-- **[appkit-ui](./../appkit-ui)** - UI components used in user management
 - **[appkit-assistant](./../appkit-assistant)** - AI assistant with user authentication
 - **[appkit-mantine](./../appkit-mantine)** - Form components for user management

@@ -5,10 +5,10 @@ from __future__ import annotations
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.examples import example_box
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 
 class InputsAdvancedState(rx.State):
@@ -21,7 +21,6 @@ class InputsAdvancedState(rx.State):
     pin_value: str = ""
     chip_checked: bool = False
     chip_group_value: str = "react"
-    native_select_value: str = ""
     fieldset_name: str = ""
     fieldset_email: str = ""
 

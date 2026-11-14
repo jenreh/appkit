@@ -10,9 +10,9 @@ from appkit_ui.components.header import header
 from appkit_user.authentication.components.components import (
     requires_admin,
 )
-from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
+from app.components.templates import authenticated
 from app.roles import IMAGE_GEN_AZURE_ROLE, IMAGE_GEN_GOOGLE_ROLE
 
 ROLE_LABELS: dict[str, str] = {

@@ -1,7 +1,6 @@
 """Examples for Mantine Table wrapper.
 
-Demonstrates sticky header, scroll container, vertical variant, and row
-selection (checkbox multi-select).
+Demonstrates sticky header, scroll container, and vertical variant.
 """
 
 from __future__ import annotations
@@ -9,9 +8,9 @@ from __future__ import annotations
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 elements = [
     {"position": 6, "mass": 12.011, "symbol": "C", "name": "Carbon"},
@@ -20,29 +19,6 @@ elements = [
     {"position": 56, "mass": 137.33, "symbol": "Ba", "name": "Barium"},
     {"position": 58, "mass": 140.12, "symbol": "Ce", "name": "Cerium"},
 ]
-
-
-class TableState(rx.State):
-    # Simple sample dataset
-    rows: list[dict] = [
-        {"id": i, "name": f"Item {i}", "value": i * 10} for i in range(1, 21)
-    ]
-
-    selected: set[int] = set()
-
-    @rx.event
-    def toggle_row(self, row_id: int) -> None:
-        if row_id in self.selected:
-            self.selected.remove(row_id)
-        else:
-            self.selected.add(row_id)
-
-    @rx.event
-    def toggle_all(self) -> None:
-        if len(self.selected) == len(self.rows):
-            self.selected = set()
-        else:
-            self.selected = {r["id"] for r in self.rows}
 
 
 def table_header() -> rx.Component:

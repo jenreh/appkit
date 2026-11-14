@@ -3,9 +3,9 @@
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 
 class MarkdownExampleState(rx.State):
@@ -210,11 +210,7 @@ With some additional text after it.
 [^1]: My reference note.
 """
 
-    current_example: str = "basic"
     current_security: str = "standard"
-
-    def set_show_source(self, value: bool) -> None:
-        self.show_source = value
 
     def set_current_security(self, value: str) -> None:
         self.current_security = value

@@ -268,7 +268,7 @@ Every feature package exports a factory function (not a bare page):
 
 ```python
 # pages.py
-from appkit_user.authentication.templates import authenticated
+from app.components.templates import authenticated
 
 def create_my_feature_page(navbar: rx.Component, route: str = "/my-feature", title: str = "My Feature") -> Callable:
     @authenticated(route=route, title=title, navbar=navbar, on_load=MyFeatureState.on_load, admin_only=True)

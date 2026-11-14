@@ -15,8 +15,8 @@ import reflex as rx
 from knai_myfeature.components.my_feature_components import my_feature_page_content
 from knai_myfeature.state.my_feature_state import MyFeatureState
 
+from app.components.templates import authenticated  # app-owned layout
 from appkit_ui.components.header import header
-from appkit_user.authentication.templates import authenticated
 
 # ─── Single-page factory ──────────────────────────────────────────────────────
 

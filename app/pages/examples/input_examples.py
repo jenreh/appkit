@@ -12,17 +12,14 @@ from __future__ import annotations
 
 import contextlib
 import json
-from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
-from typing import Any
 
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.examples import example_box
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 MIN_CRITERIA_FOR_FAIR = 3
 MIN_CRITERIA_FOR_GOOD = 4
@@ -33,24 +30,13 @@ class InputExamplesState(rx.State):
 
     # --- Text / General Input ---
     text_value: str = ""
-    text_error: str = ""
 
     def set_text_value(self, val: str) -> None:
         """Set text value."""
         self.text_value = val
 
     # --- Number Input ---
-    age: int = 18
     price: float = 9.99
-    percent: float = 0.5
-
-    def set_age(self, val: float | str) -> None:
-        """Set age."""
-        if val == "":
-            self.age = 0
-            return
-        with contextlib.suppress(ValueError):
-            self.age = int(float(val))
 
     def set_price(self, val: float | str) -> None:
         """Set price."""
@@ -60,25 +46,12 @@ class InputExamplesState(rx.State):
         with contextlib.suppress(ValueError):
             self.price = float(val)
 
-    def set_percent(self, val: float | str) -> None:
-        """Set percent."""
-        if val == "":
-            self.percent = 0.0
-            return
-        with contextlib.suppress(ValueError):
-            self.percent = float(val)
-
     # --- Textarea ---
     bio: str = ""
-    comment: str = ""
 
     def set_bio(self, val: str) -> None:
         """Set bio."""
         self.bio = val
-
-    def set_comment(self, val: str) -> None:
-        """Set comment."""
-        self.comment = val
 
     # --- JSON Input ---
     json_value: str = ""
@@ -100,140 +73,11 @@ class InputExamplesState(rx.State):
             self.json_error = f"Invalid JSON: {e}"
 
     # --- Tags Input ---
-    tags_basic: list[str] = ["React", "Reflex"]
     tags_controlled: list[str] = ["Python"]
-
-    def set_tags_basic(self, val: list[str]) -> None:
-        """Set basic tags."""
-        self.tags_basic = val
 
     def set_tags_controlled(self, val: list[str]) -> None:
         """Set controlled tags."""
         self.tags_controlled = val
-
-    # --- Date Input ---
-    selected_date: str = ""
-    appointment_date: str = ""
-    booking_date: str = ""
-    event_date: str = ""
-    birth_date: str = ""
-    birth_date_error: str = ""
-
-    # Date Range Form
-    start_date: str = ""
-    end_date: str = ""
-    start_date_error: str = ""
-    end_date_error: str = ""
-
-    def set_selected_date(self, value: str) -> None:
-        """Set the selected date."""
-        self.selected_date = value
-
-    def set_appointment_date(self, value: str) -> None:
-        """Set the appointment date."""
-        self.appointment_date = value
-
-    def set_booking_date(self, value: str) -> None:
-        """Set the booking date."""
-        self.booking_date = value
-
-    def set_event_date(self, value: str) -> None:
-        """Set the event date."""
-        self.event_date = value
-
-    def set_birth_date(self, value: str) -> None:
-        """Set the birth date."""
-        self.birth_date = value
-
-    async def validate_birth_date(self) -> AsyncGenerator[Any, Any]:
-        """Validate birth date is within acceptable age range."""
-        if not self.birth_date:
-            self.birth_date_error = "Birth date is required"
-            yield
-            return
-
-        try:
-            # Parse the date
-            birth = datetime.fromisoformat(self.birth_date)
-            today = datetime.now(tz=UTC)
-
-            # Calculate age (18-120)
-            age = (
-                today.year
-                - birth.year
-                - ((today.month, today.day) < (birth.month, birth.day))
-            )
-            min_age = 18
-            max_age = 120
-
-            if age < min_age:
-                self.birth_date_error = f"You must be at least {min_age} years old"
-            elif age > max_age:
-                self.birth_date_error = "Please enter a valid birth date"
-            else:
-                self.birth_date_error = ""
-
-        except (ValueError, AttributeError):
-            self.birth_date_error = "Invalid date format"
-
-        yield
-
-    def set_start_date(self, value: str) -> None:
-        """Set the start date."""
-        self.start_date = value
-
-    def set_end_date(self, value: str) -> None:
-        """Set the end date."""
-        self.end_date = value
-
-    async def validate_dates(self) -> AsyncGenerator[Any, Any]:
-        """Validate that start date is before end date."""
-        self.start_date_error = ""
-        self.end_date_error = ""
-
-        max_booking_days = 365
-
-        if not self.start_date:
-            self.start_date_error = "Start date is required"
-            yield
-            return
-
-        if not self.end_date:
-            self.end_date_error = "End date is required"
-            yield
-            return
-
-        try:
-            start = datetime.fromisoformat(self.start_date)
-            end = datetime.fromisoformat(self.end_date)
-
-            if start > end:
-                self.end_date_error = "End date must be after start date"
-            elif (end - start).days > max_booking_days:
-                self.end_date_error = "Date range cannot exceed one year"
-
-        except (ValueError, AttributeError):
-            self.start_date_error = "Invalid date format"
-            self.end_date_error = "Invalid date format"
-
-        yield
-
-    async def submit_date_form(self) -> AsyncGenerator[Any, Any]:
-        """Handle form submission."""
-        # Call validate_dates() as async generator
-        async for _ in self.validate_dates():
-            pass
-
-        if not self.start_date_error and not self.end_date_error:
-            yield rx.toast.success(
-                f"Booking confirmed from {self.start_date} to {self.end_date}",
-                position="top-right",
-            )
-        else:
-            yield rx.toast.error(
-                "Please fix the errors before submitting",
-                position="top-right",
-            )
 
     # --- Password Input ---
     password_basic_value: str = ""
@@ -247,18 +91,10 @@ class InputExamplesState(rx.State):
     error_password: str = ""
     error_message: str = ""
 
-    # Use disabled value directly in component if constant, or here
-    disabled_password_value: str = "DisabledPassword123"  # noqa: S105
-
     strength_password: str = ""
     strength_label: str = ""
     strength_color: str = "red"
     strength_value: int = 0
-
-    form_password: str = ""
-    form_confirm: str = ""
-    form_error: str = ""
-    form_submitted: bool = False
 
     def set_password_basic_value(self, value: str) -> None:
         self.password_basic_value = value
@@ -324,28 +160,6 @@ class InputExamplesState(rx.State):
             self.strength_label = "Strong"
             self.strength_color = "green"
 
-    def set_form_password(self, value: str) -> None:
-        self.form_password = value
-        self._validate_password_form()
-
-    def set_form_confirm(self, value: str) -> None:
-        self.form_confirm = value
-        self._validate_password_form()
-
-    def _validate_password_form(self) -> None:
-        min_len = 8
-        if len(self.form_password) > 0 and len(self.form_password) < min_len:
-            self.form_error = f"Password must be at least {min_len} characters"
-        elif len(self.form_confirm) > 0 and self.form_password != self.form_confirm:
-            self.form_error = "Passwords do not match"
-        else:
-            self.form_error = ""
-
-    def submit_password_form(self) -> None:
-        self._validate_password_form()
-        if not self.form_error and self.form_password:
-            self.form_submitted = True
-
     # --- Slider & Switch ---
     slider_value: int = 50
     range_slider_value: list[int] = [20, 80]
@@ -361,11 +175,7 @@ class InputExamplesState(rx.State):
         self.switch_checked = val
 
     # --- Mask Input ---
-    phone_value: str = ""
     card_value: str = ""
-
-    def set_phone_value(self, val: str) -> None:
-        self.phone_value = val
 
     def set_card_value(self, val: str) -> None:
         self.card_value = val

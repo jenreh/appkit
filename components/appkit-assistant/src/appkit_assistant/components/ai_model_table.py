@@ -12,7 +12,6 @@ from appkit_assistant.components.ai_model_dialogs import (
     edit_ai_model_modal,
 )
 from appkit_assistant.state.ai_model_admin_state import AIModelAdminState
-from appkit_ui.styles import sticky_header_style
 
 
 def _processor_short_label(processor_type: str) -> rx.Component:
@@ -196,7 +195,7 @@ def ai_models_table(
                         mn.table.th(mn.text("Rolle", size="sm", fw="700")),
                         mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
                         mn.table.th(mn.text("", size="sm")),
-                        style=sticky_header_style,
+                        style=mn.sticky_header_style,
                     ),
                 ),
                 mn.table.tbody(

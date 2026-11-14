@@ -3,11 +3,6 @@ from typing import Any
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import (
-    delete_dialog,
-)
-from appkit_ui.components.form_inputs import hidden_field
-from appkit_ui.styles import sticky_header_style
 from appkit_user.authentication.backend.models import User
 from appkit_user.user_management.states.user_states import UserState
 
@@ -54,7 +49,8 @@ def user_form_fields(user: User | None = None) -> rx.Component:
 
     # Basic user fields
     basic_fields = [
-        hidden_field(
+        rx.el.input(
+            type="hidden",
             name="user_id",
             default_value=user.user_id.to_string() if is_edit_mode else "",
         ),
@@ -358,7 +354,7 @@ def update_user_button(
 
 def delete_user_button(user: User, **kwargs: Any) -> rx.Component:
     """Use the generic delete dialog component."""
-    return delete_dialog(
+    return mn.delete_dialog(
         title="Löschen bestätigen",
         content=rx.cond(user.email, user.email, "Unbekannter Benutzer"),
         on_click=lambda: UserState.delete_user(user.user_id),
@@ -469,7 +465,7 @@ def user_table_view(additional_components: list | None = None) -> rx.Component:
                     style={"textAlign": "center"},
                 ),
                 mn.table.th(mn.text("", size="sm")),
-                style=sticky_header_style,
+                style=mn.sticky_header_style,
             ),
         ),
         mn.table.tbody(

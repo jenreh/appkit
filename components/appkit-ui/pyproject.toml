@@ -30,12 +30,6 @@ Documentation = "https://github.com/jenreh/appkit/tree/main/docs"
 Repository = "https://github.com/jenreh/appkit"
 Issues = "https://github.com/jenreh/appkit/issues"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.uv.sources]
-appkit-commons = { workspace = true }
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/appkit_ui"]
 

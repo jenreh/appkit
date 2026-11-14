@@ -5,20 +5,18 @@ from __future__ import annotations
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.examples import example_box
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 
 class DateExampleState(rx.State):
     """State for date examples."""
 
     date_value: str = ""
-    date_range: list[str] = []
     datetime_value: str = ""
     inline_datetime_value: str = ""
-    time_value: str = ""
 
     def set_date_value(self, val: str) -> None:
         """Set date value."""
@@ -31,10 +29,6 @@ class DateExampleState(rx.State):
     def set_inline_datetime_value(self, val: str) -> None:
         """Set inline date time value."""
         self.inline_datetime_value = val
-
-    def set_time_value(self, val: str) -> None:
-        """Set time value."""
-        self.time_value = val
 
 
 @navbar_layout(

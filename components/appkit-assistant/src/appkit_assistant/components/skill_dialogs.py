@@ -5,7 +5,6 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_assistant.backend.schemas import SkillModel
 from appkit_assistant.state.skill_admin_state import SkillAdminState
-from appkit_ui.components.dialogs import delete_dialog
 
 UPLOAD_ID = "skill_zip_upload"
 
@@ -90,7 +89,7 @@ def create_skill_modal() -> rx.Component:
 
 def delete_skill_dialog(skill: SkillModel) -> rx.Component:
     """Delete confirmation dialog for a skill."""
-    return delete_dialog(
+    return mn.delete_dialog(
         title="Skill löschen",
         content=skill.name,
         on_click=lambda: SkillAdminState.delete_skill(skill.id),

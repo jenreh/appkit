@@ -27,9 +27,9 @@ from appkit_user.authentication.components.components import (
     requires_admin,
     requires_role,
 )
-from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
+from app.components.templates import authenticated
 from app.roles import (
     ASSISTANT_ADMIN_SKILL_ROLE,
     MCP_ADVANCED_ROLE,
@@ -73,7 +73,6 @@ MCP_ROLES = [
 class AdminAssistantState(rx.State):
     """State for managing admin assistant page tabs."""
 
-    active_tab: str = "mcp"
     mcp_loaded: bool = False
     skills_loaded: bool = False
     models_loaded: bool = False
@@ -82,8 +81,6 @@ class AdminAssistantState(rx.State):
 
     async def on_tab_change(self, value: str) -> AsyncGenerator[Any, Any]:
         """Handle tab changes and load data when needed."""
-        self.active_tab = value
-
         # MCP Servers
         if value == "mcp" and not self.mcp_loaded:
             mcp_state = await self.get_state(MCPServerState)

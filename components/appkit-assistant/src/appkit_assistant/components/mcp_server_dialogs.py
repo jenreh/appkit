@@ -14,9 +14,6 @@ from appkit_assistant.backend.schemas import MCPServerConfigModel
 from appkit_assistant.backend.services.mcp_auth_service import MCPAuthService
 from appkit_assistant.roles import ASSISTANT_USER_ROLE
 from appkit_assistant.state.mcp_server_state import MCPServerState
-from appkit_ui.components.dialogs import (
-    delete_dialog,
-)
 from appkit_ui.components.form_inputs import form_field
 
 logger = logging.getLogger(__name__)
@@ -714,7 +711,7 @@ def edit_mcp_server_modal() -> rx.Component:
 
 def delete_mcp_server_dialog(server: MCPServer) -> rx.Component:
     """Use the generic delete dialog component for MCP servers."""
-    return delete_dialog(
+    return mn.delete_dialog(
         title="MCP Server löschen",
         content=server.name,
         on_click=lambda: MCPServerState.delete_server(server.id),
