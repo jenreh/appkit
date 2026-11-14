@@ -8,7 +8,7 @@ from collections.abc import Callable
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_ui.global_states import LoadingState
+from appkit_mantine.states import LoadingState
 from appkit_user.authentication.components import default_fallback, session_monitor
 from appkit_user.authentication.states import UserSession
 

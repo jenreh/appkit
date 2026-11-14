@@ -19,9 +19,9 @@ from appkit_user.authentication.components.components import (
     default_fallback,
     requires_role,
 )
-from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
+from app.components.templates import authenticated
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

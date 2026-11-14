@@ -9,7 +9,6 @@ from appkit_assistant.state.user_prompt_state import (
     MAX_PROMPT_LENGTH,
     UserPromptState,
 )
-from appkit_ui.components.dialogs import delete_dialog
 
 TEXTAREA_STYLES = {
     "root": {
@@ -167,7 +166,7 @@ def _render_footer() -> rx.Component:
     return rx.flex(
         rx.cond(
             ~UserPromptState.modal_is_new,
-            delete_dialog(
+            mn.delete_dialog(
                 title="Prompt löschen",
                 content=" /" + UserPromptState.modal_handle + " ",
                 on_click=UserPromptState.delete_from_modal,

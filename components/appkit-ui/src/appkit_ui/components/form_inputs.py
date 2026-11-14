@@ -3,16 +3,6 @@ import reflex as rx
 import appkit_mantine as mn
 
 
-def hidden_field(
-    **kwargs,
-) -> rx.Component:
-    """Creates a hidden input field."""
-    return rx.el.input(
-        type="hidden",
-        **kwargs,
-    )
-
-
 def form_field(
     icon: str,
     label: str,

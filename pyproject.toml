@@ -286,7 +286,7 @@ unknown-argument = "ignore"
 [[tool.ty.overrides]]
 include = [
     "components/*/src/**/components/**",
-    "components/*/src/**/templates.py",
+    "app/components/templates.py",
 ]
 
 [tool.ty.overrides.rules]
@@ -330,7 +330,6 @@ omit = [
     "*/appkit_mantine/*.py",
     "*/appkit_ui/components/*.py",
     "*/appkit_user/authentication/components/*.py",
-    "*/appkit_user/authentication/templates/*.py",
     "*/appkit_user/user_management/components/*.py",
     # Route definitions & role constants
     "*/pages.py",

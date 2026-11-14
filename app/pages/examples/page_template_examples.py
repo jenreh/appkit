@@ -6,9 +6,9 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_ui.components.header import SIDEBAR_WIDTH
-from appkit_user.authentication.templates import authenticated_page
 
 from app.components.navbar import app_navbar
+from app.components.templates import authenticated_page
 
 
 def _header_template(content: rx.Component) -> rx.Component:

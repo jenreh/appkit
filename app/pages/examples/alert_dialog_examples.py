@@ -6,7 +6,7 @@ Demonstrates:
 - Custom labels / colors
 - Compound usage (manual cancel + action)
 - Footer convenience component
-- Integration with delete_dialog helper from appkit_ui
+- Integration with the mn.delete_dialog helper
 
 Based on: components/appkit-mantine/src/appkit_mantine/alert_dialog.py
 """
@@ -14,10 +14,9 @@ Based on: components/appkit-mantine/src/appkit_mantine/alert_dialog.py
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_ui.components.dialogs import delete_dialog
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 
 class AlertDialogExamplesState(rx.State):
@@ -77,10 +76,9 @@ def _status_badge(state_var: rx.Var) -> rx.Component:
 def delete_dialog_helper_example() -> rx.Component:
     return _example_card(
         "delete_dialog helper",
-        "Drop-in replacement: appkit_ui.delete_dialog now uses mn.alert_dialog"
-        " internally.",
+        "mn.delete_dialog: confirmation dialog built on mn.alert_dialog internally.",
         mn.group(
-            delete_dialog(
+            mn.delete_dialog(
                 title="Datensatz löschen",
                 content="Beispiel-Datensatz #42",
                 on_click=AlertDialogExamplesState.record_delete,

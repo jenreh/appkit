@@ -5,8 +5,8 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_assistant.state.thread_list_state import ThreadListState
 from appkit_commons.public_path import public_path
+from appkit_mantine.states import LoadingState
 from appkit_ui.components.header import SIDEBAR_WIDTH
-from appkit_ui.global_states import LoadingState
 from appkit_user.authentication.components.components import requires_admin
 from appkit_user.authentication.states import LoginState, app_storage_key
 

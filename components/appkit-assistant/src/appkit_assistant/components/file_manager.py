@@ -10,8 +10,6 @@ from appkit_assistant.state.file_manager_state import (
     OpenAIFileInfo,
     VectorStoreInfo,
 )
-from appkit_ui.components.dialogs import delete_dialog
-from appkit_ui.styles import sticky_header_style
 
 
 def vector_store_item(store_info: VectorStoreInfo) -> rx.Component:
@@ -138,7 +136,7 @@ def file_table_row(file_info: FileInfo) -> rx.Component:
             rx.cond(
                 FileManagerState.deleting_file_id == file_info.id,
                 rx.spinner(size="1"),
-                delete_dialog(
+                mn.delete_dialog(
                     title="Datei löschen",
                     content=file_info.filename,
                     on_click=lambda: FileManagerState.delete_file(file_info.id),
@@ -397,7 +395,7 @@ def openai_file_table_row(file_info: OpenAIFileInfo) -> rx.Component:
             rx.cond(
                 FileManagerState.deleting_openai_file_id == file_info.openai_id,
                 rx.spinner(size="1"),
-                delete_dialog(
+                mn.delete_dialog(
                     title="Datei löschen",
                     content=file_info.filename,
                     on_click=lambda: FileManagerState.delete_openai_file(
@@ -539,7 +537,7 @@ def file_manager() -> rx.Component:
                                                                 mn.text("", size="sm"),
                                                                 width="50px",
                                                             ),
-                                                            style=sticky_header_style,
+                                                            style=mn.sticky_header_style,
                                                         ),
                                                     ),
                                                     mn.table.tbody(
@@ -649,7 +647,7 @@ def file_manager() -> rx.Component:
                                                         mn.text("", size="sm"),
                                                         width="50px",
                                                     ),
-                                                    style=sticky_header_style,
+                                                    style=mn.sticky_header_style,
                                                 ),
                                             ),
                                             mn.table.tbody(

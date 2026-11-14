@@ -302,7 +302,7 @@ version = "1.18.0"
 source = { editable = "components/appkit-user" }
 dependencies = [
     { name = "appkit-commons" },
-    { name = "appkit-ui" },
+    { name = "appkit-mantine" },
     { name = "fastapi" },
     { name = "greenlet" },
     { name = "jinja2" },
@@ -321,7 +321,7 @@ resend = [
 [package.metadata]
 requires-dist = [
     { name = "appkit-commons", editable = "components/appkit-commons" },
-    { name = "appkit-ui", editable = "components/appkit-ui" },
+    { name = "appkit-mantine", editable = "components/appkit-mantine" },
     { name = "azure-communication-email", marker = "extra == 'azure'", specifier = ">=1.1.0" },
     { name = "fastapi", specifier = ">=0.162.7" },
     { name = "greenlet", specifier = ">=3.5.6" },

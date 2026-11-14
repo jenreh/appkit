@@ -37,10 +37,10 @@ from appkit_user.user_management.pages import (
     create_login_page,
     create_password_reset_confirm_page,
     create_password_reset_request_page,
-    create_profile_page,
 )
 
 from app.components.navbar import app_navbar
+from app.components.templates import default_layout
 
 # Import pages to ensure they are registered
 from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
@@ -102,17 +102,18 @@ from app.pages.examples.typography_examples import typography_examples  # noqa: 
 from app.pages.image_creator import image_gallery  # noqa: F401
 from app.pages.image_generators import image_generators_page  # noqa: F401
 from app.pages.index import index  # noqa: F401
+from app.pages.profile import create_profile_page
 from app.pages.users import users_page  # noqa: F401
 
 # Register Authentication & User Management Pages
-create_login_page()
+create_login_page(default_layout)
 create_profile_page(
     app_navbar(),
     class_name="w-full gap-6 max-w-[800px]",
     padding="2rem",
 )
-create_password_reset_request_page()
-create_password_reset_confirm_page()
+create_password_reset_request_page(default_layout)
+create_password_reset_confirm_page(default_layout)
 
 
 base_stylesheets = [

@@ -7,9 +7,9 @@ import reflex as rx
 
 from appkit_imagecreator.pages import image_generator_page
 from appkit_user.authentication.components.components import requires_role
-from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
+from app.components.templates import authenticated
 from app.roles import IMAGE_GEN_USER_ROLE
 
 

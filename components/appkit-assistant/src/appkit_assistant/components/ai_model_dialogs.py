@@ -8,7 +8,6 @@ import appkit_mantine as mn
 from appkit_assistant.backend.database.models import AssistantAIModel
 from appkit_assistant.backend.schemas import AssistantAIModelConfigModel
 from appkit_assistant.state.ai_model_admin_state import AIModelAdminState
-from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.components.form_inputs import form_field
 
 logger = logging.getLogger(__name__)
@@ -493,7 +492,7 @@ def edit_ai_model_modal() -> rx.Component:
 
 def delete_ai_model_dialog(record: AssistantAIModel) -> rx.Component:
     """Confirmation dialog for deleting an AI model."""
-    return delete_dialog(
+    return mn.delete_dialog(
         title="KI-Modell löschen",
         content=record.text,
         on_click=lambda: AIModelAdminState.delete_model(record.id),

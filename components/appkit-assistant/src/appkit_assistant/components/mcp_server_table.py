@@ -12,7 +12,6 @@ from appkit_assistant.components.mcp_server_dialogs import (
     update_mcp_server_dialog,
 )
 from appkit_assistant.state.mcp_server_state import MCPServerState
-from appkit_ui.styles import sticky_header_style
 
 
 def mcp_server_table_row(server: MCPServer) -> rx.Component:
@@ -160,7 +159,7 @@ def mcp_servers_table(
                         mn.table.th(mn.text("Rolle", size="sm", fw="700")),
                         mn.table.th(mn.text("Aktiv", size="sm", fw="700")),
                         mn.table.th(mn.text("", size="sm")),
-                        style=sticky_header_style,
+                        style=mn.sticky_header_style,
                     ),
                 ),
                 mn.table.tbody(

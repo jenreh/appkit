@@ -18,9 +18,9 @@ from typing import Any
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 
 class ModalExamplesState(rx.State):

@@ -27,9 +27,9 @@ from appkit_user.authentication.components.components import (
     requires_admin,
     requires_role,
 )
-from appkit_user.authentication.templates import authenticated
 
 from app.components.navbar import app_navbar
+from app.components.templates import authenticated
 from app.roles import (
     ASSISTANT_ADMIN_SKILL_ROLE,
     MCP_ADVANCED_ROLE,

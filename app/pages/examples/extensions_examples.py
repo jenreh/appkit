@@ -7,10 +7,10 @@ import reflex as rx
 import appkit_mantine as mn
 from appkit_mantine.carousel import carousel
 from appkit_mantine.dropzone import dropzone
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.examples import example_box
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 EXAMPLE_CODE_PY = """import appkit_mantine as mn
 

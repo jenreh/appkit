@@ -19,10 +19,10 @@ from typing import Any
 import reflex as rx
 
 import appkit_mantine as mn
-from appkit_user.authentication.templates import navbar_layout
 
 from app.components.examples import example_box
 from app.components.navbar import app_navbar
+from app.components.templates import navbar_layout
 
 MIN_CRITERIA_FOR_FAIR = 3
 MIN_CRITERIA_FOR_GOOD = 4

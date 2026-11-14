@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "greenlet>=3.5.6",
     "appkit-commons",
-    "appkit-ui",
+    "appkit-mantine",
     "fastapi>=0.162.7",
     "requests_oauthlib>=2.0.0",
     "urllib3>=2.8.0",
@@ -46,7 +46,7 @@ where = ["src"]
 
 [tool.uv.sources]
 appkit-commons = { workspace = true }
-appkit-ui = { workspace = true }
+appkit-mantine = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

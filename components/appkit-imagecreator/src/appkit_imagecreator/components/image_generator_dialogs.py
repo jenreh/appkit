@@ -11,7 +11,6 @@ from appkit_imagecreator.backend.models import (
     ImageGeneratorConfigModel,
     ImageGeneratorModel,
 )
-from appkit_ui.components.dialogs import delete_dialog
 from appkit_ui.components.form_inputs import form_field
 
 logger = logging.getLogger(__name__)
@@ -399,7 +398,7 @@ def delete_image_generator_dialog(
     generator: ImageGeneratorModel,
 ) -> rx.Component:
     """Confirmation dialog for deleting an image generator."""
-    return delete_dialog(
+    return mn.delete_dialog(
         title="Bildgenerator löschen",
         content=generator.label,
         on_click=lambda: ImageGeneratorAdminState.delete_generator(generator.id),

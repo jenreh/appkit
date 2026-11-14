@@ -13,6 +13,8 @@ from appkit_mantine.theme import (
     set_app_theme,
 )
 from appkit_mantine.alert_dialog import alert_dialog
+from appkit_mantine.patterns import delete_dialog, sticky_header_style
+from appkit_mantine.states import LoadingState
 from appkit_mantine.button import button, action_icon, close_button, unstyled_button
 from appkit_mantine.carousel import carousel
 from appkit_mantine.code_highlight import json_viewer
@@ -260,6 +262,7 @@ __all__ = [
     "EditorToolbarConfig",
     "GaugeChart",
     "InlineDateTimePicker",
+    "LoadingState",
     "MantineComponentBase",
     "MantineInputComponentBase",
     "MantineProvider",
@@ -343,6 +346,7 @@ __all__ = [
     "date_picker",
     "date_picker_input",
     "date_time_picker",
+    "delete_dialog",
     "dialog",
     "divider",
     "donut_chart",
@@ -446,6 +450,7 @@ __all__ = [
     "spoiler",
     "stack",
     "stepper",
+    "sticky_header_style",
     "sunburst_chart",
     "switch",
     "table",

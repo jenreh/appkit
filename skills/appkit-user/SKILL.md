@@ -33,10 +33,11 @@ from appkit_user.authentication.pages import (  # noqa: F401  registers routes
     azure_oauth_callback_page,
     github_oauth_callback_page,
 )
-from appkit_user.user_management.pages import create_login_page, create_profile_page
+from appkit_user.user_management.pages import create_login_page
 
-create_login_page()  # logo paths are app relative; prefixed internally
-create_profile_page(app_navbar())
+from app.components.templates import default_layout  # layouts live in the app
+
+create_login_page(default_layout)  # logo paths are app relative; prefixed internally
 
 app = rx.App(api_transformer=[api_app, add_session_guard, add_https_middleware])
 install_session_filter(app)

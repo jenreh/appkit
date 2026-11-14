@@ -2,7 +2,6 @@ import reflex as rx
 
 import appkit_mantine as mn
 from appkit_assistant.state.system_prompt_state import SystemPromptState
-from appkit_ui.components.dialogs import delete_dialog
 
 
 def system_prompt_editor() -> rx.Component:
@@ -45,7 +44,7 @@ automatisch einfügen kann."""
                 searchable=False,
                 width="280px",
             ),
-            delete_dialog(
+            mn.delete_dialog(
                 title="Version endgültig löschen?",
                 content="die ausgewählte Version",
                 on_click=SystemPromptState.delete_version,
