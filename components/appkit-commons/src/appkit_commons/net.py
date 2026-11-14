@@ -46,7 +46,7 @@ async def assert_public_http_url(url: str) -> None:
         raise UnsafeURLError("URL host could not be resolved") from e
 
     for info in infos:
-        address = ipaddress.ip_address(info[4][0].split("%", 1)[0])
+        address = ipaddress.ip_address(str(info[4][0]).split("%", 1)[0])
         if not _is_public(address):
             logger.warning(
                 "Blocked request to non-public address for %s", parts.hostname

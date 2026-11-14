@@ -153,7 +153,7 @@ class AzureEmailProvider(EmailProviderBase):
         try:
             from azure.communication.email import EmailClient  # noqa: PLC0415
 
-            client = EmailClient.from_connection_string(
+            client = EmailClient.from_connection_string(  # ty: ignore[missing-union-attribute]
                 self.config.connection_string.get_secret_value()
             )
             message = {

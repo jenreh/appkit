@@ -310,6 +310,11 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             ):
                 yield chunk
 
+    def _require_client(self) -> genai.Client:
+        if not self.client:
+            raise ValueError("Gemini Client not initialized.")
+        return self.client
+
     async def _stream_with_tool_loop(
         self,
         model_name: str,
@@ -328,7 +333,7 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 break
 
             # Use streaming API
-            stream = await self.client.aio.models.generate_content_stream(
+            stream = await self._require_client().aio.models.generate_content_stream(
                 model=model_name, contents=current_contents, config=config
             )
 
@@ -615,7 +620,7 @@ class GeminiResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
     ) -> AsyncGenerator[Chunk, None]:
         """Stream generation from Gemini model."""
         # generate_content_stream returns an awaitable that yields an async generator
-        stream = await self.client.aio.models.generate_content_stream(
+        stream = await self._require_client().aio.models.generate_content_stream(
             model=model_name, contents=contents, config=config
         )
         async for chunk in stream:

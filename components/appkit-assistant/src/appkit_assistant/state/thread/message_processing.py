@@ -494,7 +494,7 @@ class MessageProcessingMixin:
         if ui_tool_registry is None or chunk.type != ChunkType.TOOL_CALL:
             return
         tool_id = chunk.chunk_metadata.get("tool_id", "")
-        tool_name = chunk.chunk_metadata.get("tool_name", "")
+        tool_name = chunk.chunk_metadata.get("tool_name") or ""
         server_label = chunk.chunk_metadata.get("server_label", "")
         bare_name = tool_name.split(".", 1)[-1] if "." in tool_name else tool_name
         if (

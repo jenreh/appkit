@@ -5,95 +5,94 @@ from typing import Any, Final
 
 from dotenv import load_dotenv
 
+from appkit_commons.configuration.secret_backends import (
+    SecretNotFoundError,
+    create_local_store,
+    settings,
+)
+from appkit_commons.configuration.secret_backends.aws_ssm import (
+    AwsSsmBackend,
+    create_ssm_client,
+)
+from appkit_commons.configuration.secret_backends.azure import (
+    AzureKeyVaultBackend,
+    create_azure_client,
+)
+from appkit_commons.configuration.secret_backends.env import EnvSecretBackend
+
 load_dotenv()
 
 
 SECRET_PROVIDER: Final[str] = os.getenv("SECRET_PROVIDER", "local").lower()
 SECRET: Final[str] = "secret:"  # noqa: S105
 
-
-class SecretNotFoundError(Exception):
-    pass
+__all__ = [
+    "SECRET",
+    "SECRET_PROVIDER",
+    "SecretNotFoundError",
+    "SecretProvider",
+    "get_secret",
+]
 
 
 class SecretProvider(StrEnum):
     AZURE = "azure"
     LOCAL = "local"
+    AWS_SSM = "aws_ssm"
+    MACOS = "macos"
+    WINDOWS = "windows"
 
 
 @lru_cache(maxsize=1)
 def _get_azure_client() -> Any:
-    try:
-        from azure.identity import (  # noqa: PLC0415
-            DefaultAzureCredential,
-        )
-        from azure.keyvault.secrets import SecretClient  # noqa: PLC0415
-    except ImportError as exc:
-        raise ImportError(
-            "Optional Azure dependencies are required to use SecretProvider.AZURE. "
-            "Install 'azure-identity' and 'azure-keyvault-secrets'."
-        ) from exc
+    return create_azure_client()
 
-    vault_url = os.environ.get("AZURE_KEY_VAULT_URL")
-    if not vault_url:
-        raise RuntimeError(
-            "Environment variable 'AZURE_KEY_VAULT_URL' must be set to use "
-            "SecretProvider.AZURE"
-        )
-    credential = DefaultAzureCredential()
-    return SecretClient(vault_url=vault_url, credential=credential)
+
+@lru_cache(maxsize=1)
+def _get_ssm_client() -> Any:
+    return create_ssm_client()
 
 
 def _get_secret_from_azure(key: str) -> str:
     client = _get_azure_client()
-    secret = client.get_secret(key.lower())
-    if not secret.value:
-        raise SecretNotFoundError(f"Secret '{key}' not found in Azure Key Vault")
-    return str(secret.value)
+    return AzureKeyVaultBackend(client, settings.namespace()).get(key)
+
+
+def _get_secret_from_aws_ssm(key: str) -> str:
+    client = _get_ssm_client()
+    return AwsSsmBackend(client, settings.namespace()).get(key)
+
+
+def _get_secret_from_local_store(provider: str, key: str) -> str:
+    return create_local_store(provider, settings.local_namespace()).get(key)
 
 
 def _get_secret_from_env(key: str) -> str:
-    """
-    Get secret from environment variables.
-
-    This function supports multiple naming conventions:
-    - Direct key lookup: key -> env[key]
-    - Uppercase transformation: key -> env[key.upper()]
-    - Dash-to-underscore: avui-db-user -> AVUI_DB_USER
-    """
-    # Try direct lookup first
-    value = os.getenv(key)
-    if value is not None:
-        return value
-
-    # Try uppercase
-    value = os.getenv(key.upper())
-    if value is not None:
-        return value
-
-    # Try dash-to-underscore + uppercase transformation
-    transformed_key = key.replace("-", "_").upper()
-    value = os.getenv(transformed_key)
-    if value is not None:
-        return value
-
-    # Try dash-to-underscore + lowercase transformation
-    value = os.getenv(transformed_key.lower())
-    if value is not None:
-        return value
-
-    error_msg = (
-        f"Secret '{key}' not found in environment variables. "
-        f"Tried: {key}, {key.upper()}, {transformed_key}, {transformed_key.lower()}"
-    )
-    raise SecretNotFoundError(error_msg)
+    return EnvSecretBackend().get(key)
 
 
 def _get_secret_provider() -> str:
-    return os.getenv("SECRET_PROVIDER", "local").lower()
+    return settings.provider_name()
+
+
+def _resolve_provider() -> SecretProvider:
+    name = _get_secret_provider()
+    try:
+        return SecretProvider(name)
+    except ValueError:
+        allowed = ", ".join(provider.value for provider in SecretProvider)
+        raise ValueError(
+            f"Unknown SECRET_PROVIDER '{name}'. Allowed values: {allowed}"
+        ) from None
 
 
 def get_secret(key: str) -> str:
-    if _get_secret_provider() == SecretProvider.AZURE:
-        return _get_secret_from_azure(key)
-    return _get_secret_from_env(key)
+    match _resolve_provider():
+        case SecretProvider.AZURE:
+            return _get_secret_from_azure(key)
+        case SecretProvider.AWS_SSM:
+            return _get_secret_from_aws_ssm(key)
+        case SecretProvider.MACOS | SecretProvider.WINDOWS as provider:
+            return _get_secret_from_local_store(provider.value, key)
+        case _:
+            return _get_secret_from_env(key)

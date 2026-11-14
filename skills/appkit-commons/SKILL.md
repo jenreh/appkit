@@ -124,15 +124,25 @@ APP__MY_FEATURE__API_KEY=secret123
 
 ### Secret values
 
-Prefix with `secret:` to resolve at runtime via Azure Key Vault or local env:
+Prefix with `secret:` to resolve at runtime through `SECRET_PROVIDER`:
 
 ```yaml
 app:
   my_feature:
-    api_key: "secret:MY_FEATURE_API_KEY"
+    api_key: "secret:my-feature-api-key"
 ```
 
-`get_secret("MY_FEATURE_API_KEY")` tries `SECRET_PROVIDER` env var (AZURE or LOCAL).
+| `SECRET_PROVIDER` | Store | Name with `SECRET_NAMESPACE=myapp` | Extra |
+| --- | --- | --- | --- |
+| `local` (default) | env / `.env` (`name`, `NAME`, `NA_ME`) | — | — |
+| `macos` | Keychain, account = namespace (`appkit` if unset) | service `name` | — |
+| `windows` | Credential Manager | target `myapp:name` | `windows` |
+| `azure` | Key Vault (`az login` + `AZURE_KEY_VAULT_URL`) | `myapp-name` | `azure` |
+| `aws_ssm` | SSM Parameter Store (`aws login`, `AWS_PROFILE`/`AWS_REGION`) | `/myapp/name` | `aws` |
+
+Without `SECRET_NAMESPACE`, Azure and SSM use the bare name. Unknown providers raise `ValueError`. `.env` is loaded with `override=True`.
+
+Local stores are managed with the `appkit-secrets` CLI (`cli` extra): `add`, `update`, `delete`, `list` (names only), `env` (shell exports), `check` (every `secret:` of `configuration/` for `PROFILES` present; `--all-profiles`), `completion [zsh|bash|fish|powershell]` (init with `eval "$(appkit-secrets completion zsh)"`; completes stored names, missing config names for `add`, profiles).
 
 ### DatabaseConfig fields
 

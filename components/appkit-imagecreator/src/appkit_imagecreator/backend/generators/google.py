@@ -79,7 +79,7 @@ class GoogleImageGenerator(ImageGenerator):
                 ),
             )
 
-            enhanced = response.text.strip()
+            enhanced = (response.text or "").strip() or prompt
             logger.debug("Enhanced prompt: %s", enhanced)
             return enhanced
         except Exception as e:

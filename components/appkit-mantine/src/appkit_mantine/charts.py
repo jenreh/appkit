@@ -334,7 +334,7 @@ class ScatterChart(CategoricalChartBase):
 
     data: Var[list[dict[str, Any]]]
     # Note: Scatter uses object for dataKey {x: 'ug', y: 'pg'}
-    data_key: Var[dict[str, Any]]  # ty: ignore[invalid-attribute-override]
+    data_key: Var[dict[str, Any]]  # ty: ignore[incompatible-attribute-override]
     labels: Var[dict[str, Any]]  # {x: 'label', y: 'label'}
 
 

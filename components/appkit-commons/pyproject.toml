@@ -41,6 +41,18 @@ azure = [
     "azure-identity>=1.27.0",
     "azure-keyvault-secrets>=4.12.0",
 ]
+aws = [
+    "boto3[crt]>=1.42.21",
+]
+windows = [
+    "pywin32>=311; sys_platform == 'win32'",
+]
+cli = [
+    "typer>=0.12",
+]
+
+[project.scripts]
+appkit-secrets = "appkit_commons.cli.secrets:main"
 
 [project.urls]
 Homepage = "https://github.com/jenreh/appkit"

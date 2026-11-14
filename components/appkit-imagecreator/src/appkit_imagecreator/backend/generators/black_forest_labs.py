@@ -196,7 +196,7 @@ class BlackForestLabsImageGenerator(ImageGenerator):
                 ],
             )
 
-            result = response.choices[0].message.content.strip()
+            result = (response.choices[0].message.content or "").strip()
             if not result:
                 result = prompt
 

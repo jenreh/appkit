@@ -17,7 +17,7 @@ appkit-commons provides the foundational infrastructure used across all AppKit p
 - **Security Utilities** - Password hashing with PBKDF2 and scrypt, secure random generation
 - **ASGI Middleware** - `ForceHTTPSMiddleware` (scheme from `X-Forwarded-Proto`) and `SecurityHeadersMiddleware` (nosniff, referrer policy, frame-ancestors, HSTS on https)
 - **Service Registry** - Dependency injection container for managing application services
-- **Secret Management** - Support for local secrets and Azure Key Vault integration
+- **Secret Management** - `secret:` values from env, Azure Key Vault, AWS SSM, the macOS Keychain or the Windows Credential Manager, plus the `appkit-secrets` CLI for the local stores
 
 ---
 
@@ -49,13 +49,18 @@ uv add appkit-commons
 
 ### Optional Dependencies
 
-For Azure Key Vault support:
+| Extra | Adds |
+| --- | --- |
+| `azure` | Azure Key Vault provider (`azure-identity`, `azure-keyvault-secrets`) |
+| `aws` | AWS SSM Parameter Store provider (`boto3[crt]`) |
+| `windows` | Windows Credential Manager provider (`pywin32`, Windows only) |
+| `cli` | The `appkit-secrets` command (`typer`) |
 
 ```bash
-pip install appkit-commons[azure]
-# or
-uv add appkit-commons[azure]
+uv add "appkit-commons[azure,cli]"
 ```
+
+The macOS Keychain provider needs no extra; it uses the built-in `security` tool.
 
 ### Dependencies
 
@@ -265,18 +270,68 @@ export MYAPP_DATABASE__HOST="prod-db.example.com"
 export MYAPP_API__TIMEOUT="60"
 ```
 
-### Azure Key Vault
+### Secret Providers
 
-For production secrets, configure Azure Key Vault:
+`secret:<name>` values are resolved by the provider in `SECRET_PROVIDER`. A `.env` file only needs the provider settings; the cloud providers use your existing `az login` or `aws login` session.
 
-```python
-from appkit_commons.configuration import configure_azure_key_vault
+| `SECRET_PROVIDER` | Store | Lookup name with `SECRET_NAMESPACE=myapp` | Without namespace |
+| --- | --- | --- | --- |
+| `local` (default) | Environment / `.env` | `name`, `NAME`, `NA_ME` variants | same |
+| `macos` | macOS Keychain | account `myapp`, service `name` | account `appkit` |
+| `windows` | Windows Credential Manager | target `myapp:name` | `appkit:name` |
+| `azure` | Azure Key Vault | `myapp-name` (lowercased) | `name` |
+| `aws_ssm` | AWS SSM Parameter Store | `/myapp/name` | `name` |
 
-configure_azure_key_vault(
-    vault_url="https://myvault.vault.azure.net/",
-    credential=None,  # Uses DefaultAzureCredential
-)
+Uncomment one block in `.env`:
+
+```bash
+# --- macos / windows
+SECRET_PROVIDER=macos
+SECRET_NAMESPACE=myapp
+
+# --- azure, authenticate with `az login`
+#SECRET_PROVIDER=azure
+#SECRET_NAMESPACE=myapp
+#AZURE_KEY_VAULT_URL=https://<your-vault>.vault.azure.net/
+
+# --- aws_ssm, authenticate with `aws login --profile myapp-dev`
+#SECRET_PROVIDER=aws_ssm
+#SECRET_NAMESPACE=myapp/dev
+#AWS_PROFILE=myapp-dev
+#AWS_REGION=eu-central-1   # only needed if the profile sets no region
 ```
+
+An unknown `SECRET_PROVIDER` value raises a `ValueError`.
+
+> [!NOTE]
+> `appkit_commons` loads `.env` with `override=True`, so values in `.env` win over the shell. Set `PYTHON_DOTENV_DISABLED=1` to use shell variables only.
+
+### `appkit-secrets` CLI
+
+Manages secrets in the macOS Keychain or the Windows Credential Manager (install the `cli` extra). The provider defaults to `SECRET_PROVIDER` when it is `macos`/`windows`, otherwise to the current platform; the namespace comes from `--namespace` or `SECRET_NAMESPACE`.
+
+```bash
+appkit-secrets add mn-db-password            # prompts twice, hidden
+printf '%s' "$VALUE" | appkit-secrets update mn-db-password --stdin
+appkit-secrets list                          # names only
+appkit-secrets delete mn-db-password --yes
+eval "$(appkit-secrets env)"                 # export all as MN_DB_PASSWORD=... for SECRET_PROVIDER=local
+PROFILES=local appkit-secrets check          # every secret: in configuration/ present? exit 1 if not
+appkit-secrets check --all-profiles          # config.yaml and every config.*.yaml
+```
+
+Values are never passed on the command line and never printed, except by `env`.
+
+Shell completion covers commands, `--provider`, `--profiles`, the stored names for `update`/`delete`/`env`, and for `add` the names your configuration needs that are not stored yet. Initialize it in your shell start-up file:
+
+```bash
+eval "$(appkit-secrets completion zsh)"      # ~/.zshrc, after compinit
+eval "$(appkit-secrets completion bash)"     # ~/.bashrc
+appkit-secrets completion fish | source      # ~/.config/fish/config.fish
+appkit-secrets completion powershell | Out-String | Invoke-Expression   # $PROFILE
+```
+
+Without a shell argument the shell is taken from `$SHELL`. `appkit-secrets --install-completion` also works where the shell can be auto-detected.
 
 ### Logging Configuration
 
@@ -303,7 +358,8 @@ setup_logging(
 - `BaseConfig` - Base class for all configuration objects
 - `load_configuration()` - Load configuration from YAML and environment
 - `setup_logging()` - Initialize logging system
-- `configure_azure_key_vault()` - Setup Azure Key Vault integration
+- `get_secret()` - Resolve a secret through the configured `SECRET_PROVIDER`
+- `SecretProvider` - Enum of provider names (`local`, `azure`, `aws_ssm`, `macos`, `windows`)
 
 ### Database
 
@@ -331,7 +387,7 @@ setup_logging(
 
 - Passwords are hashed using industry-standard algorithms (PBKDF2/scrypt)
 - Database credentials support encryption at rest
-- Azure Key Vault integration for production secret management
+- Azure Key Vault and AWS SSM for production, macOS Keychain and Windows Credential Manager for local development
 - Secure random generation for tokens and salts
 
 ---

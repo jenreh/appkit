@@ -35,6 +35,8 @@ class OpenAIChatCompletionsProcessor(BaseOpenAIProcessor):
     ) -> AsyncGenerator[Chunk, None]:
         """Process messages using the Chat Completions API."""
         self._validate_inputs(model_id, mcp_servers)
+        if not self.client:
+            raise ValueError("OpenAI Client not initialized.")
 
         # Reset statistics for the new request
         self._reset_statistics(model_id)

@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import threading
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterator
 
 import pytest
 
@@ -38,7 +38,7 @@ class MockProcessor(ProcessorBase):
 
 
 @pytest.fixture
-def reset_model_manager() -> None:
+def reset_model_manager() -> Iterator[None]:
     """Reset ModelManager singleton for testing."""
     ModelManager._instance = None
     ModelManager._default_model_id = None

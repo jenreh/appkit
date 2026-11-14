@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20.1",
     "appkit-assistant",
-    "appkit-commons[apscheduler,pgqueuer,azure]",
+    "appkit-commons[apscheduler,pgqueuer,azure,cli]",
     "appkit-imagecreator",
     "appkit-mantine",
     "appkit-ui",
@@ -252,7 +252,7 @@ exclude = [
 # Treat unresolved third-party imports as warnings; ty resolves imports from the
 # project venv instead.
 [tool.ty.rules]
-unresolved-import = "warn"
+import-not-found = "warn"
 
 # Reflex Vars are typed as their Python value but behave as Var objects
 # (~, .contains, comparisons), so ty reports false positives in UI and state code.
@@ -266,11 +266,11 @@ include = [
 [tool.ty.overrides.rules]
 invalid-argument-type = "ignore"
 invalid-assignment = "ignore"
-invalid-method-override = "ignore"
-invalid-mutable-override = "ignore"
-invalid-return-type = "ignore"
+incompatible-method-override = "ignore"
+incompatible-mutable-override = "ignore"
+invalid-explicit-return = "ignore"
 invalid-type-form = "ignore"
-unresolved-attribute = "ignore"
+missing-attribute = "ignore"
 unsupported-operator = "ignore"
 deprecated = "ignore"
 # Reflex state handlers/event callbacks and `async with self` are not modelled.
@@ -280,6 +280,17 @@ invalid-context-manager = "ignore"
 not-iterable = "ignore"
 not-subscriptable = "ignore"
 unknown-argument = "ignore"
+
+# Reflex UI modules read attributes of optional state vars (e.g. `User | None`);
+# these are Var operations, not Python attribute access.
+[[tool.ty.overrides]]
+include = [
+    "components/*/src/**/components/**",
+    "components/*/src/**/templates.py",
+]
+
+[tool.ty.overrides.rules]
+missing-union-attribute = "ignore"
 
 # Demo app pages build Reflex components whose props ty cannot see.
 [[tool.ty.overrides]]
@@ -293,12 +304,13 @@ missing-argument = "ignore"
 include = ["**/tests/**", "scripts/**"]
 
 [tool.ty.overrides.rules]
+missing-union-attribute = "ignore"
 deprecated = "ignore"
 invalid-argument-type = "ignore"
 invalid-assignment = "ignore"
 missing-argument = "ignore"
 no-matching-overload = "ignore"
-unresolved-attribute = "ignore"
+missing-attribute = "ignore"
 invalid-type-form = "ignore"
 unsupported-operator = "ignore"
 not-iterable = "ignore"

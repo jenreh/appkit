@@ -244,7 +244,7 @@ class NavLink(MantineComponentBase):
     icon: Var[Any] = None
     left_section: Var[Any] = None
     right_section: Var[Any] = None
-    children: Var[Any] = None  # ty: ignore[invalid-attribute-override]
+    children: Var[Any] = None  # ty: ignore[incompatible-attribute-override]
 
     # Open/active state control
     opened: Var[bool] = None

@@ -837,7 +837,7 @@ class ImageGalleryState(rx.State):
     # -------------------------------------------------------------------------
 
     @rx.event()
-    async def clear_grid_view(self) -> AsyncGenerator[Any, Any]:
+    async def clear_grid_view(self) -> None:
         """Clear all images for the current user."""
         self.images = []
         self.zoom_modal_open = False

@@ -531,6 +531,8 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
 
         # For documents, upload via Files API and reference
         try:
+            if not self.client:
+                raise ValueError("Claude Client not initialized.")
             file_upload = await self.client.beta.files.upload(
                 file=(path.name, file_data, media_type),
             )
@@ -627,6 +629,9 @@ class ClaudeResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
                 k: v for k, v in payload.items() if k not in internal_keys
             }
             params.update(filtered_payload)
+
+        if not self.client:
+            raise ValueError("Claude Client not initialized.")
 
         # Create streaming request with beta headers
         return self.client.beta.messages.stream(

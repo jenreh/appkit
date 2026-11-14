@@ -163,7 +163,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     await generator_registry.initialize()
 
     # Start job scheduler
-    scheduler = PGQueuerScheduler()  # ty: ignore[call-non-callable]
+    scheduler = PGQueuerScheduler()  # ty: ignore[not-callable]
     scheduler.add_service(FileCleanupService())
     scheduler.add_service(SessionCleanupService(interval_minutes=30))
     scheduler.add_service(ImageCleanupService())

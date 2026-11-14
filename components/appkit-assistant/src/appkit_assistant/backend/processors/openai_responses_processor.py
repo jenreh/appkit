@@ -949,6 +949,8 @@ class OpenAIResponsesProcessor(StreamingProcessorBase, MCPCapabilities):
             **filtered_payload,
         }
 
+        if not self._client:
+            raise ValueError("OpenAI Client not initialized.")
         return await self._client.responses.create(**params)
 
     async def _configure_mcp_tools(
