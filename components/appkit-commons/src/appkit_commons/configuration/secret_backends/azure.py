@@ -48,7 +48,7 @@ class AzureKeyVaultBackend:
 
     def get(self, name: str) -> str:
         vault_name = azure_secret_name(name, self._namespace)
-        logger.debug("Reading secret %s from Azure Key Vault", vault_name)
+        logger.debug("Reading secret %s from Azure Key Vault", name)
         try:
             secret = self._client.get_secret(vault_name)
         except Exception as exc:
