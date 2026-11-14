@@ -286,6 +286,7 @@ unknown-argument = "ignore"
 [[tool.ty.overrides]]
 include = [
     "components/*/src/**/components/**",
+    "components/*/src/**/templates.py",
     "app/components/templates.py",
 ]
 

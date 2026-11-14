@@ -127,8 +127,29 @@ def login_page():
 
 #### Page factories
 
-appkit-user ships no page layouts. The login and password-reset page factories take
-the app's page decorator factory as their first argument. It is called as
+`authenticated_page` takes the page layout from the app through its `template`
+argument:
+
+```python
+from appkit_user.authentication.templates import authenticated_page
+
+
+def my_template(content: rx.Component) -> rx.Component:
+    return mn.app_shell(mn.app_shell.main(content))
+
+
+@authenticated_page(route="/settings", title="Settings", template=my_template)
+def settings_page() -> rx.Component:
+    return rx.box("Settings")
+```
+
+`authenticated_page` is the only page decorator in appkit-user. It adds the session
+monitor and the `admin_only` gate. Theming comes from appkit-mantine
+(`mn.theme_wrapper`). Layouts such as a splash page or a page with a navbar belong
+in the app.
+
+The login and password-reset page factories take the app's page decorator factory
+as their first argument. It is called as
 `layout(route=..., title=..., on_load=...)` and must return a page decorator
 (see the `PageLayout` protocol in `appkit_user.user_management.pages`).
 

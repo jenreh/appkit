@@ -2,6 +2,7 @@ import reflex as rx
 
 from appkit_mantine.alert_dialog import alert_dialog
 from appkit_mantine.button import action_icon, button
+from appkit_mantine.states import LoadingState, ThemeState
 from appkit_mantine.typography import text
 
 sticky_header_style = {
@@ -59,4 +60,16 @@ def delete_dialog(
         ),
         size="lg",
         centered=True,
+    )
+
+
+def theme_wrapper(content: rx.Component) -> rx.Component:
+    return rx.theme(
+        content,
+        has_background=True,
+        gray_color=ThemeState.gray_color,
+        radius=ThemeState.radius,
+        scaling=ThemeState.scaling,
+        appearance=ThemeState.appearance,
+        class_name=rx.cond(LoadingState.is_loading, "cursor-wait", ""),
     )

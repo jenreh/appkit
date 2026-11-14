@@ -13,8 +13,8 @@ from appkit_mantine.theme import (
     set_app_theme,
 )
 from appkit_mantine.alert_dialog import alert_dialog
-from appkit_mantine.patterns import delete_dialog, sticky_header_style
-from appkit_mantine.states import LoadingState
+from appkit_mantine.patterns import delete_dialog, sticky_header_style, theme_wrapper
+from appkit_mantine.states import LoadingState, ThemeState, with_loading_reset
 from appkit_mantine.button import button, action_icon, close_button, unstyled_button
 from appkit_mantine.carousel import carousel
 from appkit_mantine.code_highlight import json_viewer
@@ -286,6 +286,7 @@ __all__ = [
     "MonthPicker",
     "MonthPickerInput",
     "SunburstChart",
+    "ThemeState",
     "TimeGrid",
     "TimeInput",
     "TimePicker",
@@ -461,6 +462,7 @@ __all__ = [
     "text_input",
     "textarea",
     "theme_icon",
+    "theme_wrapper",
     "time_grid",
     "time_input",
     "time_picker",
@@ -479,6 +481,7 @@ __all__ = [
     "unstyled_button",
     "visually_hidden",
     "waffle_chart",
+    "with_loading_reset",
     "year_picker",
     "year_picker_input",
 ]
