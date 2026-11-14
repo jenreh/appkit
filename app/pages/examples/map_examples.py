@@ -3,7 +3,7 @@
 Showcases the ``mn.map`` / ``mn.marker`` namespaces: a basic map with
 controls, draggable markers with popups, a route line, curved arcs, a
 GeoJSON choropleth-style layer, and clustered points — all wired to Reflex
-State for controlled viewport + marker management.
+State for marker management.
 """
 
 from __future__ import annotations
@@ -66,33 +66,10 @@ ROUTE_END: dict[str, Any] = {"name": "Boston", "lng": -71.0589, "lat": 42.3601}
 class MapExamplesState(rx.State):
     """State for the map component examples page."""
 
-    viewport: dict = {
-        "center": [-96.0, 38.0],
-        "zoom": 3,
-        "bearing": 0,
-        "pitch": 0,
-    }
     markers: list[dict] = [NYC, LA, CHICAGO]
     last_clicked_marker: str = ""
-    popup_open_id: int = 0
     route_click_count: int = 0
     last_located: str = ""
-
-    @rx.event
-    def set_viewport(self, viewport: dict) -> None:
-        self.viewport = viewport
-
-    @rx.event
-    def add_marker(self, coords: dict) -> None:
-        next_id = max((m["id"] for m in self.markers), default=0) + 1
-        self.markers.append(
-            {
-                "id": next_id,
-                "lng": coords["longitude"],
-                "lat": coords["latitude"],
-                "label": f"Marker {next_id}",
-            }
-        )
 
     @rx.event
     def select_marker(self, label: str) -> None:

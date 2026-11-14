@@ -23,7 +23,6 @@ class AlertDialogExamplesState(rx.State):
     """State for alert dialog examples."""
 
     last_action: str = "-"
-    action_loading: bool = False
 
     # Controlled-mode example
     controlled_open: bool = False

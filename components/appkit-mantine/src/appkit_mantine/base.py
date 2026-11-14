@@ -15,7 +15,7 @@ Architecture:
 Example:
     Creating a new Mantine input component:
     ```python
-    from appkit_ui.components.mantine_base import MantineInputComponentBase
+    from appkit_mantine.base import MantineInputComponentBase
 
 
     class MyCustomInput(MantineInputComponentBase):

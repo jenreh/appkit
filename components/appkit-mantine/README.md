@@ -157,7 +157,7 @@ app.add_page(login_form)
 | **`table`** | Table component for tabular data display | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/table_examples.py) |
 | **`accordion`, `avatar`, `badge`, `card`, `data_list`, `empty_state`, `image`, `indicator`, `kbd`, `paper`, `spoiler`, `theme_icon`, `timeline`** | Data display components | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/data_display_examples.py) |
 | **`alert`, `loader`, `notification`, `progress`, `ring_progress`, `skeleton`** | Feedback components | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/feedback_examples.py) |
-| **`tree`, `carousel`** | Hierarchical and carousel display | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/tree_state.py) |
+| **`tree`, `carousel`** | Hierarchical and carousel display | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/data_display_examples.py) |
 | **`number_formatter`** | Formats numeric input with parser/formatter, returns parsed value | [Examples](https://github.com/jenreh/appkit/tree/main/app/pages/examples/number_formatter_examples.py) |
 
 ### Charts

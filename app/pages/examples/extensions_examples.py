@@ -12,27 +12,6 @@ from app.components.examples import example_box
 from app.components.navbar import app_navbar
 from app.components.templates import navbar_layout
 
-EXAMPLE_CODE_PY = """import appkit_mantine as mn
-
-def my_page() -> rx.Component:
-    return mn.stack(
-        mn.title("Hello Mantine", order=1),
-        mn.button("Click me", on_click=State.handle_click),
-    )
-"""
-
-EXAMPLE_CODE_TS = """import { Button, Stack, Title } from '@mantine/core';
-
-function MyPage() {
-  return (
-    <Stack>
-      <Title order={1}>Hello Mantine</Title>
-      <Button onClick={handleClick}>Click me</Button>
-    </Stack>
-  );
-}
-"""
-
 
 @navbar_layout(
     route="/examples/extensions",

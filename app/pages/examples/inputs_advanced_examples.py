@@ -21,7 +21,6 @@ class InputsAdvancedState(rx.State):
     pin_value: str = ""
     chip_checked: bool = False
     chip_group_value: str = "react"
-    native_select_value: str = ""
     fieldset_name: str = ""
     fieldset_email: str = ""
 

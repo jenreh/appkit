@@ -1,5 +1,5 @@
 import logging
-from typing import Final
+
 from dotenv import load_dotenv
 
 from app.configuration import configure

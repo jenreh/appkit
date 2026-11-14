@@ -13,7 +13,6 @@ from app.components.templates import navbar_layout
 
 class LayoutExamplesState(rx.State):
     collapse_opened: bool = False
-    counter: int = 1234
     rolling_value: int = 1234
 
     def toggle_collapse(self) -> None:

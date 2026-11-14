@@ -10,13 +10,6 @@ from app.components.examples import example_box
 from app.components.navbar import app_navbar
 from app.components.templates import navbar_layout
 
-
-class TreeExampleState(rx.State):
-    """State for the advanced tree example."""
-
-    search_query: str = ""
-
-
 TREE_DUMMY_DATA = [
     {
         "label": "components",

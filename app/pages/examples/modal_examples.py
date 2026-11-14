@@ -12,9 +12,6 @@ This module showcases various Modal configurations and usage patterns:
 Based on: https://mantine.dev/core/modal/
 """
 
-from collections.abc import AsyncGenerator
-from typing import Any
-
 import reflex as rx
 
 import appkit_mantine as mn
@@ -52,9 +49,6 @@ class ModalExamplesState(rx.State):
     stack_first_opened: bool = False
     stack_second_opened: bool = False
     stack_third_opened: bool = False
-
-    # Data for demonstration
-    modal_data: dict[str, str] = {}
 
     # Basic modal handlers
     def open_basic(self) -> None:
@@ -150,14 +144,6 @@ class ModalExamplesState(rx.State):
         self.stack_first_opened = False
         self.stack_second_opened = False
         self.stack_third_opened = False
-
-    @rx.event
-    async def on_exit_demo(self) -> AsyncGenerator[Any, Any]:
-        """Demonstrate onExitTransitionEnd."""
-        self.modal_data = {}
-        yield rx.toast.success(
-            "Data cleared after exit transition!", position="top-right"
-        )
 
 
 def basic_modal_example() -> rx.Component:
