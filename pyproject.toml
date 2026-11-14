@@ -5,35 +5,35 @@ description = "Production-ready Mantine UI components for Reflex - Demo Applicat
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "alembic>=1.20.0",
+    "alembic>=1.20.1",
     "appkit-assistant",
     "appkit-commons[apscheduler,pgqueuer,azure]",
     "appkit-imagecreator",
     "appkit-mantine",
     "appkit-ui",
     "appkit-user[azure,resend]",
-    "psycopg==3.3.6",
-    "psycopg-binary==3.3.6",
+    "psycopg==3.3.9",
+    "psycopg-binary==3.3.9",
     "reflex[db]>=0.10.1",
 ]
 
 [dependency-groups]
 dev = [
     "pytest==9.2.0",
-    "pytest-asyncio==1.4.1.post1",
+    "pytest-asyncio==1.5.0",
     "pytest-cov==7.1.0",
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     "aiosqlite==0.22.1",
     "httpx==0.28.1",
     "responses==0.26.3",
-    "faker==40.44.0",
-    "ruff==0.17.3",
+    "faker==40.54.0",
+    "ruff==0.17.5",
     "bump-my-version==1.8.1",
     "detect-secrets==1.5.0",
     "respx>=0.23.1",
-    "ty==0.0.95",
-    "types-pyyaml==6.0.12.20261030",
+    "ty==0.0.104",
+    "types-pyyaml==6.0.12.20261113",
 ]
 
 [tool.setuptools.packages.find]

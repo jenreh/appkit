@@ -3,30 +3,15 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Shared UI components and layouts for AppKit applications.**
+**Shared UI helpers for AppKit applications.**
 
-appkit-ui provides a collection of reusable UI components, layouts, and styling utilities designed to create consistent, professional interfaces across AppKit applications. It includes responsive page templates, navigation components, form helpers, and common UI patterns built on Reflex and Mantine.
-
----
-
-## ✨ Features
-
-- **Layout Components** - Responsive page templates and navigation headers
-- **Form Helpers** - Pre-built form inputs with validation and styling
-- **Dialog Components** - Confirmation dialogs and modal interfaces
-- **Rich Text Editor** - Full-featured WYSIWYG editor based on SunEditor
-- **Collapsible Sections** - Expandable/collapsible content areas
-- **Global State Management** - Shared state for loading indicators and UI feedback
-- **Styling Utilities** - Consistent themes, colors, and CSS utilities
-- **Responsive Design** - Mobile-first components that work across all screen sizes
+appkit-ui provides a small set of reusable UI helpers built on Reflex and appkit-mantine: a page header, a delete confirmation dialog, form field helpers, a collapsible section, a global loading state, and a sticky table header style.
 
 ---
 
 ## 🚀 Installation
 
 ### As Part of AppKit Workspace
-
-If you're using the full AppKit workspace:
 
 ```bash
 git clone https://github.com/jenreh/appkit.git
@@ -36,451 +21,115 @@ uv sync
 
 ### Standalone Installation
 
-Install from PyPI:
-
 ```bash
 pip install appkit-ui
-```
-
-Or with uv:
-
-```bash
+# or
 uv add appkit-ui
 ```
 
 ### Dependencies
 
-- `appkit-commons` (shared utilities)
-- `reflex>=0.10.1` (UI framework)
-
----
-
-## 🏁 Quick Start
-
-### Basic Layout
-
-Create a responsive page layout with header:
-
-```python
-import reflex as rx
-import appkit_ui as ui
-
-
-def my_page():
-    return rx.vstack(
-        ui.header("My Application"),
-        rx.container(rx.text("Welcome to my app!"), max_width="800px", padding="2em"),
-        spacing="0",
-        min_height="100vh",
-    )
-```
-
-### Using Form Components
-
-Add styled form inputs:
-
-```python
-from appkit_ui.components.form_inputs import inline_form_field
-
-
-def contact_form():
-    return rx.form(
-        inline_form_field(
-            icon="user", label="Name", placeholder="Enter your name", required=True
-        ),
-        inline_form_field(
-            icon="mail", label="Email", type="email", placeholder="Enter your email"
-        ),
-        rx.button("Submit", type="submit"),
-    )
-```
-
-### Rich Text Editor
-
-Add a WYSIWYG editor to your page:
-
-```python
-from appkit_ui.components import editor
-
-
-def blog_editor():
-    return editor(
-        placeholder="Write your blog post...",
-        button_list=editor.EditorButtonList.COMPLEX,
-        height="400px",
-    )
-```
+- `appkit-mantine` (Mantine components for Reflex)
 
 ---
 
 ## 📖 Usage
 
-### Layout Components
+### Header
 
-#### Header
-
-Create a fixed header with responsive design:
+A fixed page header placed to the right of the sidebar. `header_items` is rendered on the right side.
 
 ```python
-from appkit_ui.components.header import header
+from appkit_ui.components.header import SIDEBAR_WIDTH, header
 
-# Basic header
 header("Application Title")
+header("Gallery", header_items=mn.button("New"))
 ```
 
-#### Styles and Themes
+`SIDEBAR_WIDTH` is the sidebar width the header offsets itself by.
 
-Apply consistent styling:
-
-```python
-import appkit_ui.styles as styles
-
-
-def styled_page():
-    return rx.box(
-        rx.text("Content"),
-        **styles.splash_container,  # Gradient background
-    )
-```
-
-### Form Components
-
-#### Inline Form Fields
-
-Create labeled form inputs with icons:
-
-```python
-from appkit_ui.components.form_inputs import inline_form_field
-
-# Text input
-inline_form_field(
-    icon="user",
-    label="Username",
-    placeholder="Enter username",
-    min_length=3,
-    max_length=50,
-)
-
-# Email input
-inline_form_field(icon="mail", label="Email", type="email", required=True)
-
-# Password input
-inline_form_field(
-    icon="lock", label="Password", type="password", hint="Must be at least 8 characters"
-)
-```
-
-#### Hidden Fields
-
-Add hidden form data:
-
-```python
-from appkit_ui.components.form_inputs import hidden_field
-
-hidden_field(name="csrf_token", value="abc123")
-```
-
-### Dialog Components
-
-#### Delete Confirmation Dialog
-
-Create a confirmation dialog for destructive actions:
+### Delete Confirmation Dialog
 
 ```python
 from appkit_ui.components.dialogs import delete_dialog
 
-
-def user_management():
-    return rx.vstack(
-        delete_dialog(
-            title="Delete User",
-            content="user@example.com",
-            on_click=lambda: print("User deleted"),
-        ),
-        # Other user management UI
-    )
-```
-
-### Editor Component
-
-#### Rich Text Editor
-
-Configure the editor with different button sets:
-
-```python
-from appkit_ui.components import editor
-
-# Basic editor
-editor(placeholder="Enter text...")
-
-# Full-featured editor
-editor(
-    button_list=editor.EditorButtonList.COMPLEX,
-    height="500px",
-    placeholder="Write your content...",
-    on_change=lambda value: print(f"Content: {value}"),
+delete_dialog(
+    title="Delete User",
+    content="user@example.com",
+    on_click=UserState.delete_user,
+    icon_button=True,
+    action_loading=UserState.is_loading,
 )
 ```
 
-#### Editor Options
+### Form Fields
 
-Customize editor behavior:
+`form_field` wraps a Mantine input with a label, description, icon and error message. All extra keyword arguments go to the input.
 
 ```python
-from appkit_ui.components.editor import EditorOptions
+from appkit_ui.components.form_inputs import form_field, hidden_field
 
-custom_options = EditorOptions(
-    height="400px",
-    placeholder="Custom placeholder...",
-    button_list=[["bold", "italic"], ["link", "image"], ["undo", "redo"]],
+form_field(
+    icon="server",
+    label="Name",
+    hint="Unique server name",
+    name="name",
+    default_value="",
+    validation_error=FormState.name_error,
+    required=True,
 )
 
-editor(options=custom_options)
+hidden_field(name="user_id", default_value="42")
 ```
 
-### Collapsible Components
-
-#### Collapsible Sections
-
-Create expandable content areas:
+### Collapsible Section
 
 ```python
-from appkit_ui.components import collabsible
+from appkit_ui.components.collapsible import collapsible
 
-
-def settings_page():
-    return rx.vstack(
-        collabsible(
-            rx.text("Account settings content..."),
-            title="Account Settings",
-            info_text="Configure your account",
-            expanded=True,
-        ),
-        collabsible(
-            rx.text("Notification settings content..."),
-            title="Notifications",
-            info_text="Manage email preferences",
-        ),
-    )
+collapsible(
+    rx.text("Details..."),
+    title="Details",
+    info_text="3 items",
+    show_condition=State.has_details,
+    expanded=State.details_expanded,
+    on_toggle=State.toggle_details,
+)
 ```
 
-### Global State
-
-#### Loading State
-
-Manage loading indicators across your app:
+### Loading State
 
 ```python
 from appkit_ui.global_states import LoadingState
 
+rx.link("Users", href="/users", on_click=LoadingState.set_is_loading(True))
 
-class MyState(LoadingState):
-    def load_data(self):
-        self.set_is_loading(True)
-        # Simulate async operation
-        await asyncio.sleep(2)
-        self.set_is_loading(False)
-
-
-def loading_component():
-    return rx.cond(
-        LoadingState.is_loading,
-        rx.text(LoadingState.is_loading_message),
-        rx.text("Content loaded"),
-    )
-```
-
----
-
-## 🔧 Configuration
-
-### Editor Configuration
-
-Customize the rich text editor:
-
-```python
-from appkit_ui.components.editor import EditorOptions
-
-options = EditorOptions(
-    mode="classic",  # or "inline", "balloon"
-    height="300px",
-    min_height="200px",
-    max_height="600px",
-    placeholder="Start writing...",
-    button_list=editor.EditorButtonList.FORMATTING,
-    font_size: ["8px", "10px", "12px", "14px", "16px", "18px", "20px"],
-    color_list: ["#ff0000", "#00ff00", "#0000ff"],
-    # Additional SunEditor options...
+rx.box(
+    page_content,
+    class_name=rx.cond(LoadingState.is_loading, "cursor-wait", ""),
 )
 ```
 
-### Styling Customization
-
-Override default styles:
+### Sticky Table Header Style
 
 ```python
-import appkit_ui.styles as styles
+from appkit_ui.styles import sticky_header_style
 
-# Custom dialog styles
-custom_dialog_styles = {
-    **styles.dialog_styles,
-    "border_radius": "15px",
-    "box_shadow": "0 10px 25px rgba(0,0,0,0.1)",
-}
+mn.table.thead(..., style=sticky_header_style)
 ```
 
 ---
 
 ## 📋 API Reference
 
-### Component API
-
-#### Layout API
-
-- `header()` - Fixed page header with responsive design
-
-#### Form API
-
-- `inline_form_field()` - Labeled form input with icon and validation
-- `hidden_field()` - Hidden form input field
-
-#### Dialog API
-
-- `delete_dialog()` - Confirmation dialog for delete operations
-
-#### Editor API
-
-- `editor()` - Rich text WYSIWYG editor
-- `EditorButtonList` - Predefined button configurations (BASIC, FORMATTING, COMPLEX)
-- `EditorOptions` - Editor configuration options
-
-#### Utility API
-
-- `collabsible()` - Expandable/collapsible content sections
-
-#### State API
-
-- `LoadingState` - Global loading state with message support
-
-#### Style API
-
-- `splash_container` - Gradient background styles
-- `dialog_styles` - Dialog component styling
-- `label_styles` - Form label styling
-
----
-
-## 🔒 Security
-
-> [!IMPORTANT]
-> Form components include basic client-side validation, but always implement server-side validation for security.
-
-- Input sanitization for editor content
-- CSRF protection support through hidden fields
-- Secure handling of form data
-
----
-
-## 🤝 Integration Examples
-
-### With AppKit Components
-
-Combine with other AppKit packages:
-
-```python
-import reflex as rx
-import appkit_ui as ui
-import appkit_mantine as mn
-import appkit_user as user
-
-
-def dashboard():
-    return rx.vstack(
-        ui.header("Dashboard"),
-        rx.hstack(
-            # Sidebar navigation
-            mn.sidebar(),
-            # Main content
-            rx.container(
-                ui.collabsible(
-                    mn.data_table(),  # From appkit-mantine
-                    title="User Data",
-                    expanded=True,
-                ),
-                max_width="1200px",
-            ),
-            flex_grow="1",
-        ),
-        min_height="100vh",
-    )
-```
-
-### Custom Form with Validation
-
-Create forms with integrated validation:
-
-```python
-from appkit_ui.components.form_inputs import inline_form_field
-
-
-def registration_form():
-    return rx.form(
-        inline_form_field(
-            icon="user",
-            label="Username",
-            name="username",
-            min_length=3,
-            max_length=20,
-            pattern=r"^[a-zA-Z0-9_]+$",
-            required=True,
-        ),
-        inline_form_field(
-            icon="mail", label="Email", name="email", type="email", required=True
-        ),
-        inline_form_field(
-            icon="lock",
-            label="Password",
-            name="password",
-            type="password",
-            min_length=8,
-            hint="At least 8 characters",
-            required=True,
-        ),
-        rx.button("Register", type="submit"),
-    )
-```
-
-### Editor Integration
-
-Use the editor in content management:
-
-```python
-from appkit_ui.components import editor
-
-
-class BlogState(rx.State):
-    content: str = ""
-
-    def save_post(self):
-        # Save self.content to database
-        pass
-
-
-def blog_editor_page():
-    return rx.vstack(
-        ui.header("New Blog Post"),
-        editor(
-            value=BlogState.content,
-            on_change=BlogState.set_content,
-            button_list=editor.EditorButtonList.COMPLEX,
-            height="600px",
-            placeholder="Write your blog post...",
-        ),
-        rx.button("Save", on_click=BlogState.save_post),
-        spacing="4",
-        padding="2em",
-    )
-```
+| Module | Symbol | Purpose |
+| --- | --- | --- |
+| `appkit_ui.components.header` | `header()`, `SIDEBAR_WIDTH` | Fixed page header |
+| `appkit_ui.components.dialogs` | `delete_dialog()` | Confirmation dialog for delete actions |
+| `appkit_ui.components.form_inputs` | `form_field()`, `hidden_field()` | Form input helpers |
+| `appkit_ui.components.collapsible` | `collapsible()` | Expandable content section |
+| `appkit_ui.global_states` | `LoadingState` | Global loading flag |
+| `appkit_ui.styles` | `sticky_header_style` | Sticky table header styling |
 
 ---
 

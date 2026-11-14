@@ -5,9 +5,7 @@ import appkit_mantine as mn
 SIDEBAR_WIDTH = "320px"
 
 
-def header(
-    text: str, indent: bool = False, header_items: rx.Component | None = None
-) -> rx.Component:
+def header(text: str, header_items: rx.Component | None = None) -> rx.Component:
     return mn.group(
         mn.title(text, order=4),
         header_items,
@@ -16,7 +14,7 @@ def header(
         wrap="nowrap",
         p="12px",
         pl="32px",
-        ml=rx.cond(indent, "0", "-32px"),
+        ml="-32px",
         style={
             "position": "fixed",
             "top": "0",
