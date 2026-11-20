@@ -20,7 +20,7 @@ MAX_BLOB_BYTES = 2560
 
 def _load_win32cred() -> Any:
     try:
-        import win32cred  # noqa: PLC0415  # ty: ignore[import-not-found]
+        import win32cred  # noqa: PLC0415  # ty: ignore[import-not-found]  # pyright: ignore[reportMissingModuleSource]
     except ImportError as exc:
         raise ImportError(
             "Optional Windows dependencies are required to use "

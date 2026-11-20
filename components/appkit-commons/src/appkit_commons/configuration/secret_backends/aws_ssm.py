@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def create_ssm_client() -> Any:
     """SSM client using the default AWS credential chain (aws login, profiles)."""
     try:
-        import boto3  # noqa: PLC0415  # ty: ignore[import-not-found]
+        import boto3  # noqa: PLC0415  # ty: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
     except ImportError as exc:
         raise ImportError(
             "Optional AWS dependencies are required to use SecretProvider.AWS_SSM. "

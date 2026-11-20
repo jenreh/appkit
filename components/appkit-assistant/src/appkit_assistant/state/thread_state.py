@@ -243,10 +243,15 @@ class ThreadState(
     submit_edited_message = rx.event(
         MessageEditMixin.submit_edited_message, background=True
     )
-    delete_message = rx.event(MessageEditMixin.delete_message, background=True)
+    # rx.event erases the signature; ty sees it as a narrower override.
+    delete_message = rx.event(  # ty: ignore[incompatible-attribute-override]
+        MessageEditMixin.delete_message, background=True
+    )
     copy_message = MessageEditMixin.copy_message
     download_message = MessageEditMixin.download_message
-    retry_message = rx.event(MessageEditMixin.retry_message, background=True)
+    retry_message = rx.event(  # ty: ignore[incompatible-attribute-override]
+        MessageEditMixin.retry_message, background=True
+    )
 
     # -- OAuthMixin --
     start_mcp_oauth = OAuthMixin.start_mcp_oauth
