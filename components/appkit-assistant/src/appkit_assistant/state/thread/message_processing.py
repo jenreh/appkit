@@ -55,7 +55,6 @@ class MessageProcessingMixin:
     ``_pending_file_cleanup``, ``_cancel_event``, ``_current_user_id``.
     """
 
-    @rx.event(background=True)
     async def submit_message(self) -> AsyncGenerator[Any, Any]:
         """Submit a message and process the response."""
         yield rx.call_script("""
@@ -68,7 +67,6 @@ class MessageProcessingMixin:
         """)
         await self._process_message()
 
-    @rx.event
     def request_cancellation(self) -> None:
         """Signal that the current processing should be cancelled."""
         self.cancellation_requested = True

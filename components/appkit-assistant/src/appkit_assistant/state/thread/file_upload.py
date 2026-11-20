@@ -24,7 +24,6 @@ class FileUploadMixin:
     ``max_files_per_thread``.
     """
 
-    @rx.event
     async def handle_upload(
         self, files: list[rx.UploadFile]
     ) -> AsyncGenerator[Any, Any]:
@@ -88,7 +87,6 @@ class FileUploadMixin:
                     e,
                 )
 
-    @rx.event
     def remove_file_from_prompt(self, file_path: str) -> None:
         """Remove an uploaded file from the prompt."""
         file_manager.cleanup_uploaded_files([file_path])

@@ -3,8 +3,9 @@ name: appkit-user
 description: >
   appkit-user usage patterns: wiring the session guard (install_session_filter,
   add_session_guard, require_session), AuthenticationConfiguration (OAuth providers,
-  public_routes, session cookie), the authenticated_page decorator, login and
-  password-reset page factories, auth decorators and role gates, and shared-origin
+  public_routes, session cookie), the authenticated_page decorator, login,
+  password-reset and welcome page factories, admin approval of new OAuth users,
+  auth decorators and role gates, and shared-origin
   path prefix handling (session cookie name, app_storage_key for browser storage,
   OAuth redirect URLs). Apply automatically when adding login, OAuth providers,
   protected pages or REST routes, rx.LocalStorage fields, or serving an app below a
@@ -38,13 +39,16 @@ from appkit_user.user_management.pages import (
     create_login_page,
     create_password_reset_confirm_page,
     create_password_reset_request_page,
+    create_welcome_page,
 )
 
 from app.components.templates import default_layout  # layouts live in the app
+from app.components.welcome import app_welcome  # optional own content
 
 create_login_page(default_layout)  # logo paths are app relative; prefixed internally
 create_password_reset_request_page(default_layout)
 create_password_reset_confirm_page(default_layout)
+create_welcome_page(default_layout, content=app_welcome)  # required unless approval off
 
 app = rx.App(api_transformer=[api_app, add_session_guard, add_https_middleware])
 install_session_filter(app)
@@ -71,6 +75,9 @@ app:
     server_port: 8080            # 0 or the scheme default is dropped
     session_timeout: 25          # minutes
     session_cookie_secure: true  # false only for non-TLS hosts other than localhost
+    require_admin_approval: true # new OAuth users start without access (see §3)
+    welcome_route: /welcome      # where pending users are fenced to
+    user_admin_route: /admin/users  # link in the admin notification email
     # session_cookie_name: ""    # "" = derived from frontend_path (see §5)
     # storage_key_prefix: ""     # "" = derived from frontend_path (see §5)
     public_routes:               # fnmatch globs, app relative; all else default-deny
@@ -162,6 +169,19 @@ def settings_page() -> rx.Component:
   (`app/components/templates.py`). They reuse `default_meta`
   (`appkit_user.authentication.templates`), `session_monitor()` and
   `default_fallback()` (`appkit_user.authentication.components`).
+- `create_welcome_page(layout, content=None, route=None, title="Willkommen")`
+  registers the page that users awaiting approval are fenced to. `content` is
+  the app's component (default `welcome_pending`); `logout_button()` signs out.
+  Its `on_load` sends approved users home and anonymous ones to login.
+- New OAuth users are created with `is_verified=False` and no roles when
+  `require_admin_approval` is on. `is_pending_approval(user)` and
+  `is_route_allowed_for_pending(path)` (`session_validation`) are the shared
+  checks: `SessionFilter` and the page guard redirect to `welcome_route`,
+  `require_session` answers 403, `@is_authenticated` redirects and
+  `@requires_admin` denies. An OAuth login never sets `is_verified` itself;
+  only an admin does (`UserState.approve_user` / `user_repo.approve`).
+  Active admins get an email per new pending user
+  (`schedule_pending_user_notification`).
 - `create_login_page`, `create_password_reset_request_page` and
   `create_password_reset_confirm_page` take the app's page decorator factory as
   their first argument. It is called as `layout(route=..., title=..., on_load=...)`
@@ -286,3 +306,6 @@ In-process tests switch the prefix with
 | Trusting `X-Forwarded-For` / `client_ip` behind a proxy without config | Set `trusted_proxy_hops` to the trusted proxy count |
 | `admin_only=True` as the only admin check on a page | Also `@requires_admin` on every admin event handler |
 | Layout code (navbar, header) inside a reusable package | `template=` callable or a `PageLayout` passed in by the app |
+| Setting `is_verified=True` during login | Only admins approve (`user_repo.approve`) |
+| Approval on but no `create_welcome_page` call | Register it, or set `require_admin_approval: false` |
+| `User(...)` in tests for an approved user without `is_verified=True` | Pass `is_verified=True`; the model default is pending |

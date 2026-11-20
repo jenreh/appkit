@@ -59,13 +59,20 @@ class _StubUserState:
         self.add_modal_open: bool = False
         self.edit_modal_open: bool = False
         self.search_filter: str = ""
+        self.show_pending_only: bool = False
         self._authenticated = authenticated
         self._is_admin = is_admin
 
     async def get_state(self, cls: type) -> MagicMock:
         mock = MagicMock()
         current_user = (
-            User(user_id=1, name="Admin", email="admin@x.com", is_admin=self._is_admin)
+            User(
+                user_id=1,
+                name="Admin",
+                email="admin@x.com",
+                is_admin=self._is_admin,
+                is_verified=True,
+            )
             if self._authenticated
             else None
         )
@@ -86,6 +93,8 @@ class _StubUserState:
     create_user = _unwrap("create_user")
     update_user = _unwrap("update_user")
     delete_user = _unwrap("delete_user")
+    approve_user = _unwrap("approve_user")
+    set_show_pending_only = _unwrap("set_show_pending_only")
     select_user = _unwrap("select_user")
     user_has_role = _unwrap("user_has_role")
 
@@ -461,3 +470,98 @@ class TestAdminAuthorization:
             await state.select_user(1)
         mock_repo.find_by_id.assert_not_called()
         assert state.selected_user is None
+
+
+def _pending(user_id: int = 3, name: str = "Neu", email: str = "neu@x.com") -> User:
+    return User(user_id=user_id, name=name, email=email, is_verified=False)
+
+
+def _verified(user_id: int = 1, name: str = "Alice", email: str = "a@x.com") -> User:
+    return User(user_id=user_id, name=name, email=email, is_verified=True)
+
+
+class TestPendingFilter:
+    def test_set_show_pending_only(self) -> None:
+        state = _make_state()
+        state.set_show_pending_only(True)
+        assert state.show_pending_only is True
+
+    def test_pending_only_hides_approved_users(self) -> None:
+        state = _make_state()
+        state.users = [_verified(), _pending()]
+        state.show_pending_only = True
+
+        result = _CV["filtered_users"].fget(state)
+
+        assert [u.user_id for u in result] == [3]
+
+    def test_pending_only_combines_with_search(self) -> None:
+        state = _make_state()
+        state.users = [_pending(3, "Neu"), _pending(4, "Bob", "bob@x.com")]
+        state.show_pending_only = True
+        state.search_filter = "bob"
+
+        assert [u.user_id for u in _CV["filtered_users"].fget(state)] == [4]
+
+    def test_pending_count(self) -> None:
+        state = _make_state()
+        state.users = [_verified(), _pending(3), _pending(4)]
+
+        assert _CV["pending_count"].fget(state) == 2
+
+
+class TestApproveUser:
+    @pytest.mark.asyncio
+    async def test_approves_and_reloads(self) -> None:
+        state = _make_state()
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
+            patch(f"{_PATCH}.user_repo") as mock_repo,
+        ):
+            mock_repo.approve = AsyncMock(return_value=_user_entity(3))
+            mock_repo.find_all_paginated = AsyncMock(return_value=[])
+            _ = [c async for c in state.approve_user(3)]
+
+        mock_repo.approve.assert_awaited_once()
+        assert mock_repo.approve.await_args.args[1] == 3
+        mock_repo.find_all_paginated.assert_awaited_once()
+        assert state.is_loading is False
+
+    @pytest.mark.asyncio
+    async def test_unknown_user(self) -> None:
+        state = _make_state()
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
+            patch(f"{_PATCH}.user_repo") as mock_repo,
+        ):
+            mock_repo.approve = AsyncMock(return_value=None)
+            mock_repo.find_all_paginated = AsyncMock(return_value=[])
+            _ = [c async for c in state.approve_user(99)]
+
+        mock_repo.find_all_paginated.assert_not_called()
+        assert state.is_loading is False
+
+    @pytest.mark.asyncio
+    async def test_error_is_reported(self) -> None:
+        state = _make_state()
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
+            patch(f"{_PATCH}.user_repo") as mock_repo,
+        ):
+            mock_repo.approve = AsyncMock(side_effect=RuntimeError("db"))
+            events = [c async for c in state.approve_user(3)]
+
+        assert state.is_loading is False
+        assert events[-1] is not None
+
+    @pytest.mark.asyncio
+    async def test_denied_for_non_admin(self) -> None:
+        state = _make_state(is_admin=False)
+        with (
+            patch(f"{_PATCH}.get_asyncdb_session", return_value=_db_context()),
+            patch(f"{_PATCH}.user_repo") as mock_repo,
+        ):
+            mock_repo.approve = AsyncMock()
+            _ = [c async for c in state.approve_user(3)]
+
+        mock_repo.approve.assert_not_called()

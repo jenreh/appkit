@@ -169,16 +169,17 @@ class ThreadState(
     _cancel_event: asyncio.Event | None = None
 
     # -----------------------------------------------------------------
-    # Re-export mixin @rx.event and @rx.var members so that Reflex's
-    # StateMeta metaclass registers them as proper EventHandlers /
-    # ComputedVars.  Without these assignments the metaclass only sees
-    # members defined directly in this class body.
+    # Re-export mixin event handlers and @rx.var members so that Reflex
+    # registers them as EventHandlers / ComputedVars on this state; it only
+    # sees members defined directly in this class body. Mixin methods stay
+    # undecorated (Reflex >= 0.11 deprecates @rx.event outside a state),
+    # so background handlers are marked here.
     #
     # For @rx.var we access the descriptor via ``__dict__`` to bypass
     # ComputedVar.__get__ which requires an rx.State owner.
     # -----------------------------------------------------------------
 
-    # -- ModelSelectionMixin (@rx.event) --
+    # -- ModelSelectionMixin (events) --
     set_selected_model = ModelSelectionMixin.set_selected_model
 
     # -- ModelSelectionMixin (@rx.var) --
@@ -198,7 +199,7 @@ class ThreadState(
         "selected_model_supports_skills"
     ]
 
-    # -- CommandPaletteMixin (@rx.event) --
+    # -- CommandPaletteMixin (events) --
     reload_commands = CommandPaletteMixin.reload_commands
     navigate_command_palette = CommandPaletteMixin.navigate_command_palette
     select_command = CommandPaletteMixin.select_command
@@ -239,11 +240,13 @@ class ThreadState(
     set_edited_message_content = MessageEditMixin.set_edited_message_content
     cancel_edit = MessageEditMixin.cancel_edit
     toggle_message_expanded = MessageEditMixin.toggle_message_expanded
-    submit_edited_message = MessageEditMixin.submit_edited_message
-    delete_message = MessageEditMixin.delete_message
+    submit_edited_message = rx.event(
+        MessageEditMixin.submit_edited_message, background=True
+    )
+    delete_message = rx.event(MessageEditMixin.delete_message, background=True)
     copy_message = MessageEditMixin.copy_message
     download_message = MessageEditMixin.download_message
-    retry_message = MessageEditMixin.retry_message
+    retry_message = rx.event(MessageEditMixin.retry_message, background=True)
 
     # -- OAuthMixin --
     start_mcp_oauth = OAuthMixin.start_mcp_oauth
@@ -252,7 +255,7 @@ class ThreadState(
     dismiss_auth_card = OAuthMixin.dismiss_auth_card
 
     # -- MessageProcessingMixin --
-    submit_message = MessageProcessingMixin.submit_message
+    submit_message = rx.event(MessageProcessingMixin.submit_message, background=True)
     request_cancellation = MessageProcessingMixin.request_cancellation
 
     # -----------------------------------------------------------------

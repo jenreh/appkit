@@ -68,13 +68,13 @@ def _unwrap(cls: type, name: str) -> Any:
     return entry.fn if hasattr(entry, "fn") else entry
 
 
-def _user(user_id: int = 7) -> User:
+def _user(user_id: int = 7, is_verified: bool = True) -> User:
     return User(
         user_id=user_id,
         name="testuser",
         email="test@example.com",
         is_active=True,
-        is_verified=True,
+        is_verified=is_verified,
     )
 
 
@@ -572,3 +572,79 @@ class TestUnderPathPrefix:
         # navigate() adds the basename again, so a prefixed target would
         # end up at /knai/knai/dashboard.
         assert state.login_state.redirect_to == PROTECTED_PATH
+
+
+# ============================================================================
+# Users awaiting admin approval
+# ============================================================================
+
+WELCOME_DENIAL_EVENT_NAMES = ["_redirect", SET_IS_HYDRATED]
+
+
+def _pending_cached_session() -> _StubUserSession:
+    session = _StubUserSession(
+        session_cookie="tok-123",
+        user_id=7,
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    session.user = _user(is_verified=False)
+    return session
+
+
+def _redirect_target(update: StateUpdate) -> str:
+    redirect = next(e for e in update.events if e.name == "_redirect")
+    return redirect.payload["path"]
+
+
+class TestPendingApproval:
+    @pytest.mark.asyncio
+    async def test_cached_pending_user_is_fenced_to_welcome(self) -> None:
+        validator = _validator()
+        session = _pending_cached_session()
+
+        update = await _run(validator, _StubRootState(user_session=session), _event())
+
+        _assert_denied(update, WELCOME_DENIAL_EVENT_NAMES)
+        assert update is not None
+        assert _redirect_target(update) == "/welcome"
+        validator.validate.assert_not_awaited()
+        # The session is valid: it must not be torn down.
+        session.terminate_session.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_validated_pending_user_is_fenced_to_welcome(self) -> None:
+        validator = _validator(
+            SessionValidationResult(
+                SessionStatus.VALID,
+                user=_user(is_verified=False),
+                expires_at=datetime.now(UTC) + timedelta(minutes=5),
+            )
+        )
+        session = _StubUserSession(session_cookie="tok-123")
+
+        update = await _run(validator, _StubRootState(user_session=session), _event())
+
+        _assert_denied(update, WELCOME_DENIAL_EVENT_NAMES)
+        session.terminate_session.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_pending_user_may_use_the_welcome_page(self) -> None:
+        state = _StubRootState(path="/welcome", user_session=_pending_cached_session())
+
+        assert await _run(_validator(), state, _event()) is None
+
+    @pytest.mark.asyncio
+    async def test_pending_user_may_use_public_routes(self) -> None:
+        state = _StubRootState(path="/login", user_session=_pending_cached_session())
+
+        assert await _run(_validator(), state, _event()) is None
+
+    @pytest.mark.asyncio
+    async def test_approved_user_is_not_fenced(self) -> None:
+        session = _pending_cached_session()
+        session.user = _user(is_verified=True)
+
+        assert (
+            await _run(_validator(), _StubRootState(user_session=session), _event())
+            is None
+        )

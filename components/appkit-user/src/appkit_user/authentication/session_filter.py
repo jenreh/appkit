@@ -63,9 +63,12 @@ from appkit_user.authentication.session_validation import (
     LOGIN_ROUTE,
     SessionStatus,
     SessionValidator,
+    is_pending_approval,
     is_public_route,
+    is_route_allowed_for_pending,
     is_session_filter_enabled,
     safe_redirect_path,
+    welcome_route,
 )
 from appkit_user.authentication.states import (
     AUTH_TOKEN_LOCAL_STORAGE_KEY,
@@ -151,6 +154,15 @@ def _login_redirect(
     return StateUpdate(events=Event.from_event_type(specs, router_data=router_data))
 
 
+def _welcome_redirect(router_data: dict[str, Any]) -> StateUpdate:
+    """Short-circuit a pending user's event with a redirect to the welcome page.
+
+    The session is valid, so the credentials stay; only the route is refused.
+    """
+    specs = [rx.redirect(welcome_route()), State.set_is_hydrated(True)]
+    return StateUpdate(events=Event.from_event_type(specs, router_data=router_data))
+
+
 class SessionFilter(Middleware):
     """Denies WebSocket events that arrive without a currently valid session."""
 
@@ -214,16 +226,32 @@ class SessionFilter(Middleware):
         # trip per event would serialize the session's whole event stream. A
         # cached expiry that has not been reached yet is authoritative.
         if token and user_session._has_unexpired_cache():  # noqa: SLF001 - backend var helper, underscore is required by Reflex
-            return None
+            return self._fence_pending(user_session, path, event)
 
         result = await self._validator.validate(
             session_id=token, user_id=user_session.user_id
         )
         if result.is_valid:
             user_session._cache_session(result)  # noqa: SLF001 - see above
-            return None
+            return self._fence_pending(user_session, path, event)
 
         return await self._deny(state, user_session, path, result.status, event)
+
+    @staticmethod
+    def _fence_pending(
+        user_session: UserSession, path: str, event: Event
+    ) -> StateUpdate | None:
+        """Keep a user awaiting admin approval on the welcome page."""
+        if not is_pending_approval(user_session.user):
+            return None
+        if is_route_allowed_for_pending(path):
+            return None
+        logger.debug(
+            "Session filter fenced pending user_id=%s from path=%s",
+            user_session.user_id,
+            path,
+        )
+        return _welcome_redirect(event.router_data)
 
     async def _deny(
         self,

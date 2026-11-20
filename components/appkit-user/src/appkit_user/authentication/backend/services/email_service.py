@@ -1,4 +1,4 @@
-"""Email service for sending password reset emails."""
+"""Email service for password reset and account approval emails."""
 
 import asyncio
 import logging
@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 type EmailConfigType = ResendEmailConfig | AzureEmailConfig | MockEmailConfig
 
+_DEFAULT_TEMPLATES_DIR = Path(__file__).parent.parent.parent / "email_templates"
+
 
 class EmailProviderBase(ABC):
     """Abstract base class for email providers."""
@@ -36,16 +38,21 @@ class EmailProviderBase(ABC):
         """Send an email to the specified recipient."""
 
     def _get_template_path(self, filename: str) -> Path:
-        """Resolve template path from configuration or default location."""
+        """Resolve template path from configuration or default location.
+
+        A configured templates_dir that lacks the file falls back to the
+        bundled template, so apps with custom templates keep working when a
+        new email type is added.
+        """
         config: AuthenticationConfiguration = service_registry().get(
             AuthenticationConfiguration
         )
-        base_dir = (
-            config.password_reset.templates_dir
-            if config.password_reset.templates_dir
-            else Path(__file__).parent.parent.parent / "email_templates"
-        )
-        return base_dir / filename
+        default_path = _DEFAULT_TEMPLATES_DIR / filename
+        custom_dir = config.password_reset.templates_dir
+        if custom_dir is None:
+            return default_path
+        custom_path = custom_dir / filename
+        return custom_path if custom_path.exists() else default_path
 
     def _render_template(self, template_file: str, **context: Any) -> str:
         """Load and render a Jinja2 template."""
@@ -91,6 +98,39 @@ class EmailProviderBase(ABC):
 
         except Exception as e:
             logger.exception("Failed to send password reset email: %s", e)
+            return False
+
+    async def send_new_user_pending_email(
+        self,
+        to_email: str,
+        admin_name: str,
+        user_name: str,
+        user_email: str,
+        admin_url: str,
+    ) -> bool:
+        """Tell an admin that a new user awaits approval.
+
+        Returns:
+            True if the email was sent; False on any failure (never raises).
+        """
+        try:
+            config: AuthenticationConfiguration = service_registry().get(
+                AuthenticationConfiguration
+            )
+            html_body = self._render_template(
+                "new_user_pending_approval.html",
+                admin_name=admin_name,
+                user_name=user_name,
+                user_email=user_email,
+                admin_url=admin_url,
+                year=datetime.now(UTC).year,
+                logo_url=config.public_base_url,
+            )
+            subject = "Neuer Benutzer wartet auf Freigabe | AppKit"
+            return await self.send_email(to_email, subject, html_body)
+
+        except Exception as e:
+            logger.warning("Failed to send pending-approval email: %s", e)
             return False
 
 

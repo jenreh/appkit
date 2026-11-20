@@ -8,10 +8,13 @@ from appkit_user.authentication.components import (
     login_form,
     password_reset_confirm_form,
     password_reset_request_form,
+    session_monitor,
+    welcome_pending,
 )
 from appkit_user.authentication.password_reset_states import (
     PasswordResetConfirmState,
 )
+from appkit_user.authentication.session_validation import welcome_route
 from appkit_user.authentication.states import LOGIN_ROUTE, LoginState
 
 ROLES: list[str] = []
@@ -141,3 +144,43 @@ def create_login_page(
         )
 
     return _login_page
+
+
+def create_welcome_page(
+    layout: PageLayout,
+    content: Callable[[], rx.Component] | None = None,
+    route: str | None = None,
+    title: str = "Willkommen",
+) -> rx.Component:
+    """Create the page users awaiting admin approval are fenced to.
+
+    Register it once in the app. The route must match
+    ``AuthenticationConfiguration.welcome_route``, which is the default.
+    Approved users who open the page are sent on to the homepage.
+
+    Args:
+        layout: Page decorator factory supplied by the app.
+        content: Builds the page body; defaults to ``welcome_pending``.
+            Use ``logout_button`` to let the user sign out.
+        route: The route; defaults to the configured welcome route.
+        title: The page title.
+
+    Returns:
+        The welcome page component.
+    """
+    build_content = content if content is not None else welcome_pending
+
+    @layout(
+        route=route or welcome_route(),
+        title=title,
+        on_load=LoginState.leave_welcome_if_approved,
+    )
+    def _welcome_page() -> rx.Component:
+        """The welcome page for users awaiting approval.
+
+        Returns:
+            The UI for the welcome page.
+        """
+        return rx.fragment(session_monitor(), build_content())
+
+    return _welcome_page

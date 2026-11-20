@@ -22,6 +22,7 @@ from _auth_state_stubs import (
 )
 
 from appkit_commons.testing import TEST_PASSWORD, set_public_path_prefix
+from appkit_user.authentication.backend.database import OAuthUserResult
 from appkit_user.authentication.session_validation import (
     SessionStatus,
     SessionValidationResult,
@@ -405,7 +406,9 @@ class TestHandleOAuthCallback:
 
             state._oauth_service.exchange_code_for_token.return_value = "token"
             state._oauth_service.get_user_info.return_value = {"email": "a@b.com"}
-            mock_u_repo.get_or_create_oauth_user = AsyncMock(return_value=entity)
+            mock_u_repo.resolve_oauth_user = AsyncMock(
+                return_value=OAuthUserResult(user=entity, created=False)
+            )
 
             [c async for c in state.handle_oauth_callback("azure")]
 

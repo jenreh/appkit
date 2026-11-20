@@ -5,8 +5,6 @@ Handles loading, toggling, and applying skill selections.
 
 import logging
 
-import reflex as rx
-
 from appkit_assistant.backend.database.repositories import (
     ai_model_repo,
     skill_repo,
@@ -29,7 +27,6 @@ class SkillsMixin:
     ``skill_selection_state``, ``modal_active_tab``, ``selected_model``.
     """
 
-    @rx.event
     async def load_available_skills_for_user(self) -> None:
         """Load active skills filtered by user roles and selected model."""
         user_session = await self.get_state(UserSession)
@@ -59,7 +56,6 @@ class SkillsMixin:
             ]
             self.available_skills_for_selection = filtered
 
-    @rx.event
     def set_modal_active_tab(self, tab: str | list[str]) -> None:
         """Set the active tab in the tools modal."""
         if isinstance(tab, list):
@@ -67,7 +63,6 @@ class SkillsMixin:
         else:
             self.modal_active_tab = tab
 
-    @rx.event
     def toggle_skill_selection(self, openai_id: str, selected: bool) -> None:
         """Toggle skill selection in the modal."""
         self.skill_selection_state[openai_id] = selected
@@ -76,7 +71,6 @@ class SkillsMixin:
         elif not selected and openai_id in self.temp_selected_skill_ids:
             self.temp_selected_skill_ids.remove(openai_id)
 
-    @rx.event
     def apply_skill_selection(self) -> None:
         """Apply the temporary skill selection."""
         self.selected_skills = [
@@ -85,7 +79,6 @@ class SkillsMixin:
             if skill.openai_id in self.temp_selected_skill_ids
         ]
 
-    @rx.event
     def deselect_all_skills(self) -> None:
         """Deselect all skills in the modal."""
         self.skill_selection_state = {}

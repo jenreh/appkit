@@ -54,7 +54,6 @@ class CommandPaletteMixin:
         """Check if there are any filtered shared prompts."""
         return any(not cmd.is_editable for cmd in self.filtered_commands)
 
-    @rx.event
     async def reload_commands(self) -> None:
         """Reload user prompts as commands.
 
@@ -145,7 +144,6 @@ class CommandPaletteMixin:
         self.command_search_prefix = ""
         self.command_trigger_position = 0
 
-    @rx.event
     def navigate_command_palette(self, direction: str) -> None:
         """Navigate through command palette items.
 
@@ -161,7 +159,6 @@ class CommandPaletteMixin:
         elif direction == "down":
             self.selected_command_index = (self.selected_command_index + 1) % count
 
-    @rx.event
     def select_command(self, command_id: str) -> None:
         """Select a command from the palette and insert into the prompt.
 
@@ -219,7 +216,6 @@ class CommandPaletteMixin:
 
         self._hide_command_palette()
 
-    @rx.event
     def select_current_command(self) -> None:
         """Select the currently highlighted command in the palette."""
         if not self.show_command_palette or not self.filtered_commands:
@@ -229,7 +225,6 @@ class CommandPaletteMixin:
             command = self.filtered_commands[self.selected_command_index]
             self.select_command(command.id)
 
-    @rx.event
     def dismiss_command_palette(self) -> None:
         """Dismiss the command palette without selecting."""
         self._hide_command_palette()

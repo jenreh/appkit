@@ -340,6 +340,50 @@ def search_user_input() -> rx.Component:
     )
 
 
+def pending_only_switch() -> rx.Component:
+    """Toggle that limits the table to users awaiting approval."""
+    return mn.switch(
+        label=rx.cond(
+            UserState.pending_count > 0,
+            "Nur ausstehende (" + UserState.pending_count.to_string() + ")",
+            "Nur ausstehende",
+        ),
+        checked=UserState.show_pending_only,
+        on_change=UserState.set_show_pending_only,
+        size="sm",
+    )
+
+
+def pending_badge(user: User) -> rx.Component:
+    """Badge marking a user that awaits admin approval."""
+    return rx.cond(
+        ~user.is_verified,
+        mn.badge("Ausstehend", color="orange", variant="light", size="sm"),
+    )
+
+
+def approve_user_button(
+    user: User,
+    icon: str = "user-check",
+    icon_size: int = 16,
+    **kwargs: Any,
+) -> rx.Component:
+    """One-click approval, shown only for users awaiting approval."""
+    return rx.cond(
+        ~user.is_verified,
+        mn.tooltip(
+            mn.action_icon(
+                rx.icon(icon, size=icon_size),
+                on_click=lambda: UserState.approve_user(user.user_id),
+                color="green",
+                aria_label="Benutzer freigeben",
+                **kwargs,
+            ),
+            label="Benutzer freigeben",
+        ),
+    )
+
+
 def update_user_button(
     user: User,
     icon: str = "square-pen",
@@ -387,7 +431,12 @@ def users_table_row(
 
     return mn.table.tr(
         mn.table.td(
-            mn.text(user.name, size="sm", fw="500", style={"whiteSpace": "nowrap"}),
+            mn.group(
+                mn.text(user.name, size="sm", fw="500", style={"whiteSpace": "nowrap"}),
+                pending_badge(user),
+                gap="xs",
+                wrap="nowrap",
+            ),
         ),
         mn.table.td(
             mn.text(user.email, size="sm", c="dimmed", style={"whiteSpace": "nowrap"}),
@@ -425,6 +474,7 @@ def users_table_row(
         mn.table.td(
             mn.group(
                 *rendered_additional_components,
+                approve_user_button(user=user, variant="subtle"),
                 update_user_button(user=user, variant="subtle"),
                 delete_user_button(
                     user=user,
@@ -509,6 +559,7 @@ def users_table(additional_components: list | None = None) -> rx.Component:
         mn.flex(
             add_user_button(),
             search_user_input(),
+            pending_only_switch(),
             w="100%",
             mb="md",
             gap="12px",

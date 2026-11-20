@@ -104,7 +104,6 @@ class ModelSelectionMixin:
                 logger.warning("No models available for user")
                 self.selected_model = ""
 
-    @rx.event
     def set_selected_model(self, model_id: str) -> list | None:
         """Set the selected model and deactivate unsupported tools.
 

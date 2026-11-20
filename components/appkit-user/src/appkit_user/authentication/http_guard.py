@@ -38,9 +38,12 @@ from appkit_user.authentication.backend.models import User
 from appkit_user.authentication.session_validation import (
     LOGIN_ROUTE,
     SessionValidator,
+    is_pending_approval,
     is_public_route,
+    is_route_allowed_for_pending,
     is_session_filter_enabled,
     session_cookie_name,
+    welcome_route,
 )
 
 logger = logging.getLogger(__name__)
@@ -143,22 +146,29 @@ class SessionGuardMiddleware:
             await self.app(scope, receive, send)
             return
 
+        path = _app_relative_path(scope.get("path", "/"))
         result = await _VALIDATOR.validate(_session_id(Request(scope)))
         if result.is_valid:
+            if is_pending_approval(result.user) and not is_route_allowed_for_pending(
+                path
+            ):
+                logger.debug("Page load of pending user fenced: path=%s", path)
+                await _redirect(welcome_route())(scope, receive, send)
+                return
             await self.app(scope, receive, send)
             return
 
-        logger.warning(
-            "Page load denied: path=%s status=%s",
-            _app_relative_path(scope.get("path", "/")),
-            result.status,
-        )
-        response = RedirectResponse(
-            public_path(LOGIN_ROUTE),
-            status_code=status.HTTP_302_FOUND,
-            headers={"cache-control": "no-store"},
-        )
-        await response(scope, receive, send)
+        logger.warning("Page load denied: path=%s status=%s", path, result.status)
+        await _redirect(LOGIN_ROUTE)(scope, receive, send)
+
+
+def _redirect(route: str) -> RedirectResponse:
+    """Uncached 302 to an app route, with the public path prefix applied."""
+    return RedirectResponse(
+        public_path(route),
+        status_code=status.HTTP_302_FOUND,
+        headers={"cache-control": "no-store"},
+    )
 
 
 def _session_id(request: Request) -> str:
@@ -187,9 +197,20 @@ async def require_session(request: Request) -> User:
     Raises:
         HTTPException: 401 when the session is missing, expired or
             unverifiable. Cookie auth, so no ``WWW-Authenticate`` challenge.
+            403 when the user still awaits admin approval.
     """
     result = await _VALIDATOR.validate(_session_id(request))
     if result.is_valid and result.user is not None:
+        if is_pending_approval(result.user):
+            logger.warning(
+                "REST request of pending user_id=%s denied: path=%s",
+                result.user.user_id,
+                request.url.path,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access not granted.",
+            )
         return result.user
 
     logger.warning(

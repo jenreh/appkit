@@ -182,6 +182,13 @@ class AuthenticationConfiguration(BaseSettings):
 
     oauth_providers: list[AnyOAuthSetting] = []
 
+    # Users created by a first OAuth login start unverified (no access) and are
+    # fenced to ``welcome_route`` until an admin approves them.
+    require_admin_approval: bool = True
+    welcome_route: str = "/welcome"
+    # Linked from the "new user pending approval" email sent to admins.
+    user_admin_route: str = "/admin/users"
+
     # Email provider configuration
     email_provider: AnyEmailProviderConfig | None = None
 

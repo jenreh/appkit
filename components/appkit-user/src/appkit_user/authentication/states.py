@@ -16,6 +16,7 @@ from appkit_commons.public_path import strip_public_prefix
 from appkit_commons.registry import service_registry
 from appkit_user.authentication.backend.database import (
     OAuthStateEntity,
+    OAuthUserResult,
     UserEntity,
     UserSessionEntity,
     oauth_state_repo,
@@ -24,7 +25,10 @@ from appkit_user.authentication.backend.database import (
     user_repo,
 )
 from appkit_user.authentication.backend.models import User
-from appkit_user.authentication.backend.services import OAuthService
+from appkit_user.authentication.backend.services import (
+    OAuthService,
+    schedule_pending_user_notification,
+)
 from appkit_user.authentication.backend.types import PasswordResetType
 from appkit_user.authentication.login_throttle import get_login_throttle
 from appkit_user.authentication.session_validation import (
@@ -32,7 +36,9 @@ from appkit_user.authentication.session_validation import (
     SessionStatus,
     SessionValidationResult,
     SessionValidator,
+    is_pending_approval,
     safe_redirect_path,
+    welcome_route,
 )
 from appkit_user.configuration import AuthenticationConfiguration
 
@@ -595,6 +601,7 @@ class LoginState(UserSession):
                 yield rx.toast.error("Invalid or expired state", position="top-right")
                 return
 
+            new_pending_user: User | None = None
             async with get_asyncdb_session() as db:
                 await oauth_state_repo.delete_expired(db)
 
@@ -606,15 +613,24 @@ class LoginState(UserSession):
                     return
 
                 try:
-                    user_entity = await self._exchange_oauth_and_get_user(
+                    oauth_user = await self._exchange_oauth_and_get_user(
                         db, provider, code, state, oauth_state.code_verifier
                     )
                 except ValueError as e:
                     yield rx.toast.error(str(e), position="top-right")
                     return
 
-                await self._create_session(db, user_entity)
+                await self._create_session(db, oauth_user.user)
                 await oauth_state_repo.delete(db, oauth_state)
+                if oauth_user.created and is_pending_approval(self.user):
+                    new_pending_user = self.user
+
+            # Scheduled once the session block has committed the new user.
+            if new_pending_user is not None:
+                logger.info(
+                    "New user_id=%s awaits admin approval", new_pending_user.user_id
+                )
+                schedule_pending_user_notification(new_pending_user)
 
             yield LoginState.redir()  # ty: ignore[invalid-yield]
 
@@ -634,7 +650,7 @@ class LoginState(UserSession):
         code: str,
         state: str,
         code_verifier: str | None,
-    ) -> UserEntity:
+    ) -> OAuthUserResult:
         """Exchange OAuth code for token and get/create user.
 
         ``OAuthService`` talks to the provider through ``requests_oauthlib``,
@@ -652,7 +668,13 @@ class LoginState(UserSession):
         user_info = await asyncio.to_thread(
             self._oauth_service.get_user_info, provider, token
         )
-        return await user_repo.get_or_create_oauth_user(db, user_info, provider, token)
+        return await user_repo.resolve_oauth_user(
+            db,
+            user_info,
+            provider,
+            token,
+            require_approval=_auth_config().require_admin_approval,
+        )
 
     @rx.event
     async def logout(self) -> list[EventSpec]:
@@ -684,6 +706,18 @@ class LoginState(UserSession):
             self.redirect_to = safe_redirect_path(path)
             return rx.redirect(self.login_route)
 
+        if is_pending_approval(self.user):
+            return self._redirect_pending(path)
+        return self._redirect_authenticated(path)
+
+    def _redirect_pending(self, path: str) -> EventSpec | None:
+        """Awaiting admin approval: the welcome page is the only target."""
+        self.redirect_to = ""
+        target = welcome_route()
+        return None if path == target else rx.redirect(target)
+
+    def _redirect_authenticated(self, path: str) -> EventSpec | None:
+        """Send an approved user to the remembered page, or home after login."""
         if self.redirect_to:
             # Sanitised again at the point of use: the stored value may predate
             # this check, or have been pushed back from the browser's own
@@ -697,6 +731,22 @@ class LoginState(UserSession):
             return rx.redirect(self.homepage)
 
         return None
+
+    @rx.event
+    async def leave_welcome_if_approved(self) -> EventSpec | None:
+        """Welcome page guard: send approved users home, anonymous ones to login.
+
+        Validates against the database instead of the cached
+        ``authenticated_user``, so an approval shows on the next page load.
+        """
+        token = self.session_cookie or self.auth_token
+        result = await _SESSION_VALIDATOR.validate(token, self.user_id)
+        if not result.is_valid:
+            return rx.redirect(self.login_route)
+        self._cache_session(result)
+        if is_pending_approval(result.user):
+            return None
+        return rx.redirect(self.homepage)
 
     @staticmethod
     def _is_oauth_callback_path(path: str) -> bool:

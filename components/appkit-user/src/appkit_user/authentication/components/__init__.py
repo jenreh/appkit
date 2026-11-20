@@ -12,10 +12,15 @@ from appkit_user.authentication.components.password import (
     password_reset_confirm_form,
     password_reset_request_form,
 )
+from appkit_user.authentication.components.welcome import (
+    logout_button,
+    welcome_pending,
+)
 
 __all__ = [
     "default_fallback",
     "login_form",
+    "logout_button",
     "oauth_login_splash",
     "password_reset_confirm_form",
     "password_reset_request_form",
@@ -25,4 +30,5 @@ __all__ = [
     "requires_role",
     "session_monitor",
     "themed_logo",
+    "welcome_pending",
 ]

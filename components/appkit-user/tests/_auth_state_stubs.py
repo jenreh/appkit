@@ -56,6 +56,7 @@ def _user_entity(
     user_id: int = 1,
     name: str = "testuser",
     email: str = "test@example.com",
+    is_verified: bool = True,
 ) -> MagicMock:
     entity = MagicMock()
     entity.id = user_id
@@ -64,7 +65,7 @@ def _user_entity(
     entity.avatar_url = ""
     entity.is_active = True
     entity.is_admin = False
-    entity.is_verified = True
+    entity.is_verified = is_verified
     entity.needs_password_reset = False
     entity.roles = []
     return entity
@@ -223,7 +224,10 @@ class _StubLoginState:
     _exchange_oauth_and_get_user = _unwrap(LoginState, "_exchange_oauth_and_get_user")
     logout = _unwrap(LoginState, "logout")
     redir = _unwrap(LoginState, "redir")
+    _redirect_pending = _unwrap(LoginState, "_redirect_pending")
+    _redirect_authenticated = _unwrap(LoginState, "_redirect_authenticated")
     check_auth = _unwrap(LoginState, "check_auth")
+    leave_welcome_if_approved = _unwrap(LoginState, "leave_welcome_if_approved")
     _is_oauth_callback_path = _unwrap(LoginState, "_is_oauth_callback_path")
 
     async def get_state(self, cls: type) -> MagicMock:

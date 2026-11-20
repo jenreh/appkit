@@ -37,10 +37,12 @@ from appkit_user.user_management.pages import (
     create_login_page,
     create_password_reset_confirm_page,
     create_password_reset_request_page,
+    create_welcome_page,
 )
 
 from app.components.navbar import app_navbar
 from app.components.templates import default_layout
+from app.components.welcome import app_welcome
 
 # Import pages to ensure they are registered
 from app.pages.assistant.admin_assistant import admin_assistant_page  # noqa: F401
@@ -114,6 +116,8 @@ create_profile_page(
 )
 create_password_reset_request_page(default_layout)
 create_password_reset_confirm_page(default_layout)
+# New OAuth users land here until an admin approves them.
+create_welcome_page(default_layout, content=app_welcome)
 
 
 base_stylesheets = [

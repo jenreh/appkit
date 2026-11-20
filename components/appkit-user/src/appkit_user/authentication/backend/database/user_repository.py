@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -55,16 +56,55 @@ class DefaultUserRoles(StrEnum):
     GUEST = "guest"
 
 
+@dataclass(frozen=True, slots=True)
+class OAuthUserResult:
+    """Outcome of an OAuth login: the user and whether it was just created."""
+
+    user: UserEntity
+    created: bool
+
+
 class UserRepository(BaseRepository[UserEntity, AsyncSession]):
     @property
     def model_class(self) -> type[UserEntity]:
         return UserEntity
 
     async def get_or_create_oauth_user(
-        self, session: AsyncSession, user_info: dict, provider: str, token: dict
+        self,
+        session: AsyncSession,
+        user_info: dict,
+        provider: str,
+        token: dict,
+        *,
+        require_approval: bool = False,
     ) -> UserEntity:
         """Get or create user from OAuth info, with async-safe relationship loading."""
+        result = await self.resolve_oauth_user(
+            session, user_info, provider, token, require_approval=require_approval
+        )
+        return result.user
 
+    async def resolve_oauth_user(
+        self,
+        session: AsyncSession,
+        user_info: dict,
+        provider: str,
+        token: dict,
+        *,
+        require_approval: bool = False,
+    ) -> OAuthUserResult:
+        """Get or create the user of an OAuth login.
+
+        A user created here starts unverified and without roles when
+        ``require_approval`` is set: it may sign in, but is fenced to the
+        welcome page until an admin approves it. Existing users are never
+        verified implicitly by an OAuth login, so a pending user cannot
+        approve itself by signing in again.
+
+        Raises:
+            ValueError: If the provider email is unconfirmed or the account
+                is deactivated.
+        """
         stmt = (
             select(OAuthAccountEntity)
             .where(
@@ -78,13 +118,15 @@ class UserRepository(BaseRepository[UserEntity, AsyncSession]):
         oauth_account = result.scalars().first()
 
         if oauth_account:
-            return await self._update_existing_oauth_user(
+            user = await self._update_existing_oauth_user(
                 session, oauth_account, user_info, token
             )
+            return OAuthUserResult(user=user, created=False)
 
         email_from_provider = user_info.get("email")
         email_verified = bool(user_info.get("email_verified"))
         target_user: UserEntity | None = None
+        created = False
 
         if email_from_provider and email_verified:
             target_user = await self.find_by_email(session, email_from_provider)
@@ -105,21 +147,21 @@ class UserRepository(BaseRepository[UserEntity, AsyncSession]):
                 email_from_provider, user_info.get("name")
             )
             target_user.avatar_url = user_info.get("avatar_url", target_user.avatar_url)
-            target_user.is_verified = True
             target_user.last_login = get_current_utc_time()
         else:
             target_user = UserEntity(
                 email=email_from_provider,
                 name=get_name_from_email(email_from_provider, user_info.get("name")),
                 avatar_url=user_info.get("avatar_url"),
-                is_verified=True,
+                is_verified=not require_approval,
                 is_active=True,
-                roles=[DefaultUserRoles.USER],
+                roles=[] if require_approval else [DefaultUserRoles.USER],
                 last_login=get_current_utc_time(),
             )
             session.add(target_user)
             await session.flush()
             await session.refresh(target_user)
+            created = True
 
         if target_user is None:
             raise ValueError(
@@ -131,7 +173,7 @@ class UserRepository(BaseRepository[UserEntity, AsyncSession]):
         )
 
         await session.refresh(target_user)
-        return target_user
+        return OAuthUserResult(user=target_user, created=created)
 
     async def _update_existing_oauth_user(
         self,
@@ -156,7 +198,6 @@ class UserRepository(BaseRepository[UserEntity, AsyncSession]):
             user.email = user_info.get("email")
         user.avatar_url = user_info.get("avatar_url", user.avatar_url)
         user.last_login = get_current_utc_time()
-        user.is_verified = True
 
         oauth_account.access_token = token.get(
             "access_token", oauth_account.access_token
@@ -284,24 +325,19 @@ class UserRepository(BaseRepository[UserEntity, AsyncSession]):
     async def _validate_and_raise_for_oauth_login(self, user: UserEntity) -> None:
         """Validate user status for OAuth login and raise appropriate exceptions.
 
+        An unverified user is let through on purpose: it is awaiting admin
+        approval and the session layer fences it to the welcome page.
+
         Args:
             user: The user entity to validate
 
         Raises:
-            ValueError: If user is inactive or not verified, with appropriate message
+            ValueError: If the user is inactive
         """
-        can_login, status = self.validate_user_for_login(user)
-        if not can_login:
-            if status == "inactive":
-                raise ValueError(
-                    "Your account has been deactivated. "
-                    "Please contact an administrator."
-                )
-            if status == "not_verified":
-                raise ValueError(
-                    "Your account has not been verified. "
-                    "Please contact an administrator."
-                )
+        if not user.is_active:
+            raise ValueError(
+                "Your account has been deactivated. Please contact an administrator."
+            )
 
     async def create_new_user(
         self, session: AsyncSession, user: UserCreate
@@ -366,6 +402,33 @@ class UserRepository(BaseRepository[UserEntity, AsyncSession]):
         await session.flush()
         await session.refresh(user)
         return user
+
+    async def approve(self, session: AsyncSession, user_id: int) -> UserEntity | None:
+        """Grant a pending user access: verify it and give it the default role.
+
+        Returns:
+            The approved user, or None if it does not exist.
+        """
+        user = await self.find_by_id(session, user_id)
+        if not user:
+            return None
+
+        user.is_verified = True
+        if not user.roles:
+            user.roles = [DefaultUserRoles.USER]
+        await session.flush()
+        await session.refresh(user)
+        return user
+
+    async def find_active_admins(self, session: AsyncSession) -> list[UserEntity]:
+        """All active admin users, ordered by email."""
+        stmt = (
+            select(UserEntity)
+            .where(UserEntity.is_admin.is_(True), UserEntity.is_active.is_(True))
+            .order_by(UserEntity.email)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
 
     async def find_all_paginated(
         self, session: AsyncSession, limit: int = 200, offset: int = 0

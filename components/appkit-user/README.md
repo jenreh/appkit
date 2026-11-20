@@ -170,6 +170,39 @@ create_password_reset_confirm_page(default_layout)
 There is no profile page factory. Build the page in your app around
 `user_profile_view()` from `appkit_user.user_management.components.user_profile`.
 
+#### New user approval
+
+A user who signs in with OAuth for the first time gets an account without
+access. The account is stored with `is_verified=False` and no roles. Until an
+admin approves it, the user can only see the welcome page; every other page
+redirects there, and REST routes answer with 403.
+
+Register the welcome page once. Pass your own component as `content`, or leave
+it out to use the default card (`welcome_pending`). `logout_button()` lets the
+user sign out from a custom page.
+
+```python
+from appkit_user.authentication.components import logout_button
+from appkit_user.user_management.pages import create_welcome_page
+
+
+def my_welcome() -> rx.Component:
+    return mn.stack(mn.title("Willkommen!"), logout_button())
+
+
+create_welcome_page(default_layout, content=my_welcome)
+```
+
+Admins approve users in the user table: pending users carry an
+"Ausstehend" badge, the "Nur ausstehende" switch filters them, and the
+approve button grants access with the default role. When an email provider
+is configured, every active admin gets an email about each new pending user.
+
+The gate is on by default. Turn it off with
+`require_admin_approval: false`. `welcome_route` (default `/welcome`) and
+`user_admin_route` (default `/admin/users`, used in the email link) are
+configurable too.
+
 ---
 
 ## 📖 Usage

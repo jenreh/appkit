@@ -31,7 +31,6 @@ class OAuthMixin:
     ``messages``, ``_current_user_id``, ``_skip_user_message``, ``prompt``.
     """
 
-    @rx.event
     def start_mcp_oauth(self) -> rx.event.EventSpec:
         """Start the OAuth flow by opening the auth URL in a popup."""
         if not self.pending_auth_url:
@@ -42,7 +41,6 @@ class OAuthMixin:
             f"window.open({auth_url_js}, 'mcp_oauth', 'width=600,height=700')"
         )
 
-    @rx.event
     async def handle_mcp_oauth_success(
         self, server_id: str, server_name: str
     ) -> AsyncGenerator[Any, Any]:
@@ -73,7 +71,6 @@ class OAuthMixin:
                 position="top-right",
             )
 
-    @rx.event
     async def process_oauth_result(
         self,
     ) -> AsyncGenerator[Any, Any]:
@@ -121,7 +118,6 @@ class OAuthMixin:
             logger.warning("Failed to parse OAuth result")
             self.oauth_result = ""
 
-    @rx.event
     def dismiss_auth_card(self) -> None:
         """Dismiss the auth card without authenticating."""
         self.show_auth_card = False

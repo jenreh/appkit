@@ -1,5 +1,9 @@
 """Authentication backend services."""
 
+from appkit_user.authentication.backend.services.approval_notification import (
+    notify_admins_of_pending_user,
+    schedule_pending_user_notification,
+)
 from appkit_user.authentication.backend.services.email_service import (
     AzureEmailProvider,
     EmailProviderBase,
@@ -40,4 +44,6 @@ __all__ = [
     "generate_pkce_pair",
     "get_email_service",
     "get_password_reset_service",
+    "notify_admins_of_pending_user",
+    "schedule_pending_user_notification",
 ]

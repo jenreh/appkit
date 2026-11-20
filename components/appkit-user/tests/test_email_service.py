@@ -501,8 +501,10 @@ class TestEmailProviderTemplateRendering:
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_missing_template_file_raises_error(self, tmp_path: Path) -> None:
-        """send_password_reset_email returns False when template file missing."""
+    async def test_missing_custom_template_falls_back_to_bundled(
+        self, tmp_path: Path
+    ) -> None:
+        """A templates_dir without the file uses the bundled template."""
         # Create empty template directory (no files)
         template_dir = tmp_path / "templates"
         template_dir.mkdir()
@@ -531,8 +533,7 @@ class TestEmailProviderTemplateRendering:
                 user_name="John Doe",
             )
 
-            # When template is missing, send_password_reset_email returns False
-            assert result is False
+            assert result is True
 
     @pytest.mark.asyncio
     async def test_invalid_template_syntax_raises_error(self, tmp_path: Path) -> None:
@@ -1201,3 +1202,55 @@ class TestEmailServiceIntegration:
                 reset_url="http://localhost/reset?token=custom123",
             )
             assert "CUSTOM:" in rendered
+
+
+class TestNewUserPendingEmail:
+    """send_new_user_pending_email renders the bundled template and sends it."""
+
+    @staticmethod
+    def _config() -> AuthenticationConfiguration:
+        return AuthenticationConfiguration(
+            server_url="http://localhost",
+            server_port=3000,
+            email_provider=MockEmailConfig(from_email="test@localhost"),
+        )
+
+    @pytest.mark.asyncio
+    async def test_renders_and_sends(self) -> None:
+        config = self._config()
+        provider = MockEmailProvider(config.email_provider)
+        provider.send_email = AsyncMock(return_value=True)
+
+        with patch.object(service_registry(), "get", return_value=config):
+            result = await provider.send_new_user_pending_email(
+                to_email="admin@example.com",
+                admin_name="Admin",
+                user_name="Neu <script>",
+                user_email="neu@example.com",
+                admin_url="http://localhost:3000/admin/users",
+            )
+
+        assert result is True
+        to_email, subject, html_body = provider.send_email.await_args.args
+        assert to_email == "admin@example.com"
+        assert "Freigabe" in subject
+        assert "neu@example.com" in html_body
+        assert "http://localhost:3000/admin/users" in html_body
+        assert "<script>" not in html_body  # autoescaped
+
+    @pytest.mark.asyncio
+    async def test_send_failure_returns_false(self) -> None:
+        config = self._config()
+        provider = MockEmailProvider(config.email_provider)
+        provider.send_email = AsyncMock(side_effect=RuntimeError("smtp down"))
+
+        with patch.object(service_registry(), "get", return_value=config):
+            result = await provider.send_new_user_pending_email(
+                to_email="admin@example.com",
+                admin_name="Admin",
+                user_name="Neu",
+                user_email="neu@example.com",
+                admin_url="http://localhost/admin/users",
+            )
+
+        assert result is False

@@ -32,6 +32,7 @@ from appkit_user.authentication.backend.database.password_reset_request_reposito
 )
 from appkit_user.authentication.backend.database.user_repository import (
     DefaultUserRoles,
+    OAuthUserResult,
     UserRepository,
     user_repo,
 )
@@ -47,6 +48,7 @@ __all__ = [
     "OAuthAccountEntity",
     "OAuthStateEntity",
     "OAuthStateRepository",
+    "OAuthUserResult",
     "PasswordHistoryEntity",
     "PasswordHistoryRepository",
     "PasswordResetRequestEntity",

@@ -86,6 +86,24 @@ def is_public_route(path: str) -> bool:
     )
 
 
+def welcome_route() -> str:
+    """Route pending users are fenced to until an admin approves them."""
+    return _auth_config().welcome_route
+
+
+def is_pending_approval(user: User | None) -> bool:
+    """Whether a signed-in user still awaits admin approval (unverified)."""
+    return user is not None and not user.is_verified
+
+
+def is_route_allowed_for_pending(path: str) -> bool:
+    """Whether a user awaiting approval may reach ``path``.
+
+    Only the welcome page and the public routes are open to pending users.
+    """
+    return _normalize_path(path) == welcome_route() or is_public_route(path)
+
+
 def safe_redirect_path(path: str) -> str:
     """Return ``path`` if it is a local path, otherwise an empty string.
 

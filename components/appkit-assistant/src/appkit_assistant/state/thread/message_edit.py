@@ -25,24 +25,20 @@ class MessageEditMixin:
     ``_skip_user_message``, ``_current_user_id``.
     """
 
-    @rx.event
     def set_editing_mode(self, message_id: str, content: str) -> None:
         """Enable editing mode for a message."""
         self.editing_message_id = message_id
         self.edited_message_content = content
 
-    @rx.event
     def set_edited_message_content(self, content: str) -> None:
         """Set the content of the message currently being edited."""
         self.edited_message_content = content
 
-    @rx.event
     def cancel_edit(self) -> None:
         """Cancel editing mode."""
         self.editing_message_id = None
         self.edited_message_content = ""
 
-    @rx.event
     def toggle_message_expanded(self, message_id: str) -> None:
         """Toggle expanded state for a user message."""
         if message_id in self.expanded_message_ids:
@@ -55,7 +51,6 @@ class MessageEditMixin:
                 message_id,
             ]
 
-    @rx.event(background=True)
     async def submit_edited_message(
         self,
     ) -> AsyncGenerator[Any, Any]:
@@ -96,7 +91,6 @@ class MessageEditMixin:
 
         await self._process_message()
 
-    @rx.event(background=True)
     async def delete_message(self, message_id: str) -> None:
         """Delete a message from the conversation."""
         async with self:
@@ -106,7 +100,6 @@ class MessageEditMixin:
             if self._thread.state != ThreadStatus.NEW:
                 await ThreadService().save_thread(self._thread, self.current_user_id)
 
-    @rx.event
     def copy_message(self, text: str) -> list[Any]:
         """Copy message text to clipboard."""
         return [
@@ -114,7 +107,6 @@ class MessageEditMixin:
             rx.toast.success("Nachricht kopiert"),
         ]
 
-    @rx.event
     def download_message(self, text: str, message_id: str) -> Any:
         """Download message as markdown file."""
         timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -139,7 +131,6 @@ class MessageEditMixin:
             URL.revokeObjectURL(url);
         """)
 
-    @rx.event(background=True)
     async def retry_message(self, message_id: str) -> None:
         """Retry generating a message."""
         async with self:

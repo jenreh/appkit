@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -8,6 +9,8 @@ from appkit_commons.roles import Role
 from appkit_user.authentication.backend.database import user_repo
 from appkit_user.authentication.backend.models import User, UserCreate
 from appkit_user.authentication.decorators import requires_admin
+
+logger = logging.getLogger(__name__)
 
 
 class UserState(rx.State):
@@ -21,22 +24,36 @@ class UserState(rx.State):
     add_modal_open: bool = False
     edit_modal_open: bool = False
     search_filter: str = ""
+    show_pending_only: bool = False
 
     @rx.event
     def set_search_filter(self, value: str) -> None:
         """Update the search filter."""
         self.search_filter = value
 
+    @rx.event
+    def set_show_pending_only(self, value: bool) -> None:
+        """Show only users awaiting admin approval."""
+        self.show_pending_only = value
+
+    @rx.var
+    def pending_count(self) -> int:
+        """Number of users awaiting admin approval."""
+        return sum(1 for u in self.users if not u.is_verified)
+
     @rx.var
     def filtered_users(self) -> list[User]:
-        """Return users filtered by search text."""
+        """Return users filtered by search text and the pending toggle."""
+        users = (
+            [u for u in self.users if not u.is_verified]
+            if self.show_pending_only
+            else self.users
+        )
         if not self.search_filter:
-            return self.users
+            return users
         search = self.search_filter.lower()
         return [
-            u
-            for u in self.users
-            if search in u.name.lower() or search in u.email.lower()
+            u for u in users if search in u.name.lower() or search in u.email.lower()
         ]
 
     def open_add_modal(self) -> None:
@@ -215,6 +232,36 @@ class UserState(rx.State):
             self.is_loading = False
             yield rx.toast.info("Benutzer wurde gelöscht.", position="top-right")
         except Exception as e:
+            self.is_loading = False
+            yield rx.toast.error(f"Fehler: {e}", position="top-right")
+
+    @requires_admin
+    async def approve_user(self, user_id: int) -> AsyncGenerator[Any, None]:
+        """Grant a pending user access to the app."""
+        self.is_loading = True
+        yield
+        try:
+            async with get_asyncdb_session() as session:
+                approved = await user_repo.approve(session, user_id)
+                # Read before the commit expires the entity's attributes.
+                email = approved.email if approved else None
+
+            if approved is None:
+                self.is_loading = False
+                yield rx.toast.error(
+                    "Benutzer wurde nicht gefunden.", position="top-right"
+                )
+                return
+
+            logger.info("User user_id=%s approved", user_id)
+            await self._load_users()
+            self.is_loading = False
+            yield rx.toast.info(
+                f"Benutzer {email} wurde freigegeben.",
+                position="top-right",
+            )
+        except Exception as e:
+            logger.error("Approving user_id=%s failed: %s", user_id, e)
             self.is_loading = False
             yield rx.toast.error(f"Fehler: {e}", position="top-right")
 

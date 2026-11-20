@@ -124,10 +124,17 @@ def _headers(sent: list[dict[str, Any]]) -> dict[str, str]:
     return {k.decode().lower(): v.decode() for k, v in _start(sent)["headers"]}
 
 
-def _valid_result(user_id: int = 7) -> SessionValidationResult:
+def _valid_result(
+    user_id: int = 7, is_verified: bool = True
+) -> SessionValidationResult:
     return SessionValidationResult(
         SessionStatus.VALID,
-        user=User(user_id=user_id, name="Ada", email="ada@example.com"),
+        user=User(
+            user_id=user_id,
+            name="Ada",
+            email="ada@example.com",
+            is_verified=is_verified,
+        ),
     )
 
 
@@ -533,3 +540,65 @@ def test_required_session_resolves_through_fastapi(
     assert denied.status_code == 401
     assert denied.json()["detail"] == "Missing or invalid session."
     assert "www-authenticate" not in {k.lower() for k in denied.headers}
+
+
+# ---------------------------------------------------------------------------
+# Users awaiting admin approval
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pending_user_page_load_redirects_to_welcome(
+    guard: http_guard.SessionGuardMiddleware,
+    inner: _StubApp,
+    validator: _StubValidator,
+) -> None:
+    validator.result = _valid_result(is_verified=False)
+
+    sent = await _drive(guard, _http_scope(_PAGE_PATH, cookie=f"{_COOKIE}=tok"))
+
+    assert _start(sent)["status"] == 302
+    assert _headers(sent)["location"] == "/welcome"
+    assert _headers(sent)["cache-control"] == "no-store"
+    assert inner.called == 0
+
+
+@pytest.mark.asyncio
+async def test_pending_user_reaches_the_welcome_page(
+    guard: http_guard.SessionGuardMiddleware,
+    inner: _StubApp,
+    validator: _StubValidator,
+) -> None:
+    validator.result = _valid_result(is_verified=False)
+
+    sent = await _drive(guard, _http_scope("/welcome", cookie=f"{_COOKIE}=tok"))
+
+    assert _start(sent)["status"] == 200
+    assert inner.called == 1
+
+
+@pytest.mark.asyncio
+async def test_pending_user_welcome_redirect_carries_public_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+    guard: http_guard.SessionGuardMiddleware,
+    validator: _StubValidator,
+) -> None:
+    set_public_path_prefix(monkeypatch, "/knai")
+    validator.result = _valid_result(is_verified=False)
+
+    sent = await _drive(guard, _http_scope("/knai/profile", cookie=f"{_COOKIE}=tok"))
+
+    assert _headers(sent)["location"] == "/knai/welcome"
+
+
+@pytest.mark.asyncio
+async def test_require_session_pending_user_raises_403(
+    validator: _StubValidator,
+) -> None:
+    validator.result = _valid_result(is_verified=False)
+    request = Request(_http_scope("/api/me", cookie=f"{_COOKIE}=tok"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await http_guard.require_session(request)
+
+    assert exc_info.value.status_code == 403

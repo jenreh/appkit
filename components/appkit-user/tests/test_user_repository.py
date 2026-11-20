@@ -349,16 +349,13 @@ class TestUserRepository:
             await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
 
     @pytest.mark.asyncio
-    async def test_validate_and_raise_for_oauth_login_not_verified_raises(
+    async def test_validate_and_raise_for_oauth_login_lets_pending_user_in(
         self, user_factory, user_repository
     ) -> None:
-        """_validate_and_raise_for_oauth_login raises ValueError for unverified user."""
-        # Arrange
+        """An unverified user awaits approval and is fenced, not rejected."""
         user = await user_factory(is_active=True, is_verified=False)
 
-        # Act & Assert
-        with pytest.raises(ValueError, match="Your account has not been verified"):
-            await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
+        await user_repository._validate_and_raise_for_oauth_login(user)  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_validate_and_raise_for_oauth_login_success(
@@ -783,7 +780,7 @@ class TestUserRepository:
             )
 
     @pytest.mark.asyncio
-    async def test_get_or_create_oauth_user_unverified_user_raises(
+    async def test_get_or_create_oauth_user_pending_user_is_not_auto_verified(
         self,
         async_session: AsyncSession,
         user_factory,
@@ -792,8 +789,7 @@ class TestUserRepository:
         mock_github_user_response,
         mock_github_token_response,
     ) -> None:
-        """get_or_create_oauth_user raises for unverified user."""
-        # Arrange
+        """Signing in again must not approve a pending user."""
         user = await user_factory(
             email=mock_github_user_response["email"], is_verified=False
         )
@@ -803,14 +799,130 @@ class TestUserRepository:
             account_id=str(mock_github_user_response["id"]),
         )
 
-        # Act & Assert
-        with pytest.raises(ValueError, match="account has not been verified"):
-            await user_repository.get_or_create_oauth_user(
-                async_session,
-                mock_github_user_response,
-                "github",
-                mock_github_token_response,
-            )
+        result = await user_repository.resolve_oauth_user(
+            async_session,
+            mock_github_user_response,
+            "github",
+            mock_github_token_response,
+            require_approval=True,
+        )
+
+        assert result.user.id == user.id
+        assert result.created is False
+        assert result.user.is_verified is False
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_oauth_user_email_link_keeps_pending(
+        self,
+        async_session: AsyncSession,
+        user_factory,
+        user_repository,
+        mock_github_user_response,
+        mock_github_token_response,
+    ) -> None:
+        """Linking a provider to an unverified account by email keeps it pending."""
+        user = await user_factory(
+            email=mock_github_user_response["email"], is_verified=False
+        )
+
+        result = await user_repository.resolve_oauth_user(
+            async_session,
+            mock_github_user_response,
+            "github",
+            mock_github_token_response,
+        )
+
+        assert result.user.id == user.id
+        assert result.created is False
+        assert result.user.is_verified is False
+
+    @pytest.mark.asyncio
+    async def test_resolve_oauth_user_new_user_pending_when_approval_required(
+        self,
+        async_session: AsyncSession,
+        user_repository,
+        mock_github_user_response,
+        mock_github_token_response,
+    ) -> None:
+        """A first OAuth login creates an unverified user without roles."""
+        result = await user_repository.resolve_oauth_user(
+            async_session,
+            mock_github_user_response,
+            "github",
+            mock_github_token_response,
+            require_approval=True,
+        )
+
+        assert result.created is True
+        assert result.user.is_verified is False
+        assert result.user.is_active is True
+        assert result.user.roles == []
+
+    @pytest.mark.asyncio
+    async def test_resolve_oauth_user_new_user_verified_without_approval(
+        self,
+        async_session: AsyncSession,
+        user_repository,
+        mock_github_user_response,
+        mock_github_token_response,
+    ) -> None:
+        """With the gate off, a new OAuth user gets access right away."""
+        result = await user_repository.resolve_oauth_user(
+            async_session,
+            mock_github_user_response,
+            "github",
+            mock_github_token_response,
+            require_approval=False,
+        )
+
+        assert result.created is True
+        assert result.user.is_verified is True
+        assert result.user.roles == [DefaultUserRoles.USER]
+
+    @pytest.mark.asyncio
+    async def test_approve_verifies_and_assigns_default_role(
+        self, async_session: AsyncSession, user_factory, user_repository
+    ) -> None:
+        user = await user_factory(is_verified=False, roles=[])
+
+        approved = await user_repository.approve(async_session, user.id)
+
+        assert approved is not None
+        assert approved.is_verified is True
+        assert approved.roles == [DefaultUserRoles.USER]
+
+    @pytest.mark.asyncio
+    async def test_approve_keeps_existing_roles(
+        self, async_session: AsyncSession, user_factory, user_repository
+    ) -> None:
+        user = await user_factory(is_verified=False, roles=["custom"])
+
+        approved = await user_repository.approve(async_session, user.id)
+
+        assert approved is not None
+        assert approved.roles == ["custom"]
+
+    @pytest.mark.asyncio
+    async def test_approve_unknown_user(
+        self, async_session: AsyncSession, user_repository
+    ) -> None:
+        assert await user_repository.approve(async_session, 999_999) is None
+
+    @pytest.mark.asyncio
+    async def test_find_active_admins(
+        self, async_session: AsyncSession, user_factory, user_repository
+    ) -> None:
+        await user_factory(email="b-admin@example.com", is_admin=True)
+        await user_factory(email="a-admin@example.com", is_admin=True)
+        await user_factory(email="off@example.com", is_admin=True, is_active=False)
+        await user_factory(email="user@example.com", is_admin=False)
+
+        admins = await user_repository.find_active_admins(async_session)
+
+        assert [a.email for a in admins] == [
+            "a-admin@example.com",
+            "b-admin@example.com",
+        ]
 
     @pytest.mark.asyncio
     async def test_get_or_create_oauth_user_normalizes_scope(

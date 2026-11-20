@@ -5,8 +5,6 @@ Handles loading, toggling, and applying MCP server selections.
 
 import logging
 
-import reflex as rx
-
 from appkit_assistant.backend.database.repositories import mcp_server_repo
 from appkit_assistant.backend.schemas import MCPServerConfigModel
 from appkit_commons.database.session import get_asyncdb_session
@@ -23,7 +21,6 @@ class McpToolsMixin:
     ``server_selection_state``.
     """
 
-    @rx.event
     async def load_mcp_servers(self) -> None:
         """Load available active MCP servers filtered by user roles."""
         user_session = await self.get_state(UserSession)
@@ -39,12 +36,10 @@ class McpToolsMixin:
             ]
             self.available_mcp_servers = filtered_servers
 
-    @rx.event
     def toggle_tools_modal(self, show: bool) -> None:
         """Set the visibility of the tools modal."""
         self.show_tools_modal = show
 
-    @rx.event
     def toggle_mcp_server_selection(self, server_id: int, selected: bool) -> None:
         """Toggle MCP server selection in the modal."""
         self.server_selection_state[server_id] = selected
@@ -53,7 +48,6 @@ class McpToolsMixin:
         elif not selected and server_id in self.temp_selected_mcp_servers:
             self.temp_selected_mcp_servers.remove(server_id)
 
-    @rx.event
     def apply_mcp_server_selection(self) -> None:
         """Apply the temporary MCP server selection."""
         self.selected_mcp_servers = [
@@ -63,13 +57,11 @@ class McpToolsMixin:
         ]
         self.show_tools_modal = False
 
-    @rx.event
     def deselect_all_mcp_servers(self) -> None:
         """Deselect all MCP servers in the modal."""
         self.server_selection_state = {}
         self.temp_selected_mcp_servers = []
 
-    @rx.event
     def is_mcp_server_selected(self, server_id: int) -> bool:
         """Check if an MCP server is selected."""
         return server_id in self.temp_selected_mcp_servers
