@@ -42,7 +42,7 @@ azure = [
     "azure-keyvault-secrets>=4.12.0",
 ]
 aws = [
-    "boto3[crt]>=1.42.21",
+    "boto3[crt]>=1.44.7",
 ]
 windows = [
     "pywin32>=311; sys_platform == 'win32'",
