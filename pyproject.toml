@@ -28,11 +28,11 @@ dev = [
     "httpx==0.28.1",
     "responses==0.26.3",
     "faker==40.54.0",
-    "ruff==0.17.5",
+    "ruff==0.17.6",
     "bump-my-version==1.8.1",
     "detect-secrets==1.5.0",
     "respx>=0.23.1",
-    "ty==0.0.104",
+    "ty==0.0.107",
     "types-pyyaml==6.0.12.20261113",
 ]
 
